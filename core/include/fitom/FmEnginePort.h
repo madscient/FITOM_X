@@ -1,25 +1,9 @@
 #pragma once
-// fitom/FmEnginePort.h  (v2)
+// fitom/FmEnginePort.h
 // FmEngineApi 互換 DLL → IPort アダプター
-//
-// ─── 複数 DLL の同時使用 ────────────────────────────────────────────────────
-//   FmEngineRegistry がエンジン名 → PluginLoader のマップを管理する。
-//   config.json に記述した全エントリを初回アクセス時に一括ロードする。
-//
-//   {
-//     "fm_engines": [
-//       { "name": "YMEngine",  "dll": "YMEngine.dll",  "sample_rate": 48000 },
-//       { "name": "AYEngine",  "dll": "AYEngine.dll",  "sample_rate": 48000 }
-//     ],
-//     "devices": [
-//       { "if": "FMENGINE", "engine": "YMEngine", "chip": "OPNA", "clock": 0 },
-//       { "if": "FMENGINE", "engine": "AYEngine", "chip": "SSG",  "clock": 0 }
-//     ]
-//   }
 
 #include "IPort.h"
 #include "PluginLoader.h"
-#include <fitom/IFmEnginePlugin.h>
 #include <FmEngineApi.h>  // backends/fm_engine/include/ に配置
 #include <memory>
 #include <string>
@@ -30,23 +14,42 @@
 namespace fitom {
 
 // -------------------------------------------------------
-//  FmEngineHandle の RAII ラッパー + 関数ポインタ一式
+//  FmEngineApi.h の各関数に対応する関数ポインタ typedef
+//  FmEngineApi.h は typedef を提供しないので、ここで定義する
+// -------------------------------------------------------
+using PFN_FmEngine_Create          = FmEngineHandle (FMENGINE_CALL*)(uint32_t);
+using PFN_FmEngine_Destroy         = void           (FMENGINE_CALL*)(FmEngineHandle);
+using PFN_FmEngine_Inquiry         = uint32_t       (FMENGINE_CALL*)(FmEngineHandle);
+using PFN_FmEngine_GetSupportedChip= const char*    (FMENGINE_CALL*)(FmEngineHandle, uint32_t);
+using PFN_FmEngine_AddChip         = FmResult       (FMENGINE_CALL*)(FmEngineHandle, const char*, uint32_t, uint32_t*);
+using PFN_FmEngine_GetChipName     = const char*    (FMENGINE_CALL*)(FmEngineHandle, uint32_t);
+using PFN_FmEngine_GetNativeRate   = uint32_t       (FMENGINE_CALL*)(FmEngineHandle, uint32_t);
+using PFN_FmEngine_GetSampleRate   = uint32_t       (FMENGINE_CALL*)(FmEngineHandle);
+using PFN_FmEngine_Write           = FmResult       (FMENGINE_CALL*)(FmEngineHandle, uint32_t, uint8_t, uint8_t, uint32_t);
+using PFN_FmEngine_SetGain         = FmResult       (FMENGINE_CALL*)(FmEngineHandle, uint32_t, float, float);
+using PFN_FmEngine_GetGain         = FmResult       (FMENGINE_CALL*)(FmEngineHandle, uint32_t, float*, float*);
+using PFN_FmEngine_SetMemory       = FmResult       (FMENGINE_CALL*)(FmEngineHandle, uint32_t, FmMemoryType, const uint8_t*, uint32_t);
+using PFN_FmEngine_GetMemorySize   = uint32_t       (FMENGINE_CALL*)(FmEngineHandle, uint32_t, FmMemoryType);
+using PFN_FmEngine_Generate        = FmResult       (FMENGINE_CALL*)(FmEngineHandle, float*, float*, uint32_t);
+
+// -------------------------------------------------------
+//  FmEngineVtable: DLL から取得した関数ポインタ一式
 // -------------------------------------------------------
 struct FmEngineVtable {
-    PFN_FmEngine_Create           Create           = nullptr;
-    PFN_FmEngine_Destroy          Destroy          = nullptr;
-    PFN_FmEngine_Inquiry          Inquiry          = nullptr;
-    PFN_FmEngine_GetSupportedChip GetSupportedChip = nullptr;
-    PFN_FmEngine_AddChip          AddChip          = nullptr;
-    PFN_FmEngine_GetChipName      GetChipName      = nullptr;
-    PFN_FmEngine_GetNativeRate    GetNativeRate    = nullptr;
-    PFN_FmEngine_GetSampleRate    GetSampleRate    = nullptr;
-    PFN_FmEngine_Write            Write            = nullptr;
-    PFN_FmEngine_SetGain          SetGain          = nullptr;
-    PFN_FmEngine_GetGain          GetGain          = nullptr;
-    PFN_FmEngine_SetMemory        SetMemory        = nullptr;
-    PFN_FmEngine_GetMemorySize    GetMemorySize    = nullptr;
-    PFN_FmEngine_Generate         Generate         = nullptr;
+    PFN_FmEngine_Create            Create           = nullptr;
+    PFN_FmEngine_Destroy           Destroy          = nullptr;
+    PFN_FmEngine_Inquiry           Inquiry          = nullptr;
+    PFN_FmEngine_GetSupportedChip  GetSupportedChip = nullptr;
+    PFN_FmEngine_AddChip           AddChip          = nullptr;
+    PFN_FmEngine_GetChipName       GetChipName      = nullptr;
+    PFN_FmEngine_GetNativeRate     GetNativeRate    = nullptr;
+    PFN_FmEngine_GetSampleRate     GetSampleRate    = nullptr;
+    PFN_FmEngine_Write             Write            = nullptr;
+    PFN_FmEngine_SetGain           SetGain          = nullptr;
+    PFN_FmEngine_GetGain           GetGain          = nullptr;
+    PFN_FmEngine_SetMemory         SetMemory        = nullptr;
+    PFN_FmEngine_GetMemorySize     GetMemorySize    = nullptr;
+    PFN_FmEngine_Generate          Generate         = nullptr;
 };
 
 class FmEngineInstance {
@@ -56,9 +59,9 @@ public:
 
     ~FmEngineInstance();
 
-    FmEngineHandle      handle() const { return handle_; }
+    FmEngineHandle        handle() const { return handle_; }
     const FmEngineVtable& vtable() const { return vtable_; }
-    std::string         name()   const { return name_; }
+    std::string           name()   const { return name_; }
 
     std::vector<std::string> supportedChips() const;
 
@@ -71,30 +74,26 @@ private:
 };
 
 // -------------------------------------------------------
-//  FmEngineRegistry: エンジン名 → FmEngineInstance マップ
-//  config から一括登録し、FmEnginePort 生成時に共有する
+//  FmEngineRegistry
 // -------------------------------------------------------
 class FmEngineRegistry {
 public:
     struct Entry {
         std::string            dllPath;
         uint32_t               sampleRate;
-        std::shared_ptr<FmEngineInstance> instance; // 遅延ロード
+        std::shared_ptr<FmEngineInstance> instance;
     };
 
-    // config.json の fm_engines 配列から登録
     void registerEngine(const std::string& name,
                         const std::string& dllPath,
                         uint32_t sampleRate = 48000);
 
-    // エンジン名で取得 (初回アクセス時にロード)
     std::shared_ptr<FmEngineInstance> get(const std::string& name);
 
-    // 全エンジンの波形生成 (オーディオコールバックから呼ぶ)
     void generateAll(float* outL, float* outR, uint32_t samples);
 
 private:
-    std::mutex                          mutex_;
+    std::mutex                             mutex_;
     std::unordered_map<std::string, Entry> entries_;
 };
 
@@ -103,9 +102,6 @@ private:
 // -------------------------------------------------------
 class FmEnginePort final : public IPort {
 public:
-    // engineName: FmEngineRegistry に登録済みのエンジン名
-    // chipName  : "OPNA" / "OPL2" 等
-    // clock     : 0 でチップ標準クロック
     FmEnginePort(std::shared_ptr<FmEngineInstance> engine,
                  const std::string& chipName,
                  uint32_t clock = 0);
@@ -122,9 +118,9 @@ public:
     int         getClock()         override { return static_cast<int>(nativeRate_); }
     int         getPanpot()        override { return 0; }
 
-    uint32_t    chipId()           const { return chipId_; }
-    void        setGain(float l, float r);
-    void        setMemory(FmMemoryType type, const uint8_t* data, uint32_t size);
+    uint32_t chipId() const { return chipId_; }
+    void setGain(float l, float r);
+    void setMemory(FmMemoryType type, const uint8_t* data, uint32_t size);
 
 private:
     std::shared_ptr<FmEngineInstance> engine_;
