@@ -1,0 +1,83 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "windows-vs2022-x64",
+      "displayName": "Windows (VS2022 / x64)",
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
+        "FITOM_BUILD_BACKEND_HWIF":     "ON",
+        "FITOM_BUILD_BACKEND_MIDI_WMS": "OFF",
+        "FITOM_GUI_MFC":                "OFF",
+        "FITOM_BUILD_TESTS":            "ON"
+      }
+    },
+    {
+      "name": "windows-vs2022-x64-wms",
+      "displayName": "Windows (VS2022 / x64 / Windows MIDI Services)",
+      "inherits": "windows-vs2022-x64",
+      "cacheVariables": {
+        "FITOM_BUILD_BACKEND_MIDI_WMS": "ON",
+        "MIDI2_SDK_INCLUDE": "",
+        "MIDI2_WINMD":       "",
+        "MIDI2_RUNTIME_DLL": ""
+      }
+    },
+    {
+      "name": "linux-ninja",
+      "displayName": "Linux (Ninja / Clang or GCC)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FITOM_BUILD_BACKEND_FMENGINE":  "ON",
+        "FITOM_BUILD_BACKEND_HWIF":      "ON",
+        "FITOM_BUILD_BACKEND_MIDI_ALSA": "ON",
+        "FITOM_BUILD_TESTS":             "ON"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux (Ninja / Debug)",
+      "inherits": "linux-ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "macos-ninja",
+      "displayName": "macOS (Ninja / AppleClang)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
+        "FITOM_BUILD_BACKEND_HWIF":     "ON",
+        "FITOM_BUILD_TESTS":            "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-release", "configurePreset": "windows-vs2022-x64",     "configuration": "Release" },
+    { "name": "windows-debug",   "configurePreset": "windows-vs2022-x64",     "configuration": "Debug"   },
+    { "name": "linux-release",   "configurePreset": "linux-ninja"                                         },
+    { "name": "linux-debug",     "configurePreset": "linux-debug"                                         },
+    { "name": "macos-release",   "configurePreset": "macos-ninja"                                         }
+  ],
+  "testPresets": [
+    { "name": "linux-test",   "configurePreset": "linux-ninja",   "output": { "outputOnFailure": true } },
+    { "name": "windows-test", "configurePreset": "windows-vs2022-x64", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}

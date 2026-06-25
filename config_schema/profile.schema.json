@@ -1,0 +1,552 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-profile",
+  "title": "FITOM プロファイル (*.profile.json)",
+  "description": "エンドユーザーが通常運用で設定するデバイス構成・MIDI マッピング等。複数プロファイルを切り替えて使用できる。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_name"
+  ],
+  "properties": {
+    "profile_name": {
+      "type": "string",
+      "description": "このプロファイルの表示名。GUI のプロファイル選択リストに使用する。",
+      "examples": [
+        "自宅スタジオ (SPFM + OPN2)",
+        "エミュレーター (OPM + OPL3)"
+      ]
+    },
+    "fm_engines": {
+      "type": "array",
+      "description": "使用する FM エンジン DLL の一覧。エミュレーターバックエンド使用時のみ必要。各エンジンは独立した DLL として実行時ロードされる。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "dll"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "エンジン識別名。devices[] の engine フィールドから参照される。FmEngine_GetEngineName() の戻り値と一致すること。",
+            "examples": [
+              "YMEngine",
+              "AYEngine"
+            ]
+          },
+          "dll": {
+            "type": "string",
+            "description": "FM エンジン DLL のファイル名またはパス。相対パスの場合は fitom.conf.json の plugins.fm_engine_dir を基点とする。",
+            "examples": [
+              "YMEngine.dll",
+              "libYMEngine.so"
+            ]
+          },
+          "sample_rate": {
+            "type": "integer",
+            "default": 48000,
+            "enum": [
+              22050,
+              44100,
+              48000,
+              88200,
+              96000
+            ],
+            "description": "エミュレーターのサンプルレート [Hz]。オーディオ出力デバイスのサンプルレートと一致させること。"
+          }
+        }
+      }
+    },
+    "audio_output": {
+      "type": "object",
+      "description": "オーディオ出力デバイス設定。エミュレーターバックエンド使用時のみ有効。",
+      "additionalProperties": false,
+      "properties": {
+        "device": {
+          "type": "string",
+          "default": "",
+          "description": "出力デバイス名（部分一致）。空文字列でシステムデフォルトデバイスを使用する。RtAudio が返すデバイス名と照合する。",
+          "examples": [
+            "Realtek",
+            "ASIO4ALL",
+            "Focusrite USB"
+          ]
+        },
+        "sample_rate": {
+          "type": "integer",
+          "default": 48000,
+          "enum": [
+            22050,
+            44100,
+            48000,
+            88200,
+            96000
+          ],
+          "description": "出力サンプルレート [Hz]。fm_engines[] の sample_rate と一致させること。不一致の場合は起動時に警告を出す。"
+        }
+      }
+    },
+    "devices": {
+      "type": "array",
+      "description": "論理デバイス定義。FITOM の MIDIチャンネル割り当てに使用される。エミュレーターとハードウェアを混在させることができる。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "if"
+        ],
+        "properties": {
+          "if": {
+            "type": "string",
+            "enum": [
+              "FMENGINE",
+              "HW"
+            ],
+            "description": "バックエンド種別。FMENGINE: FmEngine DLL、HW: HW I/F DLL。"
+          },
+          "label": {
+            "type": "string",
+            "description": "このデバイスの表示名（GUI 表示用・任意）。",
+            "examples": [
+              "OPNA #1",
+              "OPL3 (エミュ)"
+            ]
+          },
+          "engine": {
+            "type": "string",
+            "description": "[if=FMENGINE のみ] fm_engines[] の name を指定する。",
+            "examples": [
+              "YMEngine"
+            ]
+          },
+          "chip": {
+            "type": "string",
+            "description": "[if=FMENGINE のみ] チップ種別文字列。FmEngine_AddChip() に渡される。",
+            "examples": [
+              "OPNA",
+              "OPM",
+              "OPL3",
+              "SSG",
+              "DCSG"
+            ]
+          },
+          "clock": {
+            "type": "integer",
+            "default": 0,
+            "description": "[if=FMENGINE のみ] マスタークロック [Hz]。0 でチップ標準クロックを使用する。",
+            "examples": [
+              3993600,
+              7987200,
+              3579545
+            ]
+          },
+          "gain_l": {
+            "type": "number",
+            "default": 1.0,
+            "minimum": 0.0,
+            "maximum": 4.0,
+            "description": "[if=FMENGINE のみ] 左チャンネルゲイン。1.0 = 0dB。"
+          },
+          "gain_r": {
+            "type": "number",
+            "default": 1.0,
+            "minimum": 0.0,
+            "maximum": 4.0,
+            "description": "[if=FMENGINE のみ] 右チャンネルゲイン。1.0 = 0dB。"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RE1",
+              "RE4",
+              "SPFM_TOWER",
+              "SPFM_LIGHT"
+            ],
+            "description": "[if=HW のみ] ハードウェアインターフェース種別。"
+          },
+          "serial": {
+            "type": "string",
+            "description": "[if=HW, type=RE1/RE4 のみ] FT245R/FT2232H のシリアル番号。省略時は index=0 のデバイスを使用する。",
+            "examples": [
+              "ABCD1234"
+            ]
+          },
+          "port": {
+            "type": "string",
+            "description": "[if=HW, type=SPFM_* のみ] COMポート名または /dev/ttyUSB* のパス。",
+            "examples": [
+              "COM3",
+              "/dev/ttyUSB0"
+            ]
+          },
+          "slot": {
+            "type": "integer",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 15,
+            "description": "[if=HW のみ] SPFM スロット番号。RE1/RE4 は常に 0。"
+          },
+          "hw_clock": {
+            "type": "integer",
+            "default": 0,
+            "description": "[if=HW のみ] チップのマスタークロック [Hz]。0 は呼び出し元が管理しない（チップドライバが固定値を持つ場合）。",
+            "examples": [
+              3993600,
+              3579545,
+              8000000
+            ]
+          },
+          "pan": {
+            "type": "integer",
+            "default": 0,
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "description": "[if=HW のみ] パノラマ。0=Stereo, 1=L only, 2=R only, 3=LR mono。"
+          },
+          "extra_slot": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15,
+            "description": "[if=HW, type=SPFM_* のみ] 2 ポートチップ (OPNA/OPN2/OPL3 等) の 2 ポート目に使う SPFM スロット番号。省略時は 1 ポートとして動作 (エミュレーター時は不要)。SplitPort が port1(slot) と port2(extra_slot) を統合し、チップドライバは addr >= 0x100 を port2 向けとして透過的に書くだけでよい。"
+          }
+        },
+        "if": {
+          "if": {
+            "properties": {
+              "if": {
+                "const": "FMENGINE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "engine",
+              "chip"
+            ]
+          },
+          "else": {
+            "if": {
+              "properties": {
+                "if": {
+                  "const": "HW"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "type"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "midi_inputs": {
+      "type": "array",
+      "description": "使用する MIDI 入力デバイス名の一覧。MidiPlugin_EnumerateIn() が返すデバイス名と一致させること。",
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        [
+          "MIDI キーボード",
+          "UM-ONE"
+        ]
+      ]
+    },
+    "midi_outputs": {
+      "type": "array",
+      "description": "使用する MIDI 出力デバイス名の一覧（MIDI スルー等に使用）。省略可。",
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        [
+          "External Synth Out"
+        ]
+      ]
+    },
+    "channel_map": {
+      "type": "array",
+      "description": "MIDI チャンネル → デバイス割り当て設定。省略時はデフォルトの割り当てを使用する。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "midi_ch",
+          "device_index"
+        ],
+        "properties": {
+          "midi_ch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "description": "MIDI チャンネル番号（1〜16）。"
+          },
+          "device_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "devices[] の配列インデックス。"
+          },
+          "poly": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8,
+            "default": 1,
+            "description": "このチャンネルに割り当てるポリフォニー数。"
+          }
+        }
+      }
+    },
+    "banks": {
+      "type": "object",
+      "description": "バンクファイルの読み込み設定。",
+      "additionalProperties": false,
+      "properties": {
+        "hw_banks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "group",
+              "bank",
+              "file"
+            ],
+            "properties": {
+              "group": {
+                "type": "string",
+                "enum": [
+                  "OPM",
+                  "OPN",
+                  "OPL2",
+                  "OPL3",
+                  "OPLL",
+                  "PSG",
+                  "PCM"
+                ]
+              },
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "file": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "sw_banks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "bank",
+              "file"
+            ],
+            "properties": {
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "file": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "patch_banks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "bank",
+              "file"
+            ],
+            "properties": {
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "file": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "drum_banks": {
+          "type": "array",
+          "description": "ドラムバンクファイル一覧 (CRhythmCh 用)。MIDI CC#0 でバンクを切り替える。",
+          "items": {
+            "type": "object",
+            "required": [
+              "bank",
+              "file"
+            ],
+            "properties": {
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "ドラムバンク番号 (MIDI CC#0)"
+              },
+              "file": {
+                "type": "string",
+                "description": "*.drumbank.json のファイルパス"
+              }
+            }
+          }
+        },
+        "scc_wave_banks": {
+          "type": "array",
+          "description": "SCC/SCC+ 波形バンクファイル一覧。HwPatch の WS フィールドで波形番号を指定する。",
+          "items": {
+            "type": "object",
+            "required": [
+              "bank",
+              "file"
+            ],
+            "properties": {
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "波形バンク番号。デバイスに setWaveBankNo() で指定する。"
+              },
+              "file": {
+                "type": "string",
+                "description": "*.sccwave.json のパス。"
+              }
+            }
+          }
+        },
+        "pcm_banks": {
+          "type": "array",
+          "description": "PCM/ADPCM バンクファイル一覧。HwPatch の WS フィールドでエントリ番号を指定する。",
+          "items": {
+            "type": "object",
+            "required": [
+              "bank",
+              "file"
+            ],
+            "properties": {
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "PCM バンク番号。デバイスに setPcmRegistry() で渡される。"
+              },
+              "file": {
+                "type": "string",
+                "description": "*.pcmbank.json のパス。"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "$comment": "エミュレーターのみ構成",
+      "profile_name": "エミュレーター (OPM + OPL3 + SSG)",
+      "fm_engines": [
+        {
+          "name": "YMEngine",
+          "dll": "YMEngine.dll",
+          "sample_rate": 48000
+        },
+        {
+          "name": "AYEngine",
+          "dll": "AYEngine.dll",
+          "sample_rate": 48000
+        }
+      ],
+      "audio_output": {
+        "device": "Realtek",
+        "sample_rate": 48000
+      },
+      "devices": [
+        {
+          "if": "FMENGINE",
+          "label": "OPM",
+          "engine": "YMEngine",
+          "chip": "OPM",
+          "clock": 0
+        },
+        {
+          "if": "FMENGINE",
+          "label": "OPL3",
+          "engine": "YMEngine",
+          "chip": "OPL3",
+          "clock": 0
+        },
+        {
+          "if": "FMENGINE",
+          "label": "SSG",
+          "engine": "AYEngine",
+          "chip": "SSG",
+          "clock": 0
+        }
+      ],
+      "midi_inputs": [
+        "MIDI キーボード"
+      ]
+    },
+    {
+      "$comment": "SPFM HW + エミュレーター混在構成",
+      "profile_name": "自宅スタジオ (SPFM + OPN2エミュ)",
+      "fm_engines": [
+        {
+          "name": "YMEngine",
+          "dll": "YMEngine.dll",
+          "sample_rate": 48000
+        }
+      ],
+      "audio_output": {
+        "device": "Focusrite USB",
+        "sample_rate": 48000
+      },
+      "devices": [
+        {
+          "if": "HW",
+          "label": "OPNA (SPFM slot0)",
+          "type": "SPFM_TOWER",
+          "port": "COM3",
+          "slot": 0,
+          "hw_clock": 3993600,
+          "pan": 0
+        },
+        {
+          "if": "HW",
+          "label": "OPM (SPFM slot1)",
+          "type": "SPFM_TOWER",
+          "port": "COM3",
+          "slot": 1,
+          "hw_clock": 3579545,
+          "pan": 0
+        },
+        {
+          "if": "FMENGINE",
+          "label": "OPN2 (エミュ)",
+          "engine": "YMEngine",
+          "chip": "OPN2",
+          "clock": 7670454,
+          "gain_l": 0.8,
+          "gain_r": 0.8
+        }
+      ],
+      "midi_inputs": [
+        "UM-ONE"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-sccwave",
+  "title": "FITOM SCC 波形バンク (*.sccwave.json)",
+  "description": "SCC/SCC+ チップ用の波形テーブルバンク。HwPatch の WS フィールドで波形番号を選択する。",
+  "type": "object",
+  "required": ["name", "waves"],
+  "properties": {
+    "name": { "type": "string", "description": "バンク名" },
+    "waves": {
+      "type": "array",
+      "description": "波形定義。WS=0 は常にデフォルト矩形波として扱われる。",
+      "items": {
+        "type": "object",
+        "required": ["wave_no", "data"],
+        "properties": {
+          "wave_no": {
+            "type": "integer", "minimum": 0, "maximum": 127,
+            "description": "波形番号。HwPatch.hwOp[ch].WS で指定する値。"
+          },
+          "name": {
+            "type": "string",
+            "description": "波形名 (例: 'Sine', 'Square', 'Sawtooth', 'Triangle')"
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "array",
+                "minItems": 32, "maxItems": 32,
+                "items": { "type": "integer", "minimum": -128, "maximum": 127 },
+                "description": "32 バイトの符号付き波形データ (配列形式)。"
+              },
+              {
+                "type": "string",
+                "pattern": "^[0-9A-Fa-f]{64}$",
+                "description": "32 バイトの波形データを 16 進数 64 文字で表現した文字列。符号付き 2 の補数表現。"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "examples": [{
+    "name": "Basic Waveforms",
+    "waves": [
+      {
+        "wave_no": 0,
+        "name": "Square",
+        "data": [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,
+                 -100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100]
+      },
+      {
+        "wave_no": 1,
+        "name": "Sine",
+        "data": [0,20,39,56,71,83,92,98,100,98,92,83,71,56,39,20,
+                 0,-20,-39,-56,-71,-83,-92,-98,-100,-98,-92,-83,-71,-56,-39,-20]
+      },
+      {
+        "wave_no": 2,
+        "name": "Sawtooth",
+        "data": [-100,-94,-88,-81,-75,-69,-63,-56,-50,-44,-38,-31,-25,-19,-13,-6,
+                 0,6,13,19,25,31,38,44,50,56,63,69,75,81,88,94]
+      },
+      {
+        "wave_no": 3,
+        "name": "Triangle",
+        "data": [0,13,25,38,50,63,75,88,100,88,75,63,50,38,25,13,
+                 0,-13,-25,-38,-50,-63,-75,-88,-100,-88,-75,-63,-50,-38,-25,-13]
+      },
+      {
+        "wave_no": 4,
+        "name": "Pulse 25%",
+        "data": [100,100,100,100,100,100,100,100,-100,-100,-100,-100,-100,-100,-100,-100,
+                 -100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100,-100]
+      },
+      {
+        "wave_no": 5,
+        "name": "Hollow Square (SCC Classic)",
+        "data": [100,100,100,100,100,100,100,100,0,0,0,0,0,0,0,0,
+                 -100,-100,-100,-100,-100,-100,-100,-100,0,0,0,0,0,0,0,0]
+      }
+    ]
+  }]
+}

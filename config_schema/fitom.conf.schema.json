@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-system-config",
+  "title": "FITOM システム設定 (fitom.conf.json)",
+  "description": "通常運用では変更しない設定。管理者・開発者向け。プロファイルとは別ファイル。",
+  "type": "object",
+  "additionalProperties": false,
+
+  "properties": {
+
+    "log": {
+      "type": "object",
+      "description": "ロギング設定",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["trace", "debug", "info", "warning", "error", "fatal"],
+          "default": "info",
+          "description": "最小ログレベル。通常は 'info'。問題調査時のみ 'debug' / 'trace' に変更する。"
+        },
+        "file": {
+          "type": "string",
+          "default": "",
+          "description": "ログファイルパス。空文字列でコンソールのみ出力。ローテーションは 10MB 単位で行う。"
+        },
+        "console": {
+          "type": "boolean",
+          "default": true,
+          "description": "コンソール（標準エラー出力）にもログを出力するか。"
+        }
+      }
+    },
+
+    "plugins": {
+      "type": "object",
+      "description": "プラグイン DLL のパス設定。実行ファイルからの相対パスまたは絶対パスで指定する。",
+      "additionalProperties": false,
+      "properties": {
+        "fm_engine_dir": {
+          "type": "string",
+          "default": ".",
+          "description": "FM エンジン DLL を検索するディレクトリ。プロファイルの fm_engines[].dll が相対パスの場合のベースディレクトリ。"
+        },
+        "hw_plugin": {
+          "type": "object",
+          "description": "HW I/F プラグイン設定。",
+          "additionalProperties": false,
+          "properties": {
+            "dll": {
+              "type": "string",
+              "examples": ["fitom_hw.dll", "libfitom_hw.so"],
+              "description": "HW I/F バックエンド DLL のパス。省略時は HW を使用しない。"
+            }
+          }
+        },
+        "midi_plugin": {
+          "type": "object",
+          "description": "MIDI バックエンドプラグイン設定。",
+          "additionalProperties": false,
+          "properties": {
+            "dll": {
+              "type": "string",
+              "examples": [
+                "fitom_midi_wms.dll",
+                "libfitom_midi_alsa.so"
+              ],
+              "description": "MIDI バックエンド DLL のパス。省略時は MIDI 入力なしで動作する。"
+            }
+          }
+        }
+      }
+    },
+
+    "audio": {
+      "type": "object",
+      "description": "オーディオ出力設定（エミュレーターバックエンド使用時のみ有効）。RtAudio を使用する。",
+      "additionalProperties": false,
+      "properties": {
+        "api": {
+          "type": "string",
+          "enum": ["auto", "wasapi", "ds", "asio", "alsa", "pulse", "core"],
+          "default": "auto",
+          "description": "使用する RtAudio API。'auto' でプラットフォームのデフォルトを使用する。ASIO 使用時は 'asio' を指定する。"
+        },
+        "buffer_frames": {
+          "type": "integer",
+          "default": 512,
+          "minimum": 32,
+          "maximum": 8192,
+          "description": "オーディオバッファのフレーム数。値を小さくすると遅延が減るが CPU 負荷が増加する。通常は 256〜512。"
+        },
+        "output_channels": {
+          "type": "integer",
+          "enum": [2],
+          "default": 2,
+          "description": "出力チャンネル数。現在は 2ch (ステレオ) のみ。"
+        }
+      }
+    },
+
+    "timing": {
+      "type": "object",
+      "description": "タイマー・ポーリング設定。",
+      "additionalProperties": false,
+      "properties": {
+        "timer_ms": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "MIDI タイマー割り込み間隔 [ms]。通常は 1ms。"
+        },
+        "polling_interval_us": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 10000,
+          "description": "ハードウェアポーリングスレッドのスリープ間隔 [μs]。"
+        }
+      }
+    }
+
+  },
+
+  "examples": [
+    {
+      "log": {
+        "level": "info",
+        "file": "fitom.log",
+        "console": true
+      },
+      "plugins": {
+        "fm_engine_dir": "engines",
+        "hw_plugin": {
+          "dll": "fitom_hw.dll"
+        },
+        "midi_plugin": {
+          "dll": "fitom_midi_wms.dll"
+        }
+      },
+      "audio": {
+        "api": "auto",
+        "buffer_frames": 512,
+        "output_channels": 2
+      },
+      "timing": {
+        "timer_ms": 1,
+        "polling_interval_us": 500
+      }
+    }
+  ]
+}

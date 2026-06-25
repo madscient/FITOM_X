@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-patchbank",
+  "title": "FITOM パッチバンク (*.patchbank.json)",
+  "description": "プログラムチェンジ単位のパッチ。HwPatch参照・SwPatch参照・ToneLayerを束ねる。",
+  "type": "object",
+  "required": ["name", "patches"],
+  "properties": {
+    "name": { "type": "string" },
+    "patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["prog", "name", "layers"],
+        "properties": {
+          "prog": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "name": { "type": "string", "description": "パッチ表示名" },
+          "sw_bank": {
+            "type": "integer", "minimum": 0, "maximum": 127,
+            "default": 0,
+            "description": "SwBank番号 (MIDI CC#32)"
+          },
+          "sw_prog": {
+            "type": "integer", "minimum": 0, "maximum": 127,
+            "default": 0,
+            "description": "SwPatchプログラム番号"
+          },
+          "poly": {
+            "type": "integer", "minimum": 0, "maximum": 16,
+            "default": 0,
+            "description": "ポリフォニー数 (0=channel_mapのデフォルト)"
+          },
+          "layers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "description": "ToneLayer。最大4つ。index 0がプライマリ。",
+            "items": {
+              "type": "object",
+              "required": ["device_index", "hw_bank", "hw_prog", "enabled"],
+              "properties": {
+                "device_index": {
+                  "type": "integer", "minimum": -1,
+                  "description": "profile devices[]のインデックス (-1=無効)"
+                },
+                "hw_bank": {
+                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "description": "HwBank番号 (MIDI CC#0)"
+                },
+                "hw_prog": {
+                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "description": "HwPatchプログラム番号"
+                },
+                "note_range_lo": {
+                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "default": 0,
+                  "description": "発音する最低MIDIノート番号"
+                },
+                "note_range_hi": {
+                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "default": 127,
+                  "description": "発音する最高MIDIノート番号"
+                },
+                "transpose": {
+                  "type": "integer", "minimum": -48, "maximum": 48,
+                  "default": 0,
+                  "description": "トランスポーズ [半音]"
+                },
+                "volume_offset": {
+                  "type": "integer", "minimum": -64, "maximum": 63,
+                  "default": 0,
+                  "description": "音量オフセット (相対値)"
+                },
+                "pan_offset": {
+                  "type": "integer", "minimum": -64, "maximum": 63,
+                  "default": 0,
+                  "description": "パンオフセット (-64=L, 0=C, +63=R)"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "このレイヤーを使用するか"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [{
+    "name": "Strings Bank",
+    "patches": [
+      {
+        "prog": 0,
+        "name": "Strings 1",
+        "sw_bank": 0,
+        "sw_prog": 0,
+        "poly": 0,
+        "layers": [
+          {
+            "device_index": 0,
+            "hw_bank": 0,
+            "hw_prog": 0,
+            "note_range_lo": 0,
+            "note_range_hi": 127,
+            "transpose": 0,
+            "volume_offset": 0,
+            "pan_offset": 0,
+            "enabled": true
+          }
+        ]
+      },
+      {
+        "prog": 1,
+        "name": "Strings 2 (Split: OPM + DCSG bass)",
+        "sw_bank": 0,
+        "sw_prog": 1,
+        "poly": 0,
+        "layers": [
+          {
+            "comment": "OPM: 中高音域",
+            "device_index": 0,
+            "hw_bank": 0,
+            "hw_prog": 1,
+            "note_range_lo": 48,
+            "note_range_hi": 127,
+            "transpose": 0,
+            "volume_offset": 0,
+            "pan_offset": -20,
+            "enabled": true
+          },
+          {
+            "comment": "DCSG: 低音域、1オクターブ下げ",
+            "device_index": 2,
+            "hw_bank": 0,
+            "hw_prog": 0,
+            "note_range_lo": 0,
+            "note_range_hi": 47,
+            "transpose": -12,
+            "volume_offset": -6,
+            "pan_offset": 20,
+            "enabled": true
+          }
+        ]
+      }
+    ]
+  }]
+}
