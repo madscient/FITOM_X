@@ -1,0 +1,34 @@
+{
+  "profile_name": "自宅スタジオ (SPFM Tower + OPN2エミュ)",
+  "fm_engines": [
+    { "name": "YMEngine", "dll": "YMEngine.dll", "sample_rate": 48000 }
+  ],
+  "audio_output": {
+    "device":      "Focusrite USB",
+    "sample_rate": 48000
+  },
+  "devices": [
+    {
+      "if": "HW", "label": "OPNA #1 (SPFM slot0)",
+      "type": "SPFM_TOWER", "port": "COM3", "slot": 0,
+      "hw_clock": 3993600, "pan": 0
+    },
+    {
+      "if": "HW", "label": "OPM (SPFM slot1)",
+      "type": "SPFM_TOWER", "port": "COM3", "slot": 1,
+      "hw_clock": 3579545, "pan": 0
+    },
+    {
+      "if": "FMENGINE", "label": "OPN2 (エミュ)",
+      "engine": "YMEngine", "chip": "OPN2",
+      "clock": 7670454, "gain_l": 0.8, "gain_r": 0.8
+    }
+  ],
+  "midi_inputs": ["UM-ONE"],
+  "channel_map": [
+    { "midi_ch": 1,  "device_index": 0, "poly": 6 },
+    { "midi_ch": 2,  "device_index": 1, "poly": 8 },
+    { "midi_ch": 3,  "device_index": 2, "poly": 6 },
+    { "midi_ch": 10, "device_index": 0, "poly": 1 }
+  ]
+}

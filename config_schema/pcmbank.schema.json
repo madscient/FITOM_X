@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-pcmbank",
+  "title": "FITOM PCM バンク (*.pcmbank.json)",
+  "description": "ADPCM/PCM デバイス用バンクファイル。adpcm_packer の出力 JSON を参照する形式。HwPatch の WS フィールドでエントリ番号を選択する。",
+  "type": "object",
+  "required": ["name", "codec", "bin_file"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "バンク名"
+    },
+    "codec": {
+      "type": "string",
+      "enum": ["adpcm-b", "adpcm-a", "pcmd8"],
+      "description": "コーデック種別。adpcm-b=YM Delta-T(YM2608/2610B), adpcm-a=YM2610A, pcmd8=YMZ280B"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "enum": [8000, 16000, 24000, 32000],
+      "description": "ADPCM-B のサンプルレート。adpcm-a / pcmd8 では不要。"
+    },
+    "boundary": {
+      "type": "integer",
+      "enum": [32, 256],
+      "description": "バウンダリ境界 [byte]。adpcm_packer のパラメータと一致させること。"
+    },
+    "bin_file": {
+      "type": "string",
+      "description": "adpcm_packer が生成した ADPCM バイナリファイルのパス (*.bin)。"
+    },
+    "adpcm_json": {
+      "type": "string",
+      "description": "adpcm_packer が生成したオフセット JSON ファイルのパス (*.json)。省略時は entries[] を直接記述する。"
+    },
+    "entries": {
+      "type": "array",
+      "description": "エントリ一覧。adpcm_json を指定した場合は自動生成されるため省略可。",
+      "items": {
+        "type": "object",
+        "required": ["entry_no", "name", "start_offset", "end_offset"],
+        "properties": {
+          "entry_no": {
+            "type": "integer", "minimum": 0, "maximum": 127,
+            "description": "エントリ番号。HwPatch.hwOp[0].WS で指定する値。"
+          },
+          "name": {
+            "type": "string",
+            "description": "サンプル名 (adpcm_packer の output_json の entries[].name と一致)"
+          },
+          "start_offset": {
+            "type": "integer", "minimum": 0,
+            "description": "バイナリ内の先頭オフセット [byte] (adpcm_packer の offset フィールド)"
+          },
+          "end_offset": {
+            "type": "integer", "minimum": 0,
+            "description": "バイナリ内の末尾オフセット [byte] (adpcm_packer の offset + padded_size - 1)"
+          },
+          "size": {
+            "type": "integer", "minimum": 0,
+            "description": "エンコード後の ADPCM データサイズ [byte] (パディング前)"
+          },
+          "padded_size": {
+            "type": "integer", "minimum": 0,
+            "description": "バウンダリ整列後のサイズ [byte]"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "$comment": "adpcm_json を指定してオフセット情報を自動取得する方式 (推奨)",
+      "name": "SE Bank 1",
+      "codec": "adpcm-b",
+      "sample_rate": 16000,
+      "boundary": 256,
+      "bin_file": "banks/pcm/se_bank1.bin",
+      "adpcm_json": "banks/pcm/se_bank1.adpcm.json",
+      "$comment2": "adpcm_json を読み込んで entries[] を自動構築する。entry_no は adpcm_json の entries 順で 0 から割り当てられる。"
+    },
+    {
+      "$comment": "entries[] を直接記述する方式",
+      "name": "SE Bank 1",
+      "codec": "adpcm-b",
+      "sample_rate": 16000,
+      "boundary": 256,
+      "bin_file": "banks/pcm/se_bank1.bin",
+      "entries": [
+        {
+          "entry_no": 0,
+          "name": "se_kick",
+          "start_offset": 0,
+          "end_offset": 4095,
+          "size": 3800,
+          "padded_size": 4096
+        },
+        {
+          "entry_no": 1,
+          "name": "se_snare",
+          "start_offset": 4096,
+          "end_offset": 8191,
+          "size": 3500,
+          "padded_size": 4096
+        },
+        {
+          "entry_no": 2,
+          "name": "se_hihat",
+          "start_offset": 8192,
+          "end_offset": 10239,
+          "size": 1800,
+          "padded_size": 2048
+        }
+      ]
+    }
+  ]
+}

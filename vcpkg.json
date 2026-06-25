@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "fitom",
+  "version": "2.0.0",
+  "dependencies": [
+    "nlohmann-json",
+    { "name": "boost-asio",         "platform": "!emscripten" },
+    { "name": "boost-system",       "platform": "!emscripten" },
+    { "name": "boost-thread",       "platform": "!emscripten" },
+    { "name": "boost-format",       "platform": "!emscripten" },
+    { "name": "boost-log",          "platform": "!emscripten" },
+    { "name": "boost-interprocess", "platform": "!emscripten" },
+    { "name": "libftdi1",           "platform": "!uwp" }
+  ],
+  "overrides": [],
+  "builtin-baseline": ""
+}

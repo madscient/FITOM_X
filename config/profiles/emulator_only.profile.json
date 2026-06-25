@@ -1,0 +1,22 @@
+{
+  "profile_name": "エミュレーターのみ (OPM + OPL3 + SSG)",
+  "fm_engines": [
+    { "name": "YMEngine", "dll": "YMEngine.dll", "sample_rate": 48000 },
+    { "name": "AYEngine", "dll": "AYEngine.dll", "sample_rate": 48000 }
+  ],
+  "audio_output": {
+    "device":      "",
+    "sample_rate": 48000
+  },
+  "devices": [
+    { "if": "FMENGINE", "label": "OPM",  "engine": "YMEngine", "chip": "OPM",  "clock": 0 },
+    { "if": "FMENGINE", "label": "OPL3", "engine": "YMEngine", "chip": "OPL3", "clock": 0 },
+    { "if": "FMENGINE", "label": "SSG",  "engine": "AYEngine", "chip": "SSG",  "clock": 0 }
+  ],
+  "midi_inputs": ["MIDI キーボード"],
+  "channel_map": [
+    { "midi_ch": 1, "device_index": 0, "poly": 8 },
+    { "midi_ch": 2, "device_index": 1, "poly": 6 },
+    { "midi_ch": 3, "device_index": 2, "poly": 3 }
+  ]
+}

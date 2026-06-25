@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-swbank",
+  "title": "FITOM SW パッチバンク (*.swbank.json)",
+  "description": "ソフトウェア処理パラメータのバンク。チップ族に依存しない共通バンク。",
+  "type": "object",
+  "required": ["name", "patches"],
+  "properties": {
+    "name": { "type": "string" },
+    "patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["prog"],
+        "properties": {
+          "prog": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "name": { "type": "string" },
+          "sw": {
+            "type": "object",
+            "description": "チャンネルソフト LFO (ビブラート)",
+            "properties": {
+              "LFO": { "type": "integer", "minimum": 0, "maximum": 18, "description": "LFO速度インデックス" },
+              "LWF": { "type": "integer", "minimum": 0, "maximum": 6,  "description": "波形: 0=のこぎり/1=矩形/2=三角/3=S&H/4=逆のこぎり/5=デルタ/6=サイン" },
+              "LFS": { "type": "integer", "minimum": 0, "maximum": 1,  "description": "NoteOn時位相リセット" },
+              "LFD": { "type": "integer", "minimum": 0, "maximum": 127,"description": "遅延 [20ms単位]" },
+              "LFR": { "type": "integer", "minimum": 0, "maximum": 127,"description": "レート (0=無効)" },
+              "LDM": { "type": "integer", "minimum": 0, "maximum": 255,"description": "深さ上位バイト (符号付き16bit)" },
+              "LDL": { "type": "integer", "minimum": 0, "maximum": 255,"description": "深さ下位バイト" }
+            }
+          },
+          "ops": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "description": "オペレータ単位ソフトパラメータ",
+              "properties": {
+                "VTL": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ベロシティ→TL感度" },
+                "VAR": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ベロシティ→AR感度 (将来)" },
+                "VDR": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ベロシティ→DR感度 (将来)" },
+                "VSL": { "type": "integer", "minimum": 0, "maximum": 127 },
+                "VSR": { "type": "integer", "minimum": 0, "maximum": 127 },
+                "VRR": { "type": "integer", "minimum": 0, "maximum": 127 },
+                "VLD": { "type": "integer", "minimum": 0, "maximum": 127 },
+                "VLR": { "type": "integer", "minimum": 0, "maximum": 127 },
+                "SLF": { "type": "integer", "minimum": 0, "maximum": 18,  "description": "ソフトLFO速度" },
+                "SLW": { "type": "integer", "minimum": 0, "maximum": 6,   "description": "ソフトLFO波形" },
+                "SLD": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ソフトLFO深さ (64-127 → -64〜-1)" },
+                "SLY": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ソフトLFO遅延 [20ms単位]" },
+                "SLR": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ソフトLFOレート (0=無効)" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
