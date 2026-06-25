@@ -1,3 +1,4 @@
+#ifdef FITOM_HAS_RTAUDIO
 // fitom/AudioEngine.cpp
 // RtAudio ラッパー実装
 
@@ -174,3 +175,5 @@ int AudioEngine::rtAudioCallback(void*              outBuf,
 }
 
 } // namespace fitom
+
+#endif // FITOM_HAS_RTAUDIO
