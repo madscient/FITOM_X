@@ -1,14 +1,9 @@
 #pragma once
 #include <vector>
 
-enum FnumTableType {
-	none = 0,
-	Fnumber = 1,
-	TonePeriod = 2,
-	DeltaN = 3,
-	opl4 = 4,
-	saa = 5,
-};
+// FnumTableType は fitom/Fnum.h で定義 (fitom::FnumTableType enum class)
+// グローバルエイリアスが using FnumTableType = fitom::FnumTableType で提供される
+#include "fitom/Fnum.h"
 
 class CFnumTable {
 protected:

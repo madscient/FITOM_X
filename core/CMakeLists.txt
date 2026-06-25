@@ -80,7 +80,7 @@ target_link_libraries(fitom_core
         Boost::log_setup
         Boost::thread
         Boost::system
-        Boost::format
+        Boost::headers      # boost-format はヘッダオンリー (Boost::headers に含まれる)
 )
 
 if(FITOM_HAS_RTAUDIO)

@@ -1,5 +1,5 @@
-#include "STDAFX.H"
-#include "Fnum.h"
+#include "fitom/fitom_core.h"
+#include "Fnum.h"  // core/src/Fnum.h (旧実装)
 #include <math.h>
 
 CFnumTable theFnum;
