@@ -13,5 +13,5 @@
     { "name": "libftdi1",           "platform": "!uwp" }
   ],
   "overrides": [],
-  "builtin-baseline": ""
+  "builtin-baseline": "930ecc42b512b564571d767f70775d284a6fa307"
 }
