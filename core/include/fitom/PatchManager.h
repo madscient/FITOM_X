@@ -19,6 +19,9 @@
 //     → FITOM_LOG_WARN を出力
 
 #include "fitom/PatchData.h"
+#include "fitom/DrumData.h"
+#include "fitom/SccWaveData.h"
+#include "fitom/PcmBankData.h"
 #include "fitom/Log.h"
 #include <vector>
 #include <memory>

@@ -20,7 +20,7 @@
 #include "IPort.h"
 #include "PluginLoader.h"
 #include <fitom/IFmEnginePlugin.h>
-#include <FmEngineApi.h>
+#include <FmEngineApi.h>  // backends/fm_engine/include/ に配置
 #include <memory>
 #include <string>
 #include <unordered_map>

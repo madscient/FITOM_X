@@ -275,8 +275,8 @@ void VoiceProcessor::recalcOpLfo(int op, const FmVoice& voice) noexcept
     int16_t dep  = static_cast<int16_t>(swop.SLD);
     if (dep > 63) dep -= 128; // 符号付き変換
 
-    int16_t val = wave * lev / 128;
-    val = val * dep / 120;
+    int16_t val = static_cast<int16_t>(wave * lev / 128);
+    val = static_cast<int16_t>(val * dep / 120);
     val += baseTL_[op];
     effectiveTL_[op] = clamp(static_cast<int>(val), 0, 127);
 }
