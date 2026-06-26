@@ -103,6 +103,12 @@ public:
         return fn;
     }
 
+    // オプション関数: 存在しない場合は nullptr を返す (旧 DLL との互換)
+    template<typename FnPtr>
+    FnPtr symOptional(const char* name) const noexcept {
+        return sym<FnPtr>(name);   // sym は失敗時に nullptr を返す
+    }
+
 private:
     void unload() noexcept {
         if (!handle_) return;

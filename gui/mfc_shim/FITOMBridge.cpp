@@ -5,7 +5,6 @@
 #include "fitom/CFITOM.h"
 #include "fitom/Config.h"
 #include "fitom/PatchManager.h"
-#include "fitom/AudioEngine.h"
 #include "fitom/Log.h"
 #include "fitom/FnumUtils.h"
 
@@ -244,11 +243,10 @@ void FITOMBridge::onTimer(uint32_t tick) {
 // ================================================================
 
 std::vector<std::string> FITOMBridge::enumerateAudioDevices() const {
-#ifdef FITOM_HAS_RTAUDIO
-    return fitom::AudioEngine::enumerateDevices("auto");
-#else
+    // オーディオデバイス列挙は fitom_fmhwif DLL が担当。
+    // fitom_core は RtAudio に依存しないため、ここでは空リストを返す。
+    // GUI はプロファイルの audio_api 設定で API を選択する。
     return {};
-#endif
 }
 
 // ================================================================

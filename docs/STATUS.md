@@ -23,7 +23,7 @@
 | `include/fitom/Log.h` / `Log.cpp` | ✅ | Boost.Log ラッパー |
 | `include/fitom/VolumeUtils.h` / `.cpp` | ✅ | CalcLinearLevel / Linear2dB / ROM テーブル |
 | `include/fitom/FnumUtils.h` | ✅ | F-number テーブルキャッシュ |
-| `include/fitom/AudioEngine.h` / `.cpp` | ✅ | RtAudio ラッパー |
+| `include/fitom/AudioEngine.h` / `.cpp` | 🗑️ 廃止 | fitom_fmhwif DLL に移管 |
 
 #### ボイスデータ
 | ファイル | 状態 | 内容 |

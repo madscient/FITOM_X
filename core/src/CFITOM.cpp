@@ -178,6 +178,56 @@ void CFITOM::exit(bool /*save*/)
     FITOM_LOG_INFO("FITOM exited");
 }
 
+// ── レイテンシ同期 ────────────────────────────────────────────────────────────
+// 全デバイスの write→発音レイテンシを収集し、最大値に全デバイスを揃える。
+// 物理チップ (HWPlugin_GetLatencySamples=0) は最大値分だけキューで遅らせる。
+// FMエンジン内蔵hwif はすでに自身のバッファ分のレイテンシを持つため、
+// 自身のレイテンシ == 最大値 となれば何もしない。
+void CFITOM::syncDeviceLatency()
+{
+    // すべての HWPort を収集
+    // Config が IPort を所有しており、HWPort かどうかは dynamic_cast で判定
+    uint32_t maxLatency = 0;
+    int n = config_->getDeviceCount();
+
+    // パス1: 最大レイテンシを収集
+    for (int i = 0; i < n; ++i) {
+        auto* hwPort = dynamic_cast<HWPort*>(config_->getDevicePort(i));
+        if (!hwPort) continue;
+        uint32_t lat = hwPort->getLatencySamples();
+        if (lat > maxLatency) maxLatency = lat;
+        // extra_slot の port2 も確認
+        auto* hwPort2 = dynamic_cast<HWPort*>(config_->getDevicePort2(i));
+        if (hwPort2) {
+            lat = hwPort2->getLatencySamples();
+            if (lat > maxLatency) maxLatency = lat;
+        }
+    }
+
+    if (maxLatency == 0) {
+        FITOM_LOG_INFO("syncDeviceLatency: all devices are immediate (latency=0)");
+        return;
+    }
+
+    FITOM_LOG_INFO("syncDeviceLatency: max_latency=" << maxLatency << " samples");
+
+    // パス2: 全デバイスに最大レイテンシを設定
+    for (int i = 0; i < n; ++i) {
+        auto* hwPort = dynamic_cast<HWPort*>(config_->getDevicePort(i));
+        if (hwPort) {
+            hwPort->setDelaySamples(maxLatency);
+            FITOM_LOG_DEBUG("Device[" << i << "] port: delay="
+                << maxLatency << " samples");
+        }
+        auto* hwPort2 = dynamic_cast<HWPort*>(config_->getDevicePort2(i));
+        if (hwPort2) {
+            hwPort2->setDelaySamples(maxLatency);
+            FITOM_LOG_DEBUG("Device[" << i << "] port2: delay="
+                << maxLatency << " samples");
+        }
+    }
+}
+
 void CFITOM::initDevices()
 {
     // DeviceFactory を使って IPort → ISoundDevice を生成する。
@@ -252,6 +302,13 @@ void CFITOM::initDevices()
 
         devices_[i] = std::move(dev);
     }
+
+    // ── レイテンシ同期 ────────────────────────────────────────────────────
+    // 全デバイスの発音レイテンシ (write→実音 のサンプル数) を収集し、
+    // 最大値に合わせて物理チップ側をキューイング遅延させる。
+    // これにより「物理チップ + FMエンジン内蔵hwif」混在構成でも
+    // ノート ON/OFF のタイミングが揃う。
+    syncDeviceLatency();
 }
 
 // ================================================================

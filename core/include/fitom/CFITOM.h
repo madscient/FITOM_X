@@ -12,6 +12,7 @@
 
 #include "fitom/FITOMdefine.h"
 #include "fitom/Config.h"
+#include "fitom/HWPort.h"
 #include "fitom/PatchData.h"
 #include "fitom/PatchManager.h"
 #include "fitom/MidiManager.h"
@@ -34,7 +35,6 @@
 
 namespace fitom {
 
-class AudioEngine;
 
 // ================================================================
 //  MidiProcessor: MIDI バイト列 → CMidiCh の MIDI 処理エンジン
@@ -188,6 +188,7 @@ private:
     // 内部ヘルパー
     int  setupMidiInputs();
     void initDevices();
+    void syncDeviceLatency();  // initDevices() から呼ばれる
     void timerThreadFunc(uint32_t intervalMs);
 };
 

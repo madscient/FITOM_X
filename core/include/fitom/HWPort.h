@@ -28,9 +28,11 @@ public:
     using PFN_Write      = HWResult     (FITOM_HWP_CALL*)(HWHandle, uint16_t, uint8_t);
     using PFN_WriteBlock = HWResult     (FITOM_HWP_CALL*)(HWHandle, uint8_t, const uint8_t*, size_t);
     using PFN_Reset      = HWResult     (FITOM_HWP_CALL*)(HWHandle, unsigned int);
-    using PFN_GetClock   = int          (FITOM_HWP_CALL*)(HWHandle);
-    using PFN_GetPanpot  = int          (FITOM_HWP_CALL*)(HWHandle);
-    using PFN_IsOpen     = bool         (FITOM_HWP_CALL*)(HWHandle);
+    using PFN_GetClock          = int      (FITOM_HWP_CALL*)(HWHandle);
+    using PFN_GetPanpot         = int      (FITOM_HWP_CALL*)(HWHandle);
+    using PFN_IsOpen            = bool     (FITOM_HWP_CALL*)(HWHandle);
+    using PFN_GetLatencySamples = uint32_t (FITOM_HWP_CALL*)(HWHandle);
+    using PFN_SetDelaySamples   = void     (FITOM_HWP_CALL*)(HWHandle, uint32_t);
 
     static std::shared_ptr<HWPluginInstance> load(const std::filesystem::path& dllPath);
 
@@ -43,9 +45,11 @@ public:
     PFN_Write       Write      = nullptr;
     PFN_WriteBlock  WriteBlock = nullptr;
     PFN_Reset       Reset      = nullptr;
-    PFN_GetClock    GetClock   = nullptr;
-    PFN_GetPanpot   GetPanpot  = nullptr;
-    PFN_IsOpen      IsOpen     = nullptr;
+    PFN_GetClock          GetClock          = nullptr;
+    PFN_GetPanpot         GetPanpot         = nullptr;
+    PFN_IsOpen            IsOpen            = nullptr;
+    PFN_GetLatencySamples GetLatencySamples = nullptr;   // optional: 0 if absent
+    PFN_SetDelaySamples   SetDelaySamples   = nullptr;   // optional: no-op if absent
 
 private:
     HWPluginInstance() = default;
@@ -75,6 +79,10 @@ public:
     std::string getInterfaceDesc() override;
     int         getClock()         override;
     int         getPanpot()        override;
+
+    // レイテンシ同期 (IHWPlugin.h の任意関数; DLL が実装しない場合は0/no-op)
+    uint32_t getLatencySamples() const;
+    void     setDelaySamples(uint32_t delay_samples);
 
 private:
     std::shared_ptr<HWPluginInstance> plugin_;
