@@ -89,6 +89,22 @@ FITOM_HWP_API int  FITOM_HWP_CALL HWPlugin_GetClock(HWHandle handle);
 FITOM_HWP_API int  FITOM_HWP_CALL HWPlugin_GetPanpot(HWHandle handle);
 FITOM_HWP_API bool FITOM_HWP_CALL HWPlugin_IsOpen(HWHandle handle);
 
+// ─── レイテンシ同期 ──────────────────────────────────────────────────────────
+// HWPlugin_GetLatencySamples:
+//   このデバイスが write() から実際の発音まで要するサンプル数を返す。
+//   物理チップ (SPFM 等) は 0 を返す。
+//   FM エンジン内蔵 hwif は (buffer_frames) を返す。
+//   FITOM コアはこの値を全デバイス間で収集し最大値を基準レイテンシとする。
+FITOM_HWP_API uint32_t FITOM_HWP_CALL HWPlugin_GetLatencySamples(HWHandle handle);
+
+// HWPlugin_SetDelaySamples:
+//   FITOM コアが全デバイスの基準レイテンシを設定する。
+//   物理チップはこの値だけ write() をキューイングして遅らせる。
+//   FM エンジン内蔵 hwif は自身のレイテンシと一致するため何もしなくてよい。
+//   delay_samples == 0 の場合は遅延なし (単デバイス構成向け)。
+FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_SetDelaySamples(
+    HWHandle handle, uint32_t delay_samples);
+
 #ifdef __cplusplus
 }
 #endif

@@ -77,6 +77,24 @@ HWPort::~HWPort()
     }
 }
 
+// ── レイテンシ同期 ───────────────────────────────────────────────────────────
+
+uint32_t HWPort::getLatencySamples() const
+{
+    if (!handle_ || !plugin_ || !plugin_->GetLatencySamples)
+        return 0;   // 実装なし → 即時デバイス(物理チップ等)とみなす
+    return plugin_->GetLatencySamples(handle_);
+}
+
+void HWPort::setDelaySamples(uint32_t delay_samples)
+{
+    if (!handle_ || !plugin_ || !plugin_->SetDelaySamples)
+        return;     // 実装なし → 何もしない (旧 DLL との互換)
+    plugin_->SetDelaySamples(handle_, delay_samples);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 void HWPort::write(uint16_t addr, uint16_t data)
 {
     plugin_->Write(handle_, addr, static_cast<uint8_t>(data));
