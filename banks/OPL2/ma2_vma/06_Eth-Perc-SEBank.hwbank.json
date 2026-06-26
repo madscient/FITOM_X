@@ -1,0 +1,5769 @@
+{
+  "name": "06_Eth-Perc-SEBank",
+  "group": "OPL2",
+  "bank": 0,
+  "op_count": 2,
+  "source": "06_Eth-Perc-SEBank.vma (MA-2 VMA FM format)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "Sitar-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 9,
+          "AR": 10,
+          "SL": 2,
+          "TL": 4,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 13,
+          "SL": 14,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 1,
+      "name": "Sitar-3",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 22,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 2
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 3,
+          "AR": 14,
+          "SL": 12,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 7
+        }
+      ]
+    },
+    {
+      "prog": 2,
+      "name": "Baglama",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 24,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 2
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 14,
+          "SL": 9,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 5
+        }
+      ]
+    },
+    {
+      "prog": 3,
+      "name": "SynthSitar",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 5,
+          "AR": 11,
+          "SL": 1,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 2,
+          "AR": 11,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 6
+        }
+      ]
+    },
+    {
+      "prog": 4,
+      "name": "Electric Piano 1",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 5,
+      "name": "Banjo-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 8,
+          "AR": 11,
+          "SL": 1,
+          "TL": 10,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 4,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 6,
+      "name": "Harpsichord",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 7,
+      "name": "Clavi",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 8,
+      "name": "Celesta",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 9,
+      "name": "Glockenspiel",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 10,
+      "name": "Shamisen-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 6,
+          "AR": 9,
+          "SL": 3,
+          "TL": 24,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 5,
+          "AR": 13,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 11,
+      "name": "Vibraphone",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 12,
+      "name": "Marimba",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 13,
+      "name": "Xylophone",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 14,
+      "name": "Tubular Bells",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 15,
+      "name": "Koto-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 10,
+          "AR": 10,
+          "SL": 5,
+          "TL": 22,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 16,
+      "name": "Drawbar Organ",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 17,
+      "name": "Percussive Organ",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 18,
+      "name": "Rock Organ",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 19,
+      "name": "Church Organ",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 20,
+      "name": "Kalimba-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 12,
+          "AR": 10,
+          "SL": 5,
+          "TL": 31,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 15,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 21,
+      "name": "Accordion",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 22,
+      "name": "Harmonica",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 23,
+      "name": "Tango Accordion",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 24,
+      "name": "Acoustic Guitar (nylon)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 25,
+      "name": "Bagpipe-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 6,
+          "AR": 9,
+          "SL": 1,
+          "TL": 26,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 8,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 26,
+      "name": "Bagpipe-3",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 13,
+          "AR": 10,
+          "SL": 1,
+          "TL": 31,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 12,
+          "AR": 10,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 27,
+      "name": "Electric Guitar (clean)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 28,
+      "name": "Electric Guitar (muted)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 29,
+      "name": "Overdriven Guitar",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 30,
+      "name": "Fiddle-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 15,
+          "AR": 15,
+          "SL": 1,
+          "TL": 15,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 5,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 31,
+      "name": "Guitar harmonics",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 32,
+      "name": "Acoustic Bass",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 33,
+      "name": "Electric Bass (finger)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 34,
+      "name": "Electric Bass (pick)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 35,
+      "name": "Shanai-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 10,
+          "AR": 13,
+          "SL": 1,
+          "TL": 10,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 6
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 11,
+          "DR": 15,
+          "AR": 8,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 36,
+      "name": "Charamela",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 2,
+          "AR": 11,
+          "SL": 0,
+          "TL": 6,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 4,
+          "AR": 8,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 37,
+      "name": "Slap Bass 2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 38,
+      "name": "Synth Bass 1",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 39,
+      "name": "Synth Bass 2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 40,
+      "name": "TinkleBell-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 4,
+          "AR": 12,
+          "SL": 1,
+          "TL": 30,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 41,
+      "name": "TinkleBell-3",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 4,
+          "AR": 12,
+          "SL": 1,
+          "TL": 21,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 8,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 42,
+      "name": "Cello",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 43,
+      "name": "Contrabass",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 44,
+      "name": "Tremolo Strings",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 45,
+      "name": "Pizzicato Strings",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 46,
+      "name": "Orchestral Harp",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 47,
+      "name": "Timpani",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 48,
+      "name": "String Ensemble 1",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 49,
+      "name": "String Ensemble 2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 50,
+      "name": "SteelDrum-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 7,
+          "AR": 6,
+          "SL": 2,
+          "TL": 26,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 15,
+          "AR": 14,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 51,
+      "name": "SynthStrings 2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 52,
+      "name": "Choir Aahs",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 53,
+      "name": "Voice Oohs",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 54,
+      "name": "Synth Voice",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 55,
+      "name": "WoodBlock-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 11,
+          "DR": 9,
+          "AR": 13,
+          "SL": 2,
+          "TL": 11,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 7,
+          "AR": 15,
+          "SL": 4,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 56,
+      "name": "Hi-Block",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 10,
+          "AR": 15,
+          "SL": 1,
+          "TL": 24,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 7,
+          "AR": 15,
+          "SL": 14,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 57,
+      "name": "Trombone",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 58,
+      "name": "Tuba",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 59,
+      "name": "Muted Trumpet",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 60,
+      "name": "French Horn",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 61,
+      "name": "Brass Section",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 62,
+      "name": "SynthBrass 1",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 63,
+      "name": "SynthBrass 2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 64,
+      "name": "Soprano Sax",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 65,
+      "name": "Alto Sax",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 66,
+      "name": "Tenor Sax",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 67,
+      "name": "Baritone Sax",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 68,
+      "name": "Oboe",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 69,
+      "name": "English Horn",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 70,
+      "name": "Syn.Drum-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 12,
+          "AR": 9,
+          "SL": 1,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 13,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 71,
+      "name": "Galaxy",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 5,
+          "AR": 7,
+          "SL": 13,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 4,
+          "AR": 11,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 72,
+      "name": "Hi-Q_Tom",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 7,
+          "AR": 8,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 3,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 73,
+      "name": "Flute",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 74,
+      "name": "Recorder",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 75,
+      "name": "RevCymbal-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 15,
+          "AR": 4,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 13,
+          "DR": 15,
+          "AR": 1,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 76,
+      "name": "RevGalaxy",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 4,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 11,
+          "AR": 2,
+          "SL": 13,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 77,
+      "name": "Shakuhachi",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 78,
+      "name": "Whistle",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 79,
+      "name": "Ocarina",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 80,
+      "name": "Seq-1",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 5,
+          "AR": 11,
+          "SL": 15,
+          "TL": 32,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 9,
+          "AR": 11,
+          "SL": 12,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 81,
+      "name": "Seq-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 4,
+          "AR": 15,
+          "SL": 1,
+          "TL": 15,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 15,
+          "SL": 5,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 82,
+      "name": "Seq-3",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 9,
+          "AR": 10,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 8,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 3,
+          "AR": 10,
+          "SL": 4,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 83,
+      "name": "Seq-4",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 15,
+          "SL": 3,
+          "TL": 19,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 9,
+          "DR": 5,
+          "AR": 12,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 84,
+      "name": "Lead 5 (charang)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 85,
+      "name": "Lead 6 (voice)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 86,
+      "name": "Lead 7 (fifths)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 87,
+      "name": "Lead 8 (bass + lead)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 88,
+      "name": "Pad 1 (new age)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 89,
+      "name": "Pad 2 (warm)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 90,
+      "name": "Seashore-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 0,
+          "AR": 9,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 6
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 3,
+          "AR": 1,
+          "SL": 15,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 91,
+      "name": "Pad 4 (choir)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 92,
+      "name": "Pad 5 (bowed)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 93,
+      "name": "Pad 6 (metallic)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 94,
+      "name": "Pad 7 (halo)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 95,
+      "name": "Insect-1",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 8,
+          "AR": 12,
+          "SL": 1,
+          "TL": 22,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 10,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 7,
+          "AR": 5,
+          "SL": 5,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 96,
+      "name": "Insect-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 4,
+          "AR": 9,
+          "SL": 5,
+          "TL": 12,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 4,
+          "AR": 9,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 97,
+      "name": "FX 2 (soundtrack)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 98,
+      "name": "FX 3 (crystal)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 99,
+      "name": "FX 4 (atmosphere)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 100,
+      "name": "Robot-1",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 10,
+          "AR": 15,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 6,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 10,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 13,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 101,
+      "name": "Robot-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 15,
+          "DR": 0,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 3
+        },
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 15,
+          "DR": 0,
+          "AR": 15,
+          "SL": 7,
+          "TL": 10,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 3
+        }
+      ]
+    },
+    {
+      "prog": 102,
+      "name": "FX 7 (echoes)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 103,
+      "name": "FX 8 (sci-fi)",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 104,
+      "name": "Sitar",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 105,
+      "name": "Helicopter-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 0,
+          "AR": 1,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 6
+        }
+      ]
+    },
+    {
+      "prog": 106,
+      "name": "SL",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 9,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 0,
+          "AR": 5,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 6
+        }
+      ]
+    },
+    {
+      "prog": 107,
+      "name": "Starship",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 2,
+          "AR": 12,
+          "SL": 15,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 14,
+          "SL": 15,
+          "TL": 11,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 108,
+      "name": "Kalimba",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 109,
+      "name": "Bag pipe",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 110,
+      "name": "Applause-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 11,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 4,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 111,
+      "name": "Shanai",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 112,
+      "name": "Tinkle Bell",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 113,
+      "name": "Agogo",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 114,
+      "name": "Steel Drums",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 115,
+      "name": "Gunshot-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 14,
+          "AR": 9,
+          "SL": 0,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 13,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 116,
+      "name": "Gong",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 14,
+          "AR": 15,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 10,
+          "AR": 10,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 117,
+      "name": "Springer",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 9,
+          "AR": 10,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 0,
+          "AR": 10,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 118,
+      "name": "Wizard",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 1,
+          "AR": 2,
+          "SL": 10,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 2,
+          "AR": 6,
+          "SL": 3,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 6
+        }
+      ]
+    },
+    {
+      "prog": 119,
+      "name": "Reverse Cymbal",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 120,
+      "name": "Guitar Fret Noise",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 121,
+      "name": "Breath Noise",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 122,
+      "name": "Seashore",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 123,
+      "name": "Bird Tweet",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 124,
+      "name": "Telephone Ring",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 125,
+      "name": "Helicopter",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 126,
+      "name": "Applause",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 127,
+      "name": "Gunshot",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    }
+  ]
+}

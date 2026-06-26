@@ -1,0 +1,3643 @@
+{
+  "name": "07_DrumsBank",
+  "group": "OPL2",
+  "bank": 0,
+  "op_count": 2,
+  "source": "07_DrumsBank.vma (MA-2 VMA FM format)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "Drum Note 27",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 27
+    },
+    {
+      "prog": 1,
+      "name": "Drum Note 28",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 28
+    },
+    {
+      "prog": 2,
+      "name": "Hi-Q",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 11,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 15,
+          "DR": 10,
+          "AR": 15,
+          "SL": 2,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 11,
+          "DR": 9,
+          "AR": 15,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 29
+    },
+    {
+      "prog": 3,
+      "name": "WhipSlap",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 14,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 7,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 7,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 3,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 30
+    },
+    {
+      "prog": 4,
+      "name": "Drum Note 31",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 31
+    },
+    {
+      "prog": 5,
+      "name": "Drum Note 32",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 32
+    },
+    {
+      "prog": 6,
+      "name": "Drum Note 33",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 33
+    },
+    {
+      "prog": 7,
+      "name": "Drum Note 34",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 34
+    },
+    {
+      "prog": 8,
+      "name": "Drum Note 35",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 35
+    },
+    {
+      "prog": 9,
+      "name": "Drum Note 36",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 36
+    },
+    {
+      "prog": 10,
+      "name": "SeqClick L",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 15,
+          "SL": 15,
+          "TL": 31,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 15,
+          "DR": 8,
+          "AR": 12,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 37
+    },
+    {
+      "prog": 11,
+      "name": "SeqClick H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 15,
+          "SL": 15,
+          "TL": 31,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 15,
+          "DR": 8,
+          "AR": 10,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 38
+    },
+    {
+      "prog": 12,
+      "name": "BrushTapSoft-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 6,
+          "AR": 14,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 8,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 39
+    },
+    {
+      "prog": 13,
+      "name": "BrushSwirl L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 0,
+          "AR": 9,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 3,
+          "AR": 7,
+          "SL": 1,
+          "TL": 12,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 40
+    },
+    {
+      "prog": 14,
+      "name": "BrashSlap-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 0,
+          "AR": 10,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 9,
+          "AR": 10,
+          "SL": 8,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 41
+    },
+    {
+      "prog": 15,
+      "name": "BrushSwirl H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 12,
+          "SL": 4,
+          "TL": 10,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 42
+    },
+    {
+      "prog": 16,
+      "name": "SnareRoll-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 5,
+          "AR": 12,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 43
+    },
+    {
+      "prog": 17,
+      "name": "Castanet-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 7,
+          "AR": 15,
+          "SL": 15,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 7,
+          "DR": 8,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 44
+    },
+    {
+      "prog": 18,
+      "name": "Snare L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 12,
+          "AR": 13,
+          "SL": 0,
+          "TL": 14,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 9,
+          "AR": 11,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 45
+    },
+    {
+      "prog": 19,
+      "name": "Pla-Stick",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 15,
+          "SL": 2,
+          "TL": 41,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 12,
+          "DR": 6,
+          "AR": 15,
+          "SL": 7,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 46
+    },
+    {
+      "prog": 20,
+      "name": "BassDrum L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 8,
+          "AR": 13,
+          "SL": 11,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 11,
+          "DR": 6,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 47
+    },
+    {
+      "prog": 21,
+      "name": "OpenRimShot-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 10,
+          "AR": 14,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 12,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 48
+    },
+    {
+      "prog": 22,
+      "name": "AnalogBassDrum",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 8,
+          "AR": 12,
+          "SL": 6,
+          "TL": 8,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 49
+    },
+    {
+      "prog": 23,
+      "name": "BassDrum H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 8,
+          "AR": 11,
+          "SL": 7,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 50
+    },
+    {
+      "prog": 24,
+      "name": "CloseRimShot-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 3,
+          "AR": 11,
+          "SL": 0,
+          "TL": 15,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 8,
+          "DR": 8,
+          "AR": 11,
+          "SL": 1,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 51
+    },
+    {
+      "prog": 25,
+      "name": "AnalogSnare",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 11,
+          "AR": 10,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 11,
+          "AR": 13,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 52
+    },
+    {
+      "prog": 26,
+      "name": "HandClap-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 3,
+          "AR": 15,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 53
+    },
+    {
+      "prog": 27,
+      "name": "Snare H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 7,
+          "AR": 15,
+          "SL": 15,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 54
+    },
+    {
+      "prog": 28,
+      "name": "FloorTom L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 13,
+          "SL": 6,
+          "TL": 13,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 55
+    },
+    {
+      "prog": 29,
+      "name": "Hi-HatClosed-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 8,
+          "AR": 14,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 8,
+          "AR": 11,
+          "SL": 6,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 56
+    },
+    {
+      "prog": 30,
+      "name": "FloorTom H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 13,
+          "SL": 7,
+          "TL": 13,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 15,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 57
+    },
+    {
+      "prog": 31,
+      "name": "Hi-HatPedal-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 12,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 14,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 7,
+          "DR": 8,
+          "AR": 6,
+          "SL": 4,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 58
+    },
+    {
+      "prog": 32,
+      "name": "LowTom-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 8,
+          "AR": 12,
+          "SL": 2,
+          "TL": 23,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 15,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 59
+    },
+    {
+      "prog": 33,
+      "name": "Hi-HatOpen-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 14,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 6,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 7,
+          "AR": 12,
+          "SL": 5,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 60
+    },
+    {
+      "prog": 34,
+      "name": "MidTom L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 8,
+          "AR": 12,
+          "SL": 6,
+          "TL": 28,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 14,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 61
+    },
+    {
+      "prog": 35,
+      "name": "MidTom H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 8,
+          "AR": 13,
+          "SL": 7,
+          "TL": 27,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 15,
+          "SL": 6,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 62
+    },
+    {
+      "prog": 36,
+      "name": "CrashCymbal-3 ",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 14,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 4,
+          "AR": 15,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 15,
+          "AR": 11,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 63
+    },
+    {
+      "prog": 37,
+      "name": "HighTom-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 8,
+          "AR": 13,
+          "SL": 7,
+          "TL": 27,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 15,
+          "SL": 6,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 64
+    },
+    {
+      "prog": 38,
+      "name": "RideCymbal-3",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 15,
+          "SL": 4,
+          "TL": 1,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 4,
+          "AR": 15,
+          "SL": 14,
+          "TL": 20,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 65
+    },
+    {
+      "prog": 39,
+      "name": "ChineseCymbal-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 11,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 5,
+          "AR": 15,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 6,
+          "AR": 12,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 3
+        }
+      ],
+      "midi_note": 66
+    },
+    {
+      "prog": 40,
+      "name": "RideCup-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 14,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 10,
+          "AR": 14,
+          "SL": 1,
+          "TL": 8,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 3,
+          "AR": 15,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 67
+    },
+    {
+      "prog": 41,
+      "name": "Tambourine-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 3,
+          "AR": 12,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 11,
+          "SL": 7,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 68
+    },
+    {
+      "prog": 42,
+      "name": "SplashCymbal-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 1,
+          "AR": 15,
+          "SL": 0,
+          "TL": 16,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 2,
+          "AR": 11,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 69
+    },
+    {
+      "prog": 43,
+      "name": "Cowbell Hi",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 7,
+          "DR": 9,
+          "AR": 15,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 3,
+          "AR": 15,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 70
+    },
+    {
+      "prog": 44,
+      "name": "CrashCymbal-4",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 12,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 2,
+          "AR": 12,
+          "SL": 5,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 71
+    },
+    {
+      "prog": 45,
+      "name": "Vibraslap-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 0,
+          "AR": 11,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 4,
+          "AR": 9,
+          "SL": 10,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 72
+    },
+    {
+      "prog": 46,
+      "name": "RideCymbal-4",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 9,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 15,
+          "SL": 0,
+          "TL": 20,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 15,
+          "SL": 13,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 73
+    },
+    {
+      "prog": 47,
+      "name": "Bongo H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 10,
+          "DR": 10,
+          "AR": 10,
+          "SL": 5,
+          "TL": 21,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 14,
+          "SL": 15,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 74
+    },
+    {
+      "prog": 48,
+      "name": "Bongo L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 10,
+          "DR": 10,
+          "AR": 10,
+          "SL": 5,
+          "TL": 23,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 14,
+          "SL": 15,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 75
+    },
+    {
+      "prog": 49,
+      "name": "Conga H Mute-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 11,
+          "DR": 8,
+          "AR": 13,
+          "SL": 8,
+          "TL": 6,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 11,
+          "AR": 15,
+          "SL": 11,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 76
+    },
+    {
+      "prog": 50,
+      "name": "Conga H Open-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 10,
+          "AR": 11,
+          "SL": 3,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 9,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 77
+    },
+    {
+      "prog": 51,
+      "name": "Conga L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 10,
+          "AR": 11,
+          "SL": 3,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 9,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 78
+    },
+    {
+      "prog": 52,
+      "name": "Timbale H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 4,
+          "AR": 10,
+          "SL": 2,
+          "TL": 34,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 15,
+          "SL": 15,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 79
+    },
+    {
+      "prog": 53,
+      "name": "Timbale L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 7,
+          "AR": 14,
+          "SL": 1,
+          "TL": 35,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 80
+    },
+    {
+      "prog": 54,
+      "name": "AgogoTrad-Hi",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 12,
+          "AR": 14,
+          "SL": 2,
+          "TL": 25,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 15,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 81
+    },
+    {
+      "prog": 55,
+      "name": "AgogoTrad-Lo",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 12,
+          "AR": 14,
+          "SL": 2,
+          "TL": 26,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 15,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 82
+    },
+    {
+      "prog": 56,
+      "name": "Cabasa-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 0,
+          "AR": 9,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 5,
+          "AR": 6,
+          "SL": 5,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 83
+    },
+    {
+      "prog": 57,
+      "name": "Maracas-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 14,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 11,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 11,
+          "AR": 8,
+          "SL": 5,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 84
+    },
+    {
+      "prog": 58,
+      "name": "SambaWhistl H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 0,
+          "AR": 13,
+          "SL": 0,
+          "TL": 23,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 8,
+          "AR": 11,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 85
+    },
+    {
+      "prog": 59,
+      "name": "SambaWhistl L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 0,
+          "AR": 13,
+          "SL": 0,
+          "TL": 23,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 8,
+          "AR": 11,
+          "SL": 3,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 86
+    },
+    {
+      "prog": 60,
+      "name": "GuiroShort-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 15,
+          "AR": 12,
+          "SL": 0,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 8,
+          "AR": 7,
+          "SL": 15,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 87
+    },
+    {
+      "prog": 61,
+      "name": "GuiroLong-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 2,
+          "AR": 8,
+          "SL": 2,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 5,
+          "AR": 6,
+          "SL": 2,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 88
+    },
+    {
+      "prog": 62,
+      "name": "Claves-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 8,
+          "AR": 13,
+          "SL": 15,
+          "TL": 29,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 8,
+          "AR": 14,
+          "SL": 4,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 89
+    },
+    {
+      "prog": 63,
+      "name": "WoodBlock H-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 11,
+          "DR": 9,
+          "AR": 13,
+          "SL": 2,
+          "TL": 11,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 7,
+          "AR": 15,
+          "SL": 4,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 90
+    },
+    {
+      "prog": 64,
+      "name": "WoodBlock L-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 11,
+          "DR": 9,
+          "AR": 13,
+          "SL": 2,
+          "TL": 11,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 7,
+          "AR": 15,
+          "SL": 4,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 91
+    },
+    {
+      "prog": 65,
+      "name": "CuicaMute-2",
+      "hw": {
+        "ALG": 1,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 5,
+          "SL": 15,
+          "TL": 12,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 5,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 92
+    },
+    {
+      "prog": 66,
+      "name": "CuicaOpen-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 5,
+          "AR": 5,
+          "SL": 3,
+          "TL": 14,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 6,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 93
+    },
+    {
+      "prog": 67,
+      "name": "TriangleMute-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 14,
+          "AR": 15,
+          "SL": 0,
+          "TL": 21,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 12,
+          "AR": 15,
+          "SL": 3,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 94
+    },
+    {
+      "prog": 68,
+      "name": "TriangleOpen-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 15,
+          "AR": 15,
+          "SL": 3,
+          "TL": 12,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 10,
+          "AR": 15,
+          "SL": 3,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 95
+    },
+    {
+      "prog": 69,
+      "name": "Shaker-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 3,
+          "AR": 15,
+          "SL": 6,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 10,
+          "DR": 9,
+          "AR": 9,
+          "SL": 6,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 96
+    },
+    {
+      "prog": 70,
+      "name": "JingleBell-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 6,
+          "AR": 15,
+          "SL": 0,
+          "TL": 16,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 7,
+          "AR": 6,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 97
+    },
+    {
+      "prog": 71,
+      "name": "BellTree-2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 5,
+          "AR": 9,
+          "SL": 0,
+          "TL": 20,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 6
+        },
+        {
+          "MULT": 8,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 4,
+          "AR": 8,
+          "SL": 1,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ],
+      "midi_note": 98
+    },
+    {
+      "prog": 72,
+      "name": "Ring",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 0,
+          "AR": 5,
+          "SL": 0,
+          "TL": 11,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 11,
+          "AR": 9,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 99
+    },
+    {
+      "prog": 73,
+      "name": "ChineseCymbal-3",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 11,
+          "AR": 10,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 100
+    },
+    {
+      "prog": 74,
+      "name": "ChineseCymbal-4",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 11,
+          "AR": 10,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ],
+      "midi_note": 101
+    },
+    {
+      "prog": 75,
+      "name": "RideCymbal-5",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 10,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 3,
+          "AR": 15,
+          "SL": 1,
+          "TL": 15,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 10,
+          "AR": 15,
+          "SL": 3,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 102
+    },
+    {
+      "prog": 76,
+      "name": "Drum Note 103",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 103
+    },
+    {
+      "prog": 77,
+      "name": "Drum Note 104",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 104
+    },
+    {
+      "prog": 78,
+      "name": "Drum Note 105",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 0,
+          "AR": 0,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ],
+      "midi_note": 105
+    }
+  ]
+}

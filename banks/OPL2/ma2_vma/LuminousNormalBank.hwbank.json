@@ -1,0 +1,5769 @@
+{
+  "name": "LuminousNormalBank",
+  "group": "OPL2",
+  "bank": 0,
+  "op_count": 2,
+  "source": "LuminousNormalBank.vma (MA-2 VMA FM format)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "Lu-GrandPno",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 2,
+          "AR": 15,
+          "SL": 5,
+          "TL": 15,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 3,
+          "AR": 15,
+          "SL": 11,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 1,
+      "name": "Lu-BritePno",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 1,
+          "AR": 9,
+          "SL": 1,
+          "TL": 10,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 3,
+          "AR": 13,
+          "SL": 12,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 2,
+      "name": "Lu-E.GrandP",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 1,
+          "AR": 13,
+          "SL": 1,
+          "TL": 12,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 2,
+          "AR": 15,
+          "SL": 14,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 3,
+      "name": "Lu-HnkyTonk",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 13,
+          "AR": 15,
+          "SL": 2,
+          "TL": 12,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 4,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 4,
+      "name": "Lu-E.Piano1",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 2,
+          "AR": 15,
+          "SL": 8,
+          "TL": 10,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 2,
+          "AR": 15,
+          "SL": 14,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 6
+        }
+      ]
+    },
+    {
+      "prog": 5,
+      "name": "Lu-E.Piano2",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 6,
+          "AR": 13,
+          "SL": 3,
+          "TL": 15,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 2,
+          "AR": 15,
+          "SL": 12,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 6,
+      "name": "Lu-Harpsi",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 2,
+          "AR": 10,
+          "SL": 0,
+          "TL": 14,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 4,
+          "AR": 15,
+          "SL": 13,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 7,
+      "name": "Lu-Clavi",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 11,
+          "DR": 2,
+          "AR": 12,
+          "SL": 14,
+          "TL": 19,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 12,
+          "DR": 2,
+          "AR": 12,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 8,
+      "name": "Lu-Celesta",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 6,
+          "AR": 11,
+          "SL": 2,
+          "TL": 16,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 11,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 9,
+      "name": "Lu-Glocken",
+      "hw": {
+        "ALG": 1,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 3,
+          "AR": 15,
+          "SL": 13,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 3,
+          "AR": 15,
+          "SL": 15,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 10,
+      "name": "Lu-MusicBox",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 6,
+          "AR": 9,
+          "SL": 0,
+          "TL": 29,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 2,
+          "AR": 15,
+          "SL": 0,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 11,
+      "name": "Lu-Vibes",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 11,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 3,
+          "AR": 15,
+          "SL": 14,
+          "TL": 19,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 2,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 12,
+      "name": "Lu-Marimba",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 6,
+          "AR": 15,
+          "SL": 5,
+          "TL": 28,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 4,
+          "AR": 14,
+          "SL": 13,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 13,
+      "name": "Lu-Xylophon",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 6,
+          "AR": 15,
+          "SL": 10,
+          "TL": 17,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 15,
+          "SL": 14,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 14,
+      "name": "Lu-TubulBel",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 5,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 4,
+          "AR": 11,
+          "SL": 11,
+          "TL": 16,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 2,
+          "AR": 11,
+          "SL": 11,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 15,
+      "name": "Lu-Dulcimer",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 1,
+          "AR": 11,
+          "SL": 11,
+          "TL": 16,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 2,
+          "AR": 15,
+          "SL": 11,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 16,
+      "name": "Lu-DrawOrgn",
+      "hw": {
+        "ALG": 1,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 10,
+          "AR": 15,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 1,
+          "AR": 15,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 4
+        }
+      ]
+    },
+    {
+      "prog": 17,
+      "name": "Lu-PercOrgn",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 9,
+          "AR": 13,
+          "SL": 4,
+          "TL": 16,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 7,
+          "AR": 14,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 18,
+      "name": "Lu-RockOrgn",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 13,
+          "AR": 9,
+          "SL": 3,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 0,
+          "AR": 10,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 19,
+      "name": "Lu-ChrchOrg",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 7,
+          "AR": 9,
+          "SL": 2,
+          "TL": 9,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 5,
+          "AR": 4,
+          "SL": 1,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 20,
+      "name": "Lu-ReedOrgn",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 7,
+          "AR": 7,
+          "SL": 0,
+          "TL": 16,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 5,
+          "AR": 4,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 21,
+      "name": "Lu-Acordion",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 8,
+          "AR": 9,
+          "SL": 2,
+          "TL": 1,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 6,
+          "AR": 4,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 22,
+      "name": "Lu-Harmnica",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 1,
+          "AR": 7,
+          "SL": 1,
+          "TL": 18,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 5,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 6,
+          "AR": 5,
+          "SL": 1,
+          "TL": 8,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 23,
+      "name": "Lu-TangoAcd",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 7,
+          "SL": 0,
+          "TL": 11,
+          "KSL": 3,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 1,
+          "AR": 5,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 24,
+      "name": "Lu-NylonGtr",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 3,
+          "AR": 15,
+          "SL": 7,
+          "TL": 14,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 2,
+          "AR": 14,
+          "SL": 11,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 25,
+      "name": "Lu-SteelGtr",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 13,
+          "AR": 15,
+          "SL": 1,
+          "TL": 17,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 2,
+          "AR": 15,
+          "SL": 10,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 26,
+      "name": "Lu-JazzGtr",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 1,
+          "AR": 15,
+          "SL": 3,
+          "TL": 31,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 15,
+          "SL": 15,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 27,
+      "name": "Lu-CleanGtr",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 7,
+          "AR": 15,
+          "SL": 2,
+          "TL": 7,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 9,
+          "SL": 6,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 28,
+      "name": "Lu-Mute.Gtr",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 9,
+          "AR": 15,
+          "SL": 5,
+          "TL": 12,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 14,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 29,
+      "name": "Lu-Ovrdrive",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 4,
+          "AR": 15,
+          "SL": 1,
+          "TL": 9,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 2,
+          "AR": 15,
+          "SL": 3,
+          "TL": 8,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 30,
+      "name": "Lu-Dist.Gtr",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 13,
+          "SL": 1,
+          "TL": 13,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 1,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 31,
+      "name": "Lu-GtrHarmo",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 15,
+          "AR": 8,
+          "SL": 10,
+          "TL": 29,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 3,
+          "AR": 14,
+          "SL": 0,
+          "TL": 1,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 32,
+      "name": "Lu-Aco.Bass",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 2,
+          "AR": 10,
+          "SL": 14,
+          "TL": 7,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 3,
+          "AR": 15,
+          "SL": 15,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 33,
+      "name": "Lu-FngrBass",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 2,
+          "AR": 10,
+          "SL": 1,
+          "TL": 11,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 5,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 2,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 34,
+      "name": "Lu-PickBass",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 4,
+          "AR": 15,
+          "SL": 8,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 1,
+          "AR": 10,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 35,
+      "name": "Lu-Fretless",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 2,
+          "AR": 11,
+          "SL": 1,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 1,
+          "AR": 15,
+          "SL": 15,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 36,
+      "name": "Lu-SlapBas1",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 1,
+          "AR": 14,
+          "SL": 9,
+          "TL": 6,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 15,
+          "SL": 13,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 37,
+      "name": "Lu-SlapBas2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 15,
+          "SL": 9,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 7,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 15,
+          "SL": 13,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 38,
+      "name": "Lu-SynBass1",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 5,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 5,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 5,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 39,
+      "name": "Lu-SynBass2",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 3,
+          "AR": 8,
+          "SL": 1,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 2,
+          "AR": 13,
+          "SL": 15,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 40,
+      "name": "Lu-Violin",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 3,
+          "AR": 14,
+          "SL": 1,
+          "TL": 28,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 2,
+          "AR": 4,
+          "SL": 3,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 41,
+      "name": "Lu-Viola",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 13,
+          "AR": 13,
+          "SL": 1,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 6,
+          "AR": 7,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 42,
+      "name": "Lu-Cello",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 13,
+          "SL": 1,
+          "TL": 6,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 1,
+          "AR": 6,
+          "SL": 3,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 43,
+      "name": "Lu-Contrabs",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 3,
+          "AR": 11,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 1,
+          "AR": 6,
+          "SL": 2,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 44,
+      "name": "Lu-Trem.Str",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 1,
+          "AR": 15,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 15,
+          "AR": 6,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 45,
+      "name": "Lu-Pizz.Str",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 9,
+          "SL": 7,
+          "TL": 24,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 15,
+          "SL": 3,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 46,
+      "name": "Lu-Harp",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 2,
+          "AR": 15,
+          "SL": 8,
+          "TL": 12,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 1,
+          "AR": 15,
+          "SL": 15,
+          "TL": 10,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 47,
+      "name": "Lu-Timpani",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 10,
+          "AR": 14,
+          "SL": 3,
+          "TL": 8,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 4,
+          "AR": 14,
+          "SL": 6,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 48,
+      "name": "Lu-Strings1",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 1,
+          "AR": 11,
+          "SL": 1,
+          "TL": 27,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 7,
+          "SL": 0,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 49,
+      "name": "Lu-Strings2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 1,
+          "AR": 15,
+          "SL": 0,
+          "TL": 17,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 15,
+          "AR": 6,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 50,
+      "name": "Lu-Syn.Str1",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 2,
+          "AR": 8,
+          "SL": 1,
+          "TL": 10,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 5,
+          "SL": 2,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 51,
+      "name": "Lu-Syn.Str2",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 8,
+          "AR": 8,
+          "SL": 1,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 5,
+          "SL": 2,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 52,
+      "name": "Lu-ChoirAah",
+      "hw": {
+        "ALG": 1,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 0,
+          "AR": 4,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 10,
+          "AR": 4,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 53,
+      "name": "Lu-VoiceOoh",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 6,
+          "AR": 5,
+          "SL": 1,
+          "TL": 25,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 6,
+          "SL": 6,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 54,
+      "name": "Lu-SynVoice",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 9,
+          "AR": 6,
+          "SL": 2,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 1,
+          "AR": 6,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 55,
+      "name": "Lu-Orch.Hit",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 4,
+          "AR": 5,
+          "SL": 6,
+          "TL": 20,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 10,
+          "SL": 4,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 56,
+      "name": "Lu-Trumpet",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 7,
+          "AR": 7,
+          "SL": 1,
+          "TL": 18,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 15,
+          "AR": 8,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 57,
+      "name": "Lu-Trombone",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 5,
+          "AR": 8,
+          "SL": 1,
+          "TL": 16,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 15,
+          "AR": 8,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 58,
+      "name": "Lu-Tuba",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 12,
+          "AR": 7,
+          "SL": 1,
+          "TL": 8,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 2,
+          "AR": 11,
+          "SL": 3,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 59,
+      "name": "Lu-Mute.Trp",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 14,
+          "AR": 9,
+          "SL": 1,
+          "TL": 5,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 2,
+          "AR": 6,
+          "SL": 2,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 60,
+      "name": "Lu-Fr.Horn",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 6,
+          "SL": 6,
+          "TL": 18,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 4
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 15,
+          "AR": 6,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 4
+        }
+      ]
+    },
+    {
+      "prog": 61,
+      "name": "Lu-BrasSect",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 7,
+          "SL": 2,
+          "TL": 28,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 3,
+          "AR": 6,
+          "SL": 2,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 62,
+      "name": "Lu-SynBras1",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 3,
+          "AR": 6,
+          "SL": 10,
+          "TL": 21,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 1,
+          "AR": 9,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 63,
+      "name": "Lu-SynBras2",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 3,
+          "AR": 6,
+          "SL": 2,
+          "TL": 13,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 1,
+          "AR": 9,
+          "SL": 10,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 64,
+      "name": "Lu-SprnoSax",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 3,
+          "AR": 7,
+          "SL": 0,
+          "TL": 15,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 7,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 65,
+      "name": "Lu-AltoSax",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 3,
+          "AR": 9,
+          "SL": 0,
+          "TL": 7,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 7,
+          "SL": 0,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 66,
+      "name": "Lu-TenorSax",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 9,
+          "AR": 7,
+          "SL": 2,
+          "TL": 11,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 1,
+          "AR": 7,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 67,
+      "name": "Lu-Bari.Sax",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 1,
+          "AR": 7,
+          "SL": 5,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 1,
+          "AR": 7,
+          "SL": 7,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 68,
+      "name": "Lu-Oboe",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 1,
+          "AR": 13,
+          "SL": 2,
+          "TL": 9,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 2,
+          "AR": 12,
+          "SL": 0,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 4
+        }
+      ]
+    },
+    {
+      "prog": 69,
+      "name": "Lu-Eng.Horn",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 14,
+          "AR": 7,
+          "SL": 1,
+          "TL": 16,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 11,
+          "AR": 12,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 70,
+      "name": "Lu-Bassoon",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 7,
+          "AR": 12,
+          "SL": 1,
+          "TL": 22,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 1,
+          "AR": 7,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 71,
+      "name": "Lu-Clarinet",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 11,
+          "AR": 9,
+          "SL": 2,
+          "TL": 12,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 2,
+          "AR": 7,
+          "SL": 1,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 72,
+      "name": "Lu-Piccolo",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 8,
+          "AR": 6,
+          "SL": 8,
+          "TL": 18,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 1,
+          "AR": 8,
+          "SL": 1,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 73,
+      "name": "Lu-Flute",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 6,
+          "AR": 6,
+          "SL": 3,
+          "TL": 11,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 6
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 7,
+          "DR": 1,
+          "AR": 4,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 74,
+      "name": "Lu-Recorder",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 5,
+          "AR": 7,
+          "SL": 1,
+          "TL": 16,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 5,
+          "AR": 7,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 75,
+      "name": "Lu-PanFlute",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 7,
+          "AR": 12,
+          "SL": 5,
+          "TL": 2,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 5,
+          "AR": 6,
+          "SL": 3,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 76,
+      "name": "Lu-Bottle",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 6,
+          "AR": 9,
+          "SL": 4,
+          "TL": 14,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 5,
+          "AR": 7,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 77,
+      "name": "Lu-Shakhchi",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 11,
+          "SL": 13,
+          "TL": 8,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 1,
+          "AR": 5,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 78,
+      "name": "Lu-Whistle",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 5,
+          "SL": 0,
+          "TL": 36,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 8,
+          "AR": 5,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 6
+        }
+      ]
+    },
+    {
+      "prog": 79,
+      "name": "Lu-Ocarina",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 8,
+          "AR": 6,
+          "SL": 5,
+          "TL": 29,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 6,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 80,
+      "name": "Lu-SquareLd",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 34,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 81,
+      "name": "Lu-Saw.Lead",
+      "hw": {
+        "ALG": 1,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 1,
+          "AR": 8,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 3,
+          "AR": 15,
+          "SL": 5,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 82,
+      "name": "Lu-CaliopLd",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 6,
+          "AR": 8,
+          "SL": 5,
+          "TL": 12,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 2,
+          "AR": 6,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 83,
+      "name": "Lu-ChiffLd",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 7,
+          "AR": 8,
+          "SL": 9,
+          "TL": 18,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 7,
+          "DR": 2,
+          "AR": 11,
+          "SL": 2,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 84,
+      "name": "Lu-CharanLd",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 2,
+          "AR": 8,
+          "SL": 0,
+          "TL": 11,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 2,
+          "AR": 11,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 85,
+      "name": "Lu-VoiceLd",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 1,
+          "AR": 8,
+          "SL": 2,
+          "TL": 25,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 6
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 15,
+          "AR": 8,
+          "SL": 0,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 86,
+      "name": "Lu-FifthLd",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 3,
+          "AR": 11,
+          "SL": 3,
+          "TL": 22,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 2,
+          "AR": 10,
+          "SL": 1,
+          "TL": 4,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 87,
+      "name": "Lu-Bass&Ld",
+      "hw": {
+        "ALG": 0,
+        "FB": 4,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 2,
+          "AR": 15,
+          "SL": 0,
+          "TL": 8,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 4,
+          "AR": 15,
+          "SL": 3,
+          "TL": 4,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 88,
+      "name": "Lu-NewAgePd",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 1,
+          "AR": 15,
+          "SL": 6,
+          "TL": 20,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 5,
+          "AR": 6,
+          "SL": 1,
+          "TL": 8,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 4
+        }
+      ]
+    },
+    {
+      "prog": 89,
+      "name": "Lu-WarmPad",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 4,
+          "SL": 10,
+          "TL": 32,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 1,
+          "AR": 4,
+          "SL": 1,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 90,
+      "name": "Lu-PolySyPd",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 2,
+          "AR": 6,
+          "SL": 2,
+          "TL": 25,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 5,
+          "AR": 4,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 91,
+      "name": "Lu-ChoirPad",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 5,
+          "SL": 3,
+          "TL": 13,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 1,
+          "AR": 5,
+          "SL": 1,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 92,
+      "name": "Lu-BowedPad",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 1,
+          "AR": 3,
+          "SL": 4,
+          "TL": 4,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 3,
+          "SL": 3,
+          "TL": 5,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 93,
+      "name": "Lu-MetalPad",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 1,
+          "AR": 10,
+          "SL": 7,
+          "TL": 18,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 1,
+          "AR": 4,
+          "SL": 4,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 94,
+      "name": "Lu-HaloPad",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 4,
+          "SL": 3,
+          "TL": 8,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 2,
+          "AR": 3,
+          "SL": 2,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 95,
+      "name": "Lu-SweepPad",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 2,
+          "SL": 7,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 2,
+          "SL": 1,
+          "TL": 6,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 96,
+      "name": "Lu-Rain",
+      "hw": {
+        "ALG": 1,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 3,
+          "AR": 10,
+          "SL": 13,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 7
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 3,
+          "AR": 11,
+          "SL": 10,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 97,
+      "name": "Lu-SoundTrk",
+      "hw": {
+        "ALG": 1,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 2,
+          "AR": 6,
+          "SL": 2,
+          "TL": 4,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 5,
+          "AR": 4,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        }
+      ]
+    },
+    {
+      "prog": 98,
+      "name": "Lu-Crystal",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 9,
+          "SL": 9,
+          "TL": 12,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 2,
+          "AR": 15,
+          "SL": 7,
+          "TL": 10,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 99,
+      "name": "Lu-Atmosphr",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 15,
+          "SL": 8,
+          "TL": 26,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 15,
+          "SL": 2,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 100,
+      "name": "Lu-Bright",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 6,
+          "AR": 12,
+          "SL": 5,
+          "TL": 15,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 5,
+          "AR": 15,
+          "SL": 5,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 101,
+      "name": "Lu-Goblins",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 1,
+          "SL": 5,
+          "TL": 22,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 1,
+          "AR": 1,
+          "SL": 1,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 3
+        }
+      ]
+    },
+    {
+      "prog": 102,
+      "name": "Lu-Echoes",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 7,
+          "SL": 3,
+          "TL": 10,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 13,
+          "AR": 14,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 103,
+      "name": "Lu-Sci-Fi",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 2,
+          "AR": 8,
+          "SL": 9,
+          "TL": 16,
+          "KSL": 1,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 1,
+          "AR": 10,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 104,
+      "name": "Lu-Sitar",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 4,
+          "AR": 11,
+          "SL": 8,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 13,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 2,
+          "DR": 2,
+          "AR": 15,
+          "SL": 15,
+          "TL": 14,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 105,
+      "name": "Lu-Banjo",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 6,
+          "AR": 11,
+          "SL": 1,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 6,
+          "DR": 4,
+          "AR": 13,
+          "SL": 15,
+          "TL": 6,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 106,
+      "name": "Lu-Shamisen",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 13,
+          "AR": 15,
+          "SL": 7,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 5,
+          "AR": 15,
+          "SL": 14,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 107,
+      "name": "Lu-Koto",
+      "hw": {
+        "ALG": 0,
+        "FB": 1,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 11,
+          "AR": 15,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 3,
+          "AR": 14,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 108,
+      "name": "Lu-Kalimba",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 3,
+          "DR": 10,
+          "AR": 15,
+          "SL": 5,
+          "TL": 5,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 12,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 109,
+      "name": "Lu-Bagpipe",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 12,
+          "AR": 7,
+          "SL": 2,
+          "TL": 15,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 15,
+          "AR": 6,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 110,
+      "name": "Lu-Fiddle",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 15,
+          "AR": 14,
+          "SL": 3,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 7,
+          "DR": 6,
+          "AR": 5,
+          "SL": 1,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 111,
+      "name": "Lu-Shanai",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 10,
+          "AR": 13,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 8,
+          "DR": 15,
+          "AR": 8,
+          "SL": 0,
+          "TL": 12,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 112,
+      "name": "Lu-TnklBell",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 8,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 1,
+          "AR": 15,
+          "SL": 14,
+          "TL": 20,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 4,
+          "AR": 15,
+          "SL": 9,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 113,
+      "name": "Lu-Agogo",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 7,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 12,
+          "AR": 14,
+          "SL": 2,
+          "TL": 21,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 8,
+          "AR": 15,
+          "SL": 1,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 114,
+      "name": "Lu-SteelDrm",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 7,
+          "AR": 6,
+          "SL": 4,
+          "TL": 25,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 5,
+          "AR": 15,
+          "SL": 2,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 115,
+      "name": "Lu-WoodBlok",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 13,
+          "AR": 13,
+          "SL": 11,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 7,
+          "AR": 15,
+          "SL": 14,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 116,
+      "name": "Lu-TaikoDrm",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 0,
+          "AR": 11,
+          "SL": 0,
+          "TL": 2,
+          "KSL": 2,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 13,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 117,
+      "name": "Lu-MelodTom",
+      "hw": {
+        "ALG": 0,
+        "FB": 2,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 2,
+          "DR": 8,
+          "AR": 15,
+          "SL": 4,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 1,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 15,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 118,
+      "name": "Lu-Syn.Drum",
+      "hw": {
+        "ALG": 0,
+        "FB": 3,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 2,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 1,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 0,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 3,
+          "AR": 15,
+          "SL": 0,
+          "TL": 7,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 119,
+      "name": "Lu-RevCymbl",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 14,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 15,
+          "AR": 1,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 0,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 6,
+          "DR": 7,
+          "AR": 1,
+          "SL": 15,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 120,
+      "name": "Lu-FretNoiz",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 6,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 8,
+          "AR": 15,
+          "SL": 2,
+          "TL": 20,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 3,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 6,
+          "AR": 5,
+          "SL": 8,
+          "TL": 1,
+          "KSL": 2,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 121,
+      "name": "Lu-BrthNoiz",
+      "hw": {
+        "ALG": 0,
+        "FB": 6,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 14,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 8,
+          "AR": 15,
+          "SL": 0,
+          "TL": 20,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 1
+        },
+        {
+          "MULT": 12,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 4,
+          "AR": 3,
+          "SL": 0,
+          "TL": 5,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        }
+      ]
+    },
+    {
+      "prog": 122,
+      "name": "Lu-Seashore",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 6,
+          "AR": 7,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        },
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 4,
+          "DR": 15,
+          "AR": 1,
+          "SL": 0,
+          "TL": 3,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 123,
+      "name": "Lu-Tweet",
+      "hw": {
+        "ALG": 0,
+        "FB": 0,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 8,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 7,
+          "AR": 3,
+          "SL": 10,
+          "TL": 22,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        },
+        {
+          "MULT": 4,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 4,
+          "DR": 6,
+          "AR": 5,
+          "SL": 3,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 2
+        }
+      ]
+    },
+    {
+      "prog": 124,
+      "name": "Lu-Telphone",
+      "hw": {
+        "ALG": 0,
+        "FB": 5,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 11,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 1,
+          "DR": 2,
+          "AR": 11,
+          "SL": 6,
+          "TL": 14,
+          "KSL": 1,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        },
+        {
+          "MULT": 4,
+          "VIB": 0,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 3,
+          "DR": 4,
+          "AR": 15,
+          "SL": 1,
+          "TL": 9,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 0
+        }
+      ]
+    },
+    {
+      "prog": 125,
+      "name": "Lu-Helicptr",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 0,
+          "DR": 6,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        },
+        {
+          "MULT": 10,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 1,
+          "RR": 5,
+          "DR": 15,
+          "AR": 4,
+          "SL": 0,
+          "TL": 4,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 0,
+          "AM": 1,
+          "WS": 3
+        }
+      ]
+    },
+    {
+      "prog": 126,
+      "name": "Lu-Applause",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 1
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 0,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 15,
+          "AR": 15,
+          "SL": 0,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 0
+        },
+        {
+          "MULT": 13,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 2,
+          "AR": 5,
+          "SL": 1,
+          "TL": 15,
+          "KSL": 0,
+          "DVB": 1,
+          "DAM": 1,
+          "AM": 0,
+          "WS": 3
+        }
+      ]
+    },
+    {
+      "prog": 127,
+      "name": "Lu-Gunshot",
+      "hw": {
+        "ALG": 0,
+        "FB": 7,
+        "LFO": 0
+      },
+      "ops": [
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 1,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 1,
+          "DR": 3,
+          "AR": 15,
+          "SL": 15,
+          "TL": 0,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 1
+        },
+        {
+          "MULT": 15,
+          "VIB": 1,
+          "EGT": 0,
+          "SUS": 0,
+          "KSR": 0,
+          "RR": 5,
+          "DR": 6,
+          "AR": 15,
+          "SL": 11,
+          "TL": 2,
+          "KSL": 0,
+          "DVB": 0,
+          "DAM": 0,
+          "AM": 0,
+          "WS": 3
+        }
+      ]
+    }
+  ]
+}
