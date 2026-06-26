@@ -9,10 +9,8 @@
       "prog": 0,
       "name": "Program 0",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -79,10 +77,8 @@
       "prog": 1,
       "name": "Program 1",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -149,10 +145,8 @@
       "prog": 2,
       "name": "Program 2",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -219,10 +213,8 @@
       "prog": 3,
       "name": "Program 3",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -289,10 +281,8 @@
       "prog": 4,
       "name": "Program 4",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -359,10 +349,8 @@
       "prog": 5,
       "name": "Program 5",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -429,10 +417,8 @@
       "prog": 6,
       "name": "Program 6",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -499,10 +485,8 @@
       "prog": 7,
       "name": "Program 7",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -569,10 +553,8 @@
       "prog": 8,
       "name": "Program 8",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -639,10 +621,8 @@
       "prog": 9,
       "name": "Program 9",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -709,10 +689,8 @@
       "prog": 10,
       "name": "Program 10",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -779,10 +757,8 @@
       "prog": 11,
       "name": "Program 11",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -849,10 +825,8 @@
       "prog": 12,
       "name": "Program 12",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -919,10 +893,8 @@
       "prog": 13,
       "name": "Program 13",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -989,10 +961,8 @@
       "prog": 14,
       "name": "Program 14",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1059,10 +1029,8 @@
       "prog": 15,
       "name": "Program 15",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1129,10 +1097,8 @@
       "prog": 16,
       "name": "Program 16",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1199,10 +1165,8 @@
       "prog": 17,
       "name": "Program 17",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1269,10 +1233,8 @@
       "prog": 18,
       "name": "Program 18",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1339,10 +1301,8 @@
       "prog": 19,
       "name": "Program 19",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1409,10 +1369,8 @@
       "prog": 20,
       "name": "Program 20",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1479,10 +1437,8 @@
       "prog": 21,
       "name": "Program 21",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1549,10 +1505,8 @@
       "prog": 22,
       "name": "Program 22",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1619,10 +1573,8 @@
       "prog": 23,
       "name": "Program 23",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1689,10 +1641,8 @@
       "prog": 24,
       "name": "Program 24",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1759,10 +1709,8 @@
       "prog": 25,
       "name": "Program 25",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1829,10 +1777,8 @@
       "prog": 26,
       "name": "Program 26",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1899,10 +1845,8 @@
       "prog": 27,
       "name": "Program 27",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -1969,10 +1913,8 @@
       "prog": 28,
       "name": "Program 28",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2039,10 +1981,8 @@
       "prog": 29,
       "name": "Program 29",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2109,10 +2049,8 @@
       "prog": 30,
       "name": "Program 30",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2179,10 +2117,8 @@
       "prog": 31,
       "name": "Program 31",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2249,10 +2185,8 @@
       "prog": 32,
       "name": "Program 32",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2319,10 +2253,8 @@
       "prog": 33,
       "name": "Program 33",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2389,10 +2321,8 @@
       "prog": 34,
       "name": "Program 34",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -2459,10 +2389,8 @@
       "prog": 35,
       "name": "Ac Bass Drum",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -2529,10 +2457,8 @@
       "prog": 36,
       "name": "Bass Drum 1",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -2599,10 +2525,8 @@
       "prog": 37,
       "name": "Side Stick",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 4
       },
       "ops": [
         {
@@ -2669,10 +2593,8 @@
       "prog": 38,
       "name": "Acoustic Snare",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -2739,10 +2661,8 @@
       "prog": 39,
       "name": "Hand Clap",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -2809,10 +2729,8 @@
       "prog": 40,
       "name": "Electric Snare",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -2879,10 +2797,8 @@
       "prog": 41,
       "name": "Low Floor Tom",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -2949,10 +2865,8 @@
       "prog": 42,
       "name": "Closed High Hat",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -3019,10 +2933,8 @@
       "prog": 43,
       "name": "High Floor Tom",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -3089,10 +3001,8 @@
       "prog": 44,
       "name": "Pedal High Hat",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -3159,10 +3069,8 @@
       "prog": 45,
       "name": "Low Tom",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -3229,10 +3137,8 @@
       "prog": 46,
       "name": "Open High Hat",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -3299,10 +3205,8 @@
       "prog": 47,
       "name": "Low-Mid Tom",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -3369,10 +3273,8 @@
       "prog": 48,
       "name": "High-Mid Tom",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -3439,10 +3341,8 @@
       "prog": 49,
       "name": "Crash Cymbal 1",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 4
       },
       "ops": [
         {
@@ -3509,10 +3409,8 @@
       "prog": 50,
       "name": "High Tom",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -3579,10 +3477,8 @@
       "prog": 51,
       "name": "Ride Cymbal 1",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -3649,10 +3545,8 @@
       "prog": 52,
       "name": "Chinese Cymbal",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -3719,10 +3613,8 @@
       "prog": 53,
       "name": "Ride Bell",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 4
       },
       "ops": [
         {
@@ -3789,10 +3681,8 @@
       "prog": 54,
       "name": "Tambourine",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -3859,10 +3749,8 @@
       "prog": 55,
       "name": "Splash Cymbal",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -3929,10 +3817,8 @@
       "prog": 56,
       "name": "Cow Bell",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -3999,10 +3885,8 @@
       "prog": 57,
       "name": "Crash Cymbal 2",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -4069,10 +3953,8 @@
       "prog": 58,
       "name": "Vibraslap",
       "hw": {
-        "ALG": 0,
-        "FB": 3,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 3
       },
       "ops": [
         {
@@ -4139,10 +4021,8 @@
       "prog": 59,
       "name": "Ride Cymbal 2",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -4209,10 +4089,8 @@
       "prog": 60,
       "name": "High Bongo",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -4279,10 +4157,8 @@
       "prog": 61,
       "name": "Low Bongo",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -4349,10 +4225,8 @@
       "prog": 62,
       "name": "Mute High Conga",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -4419,10 +4293,8 @@
       "prog": 63,
       "name": "Open High Conga",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -4489,10 +4361,8 @@
       "prog": 64,
       "name": "Low Conga",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -4559,10 +4429,8 @@
       "prog": 65,
       "name": "High Timbale",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -4629,10 +4497,8 @@
       "prog": 66,
       "name": "Low Timbale",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 5
       },
       "ops": [
         {
@@ -4699,10 +4565,8 @@
       "prog": 67,
       "name": "High Agogo",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 4
       },
       "ops": [
         {
@@ -4769,10 +4633,8 @@
       "prog": 68,
       "name": "Low Agogo",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 4
       },
       "ops": [
         {
@@ -4839,10 +4701,8 @@
       "prog": 69,
       "name": "Cabasa",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -4909,10 +4769,8 @@
       "prog": 70,
       "name": "Maracas",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -4979,10 +4837,8 @@
       "prog": 71,
       "name": "Short Whistle",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -5049,10 +4905,8 @@
       "prog": 72,
       "name": "Long Whistle",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 4
       },
       "ops": [
         {
@@ -5119,10 +4973,8 @@
       "prog": 73,
       "name": "Short Guiro",
       "hw": {
-        "ALG": 0,
-        "FB": 6,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 6
       },
       "ops": [
         {
@@ -5189,10 +5041,8 @@
       "prog": 74,
       "name": "Long Guiro",
       "hw": {
-        "ALG": 0,
-        "FB": 6,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 6
       },
       "ops": [
         {
@@ -5259,10 +5109,8 @@
       "prog": 75,
       "name": "Claves",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -5329,10 +5177,8 @@
       "prog": 76,
       "name": "High Wood Block",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -5399,10 +5245,8 @@
       "prog": 77,
       "name": "Low Wood Block",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -5469,10 +5313,8 @@
       "prog": 78,
       "name": "Mute Cuica",
       "hw": {
-        "ALG": 0,
-        "FB": 6,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 6
       },
       "ops": [
         {
@@ -5539,10 +5381,8 @@
       "prog": 79,
       "name": "Open Cuica",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 7
       },
       "ops": [
         {
@@ -5609,10 +5449,8 @@
       "prog": 80,
       "name": "Mute Triangle",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -5679,10 +5517,8 @@
       "prog": 81,
       "name": "Open Triangle",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -5749,10 +5585,8 @@
       "prog": 82,
       "name": "Program 82",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -5819,10 +5653,8 @@
       "prog": 83,
       "name": "Program 83",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -5889,10 +5721,8 @@
       "prog": 84,
       "name": "Program 84",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -5959,10 +5789,8 @@
       "prog": 85,
       "name": "Program 85",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6029,10 +5857,8 @@
       "prog": 86,
       "name": "Program 86",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6099,10 +5925,8 @@
       "prog": 87,
       "name": "Program 87",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6169,10 +5993,8 @@
       "prog": 88,
       "name": "Program 88",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6239,10 +6061,8 @@
       "prog": 89,
       "name": "Program 89",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6309,10 +6129,8 @@
       "prog": 90,
       "name": "Program 90",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6379,10 +6197,8 @@
       "prog": 91,
       "name": "Program 91",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6449,10 +6265,8 @@
       "prog": 92,
       "name": "Program 92",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6519,10 +6333,8 @@
       "prog": 93,
       "name": "Program 93",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6589,10 +6401,8 @@
       "prog": 94,
       "name": "Program 94",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6659,10 +6469,8 @@
       "prog": 95,
       "name": "Program 95",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6729,10 +6537,8 @@
       "prog": 96,
       "name": "Program 96",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6799,10 +6605,8 @@
       "prog": 97,
       "name": "Program 97",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6869,10 +6673,8 @@
       "prog": 98,
       "name": "Program 98",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -6939,10 +6741,8 @@
       "prog": 99,
       "name": "Program 99",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7009,10 +6809,8 @@
       "prog": 100,
       "name": "Program 100",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7079,10 +6877,8 @@
       "prog": 101,
       "name": "Program 101",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7149,10 +6945,8 @@
       "prog": 102,
       "name": "Program 102",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7219,10 +7013,8 @@
       "prog": 103,
       "name": "Program 103",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7289,10 +7081,8 @@
       "prog": 104,
       "name": "Program 104",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7359,10 +7149,8 @@
       "prog": 105,
       "name": "Program 105",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7429,10 +7217,8 @@
       "prog": 106,
       "name": "Program 106",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7499,10 +7285,8 @@
       "prog": 107,
       "name": "Program 107",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7569,10 +7353,8 @@
       "prog": 108,
       "name": "Program 108",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7639,10 +7421,8 @@
       "prog": 109,
       "name": "Program 109",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7709,10 +7489,8 @@
       "prog": 110,
       "name": "Program 110",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7779,10 +7557,8 @@
       "prog": 111,
       "name": "Program 111",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7849,10 +7625,8 @@
       "prog": 112,
       "name": "Program 112",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7919,10 +7693,8 @@
       "prog": 113,
       "name": "Program 113",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -7989,10 +7761,8 @@
       "prog": 114,
       "name": "Program 114",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8059,10 +7829,8 @@
       "prog": 115,
       "name": "Program 115",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8129,10 +7897,8 @@
       "prog": 116,
       "name": "Program 116",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8199,10 +7965,8 @@
       "prog": 117,
       "name": "Program 117",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8269,10 +8033,8 @@
       "prog": 118,
       "name": "Program 118",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8339,10 +8101,8 @@
       "prog": 119,
       "name": "Program 119",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8409,10 +8169,8 @@
       "prog": 120,
       "name": "Program 120",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8479,10 +8237,8 @@
       "prog": 121,
       "name": "Program 121",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8549,10 +8305,8 @@
       "prog": 122,
       "name": "Program 122",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8619,10 +8373,8 @@
       "prog": 123,
       "name": "Program 123",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8689,10 +8441,8 @@
       "prog": 124,
       "name": "Program 124",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8759,10 +8509,8 @@
       "prog": 125,
       "name": "Program 125",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8829,10 +8577,8 @@
       "prog": 126,
       "name": "Program 126",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {
@@ -8899,10 +8645,8 @@
       "prog": 127,
       "name": "Program 127",
       "hw": {
-        "ALG": 0,
-        "FB": 0,
-        "ALG2": 0,
-        "FB2": 0
+        "ALG": 4,
+        "FB": 0
       },
       "ops": [
         {

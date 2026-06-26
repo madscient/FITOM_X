@@ -140,10 +140,22 @@ def convert_vma(src_path, dst_path, bank_no=0):
         else:
             name = f"Drum Note {27+i}" if is_drum else f"Program {prog}"
 
+        # 旧FITOM方式でALG/FBを統一エンコード:
+        #   ALG bit2=conn_sel(4OPなら1), bit1=cnt1(Array1 CNT), bit0=cnt0(Array0 CNT)
+        #   FB  bit5-3=fb1(Array1 FB),   bit2-0=fb0(Array0 FB)
+        if is_4op:
+            # MA-2 4OP: ALG/FBは全体共通 → 両ペアに同じ値を使用
+            # cnt0=cnt1=alg, fb0=fb1=fb, conn_sel=1
+            alg_enc = (1 << 2) | (alg << 1) | alg
+            fb_enc  = (fb << 3) | fb
+        else:
+            alg_enc = alg   # 2OP: そのまま
+            fb_enc  = fb
+
         patch = {
             "prog": i if is_drum else int(prog),
             "name": name,
-            "hw": {"ALG": alg, "FB": fb, "LFO": lfo},
+            "hw": {"ALG": alg_enc, "FB": fb_enc, "LFO": lfo},
             "ops": ops,
         }
         if is_drum:

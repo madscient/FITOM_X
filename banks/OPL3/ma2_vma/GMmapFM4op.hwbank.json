@@ -9,8 +9,8 @@
       "prog": 0,
       "name": "GrandPno",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -88,8 +88,8 @@
       "prog": 1,
       "name": "BritePno",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -167,8 +167,8 @@
       "prog": 2,
       "name": "E.GrandP",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -246,8 +246,8 @@
       "prog": 3,
       "name": "HnkyTonk",
       "hw": {
-        "ALG": 2,
-        "FB": 4,
+        "ALG": 6,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -325,8 +325,8 @@
       "prog": 4,
       "name": "E.Piano1",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -404,8 +404,8 @@
       "prog": 5,
       "name": "E.Piano2",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -483,8 +483,8 @@
       "prog": 6,
       "name": "Harpsi",
       "hw": {
-        "ALG": 2,
-        "FB": 3,
+        "ALG": 6,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -562,8 +562,8 @@
       "prog": 7,
       "name": "Clavi",
       "hw": {
-        "ALG": 2,
-        "FB": 5,
+        "ALG": 6,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -641,8 +641,8 @@
       "prog": 8,
       "name": "Celesta",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -720,8 +720,8 @@
       "prog": 9,
       "name": "Glocken",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -799,7 +799,7 @@
       "prog": 10,
       "name": "MusicBox",
       "hw": {
-        "ALG": 1,
+        "ALG": 7,
         "FB": 0,
         "LFO": 0
       },
@@ -878,8 +878,8 @@
       "prog": 11,
       "name": "Vibes",
       "hw": {
-        "ALG": 1,
-        "FB": 1,
+        "ALG": 7,
+        "FB": 9,
         "LFO": 0
       },
       "ops": [
@@ -957,8 +957,8 @@
       "prog": 12,
       "name": "Marimba",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -1036,8 +1036,8 @@
       "prog": 13,
       "name": "Xylophon",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -1115,8 +1115,8 @@
       "prog": 14,
       "name": "TubulBel",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -1194,8 +1194,8 @@
       "prog": 15,
       "name": "Dulcimer",
       "hw": {
-        "ALG": 3,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -1273,8 +1273,8 @@
       "prog": 16,
       "name": "DrawOrgn",
       "hw": {
-        "ALG": 3,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -1352,8 +1352,8 @@
       "prog": 17,
       "name": "PercOrgn",
       "hw": {
-        "ALG": 3,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -1431,8 +1431,8 @@
       "prog": 18,
       "name": "RockOrgn",
       "hw": {
-        "ALG": 3,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -1510,8 +1510,8 @@
       "prog": 19,
       "name": "ChrchOrg",
       "hw": {
-        "ALG": 3,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -1589,8 +1589,8 @@
       "prog": 20,
       "name": "ReedOrgn",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -1668,8 +1668,8 @@
       "prog": 21,
       "name": "Acordion",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -1747,7 +1747,7 @@
       "prog": 22,
       "name": "Harmnica",
       "hw": {
-        "ALG": 0,
+        "ALG": 4,
         "FB": 0,
         "LFO": 0
       },
@@ -1826,8 +1826,8 @@
       "prog": 23,
       "name": "TangoAcd",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -1905,8 +1905,8 @@
       "prog": 24,
       "name": "NylonGtr",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -1984,8 +1984,8 @@
       "prog": 25,
       "name": "SteelGtr",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -2063,8 +2063,8 @@
       "prog": 26,
       "name": "JazzGtr",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -2142,8 +2142,8 @@
       "prog": 27,
       "name": "CleanGtr",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
+        "ALG": 4,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -2221,8 +2221,8 @@
       "prog": 28,
       "name": "Mute.Gtr",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -2300,8 +2300,8 @@
       "prog": 29,
       "name": "Ovrdrive",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
+        "ALG": 4,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -2379,8 +2379,8 @@
       "prog": 30,
       "name": "Dist.Gtr",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
+        "ALG": 4,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -2458,8 +2458,8 @@
       "prog": 31,
       "name": "GtrHarmo",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -2537,8 +2537,8 @@
       "prog": 32,
       "name": "Aco.Bass",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -2616,8 +2616,8 @@
       "prog": 33,
       "name": "FngrBass",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -2695,8 +2695,8 @@
       "prog": 34,
       "name": "PickBass",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -2774,8 +2774,8 @@
       "prog": 35,
       "name": "Fretless",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -2853,8 +2853,8 @@
       "prog": 36,
       "name": "SlapBas1",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -2932,8 +2932,8 @@
       "prog": 37,
       "name": "SlapBas2",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -3011,8 +3011,8 @@
       "prog": 38,
       "name": "SynBass1",
       "hw": {
-        "ALG": 0,
-        "FB": 6,
+        "ALG": 4,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -3090,8 +3090,8 @@
       "prog": 39,
       "name": "SynBass2",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -3169,8 +3169,8 @@
       "prog": 40,
       "name": "Violin",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 1
       },
       "ops": [
@@ -3248,8 +3248,8 @@
       "prog": 41,
       "name": "Viola",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 1
       },
       "ops": [
@@ -3327,8 +3327,8 @@
       "prog": 42,
       "name": "Cello",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 1
       },
       "ops": [
@@ -3406,8 +3406,8 @@
       "prog": 43,
       "name": "Contrabs",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 1
       },
       "ops": [
@@ -3485,8 +3485,8 @@
       "prog": 44,
       "name": "Trem.Str",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 1
       },
       "ops": [
@@ -3564,8 +3564,8 @@
       "prog": 45,
       "name": "Pizz.Str",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
+        "ALG": 4,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -3643,8 +3643,8 @@
       "prog": 46,
       "name": "Harp",
       "hw": {
-        "ALG": 2,
-        "FB": 3,
+        "ALG": 6,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -3722,8 +3722,8 @@
       "prog": 47,
       "name": "Timpani",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -3801,8 +3801,8 @@
       "prog": 48,
       "name": "Strings1",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 1
       },
       "ops": [
@@ -3880,8 +3880,8 @@
       "prog": 49,
       "name": "Strings2",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 1
       },
       "ops": [
@@ -3959,8 +3959,8 @@
       "prog": 50,
       "name": "Syn.Str1",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 1
       },
       "ops": [
@@ -4038,8 +4038,8 @@
       "prog": 51,
       "name": "Syn.Str2",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 1
       },
       "ops": [
@@ -4117,8 +4117,8 @@
       "prog": 52,
       "name": "ChoirAah",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -4196,8 +4196,8 @@
       "prog": 53,
       "name": "VoiceOoh",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -4275,8 +4275,8 @@
       "prog": 54,
       "name": "SynVoice",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 1
       },
       "ops": [
@@ -4354,8 +4354,8 @@
       "prog": 55,
       "name": "Orch.Hit",
       "hw": {
-        "ALG": 3,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -4433,8 +4433,8 @@
       "prog": 56,
       "name": "Trumpet",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -4512,8 +4512,8 @@
       "prog": 57,
       "name": "Trombone",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -4591,8 +4591,8 @@
       "prog": 58,
       "name": "Tuba",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -4670,8 +4670,8 @@
       "prog": 59,
       "name": "Mute.Trp",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -4749,7 +4749,7 @@
       "prog": 60,
       "name": "Fr.Horn",
       "hw": {
-        "ALG": 1,
+        "ALG": 7,
         "FB": 0,
         "LFO": 0
       },
@@ -4828,8 +4828,8 @@
       "prog": 61,
       "name": "BrasSect",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -4907,8 +4907,8 @@
       "prog": 62,
       "name": "SynBras1",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -4986,8 +4986,8 @@
       "prog": 63,
       "name": "SynBras2",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -5065,8 +5065,8 @@
       "prog": 64,
       "name": "SprnoSax",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 1
       },
       "ops": [
@@ -5144,8 +5144,8 @@
       "prog": 65,
       "name": "AltoSax",
       "hw": {
-        "ALG": 1,
-        "FB": 1,
+        "ALG": 7,
+        "FB": 9,
         "LFO": 0
       },
       "ops": [
@@ -5223,8 +5223,8 @@
       "prog": 66,
       "name": "TenorSax",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -5302,8 +5302,8 @@
       "prog": 67,
       "name": "Bari.Sax",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -5381,8 +5381,8 @@
       "prog": 68,
       "name": "Oboe",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
+        "ALG": 4,
+        "FB": 45,
         "LFO": 1
       },
       "ops": [
@@ -5460,8 +5460,8 @@
       "prog": 69,
       "name": "Eng.Horn",
       "hw": {
-        "ALG": 0,
-        "FB": 1,
+        "ALG": 4,
+        "FB": 9,
         "LFO": 1
       },
       "ops": [
@@ -5539,8 +5539,8 @@
       "prog": 70,
       "name": "Bassoon",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -5618,8 +5618,8 @@
       "prog": 71,
       "name": "Clarinet",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -5697,8 +5697,8 @@
       "prog": 72,
       "name": "Piccolo",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -5776,8 +5776,8 @@
       "prog": 73,
       "name": "Flute",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -5855,8 +5855,8 @@
       "prog": 74,
       "name": "Recorder",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 1
       },
       "ops": [
@@ -5934,8 +5934,8 @@
       "prog": 75,
       "name": "PanFlute",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -6013,8 +6013,8 @@
       "prog": 76,
       "name": "Bottle",
       "hw": {
-        "ALG": 2,
-        "FB": 7,
+        "ALG": 6,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -6092,8 +6092,8 @@
       "prog": 77,
       "name": "Shakhchi",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
+        "ALG": 4,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -6171,8 +6171,8 @@
       "prog": 78,
       "name": "Whistle",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -6250,7 +6250,7 @@
       "prog": 79,
       "name": "Ocarina",
       "hw": {
-        "ALG": 1,
+        "ALG": 7,
         "FB": 0,
         "LFO": 0
       },
@@ -6329,8 +6329,8 @@
       "prog": 80,
       "name": "SquareLd",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -6408,8 +6408,8 @@
       "prog": 81,
       "name": "Saw.Lead",
       "hw": {
-        "ALG": 0,
-        "FB": 4,
+        "ALG": 4,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -6487,8 +6487,8 @@
       "prog": 82,
       "name": "CaliopLd",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -6566,8 +6566,8 @@
       "prog": 83,
       "name": "ChiffLd",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -6645,8 +6645,8 @@
       "prog": 84,
       "name": "CharanLd",
       "hw": {
-        "ALG": 0,
-        "FB": 5,
+        "ALG": 4,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -6724,8 +6724,8 @@
       "prog": 85,
       "name": "VoiceLd",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 1
       },
       "ops": [
@@ -6803,8 +6803,8 @@
       "prog": 86,
       "name": "FifthLd",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -6882,8 +6882,8 @@
       "prog": 87,
       "name": "Bass&Ld",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -6961,8 +6961,8 @@
       "prog": 88,
       "name": "NewAgePd",
       "hw": {
-        "ALG": 1,
-        "FB": 1,
+        "ALG": 7,
+        "FB": 9,
         "LFO": 0
       },
       "ops": [
@@ -7040,8 +7040,8 @@
       "prog": 89,
       "name": "WarmPad",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -7119,8 +7119,8 @@
       "prog": 90,
       "name": "PolySyPd",
       "hw": {
-        "ALG": 1,
-        "FB": 6,
+        "ALG": 7,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -7198,7 +7198,7 @@
       "prog": 91,
       "name": "ChoirPad",
       "hw": {
-        "ALG": 1,
+        "ALG": 7,
         "FB": 0,
         "LFO": 0
       },
@@ -7277,8 +7277,8 @@
       "prog": 92,
       "name": "BowedPad",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -7356,8 +7356,8 @@
       "prog": 93,
       "name": "MetalPad",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -7435,8 +7435,8 @@
       "prog": 94,
       "name": "HaloPad",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -7514,7 +7514,7 @@
       "prog": 95,
       "name": "SweepPad",
       "hw": {
-        "ALG": 1,
+        "ALG": 7,
         "FB": 0,
         "LFO": 0
       },
@@ -7593,8 +7593,8 @@
       "prog": 96,
       "name": "Rain",
       "hw": {
-        "ALG": 1,
-        "FB": 1,
+        "ALG": 7,
+        "FB": 9,
         "LFO": 0
       },
       "ops": [
@@ -7672,8 +7672,8 @@
       "prog": 97,
       "name": "SoundTrk",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -7751,8 +7751,8 @@
       "prog": 98,
       "name": "Crystal",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -7830,8 +7830,8 @@
       "prog": 99,
       "name": "Atmosphr",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 1
       },
       "ops": [
@@ -7909,8 +7909,8 @@
       "prog": 100,
       "name": "Bright",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -7988,8 +7988,8 @@
       "prog": 101,
       "name": "Goblins",
       "hw": {
-        "ALG": 1,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -8067,8 +8067,8 @@
       "prog": 102,
       "name": "Echoes",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 1
       },
       "ops": [
@@ -8146,8 +8146,8 @@
       "prog": 103,
       "name": "Sci-Fi",
       "hw": {
-        "ALG": 0,
-        "FB": 6,
+        "ALG": 4,
+        "FB": 54,
         "LFO": 0
       },
       "ops": [
@@ -8225,8 +8225,8 @@
       "prog": 104,
       "name": "Sitar",
       "hw": {
-        "ALG": 1,
-        "FB": 2,
+        "ALG": 7,
+        "FB": 18,
         "LFO": 0
       },
       "ops": [
@@ -8304,7 +8304,7 @@
       "prog": 105,
       "name": "Banjo",
       "hw": {
-        "ALG": 1,
+        "ALG": 7,
         "FB": 0,
         "LFO": 0
       },
@@ -8383,8 +8383,8 @@
       "prog": 106,
       "name": "Shamisen",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -8462,8 +8462,8 @@
       "prog": 107,
       "name": "Koto",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -8541,8 +8541,8 @@
       "prog": 108,
       "name": "Kalimba",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -8620,8 +8620,8 @@
       "prog": 109,
       "name": "Bagpipe",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -8699,8 +8699,8 @@
       "prog": 110,
       "name": "Fiddle",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -8778,8 +8778,8 @@
       "prog": 111,
       "name": "Shanai",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
+        "ALG": 4,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -8857,8 +8857,8 @@
       "prog": 112,
       "name": "TnklBell",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -8936,8 +8936,8 @@
       "prog": 113,
       "name": "Agogo",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -9015,8 +9015,8 @@
       "prog": 114,
       "name": "SteelDrm",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -9094,8 +9094,8 @@
       "prog": 115,
       "name": "WoodBlok",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -9173,8 +9173,8 @@
       "prog": 116,
       "name": "TaikoDrm",
       "hw": {
-        "ALG": 1,
-        "FB": 4,
+        "ALG": 7,
+        "FB": 36,
         "LFO": 0
       },
       "ops": [
@@ -9252,8 +9252,8 @@
       "prog": 117,
       "name": "MelodTom",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -9331,8 +9331,8 @@
       "prog": 118,
       "name": "Syn.Drum",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -9410,8 +9410,8 @@
       "prog": 119,
       "name": "RevCymbl",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -9489,8 +9489,8 @@
       "prog": 120,
       "name": "FretNoiz",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -9568,8 +9568,8 @@
       "prog": 121,
       "name": "BrthNoiz",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -9647,8 +9647,8 @@
       "prog": 122,
       "name": "Seashore",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -9726,8 +9726,8 @@
       "prog": 123,
       "name": "Tweet",
       "hw": {
-        "ALG": 3,
-        "FB": 3,
+        "ALG": 7,
+        "FB": 27,
         "LFO": 0
       },
       "ops": [
@@ -9805,8 +9805,8 @@
       "prog": 124,
       "name": "Telphone",
       "hw": {
-        "ALG": 1,
-        "FB": 5,
+        "ALG": 7,
+        "FB": 45,
         "LFO": 0
       },
       "ops": [
@@ -9884,8 +9884,8 @@
       "prog": 125,
       "name": "Helicptr",
       "hw": {
-        "ALG": 0,
-        "FB": 7,
+        "ALG": 4,
+        "FB": 63,
         "LFO": 1
       },
       "ops": [
@@ -9963,8 +9963,8 @@
       "prog": 126,
       "name": "Applause",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
@@ -10042,8 +10042,8 @@
       "prog": 127,
       "name": "Gunshot",
       "hw": {
-        "ALG": 1,
-        "FB": 7,
+        "ALG": 7,
+        "FB": 63,
         "LFO": 0
       },
       "ops": [
