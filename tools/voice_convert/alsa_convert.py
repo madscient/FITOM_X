@@ -155,7 +155,12 @@ def convert(src_path, dst_path, bank_no=0):
             mod1, car1, fb1, con1 = parse_2op_block(p[0:11])
             mod2, car2, fb2, con2 = parse_2op_block(p[11:22])
             ops = [mod1, car1, mod2, car2]
-            hw  = {"ALG": con1, "FB": fb1, "ALG2": con2, "FB2": fb2}
+            # 旧FITOM方式でALG/FBを統一エンコード:
+            #   ALG = (conn_sel<<2)|(cnt1<<1)|cnt0
+            #         conn_sel=1(4OPモード), cnt1=con2, cnt0=con1
+            #   FB  = (fb2<<3)|fb1
+            hw  = {"ALG": (1<<2)|(con2<<1)|con1,
+                   "FB":  (fb2<<3)|fb1}
             perc_voc = perc_pitch = 0
 
         # 音色名の決定
