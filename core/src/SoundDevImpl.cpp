@@ -14,11 +14,9 @@
 #include <cstring>
 #include <algorithm>
 
-extern "C" {
-    // Fnum.cpp が提供するテーブル
-    extern const uint16_t FnumTable[];
-    extern const uint16_t FnumTableSSG[];
-}
+// F-number テーブルは FnumRegistry が動的生成して返す
+// (旧 Fnum.cpp の静的配列 FnumTable[] は使用しない)
+#include "fitom/FnumUtils.h"
 
 namespace fitom {
 
@@ -41,7 +39,11 @@ CSoundDevice::CSoundDevice(uint8_t deviceType, uint8_t maxChs, IPort* port,
     , port_(port)
     , regBak_(nullptr)
     , regSize_(static_cast<size_t>(regSize))
-    , fnumTable_(fnumType == FnumTableType::SSG ? FnumTableSSG : FnumTable)
+    , fnumTable_(fitom::FnumRegistry::instance().getTable(
+                    fnumType,
+                    fnumMaster > 0 ? fnumMaster : 3993600,
+                    fnumDivide > 0 ? fnumDivide : 144,
+                    noteOffset))
     , fnumMaster_(fnumMaster)
     , noteOffset_(noteOffset)
     , masterVolume_(127)

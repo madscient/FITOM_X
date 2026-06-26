@@ -7,7 +7,9 @@
 // RtAudio ストリームを開いて FmEngineRegistry::generateAll() を呼ぶ。
 
 #include "fitom/FmEnginePort.h"
+#ifdef FITOM_HAS_RTAUDIO
 #include <RtAudio.h>
+#endif
 #include <string>
 #include <functional>
 #include <cstdint>
@@ -24,6 +26,7 @@ struct AudioOutputConfig {
     uint32_t    sampleRate;    // profile の audio_output.sample_rate
 };
 
+#ifdef FITOM_HAS_RTAUDIO
 class AudioEngine {
 public:
     AudioEngine() = default;
@@ -59,3 +62,4 @@ private:
 };
 
 } // namespace fitom
+#endif // FITOM_HAS_RTAUDIO

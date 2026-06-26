@@ -59,10 +59,24 @@ add_subdirectory(core)
 
 # バックエンド DLL (各自が fitom_core に非依存の独立 DLL)
 if(FITOM_BUILD_BACKEND_FMENGINE)
-    add_subdirectory(backends/fm_engine)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/backends/fm_engine/CMakeLists.txt")
+        add_subdirectory(backends/fm_engine)
+    else()
+        message(WARNING
+            "FITOM_BUILD_BACKEND_FMENGINE=ON ですが backends/fm_engine/ が存在しません。"
+            " FmEngine バックエンド DLL のビルドをスキップします。"
+            " FmEngineApi 互換の DLL を別途ビルドして engines/ ディレクトリに配置してください。")
+    endif()
 endif()
 if(FITOM_BUILD_BACKEND_HWIF)
-    add_subdirectory(backends/hw_if)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/backends/hw_if/CMakeLists.txt")
+        add_subdirectory(backends/hw_if)
+    else()
+        message(WARNING
+            "FITOM_BUILD_BACKEND_HWIF=ON ですが backends/hw_if/ が存在しません。"
+            " HW I/F バックエンド DLL のビルドをスキップします。"
+            " FitomIFTest の共有ライブラリを別途ビルドして配置してください。")
+    endif()
 endif()
 if(FITOM_BUILD_BACKEND_MIDI_WMS)
     if(NOT WIN32)
@@ -85,7 +99,11 @@ if(FITOM_GUI_MFC)
     add_subdirectory(gui/mfc_shim)
 endif()
 if(FITOM_GUI_QT)
-    add_subdirectory(gui/qt)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gui/qt/CMakeLists.txt")
+        add_subdirectory(gui/qt)
+    else()
+        message(WARNING "FITOM_GUI_QT=ON ですが gui/qt/ が存在しません。スキップします。")
+    endif()
 endif()
 
 # テスト
