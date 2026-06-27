@@ -1,6 +1,6 @@
 # FITOM_X
 
-**FM sound Instrument Organizer and Manager X**
+**Flexible Interface for Traditional Oscillator Modules X**
 
 Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャしたプロジェクト。
 
