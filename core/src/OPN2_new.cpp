@@ -107,14 +107,19 @@ protected:
             port_->write(static_cast<uint16_t>(base + 0x40 + kOpMap[i] + lch),
                          static_cast<uint16_t>(tl & 0x7F));
 
+            const uint8_t ar_n2 = carrier ? s.proc.velAR(kOpMap[i]) : (o.AR & 0x1F);
             port_->write(static_cast<uint16_t>(base + 0x50 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.KSR & 3) << 6) | (o.AR & 0x1F)));
+                         static_cast<uint16_t>(((o.KSR & 3) << 6) | ar_n2));
+            const uint8_t dr_n2 = carrier ? s.proc.velDR(kOpMap[i]) : (o.DR & 0x1F);
             port_->write(static_cast<uint16_t>(base + 0x60 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.AM & 1) << 7) | (o.DR & 0x1F)));
+                         static_cast<uint16_t>(((o.AM & 1) << 7) | dr_n2));
+            const uint8_t sr_n2 = carrier ? s.proc.velSR(kOpMap[i]) : (o.SR & 0x1F);
             port_->write(static_cast<uint16_t>(base + 0x70 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(o.SR & 0x1F));
+                         static_cast<uint16_t>(sr_n2));
+            const uint8_t sl_n2 = carrier ? s.proc.velSL(kOpMap[i]) : (o.SL & 0xF);
+            const uint8_t rr_n2 = carrier ? s.proc.velRR(kOpMap[i]) : (o.RR & 0xF);
             port_->write(static_cast<uint16_t>(base + 0x80 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.SL & 0xF) << 4) | (o.RR & 0xF)));
+                         static_cast<uint16_t>(((sl_n2 & 0xF) << 4) | (rr_n2 & 0xF)));
             port_->write(static_cast<uint16_t>(base + 0x90 + kOpMap[i] + lch),
                          static_cast<uint16_t>(o.EGT & 0xF));
         }

@@ -79,17 +79,21 @@ protected:
                        static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)));
             }
 
-            // AR / DR
+            // AR / DR (キャリアはベロシティ補正値を使用)
+            const bool car_opl = isCarrier(ch, i);
+            const uint8_t ar_opl = car_opl ? s.proc.velAR(i) : (o.AR & 0x1F);
+            const uint8_t dr_opl = car_opl ? s.proc.velDR(i) : (o.DR & 0x1F);
             setReg(static_cast<uint16_t>(0x60 + i * 3 + slot),
-                   static_cast<uint8_t>((ar4(o.AR) << 4) | ar4(o.DR)));
+                   static_cast<uint8_t>((ar4(ar_opl) << 4) | ar4(dr_opl)));
 
             // SL / RR (サスティン中はフォールバックRR=4)
             static constexpr uint8_t kFallbackRR = 4;
-            uint8_t rr = (sus && isCarrier(ch, i))
-                       ? kFallbackRR
-                       : (o.SR ? ar4(o.SR) : o.RR);
+            const uint8_t sl_opl = car_opl ? s.proc.velSL(i) : (o.SL & 0xF);
+            const uint8_t rr_base = car_opl ? s.proc.velRR(i)
+                                            : (o.SR ? ar4(o.SR) : o.RR);
+            const uint8_t rr_opl = (sus && car_opl) ? kFallbackRR : rr_base;
             setReg(static_cast<uint16_t>(0x80 + i * 3 + slot),
-                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
+                   static_cast<uint8_t>(((sl_opl & 0xF) << 4) | (rr_opl & 0xF)));
 
             // WS (OPL2 以降のみ有効)
             setReg(static_cast<uint16_t>(0xE0 + i * 3 + slot), o.WS & 0x3);
