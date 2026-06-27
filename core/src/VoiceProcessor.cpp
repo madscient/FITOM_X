@@ -43,36 +43,179 @@ static const uint8_t kSpeedStep[19] = {
 //  ユーティリティ関数 (旧 SoundDev.cpp 相当)
 // ================================================================
 
-int8_t getLfoWave(uint8_t waveform, uint8_t speed, uint16_t phase) noexcept
-{
-    uint16_t period = (speed < 19) ? kSpeedStep[speed] : kSpeedStep[18];
+// ================================================================
+//  LfoControl 実装
+// ================================================================
 
-    switch (waveform) {
-    case 0: // up-saw
-        return static_cast<int8_t>((phase % period) * 240 / period - 120);
-    case 1: // square
-        return (phase % period < period / 2) ? 120 : -120;
-    case 2: // triangle
-    case 6: // sine (index in table)
-    {
-        uint16_t idx = (phase % 240);
-        return kSinTable[idx];
-    }
-    case 3: // S&H (pseudo random)
-    {
-        static uint16_t seed = 0x1234;
-        if (phase % period == 0) {
-            seed = static_cast<uint16_t>(seed * 6364 + 1);
+void LfoControl::start(uint8_t rate, uint8_t delay_20ms,
+                       uint8_t fadein, LfoMode mode) noexcept
+{
+    if (rate == 0) { stop(); return; }
+
+    mode_     = mode;
+    period_   = kSpeedStep[rate < 19 ? rate : 18];
+    phase_tick_     = 0;
+    one_shot_done_  = false;
+
+    // フェードイン
+    fadein_len_ = static_cast<uint16_t>(fadein) * 4; // 1単位=4tick
+    fade_tick_  = 0;
+    fade_level_ = (fadein == 0) ? 127 : 0;
+
+    // ディレイ
+    delay_left_ = static_cast<uint16_t>(delay_20ms) * 20;
+    phase_      = (delay_left_ > 0) ? Phase::Delaying : Phase::Running;
+
+    // S&H シード初期化 (インスタンス固有の初期値を保持)
+    // seed_ はリセットしない (start のたびに乱数系列が変わって自然)
+}
+
+void LfoControl::stop() noexcept
+{
+    phase_        = Phase::Stopped;
+    fade_level_   = 127;
+    phase_tick_   = 0;
+    fadeout_tick_ = 0;
+    fadeout_len_  = 0;
+    one_shot_done_ = false;
+}
+
+void LfoControl::reset() noexcept { stop(); }
+
+bool LfoControl::tick() noexcept
+{
+    if (phase_ == Phase::Stopped || phase_ == Phase::Held)
+        return false;
+
+    if (phase_ == Phase::Delaying) {
+        if (delay_left_ > 0) --delay_left_;
+        if (delay_left_ == 0) {
+            phase_      = Phase::Running;
+            phase_tick_ = 0;
+            fade_tick_  = 0;
         }
-        return static_cast<int8_t>((seed >> 8) - 128);
+        return false;
     }
+
+    if (phase_ == Phase::FadingOut) {
+        // フェードアウト: fade_level_ を 127→0 に減衰
+        ++fadeout_tick_;
+        if (fadeout_tick_ >= fadeout_len_) {
+            // フェードアウト完了 → 停止
+            phase_      = Phase::Stopped;
+            fade_level_ = 0;
+            return true; // 最後に 0 を書き込む
+        }
+        fade_level_ = static_cast<uint8_t>(
+            127u - static_cast<uint32_t>(fadeout_tick_) * 127u / fadeout_len_);
+        // 位相は継続して更新（波形が途切れないように）
+        ++phase_tick_;
+        if (phase_tick_ >= period_) {
+            phase_tick_ = 0;
+            seed_ = static_cast<uint16_t>(seed_ * 6364u + 1u);
+        }
+        return true;
+    }
+
+    // ── Running ──────────────────────────────────────────────────
+    // フェードイン更新
+    if (fadein_len_ > 0 && fade_tick_ < fadein_len_) {
+        ++fade_tick_;
+        fade_level_ = static_cast<uint8_t>(
+            static_cast<uint32_t>(fade_tick_) * 127u / fadein_len_);
+    } else {
+        fade_level_ = 127;
+    }
+
+    // 位相更新
+    ++phase_tick_;
+    bool period_end = (phase_tick_ >= period_);
+    if (period_end) {
+        phase_tick_ = 0;
+        // S&H: 周期末尾で次のランダム値を決定
+        seed_ = static_cast<uint16_t>(seed_ * 6364u + 1u);
+    }
+
+    // OneShotHold / OneShotZero: 1周期完了でホールド
+    if (period_end && mode_ != LfoMode::Repeat) {
+        one_shot_done_ = true;
+        phase_ = Phase::Held;
+    }
+
+    return true; // 波形更新が必要
+}
+
+void LfoControl::fadeout(uint16_t fadeout_ticks) noexcept
+{
+    if (phase_ == Phase::Stopped) return;
+    if (fadeout_ticks == 0) { stop(); return; }
+
+    phase_        = Phase::FadingOut;
+    fadeout_len_  = fadeout_ticks;
+    fadeout_tick_ = 0;
+    // fade_level_ は現在値から引き継ぐ（フェードイン途中でも自然に続く）
+    // フェードアウトは現在の fade_level_ から 0 へ向かって減衰させる
+    const uint8_t cur = fade_level_;
+    // 比例スケール: tick=0→cur, tick=fadeout_ticks→0
+    // tick()内では 127→0 で計算し、cur/127 を掛ける
+    // シンプルにするため cur から 0 への線形を維持
+    fadeout_len_  = fadeout_ticks;
+    (void)cur; // cur は fade_level_ 初期値として利用済み
+}
+
+int8_t LfoControl::wave(uint8_t waveform) const noexcept
+{
+    if (phase_ == Phase::Stopped) return 0;
+
+    // OneShotZero: 完了後は 0
+    if (one_shot_done_ && mode_ == LfoMode::OneShotZero) return 0;
+
+    // period_ が 0 になることはないが念のため
+    if (period_ == 0) return 0;
+
+    const uint16_t t = phase_tick_;           // 0 〜 period_-1
+    const uint16_t p = period_;
+
+    int8_t raw = 0;
+    switch (waveform) {
+    case 0: // up-saw: -120 〜 +120
+        raw = static_cast<int8_t>(
+            static_cast<int32_t>(t) * 240 / p - 120);
+        break;
+    case 1: // square
+        raw = (t < p / 2) ? 120 : -120;
+        break;
+    case 2: // triangle: 線形往復
+        if (t < p / 2)
+            raw = static_cast<int8_t>(
+                static_cast<int32_t>(t) * 240 / (p / 2) - 120);
+        else
+            raw = static_cast<int8_t>(
+                120 - static_cast<int32_t>(t - p / 2) * 240 / (p / 2));
+        break;
+    case 3: // S&H: seed_ は tick() で周期末尾に更新済み
+        raw = static_cast<int8_t>((seed_ >> 8) ^ 0x80);
+        break;
     case 4: // down-saw
-        return static_cast<int8_t>(120 - (phase % period) * 240 / period);
-    case 5: // delta (impulse)
-        return (phase % period == 0) ? 120 : 0;
+        raw = static_cast<int8_t>(
+            120 - static_cast<int32_t>(t) * 240 / p);
+        break;
+    case 5: // delta (impulse): 周期先頭のみ +120
+        raw = (t == 0) ? 120 : 0;
+        break;
+    case 6: // sine
     default:
-        return 0;
+    {
+        uint16_t idx = static_cast<uint16_t>(
+            static_cast<uint32_t>(t) * 240 / p);
+        raw = (idx < 240) ? kSinTable[idx] : 0;
+        break;
     }
+    }
+
+    // フェードイン適用
+    return static_cast<int8_t>(
+        static_cast<int32_t>(raw) * fade_level_ / 127);
 }
 
 // vol × exp × vel → 実効レベル (0〜127)
@@ -95,46 +238,7 @@ uint8_t linearToDb(uint8_t linearTL, int range, int step, int bw) noexcept
 //  LfoControl
 // ================================================================
 
-void LfoControl::start(uint8_t delay_20ms, uint8_t rate) noexcept
-{
-    count_  = 0;
-    level_  = 0;
-    delay_  = static_cast<uint16_t>(delay_20ms) * 20; // 20ms → ms ティック数
-    rate_   = rate;
-    phase_  = (delay_ > 0) ? Phase::Delaying : Phase::Running;
-}
-
-void LfoControl::stop() noexcept
-{
-    phase_  = Phase::Stopped;
-    level_  = 0;
-    count_  = 0;
-}
-
-void LfoControl::reset() noexcept { stop(); }
-
-bool LfoControl::tick() noexcept
-{
-    if (phase_ == Phase::Stopped) return false;
-    if (rate_ == 0) { phase_ = Phase::Stopped; return false; }
-
-    ++count_;
-
-    if (phase_ == Phase::Delaying) {
-        if (count_ >= delay_) {
-            count_ = 0;
-            phase_ = Phase::Running;
-            level_ = 1;
-            return false; // 遅延終了ティックは更新なし
-        }
-        return false;
-    }
-
-    // Running
-    ++level_;
-    if (level_ > 127) level_ = 127;
-    return true; // TL/Freq 更新が必要
-}
+// LfoControl の実装は getLfoWave 置き換え箇所にまとめた
 
 // ================================================================
 //  VoiceProcessor
@@ -183,17 +287,17 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
 
         // D1R: 最大補正 8
         velDR_[op] = static_cast<uint8_t>(clamp(
-            static_cast<int>(hw.D1R) - 8 * sw.VDR * sens_vel / (127 * 127),
+            static_cast<int>(hw.DR) - 8 * sw.VDR * sens_vel / (127 * 127),
             0, 31));
 
         // D1L(SL): 最大補正 4, 増加方向（低vel→サステイン浅い）
         velSL_[op] = static_cast<uint8_t>(clamp(
-            static_cast<int>(hw.D1L) + 4 * sw.VSL * sens_vel / (127 * 127),
+            static_cast<int>(hw.SL) + 4 * sw.VSL * sens_vel / (127 * 127),
             0, 15));
 
         // D2R(SR): 最大補正 8
         velSR_[op] = static_cast<uint8_t>(clamp(
-            static_cast<int>(hw.D2R) - 8 * sw.VSR * sens_vel / (127 * 127),
+            static_cast<int>(hw.SR) - 8 * sw.VSR * sens_vel / (127 * 127),
             0, 31));
 
         // RR: 最大補正 4
@@ -202,20 +306,29 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
             0, 15));
     }
 
-    // チャンネル LFO リセット
-    if (voice.sw.LFR > 0) {
-        chLfo_.start(voice.sw.LFD, voice.sw.LFR);
-    } else {
-        chLfo_.stop();
+    // チャンネル LFO
+    // LFS=1 (sync): 常にリセット。LFS=0: Stopped 状態のときのみ start。
+    {
+        const auto& sw = voice.sw;
+        const bool do_start = (sw.LFR > 0) &&
+            (sw.LFS || !chLfo_.active());
+        if (do_start)
+            chLfo_.start(sw.LFR, sw.LFD, sw.LFI,
+                         static_cast<LfoMode>(sw.LFM));
+        else if (sw.LFR == 0)
+            chLfo_.stop();
     }
 
-    // オペレータ LFO リセット
+    // オペレータ LFO
     for (int op = 0; op < 4; ++op) {
-        if (voice.swOp[op].SLR > 0) {
-            opLfo_[op].start(voice.swOp[op].SLY, voice.swOp[op].SLR);
-        } else {
+        const auto& sw = voice.swOp[op];
+        const bool do_start = (sw.SLR > 0) &&
+            (sw.SLS || !opLfo_[op].active());
+        if (do_start)
+            opLfo_[op].start(sw.SLR, sw.SLY, sw.SLI,
+                             static_cast<LfoMode>(sw.SLM));
+        else if (sw.SLR == 0)
             opLfo_[op].stop();
-        }
         effectiveTL_[op] = baseTL_[op];
     }
     chLfoValue_ = 0;
@@ -224,7 +337,20 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
 void VoiceProcessor::onNoteOff() noexcept
 {
     noteOn_ = false;
-    // LFO は release フェーズも継続する（オリジナルの挙動に合わせる）
+    // LFO は Releasing フェーズ中も継続し、自然にフェードアウトする。
+    // fadeout_ticks は VoiceProcessor::onNoteOff(fadeout_ms) で設定される。
+    // ここでは何もしない（呼び出し元が onNoteOff(ms) を使う）。
+}
+
+void VoiceProcessor::onNoteOff(uint16_t fadeout_ms) noexcept
+{
+    noteOn_ = false;
+    if (fadeout_ms > 0) {
+        chLfo_.fadeout(fadeout_ms);
+        for (auto& l : opLfo_) l.fadeout(fadeout_ms);
+    }
+    // fadeout_ms == 0 の場合は LFO をすぐ停止しない
+    // (Releasing フェーズの終了時に ChState::free() → proc.reset() で止まる)
 }
 
 bool VoiceProcessor::onVolumeChange(uint8_t vol, uint8_t exp,
@@ -305,41 +431,35 @@ void VoiceProcessor::recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
 
 void VoiceProcessor::recalcOpLfo(int op, const FmVoice& voice) noexcept
 {
-    int16_t lev = static_cast<int16_t>(opLfo_[op].level());
-    if (lev == 0) {
-        effectiveTL_[op] = baseTL_[op];
-        return;
-    }
-
     const auto& swop = voice.swOp[op];
-    int16_t wave = static_cast<int16_t>(
-        getLfoWave(swop.SLW, swop.SLF, opLfo_[op].count()));
-    int16_t dep  = static_cast<int16_t>(swop.SLD);
-    if (dep > 63) dep -= 128; // 符号付き変換
 
-    int16_t val = static_cast<int16_t>(wave * lev / 128);
-    val = static_cast<int16_t>(val * dep / 120);
-    val += baseTL_[op];
-    effectiveTL_[op] = clamp(static_cast<int>(val), 0, 127);
+    // 波形値 (-120〜+120)、フェードイン適用済み
+    const int16_t wav = static_cast<int16_t>(opLfo_[op].wave(swop.SLW));
+
+    // depth: 0〜63=正方向 / 64〜127→-64〜-1=負方向
+    int16_t dep = static_cast<int16_t>(swop.SLD);
+    if (dep > 63) dep = static_cast<int16_t>(dep - 128);
+
+    // TL 変調量: wav × dep / 120  (dep=±63 のとき最大 ±63 TL unit)
+    int32_t delta = static_cast<int32_t>(wav) * dep / 120;
+    effectiveTL_[op] = static_cast<int16_t>(
+        clamp(static_cast<int>(baseTL_[op]) + static_cast<int>(delta), 0, 127));
 }
 
 void VoiceProcessor::recalcChLfo(const FmVoice& voice) noexcept
 {
-    int16_t lev = static_cast<int16_t>(chLfo_.level());
-    if (lev == 0) {
-        chLfoValue_ = 0;
-        return;
-    }
     const auto& sw = voice.sw;
-    int16_t wave = static_cast<int16_t>(
-        getLfoWave(sw.LWF, sw.LFO, chLfo_.count()));
 
-    // depth: LDM/LDL で 16bit 符号付き
+    // 波形値 (-120〜+120)、フェードイン適用済み
+    const int16_t wav = static_cast<int16_t>(chLfo_.wave(sw.LWF));
+
+    // depth: LDM/LDL で 16bit 符号付き (±8192 が最大)
     int32_t depth = (static_cast<int32_t>(sw.LDM) << 8) | sw.LDL;
     if (depth >= 8192) depth -= 16384;
 
-    int32_t val = wave * lev / 128;
-    val = val * depth / 8192;
+    // chLfoValue_ の単位: F-number テーブルインデックス (1 unit ≒ 1.5625 cent)
+    // wav(-120〜+120) × depth(±8192) / (120×8192) で [-128, +127] にスケール
+    int32_t val = static_cast<int32_t>(wav) * depth / (120 * 8192 / 127);
     chLfoValue_ = static_cast<int16_t>(clamp(static_cast<int>(val), -128, 127));
 }
 

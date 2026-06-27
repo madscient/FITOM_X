@@ -38,30 +38,71 @@
 namespace fitom {
 
 // ================================================================
-//  LFO コントローラ
-//  旧 CSoundDevice::CLFOControl を独立クラスとして再実装
+//  LFO モード
+// ================================================================
+enum class LfoMode : uint8_t {
+    Repeat      = 0,  // 繰り返し (通常 LFO)
+    OneShotHold = 1,  // 1周期後に末尾値でホールド (ブラスの立ち上がり等)
+    OneShotZero = 2,  // 1周期後に 0 にホールド (アタック後に消えるピッチ変化等)
+};
+
+// ================================================================
+//  LFO コントローラ (全面再実装)
+//
+//  設計:
+//    - delay / 波形位相 / フェードインを完全に分離
+//    - rate: 波形の周期 (kSpeedStep[rate % 19] tick/周期)
+//    - fadein: フェードイン速度 (0=即フルデプス, 1〜127 tick でフル到達)
+//    - mode: Repeat / OneShotHold / OneShotZero
+//    - S&H seed はインスタンス固有 (チャンネル間非共有)
 // ================================================================
 class LfoControl {
 public:
-    enum class Phase { Delaying, Running, Stopped };
+    enum class Phase { Stopped, Delaying, Running, Held, FadingOut };
 
-    void start(uint8_t delay_20ms, uint8_t rate) noexcept;
+    // rate:    0=無効, 1〜127 → kSpeedStep[rate % 19] tick/周期
+    // delay:   0〜127 × 20ms ティック
+    // fadein:  0=即フルデプス, 1〜127=フェードイン tick 数
+    // mode:    Repeat / OneShotHold / OneShotZero
+    void start(uint8_t rate, uint8_t delay_20ms,
+               uint8_t fadein, LfoMode mode) noexcept;
     void stop()  noexcept;
     void reset() noexcept;
 
-    // 1 ティック進める。TL 更新が必要な場合 true を返す。
+    // 1 tick 進める。波形更新が必要なら true を返す。
     bool tick() noexcept;
 
-    uint8_t  level()  const noexcept { return static_cast<uint8_t>(level_); }
-    uint16_t count()  const noexcept { return count_; }
-    Phase    phase()  const noexcept { return phase_; }
+    // NoteOff 時に呼ぶ。fadeout_ticks かけて wave() 出力を 0 に減衰させる。
+    // FadingOut 完了後は Stopped に遷移する。
+    void fadeout(uint16_t fadeout_ticks) noexcept;
+
+    // 現在の正規化波形値 (-120〜+120)、フェードイン/アウト適用済み
+    // waveform: 0=up-saw/1=square/2=triangle/3=S&H/4=down-saw/5=delta/6=sine
+    int8_t wave(uint8_t waveform) const noexcept;
+
+    // フェードイン/アウト係数 (0〜127; 127=フル)
+    uint8_t fadeLevel() const noexcept { return fade_level_; }
+
+    Phase phase() const noexcept { return phase_; }
+    bool  active() const noexcept { return phase_ != Phase::Stopped; }
 
 private:
-    Phase    phase_  = Phase::Stopped;
-    uint16_t count_  = 0;
-    uint16_t delay_  = 0;
-    uint16_t rate_   = 0;
-    int16_t  level_  = 0;
+    Phase    phase_       = Phase::Stopped;
+    LfoMode  mode_        = LfoMode::Repeat;
+
+    uint16_t delay_left_  = 0;   // 残りディレイ tick 数
+    uint16_t period_      = 0;   // 1周期の tick 数 (kSpeedStep 参照)
+    uint16_t phase_tick_  = 0;   // 現在の位相 tick (0〜period_-1)
+    bool     one_shot_done_ = false;  // OneShotHold/Zero: 1周期完了フラグ
+
+    uint16_t fadein_len_  = 0;   // フェードイン全体 tick 数 (0=即フル)
+    uint16_t fade_tick_   = 0;   // フェードイン経過 tick 数
+    uint8_t  fade_level_  = 127; // 現在のフェードイン/アウト係数 (0〜127)
+
+    uint16_t fadeout_len_ = 0;   // フェードアウト全体 tick 数
+    uint16_t fadeout_tick_= 0;   // フェードアウト経過 tick 数
+
+    uint16_t seed_        = 0;   // S&H 用シード (インスタンス固有)
 };
 
 // ================================================================
@@ -82,7 +123,10 @@ public:
                   const FmVoice& voice) noexcept;
 
     // ─── NoteOff 時に呼ぶ ─────────────────────────────────────────
-    void onNoteOff() noexcept;
+    // fadeout_ms: LFO をこの時間（ms）かけてフェードアウトさせる
+    //             0 = 即停止（Releasing フェーズ終了まで LFO は動作継続）
+    void onNoteOff(uint16_t fadeout_ms = 0) noexcept;
+    void onNoteOff() noexcept;   // 後方互換: fadeout_ms=0 と同じ
 
     // ─── ボリューム/エクスプレッション変更時に呼ぶ ────────────────
     // チャンネルレベルが変化した場合に effectiveTL を再計算する。
@@ -117,14 +161,12 @@ public:
     int16_t channelLfoValue() const noexcept { return chLfoValue_; }
 
     // チャンネル LFO が有効か
-    bool channelLfoActive() const noexcept {
-        return chLfo_.phase() != LfoControl::Phase::Stopped;
-    }
+    bool channelLfoActive() const noexcept { return chLfo_.active(); }
 
 private:
     // ─── 内部状態 ─────────────────────────────────────────────────
-    LfoControl chLfo_;              // チャンネルLFO (ピッチ変調)
-    LfoControl opLfo_[4];           // オペレータLFO (トレモロ)
+    LfoControl chLfo_;              // チャンネル LFO (ピッチ変調)
+    LfoControl opLfo_[4];           // オペレータ LFO (トレモロ / TL 変調)
 
     int16_t  baseTL_[4]       = {}; // ベロシティ・ボリューム補正後の基準TL
     int16_t  effectiveTL_[4]  = {}; // LFO 変調後の最終TL
@@ -167,7 +209,6 @@ uint8_t calcLinearLevel(uint8_t effectiveLevel, uint8_t tl) noexcept;
 // 線形 TL → dB TL 変換 (range/step/bw で各チップのスケールに対応)
 uint8_t linearToDb(uint8_t linearTL, int range, int step, int bw) noexcept;
 
-// ソフト LFO 波形値を取得 (-120〜+120)
-int8_t getLfoWave(uint8_t waveform, uint8_t speed, uint16_t phase) noexcept;
+// (getLfoWave は LfoControl::wave() に統合済み)
 
 } // namespace fitom

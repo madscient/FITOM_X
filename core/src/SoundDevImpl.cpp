@@ -104,7 +104,9 @@ uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
 
     auto isCandidate = [&](const ChState& s) -> bool {
         if (!s.isEnabled() || !s.autoAssign) return false;
-        return mode ? s.isEmpty() : s.isEnabled();
+        // mode=1: 空きチャンネルまたは Releasing のみ
+        // mode=0: 全チャンネル (Running も強制奪取)
+        return mode ? (s.isEmpty() || s.isReleasing()) : s.isEnabled();
     };
 
     if (owner && patch) {
@@ -154,7 +156,7 @@ uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch)
         int cand = 0xFF;
         for (int i = 0; i < maxChs_; ++i) {
             auto& s = chState_[i];
-            if (s.autoAssign && s.isEnabled() && s.noteOnAge > maxAge) {
+            if (s.autoAssign && s.isActive() && s.noteOnAge > maxAge) {
                 maxAge = s.noteOnAge;
                 cand = i;
             }
@@ -177,8 +179,8 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch)
     auto& s = chState_[ch];
 
     // 発音中なら先に止める
-    if (s.isRunning() && s.owner && s.owner != owner) {
-        // 親に NoteOff を通知 (前回の音を止める)
+    if (s.isActive() && s.owner && s.owner != owner) {
+        // 前の音 (Running/Releasing) を止める
         noteOff(ch);
     }
 
@@ -244,8 +246,9 @@ void CSoundDevice::noteOff(uint8_t ch)
     auto& s = chState_[ch];
     if (!s.isRunning()) return;
 
-    s.release();
-    s.proc.onNoteOff();
+    s.release();   // → Status::Releasing、releaseTimer = kReleasingHoldMs
+    // LFO を kReleasingHoldMs ms かけてフェードアウト
+    s.proc.onNoteOff(ChState::kReleasingHoldMs);
     updateKey(ch, false);
 }
 
@@ -337,16 +340,23 @@ void CSoundDevice::timerCallback(uint32_t tick)
 {
     for (int ch = 0; ch < maxChs_; ++ch) {
         auto& s = chState_[ch];
-        if (!s.isRunning()) continue;
+        if (!s.isActive()) continue;   // Running または Releasing を処理
 
-        ++s.noteOnAge;
+        // Releasing フェーズ: タイマーを減算して 0 になったら解放
+        if (s.isReleasing()) {
+            if (s.releaseTimer > 0) --s.releaseTimer;
+            if (s.releaseTimer == 0) {
+                s.free();
+                continue;
+            }
+        } else {
+            ++s.noteOnAge;
+        }
 
         // FmVoice を組み立てて VoiceProcessor に渡す
         FmVoice fv;
         fv.hw   = s.hwPatch.hw;
         for (int i = 0; i < 4; ++i) fv.hwOp[i] = s.hwPatch.hwOp[i];
-        // SwPatch は CInstCh::setSwPatch() で proc に設定済みのため fv.sw は不要
-        // (proc が内部で保持している sw を使う)
 
         auto result = s.proc.onTick(fv);
 

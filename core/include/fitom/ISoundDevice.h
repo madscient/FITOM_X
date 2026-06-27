@@ -28,7 +28,7 @@ class IMidiCh;  // forward
 //  チャンネル状態 (旧 CHATTR の後継)
 // ================================================================
 struct ChState {
-    enum class Status { Empty, Disabled, Assigned, Running };
+    enum class Status { Empty, Disabled, Assigned, Running, Releasing };
 
     Status   status    = Status::Empty;
     bool     autoAssign = true;   // 旧 dva
@@ -47,36 +47,49 @@ struct ChState {
         uint16_t fnum  = 0;
     } lastFnum;
 
-    uint8_t  velocity  = 100;
-    uint8_t  volume    = 127;
+    uint8_t  velocity   = 100;
+    uint8_t  volume     = 127;
     uint8_t  expression = 127;
-    int8_t   panpot    = 0;    // -64..+63
-    bool     sustain   = false;
+    int8_t   panpot     = 0;    // -64..+63
+    bool     sustain    = false;
 
-    bool isEmpty()    const { return status == Status::Empty; }
-    bool isRunning()  const { return status == Status::Running; }
-    bool isAssigned() const { return status == Status::Assigned; }
-    bool isEnabled()  const { return status != Status::Disabled; }
+    uint16_t releaseTimer = 0;  // Releasing フェーズの残り tick 数
+
+    bool isEmpty()     const { return status == Status::Empty; }
+    bool isRunning()   const { return status == Status::Running; }
+    bool isReleasing() const { return status == Status::Releasing; }
+    bool isActive()    const { return status == Status::Running
+                                   || status == Status::Releasing; }
+    bool isAssigned()  const { return status == Status::Assigned; }
+    bool isEnabled()   const { return status != Status::Disabled; }
 
     void init() {
-        status    = Status::Empty;
-        autoAssign= true;
-        owner     = nullptr;
-        lastNote  = 0xFF;
-        fineFreq  = 0;
-        noteOnAge = 0;
-        velocity  = 100;
-        volume    = 127;
-        expression= 127;
-        panpot    = 0;
-        sustain   = false;
+        status       = Status::Empty;
+        autoAssign   = true;
+        owner        = nullptr;
+        lastNote     = 0xFF;
+        fineFreq     = 0;
+        noteOnAge    = 0;
+        releaseTimer = 0;
+        velocity     = 100;
+        volume       = 127;
+        expression   = 127;
+        panpot       = 0;
+        sustain      = false;
         proc.reset();
     }
 
+    // kReleasingHoldMs: リリースフェーズ保持時間 (ms)
+    // 大半の FM 音色で 2 秒あれば十分消音する
+    static constexpr uint16_t kReleasingHoldMs = 2000;
+
     void assign(IMidiCh* ch) { owner = ch; status = Status::Assigned; }
     void run()               { status = Status::Running; noteOnAge = 0; }
-    void release()           { status = Status::Assigned; }
-    void free()              { owner = nullptr; status = Status::Empty; proc.reset(); }
+    void release() {
+        status       = Status::Releasing;
+        releaseTimer = kReleasingHoldMs;
+    }
+    void free()    { owner = nullptr; status = Status::Empty; proc.reset(); }
     void disable()           { status = Status::Disabled; }
     void enable()            { if (status == Status::Disabled) status = Status::Empty; }
 };
