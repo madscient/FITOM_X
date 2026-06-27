@@ -33,9 +33,19 @@ static const int8_t kSinTable[240] = {
    -46,-43,-40,-37,-34,-31,-28,-25,-22,-19,-16,-13,-9,-6,-3,
 };
 
-static const uint8_t kSpeedStep[19] = {
-    1,2,3,4,5,6,8,10,12,15,16,20,24,30,40,48,60,80,120
+// kSpeedStep[i]: LFO 1周期のティック数（1tick=1ms）
+// index 0-18: 既存値 (最大 120ms ≈ 8.3Hz)
+// index 19: 160ms ≈ 6.25Hz ← CC#1 デフォルトビブラート
+// index 20: 200ms = 5.00Hz
+static const uint8_t kSpeedStep[21] = {
+    1,2,3,4,5,6,8,10,12,15,16,20,24,30,40,48,60,80,120,160,200
 };
+
+// CC#1 ビブラートのデフォルトパラメータ
+// 波形: sine (LWF=6), 周期: index=19 (160ms ≈ 6.25Hz)
+// デプス最大: 32 steps ≈ 50 cent (RPN#5 で変更可能)
+static constexpr uint8_t  kCC1DefaultRate     = 19;
+static constexpr int16_t  kCC1DefaultMaxDepth = 32;  // steps (≈50cent @ CC#1=127)
 
 } // anonymous namespace
 
@@ -53,7 +63,7 @@ void LfoControl::start(uint8_t rate, uint8_t delay_20ms,
     if (rate == 0) { stop(); return; }
 
     mode_     = mode;
-    period_   = kSpeedStep[rate < 19 ? rate : 18];
+    period_   = kSpeedStep[rate < 21 ? rate : 20];
     phase_tick_     = 0;
     one_shot_done_  = false;
 
@@ -307,16 +317,23 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
     }
 
     // チャンネル LFO
-    // LFS=1 (sync): 常にリセット。LFS=0: Stopped 状態のときのみ start。
     {
         const auto& sw = voice.sw;
-        const bool do_start = (sw.LFR > 0) &&
-            (sw.LFS || !chLfo_.active());
-        if (do_start)
-            chLfo_.start(sw.LFR, sw.LFD, sw.LFI,
-                         static_cast<LfoMode>(sw.LFM));
-        else if (sw.LFR == 0)
-            chLfo_.stop();
+        if (sw.LFR > 0) {
+            // 音色固有 LFO: CC#1 は無視
+            cc1LfoMode_ = false;
+            const bool do_start = sw.LFS || !chLfo_.active();
+            if (do_start)
+                chLfo_.start(sw.LFR, sw.LFD, sw.LFI,
+                             static_cast<LfoMode>(sw.LFM));
+        } else {
+            // LFR=0: CC#1 駆動モード
+            cc1LfoMode_ = true;
+            if (cc1Value_ > 0 && !chLfo_.active())
+                chLfo_.start(kCC1DefaultRate, 0, 0, LfoMode::Repeat);
+            else if (cc1Value_ == 0)
+                chLfo_.stop();
+        }
     }
 
     // オペレータ LFO
@@ -337,9 +354,31 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
 void VoiceProcessor::onNoteOff() noexcept
 {
     noteOn_ = false;
-    // LFO は Releasing フェーズ中も継続し、自然にフェードアウトする。
-    // fadeout_ticks は VoiceProcessor::onNoteOff(fadeout_ms) で設定される。
-    // ここでは何もしない（呼び出し元が onNoteOff(ms) を使う）。
+}
+
+// ── CC#1 Modulation: LFR=0 の音色のみ対応 ────────────────────────────────────
+// NoteOn 後に CC#1 が変化したときにリアルタイムで呼ばれる。
+// LFR>0 の音色は音色固有の LFO が動いているため CC#1 を無視する。
+void VoiceProcessor::setCC1Modulation(uint8_t cc1, int16_t maxDepth) noexcept
+{
+    // CC1 LFO のデプスを更新する
+    // voice_ のキャッシュがないため LFR は chLfo_ の状態で判断する
+    // (LFR>0 の音色は NoteOn 時に chLfo_.start() しているため active かつ
+    //  期間パラメータが kCC1DefaultRate 以外になっている)
+    // → cc1LfoActive_ フラグで管理する
+    cc1LfoMaxDepth_ = maxDepth;
+    cc1Value_       = cc1;
+
+    if (!cc1LfoMode_) return;   // LFR>0 の音色: CC#1 無視
+
+    if (cc1 == 0) {
+        chLfo_.stop();
+        chLfoValue_ = 0;
+    } else if (!chLfo_.active()) {
+        // LFO が停止中なら即開始
+        chLfo_.start(kCC1DefaultRate, 0, 0, LfoMode::Repeat);
+    }
+    // デプスは recalcChLfo で cc1Value_ を参照して計算する
 }
 
 void VoiceProcessor::onNoteOff(uint16_t fadeout_ms) noexcept
@@ -448,17 +487,28 @@ void VoiceProcessor::recalcOpLfo(int op, const FmVoice& voice) noexcept
 
 void VoiceProcessor::recalcChLfo(const FmVoice& voice) noexcept
 {
-    const auto& sw = voice.sw;
+    if (cc1LfoMode_) {
+        // ── CC#1 駆動モード (LFR=0 の音色) ──────────────────────────────
+        // 波形は sine 固定、デプスは cc1Value_ でスケール
+        if (cc1Value_ == 0 || !chLfo_.active()) {
+            chLfoValue_ = 0;
+            return;
+        }
+        const int16_t wav = static_cast<int16_t>(chLfo_.wave(6)); // sine
+        const int32_t depth = static_cast<int32_t>(cc1LfoMaxDepth_)
+                            * cc1Value_ / 127;
+        chLfoValue_ = static_cast<int16_t>(
+            clamp(static_cast<int32_t>(wav) * depth / 120, -128, 127));
+        return;
+    }
 
-    // 波形値 (-120〜+120)、フェードイン適用済み
+    // ── 音色固有 LFO (LFR>0) ─────────────────────────────────────────────
+    const auto& sw = voice.sw;
     const int16_t wav = static_cast<int16_t>(chLfo_.wave(sw.LWF));
 
-    // depth: LDM/LDL で 16bit 符号付き (±8192 が最大)
     int32_t depth = (static_cast<int32_t>(sw.LDM) << 8) | sw.LDL;
     if (depth >= 8192) depth -= 16384;
 
-    // chLfoValue_ の単位: F-number テーブルインデックス (1 unit ≒ 1.5625 cent)
-    // wav(-120〜+120) × depth(±8192) / (120×8192) で [-128, +127] にスケール
     int32_t val = static_cast<int32_t>(wav) * depth / (120 * 8192 / 127);
     chLfoValue_ = static_cast<int16_t>(clamp(static_cast<int>(val), -128, 127));
 }

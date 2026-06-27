@@ -1,19 +1,21 @@
 {
   "name": "default_gm",
   "bank": 0,
-  "note": "VTL=64 のみ設定。VAR〜VRR=0 で従来動作と互換。",
+  "note": "VTL=64 のみ設定。VAR〜VRR=0 で従来動作と互換。 LFR=0(CC#1駆動), LWF=6(sine), デプスは RPN#5 or kCC1DefaultMaxDepth=32steps.",
   "patches": [
     {
       "prog": 0,
       "name": "Acoustic Grand Piano",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -83,12 +85,14 @@
       "name": "Bright Acoustic Piano",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -158,12 +162,14 @@
       "name": "Electric Grand Piano",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -233,12 +239,14 @@
       "name": "Honky-tonk Piano",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -308,12 +316,14 @@
       "name": "Electric Piano 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -383,12 +393,14 @@
       "name": "Electric Piano 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -458,12 +470,14 @@
       "name": "Harpsichord",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -533,12 +547,14 @@
       "name": "Clavi",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -608,12 +624,14 @@
       "name": "Celesta",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -683,12 +701,14 @@
       "name": "Glockenspiel",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -758,12 +778,14 @@
       "name": "Music Box",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -833,12 +855,14 @@
       "name": "Vibraphone",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -908,12 +932,14 @@
       "name": "Marimba",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -983,12 +1009,14 @@
       "name": "Xylophone",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1058,12 +1086,14 @@
       "name": "Tubular Bells",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1133,12 +1163,14 @@
       "name": "Dulcimer",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1208,12 +1240,14 @@
       "name": "Drawbar Organ",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1283,12 +1317,14 @@
       "name": "Percussive Organ",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1358,12 +1394,14 @@
       "name": "Rock Organ",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1433,12 +1471,14 @@
       "name": "Church Organ",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1508,12 +1548,14 @@
       "name": "Reed Organ",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1583,12 +1625,14 @@
       "name": "Accordion",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1658,12 +1702,14 @@
       "name": "Harmonica",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1733,12 +1779,14 @@
       "name": "Tango Accordion",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1808,12 +1856,14 @@
       "name": "Acoustic Guitar (nylon)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1883,12 +1933,14 @@
       "name": "Acoustic Guitar (steel)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1958,12 +2010,14 @@
       "name": "Electric Guitar (jazz)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2033,12 +2087,14 @@
       "name": "Electric Guitar (clean)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2108,12 +2164,14 @@
       "name": "Electric Guitar (muted)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2183,12 +2241,14 @@
       "name": "Overdriven Guitar",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2258,12 +2318,14 @@
       "name": "Distortion Guitar",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2333,12 +2395,14 @@
       "name": "Guitar harmonics",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2408,12 +2472,14 @@
       "name": "Acoustic Bass",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2483,12 +2549,14 @@
       "name": "Electric Bass (finger)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2558,12 +2626,14 @@
       "name": "Electric Bass (pick)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2633,12 +2703,14 @@
       "name": "Fretless Bass",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2708,12 +2780,14 @@
       "name": "Slap Bass 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2783,12 +2857,14 @@
       "name": "Slap Bass 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2858,12 +2934,14 @@
       "name": "Synth Bass 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2933,12 +3011,14 @@
       "name": "Synth Bass 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3008,12 +3088,14 @@
       "name": "Violin",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3083,12 +3165,14 @@
       "name": "Viola",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3158,12 +3242,14 @@
       "name": "Cello",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3233,12 +3319,14 @@
       "name": "Contrabass",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3308,12 +3396,14 @@
       "name": "Tremolo Strings",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3383,12 +3473,14 @@
       "name": "Pizzicato Strings",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3458,12 +3550,14 @@
       "name": "Orchestral Harp",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3533,12 +3627,14 @@
       "name": "Timpani",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3608,12 +3704,14 @@
       "name": "String Ensemble 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3683,12 +3781,14 @@
       "name": "String Ensemble 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3758,12 +3858,14 @@
       "name": "SynthStrings 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3833,12 +3935,14 @@
       "name": "SynthStrings 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3908,12 +4012,14 @@
       "name": "Choir Aahs",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -3983,12 +4089,14 @@
       "name": "Voice Oohs",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4058,12 +4166,14 @@
       "name": "Synth Voice",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4133,12 +4243,14 @@
       "name": "Orchestra Hit",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4208,12 +4320,14 @@
       "name": "Trumpet",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4283,12 +4397,14 @@
       "name": "Trombone",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4358,12 +4474,14 @@
       "name": "Tuba",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4433,12 +4551,14 @@
       "name": "Muted Trumpet",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4508,12 +4628,14 @@
       "name": "French Horn",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4583,12 +4705,14 @@
       "name": "Brass Section",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4658,12 +4782,14 @@
       "name": "SynthBrass 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4733,12 +4859,14 @@
       "name": "SynthBrass 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4808,12 +4936,14 @@
       "name": "Soprano Sax",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4883,12 +5013,14 @@
       "name": "Alto Sax",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -4958,12 +5090,14 @@
       "name": "Tenor Sax",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5033,12 +5167,14 @@
       "name": "Baritone Sax",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5108,12 +5244,14 @@
       "name": "Oboe",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5183,12 +5321,14 @@
       "name": "English Horn",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5258,12 +5398,14 @@
       "name": "Bassoon",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5333,12 +5475,14 @@
       "name": "Clarinet",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5408,12 +5552,14 @@
       "name": "Piccolo",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5483,12 +5629,14 @@
       "name": "Flute",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5558,12 +5706,14 @@
       "name": "Recorder",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5633,12 +5783,14 @@
       "name": "Pan Flute",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5708,12 +5860,14 @@
       "name": "Blown Bottle",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5783,12 +5937,14 @@
       "name": "Shakuhachi",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5858,12 +6014,14 @@
       "name": "Whistle",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -5933,12 +6091,14 @@
       "name": "Ocarina",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6008,12 +6168,14 @@
       "name": "Lead 1 (square)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6083,12 +6245,14 @@
       "name": "Lead 2 (sawtooth)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6158,12 +6322,14 @@
       "name": "Lead 3 (calliope)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6233,12 +6399,14 @@
       "name": "Lead 4 (chiff)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6308,12 +6476,14 @@
       "name": "Lead 5 (charang)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6383,12 +6553,14 @@
       "name": "Lead 6 (voice)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6458,12 +6630,14 @@
       "name": "Lead 7 (fifths)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6533,12 +6707,14 @@
       "name": "Lead 8 (bass + lead)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6608,12 +6784,14 @@
       "name": "Pad 1 (new age)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6683,12 +6861,14 @@
       "name": "Pad 2 (warm)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6758,12 +6938,14 @@
       "name": "Pad 3 (polysynth)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6833,12 +7015,14 @@
       "name": "Pad 4 (choir)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6908,12 +7092,14 @@
       "name": "Pad 5 (bowed)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -6983,12 +7169,14 @@
       "name": "Pad 6 (metallic)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7058,12 +7246,14 @@
       "name": "Pad 7 (halo)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7133,12 +7323,14 @@
       "name": "Pad 8 (sweep)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7208,12 +7400,14 @@
       "name": "FX 1 (rain)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7283,12 +7477,14 @@
       "name": "FX 2 (soundtrack)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7358,12 +7554,14 @@
       "name": "FX 3 (crystal)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7433,12 +7631,14 @@
       "name": "FX 4 (atmosphere)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7508,12 +7708,14 @@
       "name": "FX 5 (brightness)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7583,12 +7785,14 @@
       "name": "FX 6 (goblins)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7658,12 +7862,14 @@
       "name": "FX 7 (echoes)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7733,12 +7939,14 @@
       "name": "FX 8 (sci-fi)",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7808,12 +8016,14 @@
       "name": "Sitar",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7883,12 +8093,14 @@
       "name": "Banjo",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -7958,12 +8170,14 @@
       "name": "Shamisen",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8033,12 +8247,14 @@
       "name": "Koto",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8108,12 +8324,14 @@
       "name": "Kalimba",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8183,12 +8401,14 @@
       "name": "Bag pipe",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8258,12 +8478,14 @@
       "name": "Fiddle",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8333,12 +8555,14 @@
       "name": "Shanai",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8408,12 +8632,14 @@
       "name": "Tinkle Bell",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8483,12 +8709,14 @@
       "name": "Agogo",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8558,12 +8786,14 @@
       "name": "Steel Drums",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8633,12 +8863,14 @@
       "name": "Woodblock",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8708,12 +8940,14 @@
       "name": "Taiko Drum",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8783,12 +9017,14 @@
       "name": "Melodic Tom",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8858,12 +9094,14 @@
       "name": "Synth Drum",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -8933,12 +9171,14 @@
       "name": "Reverse Cymbal",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9008,12 +9248,14 @@
       "name": "Guitar Fret Noise",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9083,12 +9325,14 @@
       "name": "Breath Noise",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9158,12 +9402,14 @@
       "name": "Seashore",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9233,12 +9479,14 @@
       "name": "Bird Tweet",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9308,12 +9556,14 @@
       "name": "Telephone Ring",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9383,12 +9633,14 @@
       "name": "Helicopter",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9458,12 +9710,14 @@
       "name": "Applause",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -9533,12 +9787,14 @@
       "name": "Gunshot",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {

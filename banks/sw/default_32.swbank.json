@@ -1,19 +1,21 @@
 {
   "name": "default_32",
   "bank": 0,
-  "note": "VTL=64 のみ設定。32音色汎用。",
+  "note": "VTL=64 のみ設定。32音色汎用。 LFR=0(CC#1駆動), LWF=6(sine), デプスは RPN#5 or kCC1DefaultMaxDepth=32steps.",
   "patches": [
     {
       "prog": 0,
       "name": "Voice 0",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -83,12 +85,14 @@
       "name": "Voice 1",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -158,12 +162,14 @@
       "name": "Voice 2",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -233,12 +239,14 @@
       "name": "Voice 3",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -308,12 +316,14 @@
       "name": "Voice 4",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -383,12 +393,14 @@
       "name": "Voice 5",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -458,12 +470,14 @@
       "name": "Voice 6",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -533,12 +547,14 @@
       "name": "Voice 7",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -608,12 +624,14 @@
       "name": "Voice 8",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -683,12 +701,14 @@
       "name": "Voice 9",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -758,12 +778,14 @@
       "name": "Voice 10",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -833,12 +855,14 @@
       "name": "Voice 11",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -908,12 +932,14 @@
       "name": "Voice 12",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -983,12 +1009,14 @@
       "name": "Voice 13",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1058,12 +1086,14 @@
       "name": "Voice 14",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1133,12 +1163,14 @@
       "name": "Voice 15",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1208,12 +1240,14 @@
       "name": "Voice 16",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1283,12 +1317,14 @@
       "name": "Voice 17",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1358,12 +1394,14 @@
       "name": "Voice 18",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1433,12 +1471,14 @@
       "name": "Voice 19",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1508,12 +1548,14 @@
       "name": "Voice 20",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1583,12 +1625,14 @@
       "name": "Voice 21",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1658,12 +1702,14 @@
       "name": "Voice 22",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1733,12 +1779,14 @@
       "name": "Voice 23",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1808,12 +1856,14 @@
       "name": "Voice 24",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1883,12 +1933,14 @@
       "name": "Voice 25",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -1958,12 +2010,14 @@
       "name": "Voice 26",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2033,12 +2087,14 @@
       "name": "Voice 27",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2108,12 +2164,14 @@
       "name": "Voice 28",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2183,12 +2241,14 @@
       "name": "Voice 29",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2258,12 +2318,14 @@
       "name": "Voice 30",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {
@@ -2333,12 +2395,14 @@
       "name": "Voice 31",
       "sw": {
         "LFO": 0,
-        "LWF": 0,
-        "LFS": 0,
+        "LWF": 6,
+        "LFS": 1,
         "LFD": 0,
         "LFR": 0,
         "LDM": 0,
-        "LDL": 0
+        "LDL": 0,
+        "LFM": 0,
+        "LFI": 0
       },
       "ops": [
         {

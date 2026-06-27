@@ -218,10 +218,11 @@ private:
     bool     forceDamp_  = false;
     uint8_t  poly_       = 1;
     bool     mono_       = false;
-    uint8_t  pmDepth_    = 0;
-    uint8_t  amDepth_    = 0;
-    uint8_t  pmRate_     = 0;
-    uint8_t  amRate_     = 0;
+    uint8_t  pmDepth_        = 0;
+    uint8_t  amDepth_        = 0;
+    uint8_t  pmRate_         = 0;
+    uint8_t  amRate_         = 0;
+    int16_t  modDepthRange_  = 32; // RPN#5: CC#1=127 時の最大デプス [Fnum steps]
     uint8_t  phyCh_      = 127;
 
     // ─── パッチ管理 ────────────────────────────────────────────────
