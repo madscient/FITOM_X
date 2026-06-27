@@ -127,6 +127,11 @@ public:
     void allNoteOff();
     void resetAllCtrl();
     void setMasterVolume(uint8_t vol);
+
+    // マスターピッチを設定する (430〜450Hz, デフォルト 440Hz)
+    // 呼び出し後、全デバイスの発音中チャンネルの F-number が即時更新される。
+    void setMasterPitch(double pitchHz);
+    double getMasterPitch() const;
     uint8_t getMasterVolume() const;
 
     // ─── 静的ユーティリティ (旧 CFITOM static メソッド) ─────────

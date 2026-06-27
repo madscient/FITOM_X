@@ -45,6 +45,8 @@ CSoundDevice::CSoundDevice(uint8_t deviceType, uint8_t maxChs, IPort* port,
                     fnumDivide > 0 ? fnumDivide : 144,
                     noteOffset))
     , fnumMaster_(fnumMaster)
+    , fnumDivide_(fnumDivide)
+    , fnumType_(fnumType)
     , noteOffset_(noteOffset)
     , masterVolume_(127)
     , priorCh_(0)
@@ -209,6 +211,25 @@ void CSoundDevice::releaseCh(uint8_t ch)
 {
     if (ch < maxChs_ && chState_[ch].isRunning())
         chState_[ch].release();
+}
+
+// ─── マスターピッチ変更 ────────────────────────────────────────────────────
+// デフォルト実装: FnumRegistry のキャッシュを更新し、
+// 発音中チャンネルの F-number を即時再計算して書き込む。
+// OPM のようにチップ固有の計算が必要な場合はオーバーライドする。
+void CSoundDevice::onMasterPitchChanged(double pitchHz)
+{
+    // FnumRegistry のキャッシュはセッター側でクリア済み (呼び出し元責務)
+    // fnumTable_ を再取得してキャッシュを更新
+    if (fnumMaster_ && fnumDivide_) {
+        fnumTable_ = FnumRegistry::instance().getTable(
+            fnumType_, fnumMaster_, fnumDivide_, noteOffset_);
+    }
+    // 発音中チャンネルの F-number を再計算
+    for (int ch = 0; ch < maxChs_; ++ch) {
+        if (chState_[ch].isActive())
+            updateFnumber(static_cast<uint8_t>(ch), true);
+    }
 }
 
 void CSoundDevice::enableCh(uint8_t ch, bool enable)

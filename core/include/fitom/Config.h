@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include <map>
 #include <memory>
 #include <filesystem>
 #include <functional>
@@ -53,8 +52,6 @@ public:
     bool loadLegacyIni(const std::filesystem::path& path);
 
     void setHWPlugin(std::shared_ptr<HWPluginInstance> plugin);
-    // 複数 DLL 対応: DLL パス → インスタンスを一括登録
-    void setHWPlugins(std::map<std::string, std::shared_ptr<HWPluginInstance>> plugins);
 
     int              getDeviceCount()              const;
     IPort*           getDevicePort(int index)      const;
@@ -73,6 +70,7 @@ public:
     void    setMasterVolume(uint8_t vol);
     uint8_t getMasterVolume()   const;
     double  getMasterPitch()    const { return masterPitch_; }
+    void    setMasterPitch(double p)  { masterPitch_ = p; }
 
     FmEngineRegistry& getFmEngineRegistry();
 
@@ -88,11 +86,7 @@ protected:
     void createDevices();
 
     FmEngineRegistry fmRegistry_;
-    // DLL パス(またはベース名) → インスタンス。同一 DLL は1インスタンスを共有。
-    std::map<std::string, std::shared_ptr<HWPluginInstance>> hwPlugins_;
-
-    // 後方互換: setHWPlugin() で登録した単一インスタンスのキー
-    static constexpr const char* kDefaultHWPluginKey = "__default__";
+    std::shared_ptr<HWPluginInstance> hwPlugin_;
 
     std::vector<DeviceEntry>     devices_;
     std::vector<std::string>     midiInputNames_;
