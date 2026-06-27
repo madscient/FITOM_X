@@ -214,6 +214,24 @@
             "minimum": 0,
             "maximum": 15,
             "description": "[if=HW, type=SPFM_* のみ] 2 ポートチップ (OPNA/OPN2/OPL3 等) の 2 ポート目に使う SPFM スロット番号。省略時は 1 ポートとして動作 (エミュレーター時は不要)。SplitPort が port1(slot) と port2(extra_slot) を統合し、チップドライバは addr >= 0x100 を port2 向けとして透過的に書くだけでよい。"
+          },
+          "dll": {
+            "type": "string",
+            "description": "[if=HW のみ] 使用する HW プラグイン DLL のパス（またはファイル名）。省略時は setHWPlugin() で登録した既定の DLL を使用する。同一パスが複数のデバイスから参照された場合、DLL インスタンスは共有される。",
+            "examples": [
+              "fitom_hw.dll",
+              "fitom_fmhwif.dll",
+              "../build/Release/fitom_hw.dll"
+            ]
+          },
+          "sample_rate": {
+            "type": "integer",
+            "default": 44100,
+            "description": "[if=HW のみ] サンプルレート [Hz]。fitom_fmhwif.dll および fitom_hw.dll の遅延キュー計算に使用する。省略時は 44100。",
+            "examples": [
+              44100,
+              48000
+            ]
           }
         },
         "if": {

@@ -73,26 +73,34 @@ protected:
             setReg(static_cast<uint16_t>(0x30 + reg),
                    ((o.DT1 & 7) << 4) | (o.MUL & 0xF));
 
+            // キャリア判定 (TL・EGレート両方で使う)
+            const bool car = isCarrier(ch, op);
+
             // TL (キャリアは effectiveTL を使用、モジュレータは固定)
-            uint8_t tl = isCarrier(ch, op)
+            const uint8_t tl = car
                 ? s.proc.effectiveTL(op)
                 : o.TL;
             setReg(static_cast<uint16_t>(0x40 + reg), tl & 0x7F);
 
-            // KSR / AR
+            // KSR / AR (キャリアはベロシティ補正値を使用)
+            const uint8_t ar = car ? s.proc.velAR(op) : (o.AR & 0x1F);
             setReg(static_cast<uint16_t>(0x50 + reg),
-                   ((o.KSR & 3) << 6) | (o.AR & 0x1F));
+                   ((o.KSR & 3) << 6) | ar);
 
             // AM / DR
+            const uint8_t dr = car ? s.proc.velDR(op) : (o.D1R & 0x1F);
             setReg(static_cast<uint16_t>(0x60 + reg),
-                   ((o.AM & 1) << 7) | (o.DR & 0x1F));
+                   ((o.AM & 1) << 7) | dr);
 
             // SR
-            setReg(static_cast<uint16_t>(0x70 + reg), o.SR & 0x1F);
+            const uint8_t sr = car ? s.proc.velSR(op) : (o.D2R & 0x1F);
+            setReg(static_cast<uint16_t>(0x70 + reg), sr);
 
             // SL / RR
+            const uint8_t sl = car ? s.proc.velSL(op) : (o.D1L & 0xF);
+            const uint8_t rr = car ? s.proc.velRR(op) : (o.RR  & 0xF);
             setReg(static_cast<uint16_t>(0x80 + reg),
-                   ((o.SL & 0xF) << 4) | (o.RR & 0xF));
+                   ((sl & 0xF) << 4) | (rr & 0xF));
 
             // SSG-EG (EGT)
             setReg(static_cast<uint16_t>(0x90 + reg), o.EGT & 0xF);
