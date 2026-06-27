@@ -96,80 +96,92 @@ std::string CSoundDevice::getDescriptor() const
 //  チャンネル割り当て
 // ================================================================
 
-uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
+// ─── findBestCh: 1パス走査でベストチャンネルを選択 ─────────────────────────
+//
+// 優先度スコア (高いほど優先):
+//   4: owner+patch 一致 かつ Empty/Releasing
+//   3: patch 一致       かつ Empty/Releasing
+//   2: 任意             かつ Empty/Releasing
+//   1: Running (強制奪取候補, noteOnAge 最大のもの)  allowSteal=true 時のみ
+//
+// priorCh_ から循環探索するため、直前に割り当てたチャンネルの次から始まる。
+// 割り当て成功後に priorCh_ を進めることでラウンドロビンを実現する。
+uint8_t CSoundDevice::findBestCh(IMidiCh* owner, const HwPatch* patch,
+                                  bool allowSteal) const noexcept
 {
-    // mode=1: 空きチャンネルのみ / mode=0: 使用中でも可
-    uint8_t ret = 0xFF;
-    uint8_t tmp = priorCh_;
+    int      bestScore = 0;
+    uint8_t  bestCh   = 0xFF;
+    uint16_t bestAge  = 0;
 
-    auto isCandidate = [&](const ChState& s) -> bool {
-        if (!s.isEnabled() || !s.autoAssign) return false;
-        // mode=1: 空きチャンネルまたは Releasing のみ
-        // mode=0: 全チャンネル (Running も強制奪取)
-        return mode ? (s.isEmpty() || s.isReleasing()) : s.isEnabled();
-    };
+    for (int i = 0; i < maxChs_; ++i) {
+        const uint8_t ci = static_cast<uint8_t>((priorCh_ + i) % maxChs_);
+        const auto&   s  = chState_[ci];
 
-    if (owner && patch) {
-        // 同じ owner + 同じパッチ ID → 再利用優先
-        for (int i = 0; i < maxChs_; ++i) {
-            const auto& s = chState_[tmp];
-            if (isCandidate(s) && s.owner == owner
-                && s.hwPatch.id == patch->id) {
-                ret = tmp; break;
+        if (!s.isEnabled() || !s.autoAssign) continue;
+
+        int score = 0;
+        if (s.isEmpty() || s.isReleasing()) {
+            if (owner && patch
+                && s.owner == owner && s.hwPatch.id == patch->id)
+                score = 4;                            // owner+patch 完全一致
+            else if (patch && s.hwPatch.id == patch->id)
+                score = 3;                            // patch 一致
+            else
+                score = 2;                            // 任意の空き/Releasing
+        } else if (allowSteal && s.isRunning()) {
+            // 強制奪取候補: 最古 (noteOnAge 最大) のチャンネル
+            if (s.noteOnAge > bestAge) {
+                score    = 1;
+                bestAge  = s.noteOnAge;
             }
-            tmp = (tmp + 1) % maxChs_;
         }
-    } else if (patch) {
-        // 同じパッチ ID
-        tmp = priorCh_;
-        for (int i = 0; i < maxChs_; ++i) {
-            const auto& s = chState_[tmp];
-            if (isCandidate(s) && s.hwPatch.id == patch->id) {
-                ret = tmp; break;
-            }
-            tmp = (tmp + 1) % maxChs_;
-        }
-    } else {
-        // 任意の空きチャンネル
-        tmp = priorCh_;
-        for (int i = 0; i < maxChs_; ++i) {
-            const auto& s = chState_[tmp];
-            if (isCandidate(s)) { ret = tmp; break; }
-            tmp = (tmp + 1) % maxChs_;
+
+        // スコアが改善した場合のみ更新
+        // 同スコアなら priorCh_ に近い方 (先に見つかった方) を優先
+        if (score > bestScore) {
+            bestScore = score;
+            bestCh    = ci;
+            if (bestScore == 4) break; // 最高優先度なら即打ち切り
         }
     }
 
-    if (ret != 0xFF) priorCh_ = (priorCh_ + 1) % maxChs_;
+    return bestCh;
+}
+
+// ─── queryCh: 後方互換ラッパー ───────────────────────────────────────────────
+uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
+{
+    // mode=1: 空き/Releasing のみ (allowSteal=false)
+    // mode=0: Running も対象    (allowSteal=true)
+    uint8_t ret = findBestCh(owner, patch, mode == 0);
+    if (ret != 0xFF)
+        priorCh_ = static_cast<uint8_t>((ret + 1) % maxChs_);
     return ret;
 }
 
 uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch)
 {
-    // 優先順位: owner+patch 一致 → patch 一致 → 任意空き → 強制奪取
-    uint8_t ret = queryCh(owner, patch, 1);
-    if (ret == 0xFF) ret = queryCh(nullptr, patch, 1);
-    if (ret == 0xFF) ret = queryCh(nullptr, nullptr, 1);
+    // findBestCh の1パス走査で優先度順に最適チャンネルを選択:
+    //   score 4: owner+patch 一致 の Empty/Releasing
+    //   score 3: patch 一致        の Empty/Releasing
+    //   score 2: 任意              の Empty/Releasing
+    //   score 1: 最古 Running      (強制奪取)
+    uint8_t ret = findBestCh(owner, patch, /*allowSteal=*/true);
 
     if (ret == 0xFF) {
-        // 最も古い発音中チャンネルを奪う
-        uint16_t maxAge = 0;
-        int cand = 0xFF;
-        for (int i = 0; i < maxChs_; ++i) {
-            auto& s = chState_[i];
-            if (s.autoAssign && s.isActive() && s.noteOnAge > maxAge) {
-                maxAge = s.noteOnAge;
-                cand = i;
-            }
-        }
-        ret = static_cast<uint8_t>(cand);
-        if (ret == 0xFF) ret = queryCh(nullptr, nullptr, 0);
-        FITOM_LOG_DEBUG("allocCh: forced steal ch=" << static_cast<int>(ret)
-            << " age=" << maxAge);
+        FITOM_LOG_WARN("allocCh: no channel available");
+        return 0xFF;
     }
 
-    if (ret != 0xFF) {
-        assignCh(ret, owner, patch);
+    // priorCh_ を次回探索の起点に更新 (ラウンドロビン)
+    priorCh_ = static_cast<uint8_t>((ret + 1) % maxChs_);
+
+    if (chState_[ret].isRunning()) {
+        FITOM_LOG_DEBUG("allocCh: forced steal ch=" << static_cast<int>(ret)
+            << " age=" << chState_[ret].noteOnAge);
     }
+
+    assignCh(ret, owner, patch);
     return ret;
 }
 
@@ -177,14 +189,11 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch)
 {
     if (ch >= maxChs_) return 0xFF;
     auto& s = chState_[ch];
-
-    // 発音中なら先に止める
-    if (s.isActive() && s.owner && s.owner != owner) {
-        // 前の音 (Running/Releasing) を止める
-        noteOff(ch);
-    }
-
     if (!s.isEnabled()) return 0xFF;
+
+    // 他の owner が使用中なら先に止める (noteOff が release を内包)
+    if (s.isActive() && s.owner && s.owner != owner)
+        noteOff(ch);
 
     s.assign(owner);
     if (patch) {
@@ -194,9 +203,12 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch)
     return ch;
 }
 
+// releaseCh: 後方互換ラッパー。noteOff が release() を内包するため
+// 呼び出し不要になったが、外部から呼ばれる場合のために残す。
 void CSoundDevice::releaseCh(uint8_t ch)
 {
-    if (ch < maxChs_) chState_[ch].release();
+    if (ch < maxChs_ && chState_[ch].isRunning())
+        chState_[ch].release();
 }
 
 void CSoundDevice::enableCh(uint8_t ch, bool enable)
@@ -244,7 +256,11 @@ void CSoundDevice::noteOff(uint8_t ch)
 {
     if (ch >= maxChs_) return;
     auto& s = chState_[ch];
-    if (!s.isRunning()) return;
+    if (!s.isActive()) return;   // Running/Releasing のみ処理
+
+    // KeyOff をチップに送出 (派生クラスで実装)
+    // ※ 既に Releasing の場合も再度 KeyOff を送って問題ない
+    // (チップは既に EG リリース中なので無害)
 
     s.release();   // → Status::Releasing、releaseTimer = kReleasingHoldMs
     // LFO を kReleasingHoldMs ms かけてフェードアウト

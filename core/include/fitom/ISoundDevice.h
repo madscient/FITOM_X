@@ -108,10 +108,12 @@ public:
     virtual std::string getDescriptor() const = 0;
 
     // ─── チャンネル割り当て ─────────────────────────────────────────────
-    virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch)          = 0;
+    virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch)              = 0;
     virtual uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch) = 0;
-    virtual uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) = 0;
-    virtual void    releaseCh(uint8_t ch)                                   = 0;
+    // queryCh は findBestCh に統合 (後方互換のため残す)
+    virtual uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode)    = 0;
+    // releaseCh は noteOff に内包 (後方互換のため残す)
+    virtual void    releaseCh(uint8_t ch)                                       = 0;
     virtual void    enableCh(uint8_t ch, bool enable)                       = 0;
     virtual uint8_t getAvailableChs() const                                 = 0;
 
@@ -180,6 +182,11 @@ public:
     uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch) override;
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override;
     void    releaseCh(uint8_t ch) override;
+
+    // 1パス走査でベストチャンネルを選択する内部実装
+    // (allocCh / queryCh はこれを呼ぶ)
+    uint8_t findBestCh(IMidiCh* owner, const HwPatch* patch,
+                       bool allowSteal) const noexcept;
     void    enableCh(uint8_t ch, bool enable) override;
     uint8_t getAvailableChs() const override;
 

@@ -213,7 +213,7 @@ void CInstCh::noteOff(uint8_t note)
 
         if (h.dev) {
             h.dev->noteOff(h.devCh);
-            h.dev->releaseCh(h.devCh);
+            // releaseCh は noteOff に内包済み。別途呼び出し不要。
         }
         leaveNote(hi);
         if (note != 0xFF) break; // 1音だけ止める
