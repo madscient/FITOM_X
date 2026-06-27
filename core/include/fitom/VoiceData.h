@@ -156,21 +156,23 @@ struct FmSwOp {
     uint8_t VSL;  // Velocity → SL 感度
     uint8_t VSR;  // Velocity → SR 感度
     uint8_t VRR;  // Velocity → RR 感度
-    uint8_t VLD;  // Velocity → ソフト LFO Depth 感度
-    uint8_t VLR;  // Velocity → ソフト LFO Rate 感度
+    uint8_t VLD;  // Velocity → ソフト LFO Depth 感度 (未実装・予約)
+    uint8_t VLR;  // Velocity → ソフト LFO FadeIn 感度 (未実装・予約)
 
-    // ─── オペレータ単位ソフト LFO (Tremolo) ──────────────────────
-    // TL を周期変調する。TimerCallBack → UpdateOpLFO で処理する。
-    uint8_t SLF;  // Soft LFO frequency: 0〜15 (speedstep テーブル参照)
-    uint8_t SLW;  // Soft LFO waveform:  0=up-saw / 1=square / 2=triangle
-                  //                     3=S&H / 4=down-saw / 5=delta / 6=sine
-    uint8_t SLD;  // Soft LFO depth:     0〜63 / 64〜127 → -64〜-1 (符号付き)
-    uint8_t SLY;  // Soft LFO delay:     0〜127 [20ms 単位]
-    uint8_t SLR;  // Soft LFO rate:      0〜127 (0=LFO 無効)
+    // ─── オペレータ単位ソフト LFO (Tremolo / TL 変調) ───────────
+    // TL を周期変調する。1ms ティックごとに処理する。
+    uint8_t SLW;  // Soft LFO waveform: 0=up-saw/1=square/2=triangle
+                  //                    3=S&H/4=down-saw/5=delta/6=sine
+    uint8_t SLS;  // Soft LFO sync:  0=NoteOnでリセットしない / 1=リセット
+    uint8_t SLM;  // Soft LFO mode:  0=repeat / 1=one-shot(hold) / 2=one-shot(zero)
+    uint8_t SLD;  // Soft LFO depth: 0〜63=正方向 / 64〜127→-64〜-1=負方向
+    uint8_t SLY;  // Soft LFO delay: 0〜127 [20ms 単位]
+    uint8_t SLR;  // Soft LFO rate:  0〜127 (0=LFO 無効, kSpeedStep参照)
+    uint8_t SLI;  // Soft LFO fade-in: 0=即フルデプス / 1〜127=フェードイン速度
 
     constexpr FmSwOp() noexcept
         : VTL(0), VAR(0), VDR(0), VSL(0), VSR(0), VRR(0), VLD(0), VLR(0)
-        , SLF(0), SLW(0), SLD(0), SLY(0), SLR(0) {}
+        , SLW(0), SLS(0), SLM(0), SLD(0), SLY(0), SLR(0), SLI(0) {}
 };
 
 // ----------------------------------------------------------------
@@ -178,19 +180,20 @@ struct FmSwOp {
 // ----------------------------------------------------------------
 struct FmSwVoice {
     // ─── チャンネルソフト LFO (Vibrato / Pitch Modulation) ───────
-    // F-number を周期変調する。TimerCallBack → UpdateFnumber で処理する。
-    uint8_t LFO;  // LFO frequency (未使用: HW LFO は FmHwVoice の AMS/PMS で制御)
-    uint8_t LWF;  // LFO waveform: 0=up-saw/1=square/2=triangle/3=S&H/4=down-saw/5=delta/6=sine
-    uint8_t LFS;  // LFO sync flag: 1=NoteOn 時にリセット
+    // F-number インデックスを周期変調する (1unit ≒ 1.5625 cent)。
+    // HW LFO はパフォーマンスパラメータ扱いのため、ここには含まない。
+    uint8_t LWF;  // LFO waveform: 0=up-saw/1=square/2=triangle
+                  //               3=S&H/4=down-saw/5=delta/6=sine
+    uint8_t LFS;  // LFO sync: 0=NoteOnでリセットしない / 1=リセット
+    uint8_t LFM;  // LFO mode: 0=repeat / 1=one-shot(hold) / 2=one-shot(zero)
     uint8_t LFD;  // LFO delay: 0〜127 [20ms 単位]
-    uint8_t LFR;  // LFO rate:  0〜127 (0=LFO 無効)
-    uint8_t LDM;  // LFO depth (MSB): 0〜8191 / 8192〜16383 → -8192〜-1
+    uint8_t LFR;  // LFO rate:  0〜127 (0=LFO 無効, kSpeedStep参照)
+    uint8_t LFI;  // LFO fade-in: 0=即フルデプス / 1〜127=フェードイン速度
+    uint8_t LDM;  // LFO depth (MSB): 0〜8191=正方向 / 8192〜16383→-8192〜-1
     uint8_t LDL;  // LFO depth (LSB)
 
-    // ─── ポルタメントとスロー系は MIDI レイヤーで処理するため除外 ─
-
     constexpr FmSwVoice() noexcept
-        : LFO(0), LWF(0), LFS(0), LFD(0), LFR(0), LDM(0), LDL(0) {}
+        : LWF(0), LFS(0), LFM(0), LFD(0), LFR(0), LFI(0), LDM(0), LDL(0) {}
 };
 
 #pragma pack(pop)
@@ -232,7 +235,8 @@ namespace legacy {
 #pragma pack(push, 1)
 struct FMOP {
     uint8_t AR, DR, SL, SR, RR, REV, TL, EGT, EGS, KSL, KSR, WS;
-    uint8_t AM, VIB, SLF, SLW, SLD, SLY, SLR;
+    uint8_t AM, VIB, SLW, SLD, SLY, SLR;     // OP LFO
+    uint8_t SLS, SLM, SLI;                   // OP LFO sync/mode/fadein (新規)
     uint8_t DM0, MUL, DT1, DT2, DT3;
     uint8_t VTL, VAR, VDR, VSL, VSR, VRR, VLD, VLR;
 };
@@ -241,7 +245,8 @@ struct FMVOICE {
     uint32_t ID;
     char     name[32];
     uint8_t  FB, AL, AMS, PMS;
-    uint8_t  LDM, LDL, LFO, LWF, LFS, LFD, LFR, NFQ;
+    uint8_t  LDM, LDL, LWF, LFS, LFD, LFR, NFQ;  // ch LFO
+    uint8_t  LFM, LFI;                               // ch LFO mode/fadein (新規)
     FMOP     op[4];
 };
 #pragma pack(pop)
@@ -263,11 +268,12 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
     // SW (チャンネル LFO)
     dst.sw.LDM  = src.LDM;
     dst.sw.LDL  = src.LDL;
-    dst.sw.LFO  = src.LFO;
     dst.sw.LWF  = src.LWF;
     dst.sw.LFS  = src.LFS;
+    dst.sw.LFM  = src.LFM;
     dst.sw.LFD  = src.LFD;
     dst.sw.LFR  = src.LFR;
+    dst.sw.LFI  = src.LFI;
 
     // チップ拡張
     dst.ext.ALG_EXT = (src.AL >> 3) & 0x01;
@@ -295,8 +301,8 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
         w.VTL = s.VTL;  w.VAR = s.VAR;  w.VDR = s.VDR;
         w.VSL = s.VSL;  w.VSR = s.VSR;  w.VRR = s.VRR;
         w.VLD = s.VLD;  w.VLR = s.VLR;
-        w.SLF = s.SLF;  w.SLW = s.SLW;  w.SLD = s.SLD;
-        w.SLY = s.SLY;  w.SLR = s.SLR;
+        w.SLW = s.SLW;  w.SLS = s.SLS;  w.SLM = s.SLM;  w.SLI = s.SLI;
+        w.SLD = s.SLD;  w.SLY = s.SLY;  w.SLR = s.SLR;
     }
     return dst;
 }
@@ -313,7 +319,7 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
     dst.PMS = src.hw.PMS;
     dst.NFQ = src.hw.NFQ;
     dst.LDM = src.sw.LDM;  dst.LDL = src.sw.LDL;
-    dst.LFO = src.sw.LFO;  dst.LWF = src.sw.LWF;
+    dst.LWF = src.sw.LWF;  // LFO フィールド廃止 (HW LFO はパフォーマンスパラメータへ)
     dst.LFS = src.sw.LFS;  dst.LFD = src.sw.LFD;
     dst.LFR = src.sw.LFR;
 
@@ -337,8 +343,8 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
         d.VTL = w.VTL;  d.VAR = w.VAR;  d.VDR = w.VDR;
         d.VSL = w.VSL;  d.VSR = w.VSR;  d.VRR = w.VRR;
         d.VLD = w.VLD;  d.VLR = w.VLR;
-        d.SLF = w.SLF;  d.SLW = w.SLW;  d.SLD = w.SLD;
-        d.SLY = w.SLY;  d.SLR = w.SLR;
+        d.SLW = w.SLW;  d.SLS = w.SLS;  d.SLM = w.SLM;
+        d.SLD = w.SLD;  d.SLY = w.SLY;  d.SLR = w.SLR;  d.SLI = w.SLI;
     }
     return dst;
 }
