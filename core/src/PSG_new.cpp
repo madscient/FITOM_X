@@ -106,6 +106,9 @@ protected:
         }
 
         // HW エンベロープ (EGT bit3 = 使用フラグ)
+        // AY-3-8910 / YM2149: HW EG 使用時はすべてのベロシティ感度を無効化する。
+        // HW EG はチップ固有のエンベロープ形状 (0xD = attack+decay 等) で制御され、
+        // ソフトウェア側からの EG レート補正は意味をなさないためレジスタ値そのまま。
         if (p.hwOp[0].EGT & 0x08) {
             setReg(static_cast<uint16_t>(0x08 + ch),
                    static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x08 + ch)) & 0xE0)
@@ -339,6 +342,13 @@ protected:
 
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr)  { return std::make_unique<CSSG>(p, sr); }
+
+// SAA1099 は旧実装 (SAA.cpp) のみ。新実装 (SAA_new.cpp) 未作成。
+// SAA1099 の HW EG 使用時の仕様:
+//   - 音量制御 (effectiveTL→VTL) のみ有効
+//   - EG レートのベロシティ感度 (VAR〜VRR) は無効 (SAA はソフトEGなし)
+// → 新実装時には SAA::updateVolExp で EGT フラグを確認し、
+//   EGT 有効時は effectiveTL のみ参照してレジスタへ書くこと。
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr) { return std::make_unique<CDCSG>(p, sr); }
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr)  { return std::make_unique<CSCC>(p, sr); }
 } // namespace fitom
