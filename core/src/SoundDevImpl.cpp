@@ -217,6 +217,17 @@ void CSoundDevice::releaseCh(uint8_t ch)
 // デフォルト実装: FnumRegistry のキャッシュを更新し、
 // 発音中チャンネルの F-number を即時再計算して書き込む。
 // OPM のようにチップ固有の計算が必要な場合はオーバーライドする。
+void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
+{
+    if (ch >= maxChs_) return;
+    auto& s = chState_[ch];
+    if (!s.isActive()) return;
+    s.proc.setCC1Modulation(cc1, maxDepth);
+    // デプスが変わったので F-number を再計算
+    if (s.proc.channelLfoActive() || cc1 == 0)
+        updateFnumber(ch, true);
+}
+
 void CSoundDevice::onMasterPitchChanged(double pitchHz)
 {
     // FnumRegistry のキャッシュはセッター側でクリア済み (呼び出し元責務)

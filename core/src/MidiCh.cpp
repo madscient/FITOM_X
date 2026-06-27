@@ -254,6 +254,7 @@ void CInstCh::resetAllCtrl()
     bendRange_ = 2;
     tuning_    = 8192;
     pmDepth_ = amDepth_ = pmRate_ = amRate_ = 0;
+    modDepthRange_ = 32;  // kCC1DefaultMaxDepth
 }
 
 // ----------------------------------------------------------------
@@ -296,6 +297,15 @@ void CInstCh::setSustain(uint8_t sus)
 void CInstCh::setModulation(uint8_t dep)
 {
     pmDepth_ = dep;
+
+    // 発音中の全チャンネルに CC#1 変化を通知
+    // LFR=0 の音色のみ反映される（VoiceProcessor::setCC1Modulation 内で判定）
+    for (int hi = 0; hi < MAX_NOTES; ++hi) {
+        auto& h = notes_[hi];
+        if (!h.isValid() || !h.dev) continue;
+        // devCh の VoiceProcessor に CC#1 値を通知
+        h.dev->setCC1Modulation(h.devCh, dep, modDepthRange_);
+    }
 }
 
 void CInstCh::setFootCtrl(uint8_t dep)
@@ -364,6 +374,20 @@ void CInstCh::setRPNRegister(uint16_t reg, uint16_t val)
     switch (reg) {
     case 0x0000: setBendRange(static_cast<uint8_t>(val >> 7)); break;
     case 0x0001: setFineTune(val); break;
+    case 0x0005: {
+        // RPN#5: Modulation Depth Range (Vibrato Depth Range)
+        // val は 14bit (0〜16383)。MSB 7bit がセント単位の最大デプス。
+        // セント → Fnum steps: steps = cents * 64 / 100
+        const uint8_t cents = static_cast<uint8_t>(val >> 7);
+        modDepthRange_ = static_cast<int16_t>(cents * 64 / 100);
+        // 発音中チャンネルに即時反映
+        for (int hi = 0; hi < MAX_NOTES; ++hi) {
+            auto& h = notes_[hi];
+            if (!h.isValid() || !h.dev) continue;
+            h.dev->setCC1Modulation(h.devCh, pmDepth_, modDepthRange_);
+        }
+        break;
+    }
     default: break;
     }
 }

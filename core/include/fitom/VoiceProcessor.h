@@ -123,10 +123,13 @@ public:
                   const FmVoice& voice) noexcept;
 
     // ─── NoteOff 時に呼ぶ ─────────────────────────────────────────
-    // fadeout_ms: LFO をこの時間（ms）かけてフェードアウトさせる
-    //             0 = 即停止（Releasing フェーズ終了まで LFO は動作継続）
     void onNoteOff(uint16_t fadeout_ms = 0) noexcept;
-    void onNoteOff() noexcept;   // 後方互換: fadeout_ms=0 と同じ
+    void onNoteOff() noexcept;
+
+    // ─── CC#1 Modulation Wheel ────────────────────────────────────
+    // LFR=0 の音色でのみ有効。LFR>0 の音色は CC#1 を無視する。
+    // maxDepth: CC#1=127 時のデプス [Fnum steps] (RPN#5 で変更可能)
+    void setCC1Modulation(uint8_t cc1, int16_t maxDepth) noexcept;
 
     // ─── ボリューム/エクスプレッション変更時に呼ぶ ────────────────
     // チャンネルレベルが変化した場合に effectiveTL を再計算する。
@@ -170,6 +173,11 @@ private:
 
     int16_t  baseTL_[4]       = {}; // ベロシティ・ボリューム補正後の基準TL
     int16_t  effectiveTL_[4]  = {}; // LFO 変調後の最終TL
+
+    // CC#1 Modulation Wheel (LFR=0 の音色のみ)
+    bool     cc1LfoMode_      = false; // true = CC#1 駆動モード (LFR=0)
+    uint8_t  cc1Value_        = 0;     // 現在の CC#1 値 (0-127)
+    int16_t  cc1LfoMaxDepth_  = 32;   // CC#1=127 時の最大デプス [steps]
 
     // ベロシティ補正済み EG レート (onNoteOn 時に設定)
     uint8_t velAR_[4]  = {};   // 補正後 AR  (0-31)
