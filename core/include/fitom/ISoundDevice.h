@@ -121,6 +121,9 @@ public:
     virtual void noteOn(uint8_t ch, uint8_t vel)                            = 0;
     virtual void noteOff(uint8_t ch)                                        = 0;
 
+    // マスターピッチ変更通知 (デフォルト実装: FnumTable キャッシュ破棄 + 再計算)
+    virtual void onMasterPitchChanged(double pitchHz);
+
     // ─── パラメータ設定 ─────────────────────────────────────────────────
     virtual void setVoice(uint8_t ch, const HwPatch& patch, bool update = true)  = 0;
     virtual void setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool update = true) = 0;
@@ -245,6 +248,8 @@ protected:
 
     const uint16_t* fnumTable_;
     int             fnumMaster_;
+    int             fnumDivide_;     // コンストラクタで設定
+    FnumTableType   fnumType_;       // コンストラクタで設定
     int             noteOffset_;
     int             masterVolume_;
     uint8_t         priorCh_;   // 次に奪うチャンネルのヒント

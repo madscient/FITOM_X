@@ -30,8 +30,7 @@ public:
         , lfoAmDepth_(0), lfoPmDepth_(0), lfoAmRate_(0), lfoPmRate_(0)
     {
         opCount_ = 4;
-        masterTune_ = static_cast<int16_t>(
-            std::round(computeOpmMasterOffset(sampleRate)));
+        masterTune_ = computeMasterTune(440.0); // デフォルト A4=440Hz
     }
 
     std::string getDescriptor() const override { return "OPM (YM2151) 8ch"; }
@@ -59,10 +58,11 @@ protected:
                     + (noteOffset_ * 64) / 12
                     + masterTune_
                     + offset + lfoOffset;
-        int oct = (-noteOffset_ / 12) - 1;
 
-        while (idx <   0) { --oct; idx += 768; }
-        while (idx >= 768){ ++oct; idx -= 768; }
+        // 除算でオクターブを直接求める (ループ方式はオーバーフロー時に誤る)
+        int oct = idx / 768;
+        idx %= 768;
+        if (idx < 0) { --oct; idx += 768; }
 
         if (oct >= 0 && oct < 8) {
             ret.block = static_cast<uint8_t>(oct);
@@ -276,11 +276,26 @@ private:
         lfoUsed_ = 0;
     }
 
-    static double computeOpmMasterOffset(int sampleRate) {
-        // OPM クロック 3.579545MHz / サンプルレートによるピッチ補正
-        // 旧 theFnum.GetOPMMasterOffset 相当
-        constexpr double kOpmClock = 3579545.0;
-        return std::round(std::log2(kOpmClock / (sampleRate * 2.0)) * 768.0);
+    // masterTune_: note=69(A4) → KC=0x4C(oct4,A), KF=0 になる基準オフセット
+    // 検証: note=69, noteOffset=-61 のとき
+    //   idx = 69*64 + (-61*64)/12 + (-442) = 4416 - 326 - 442 = 3648
+    //   oct = 3648/768 = 4, idx_norm = 576 = 9*64+0
+    //   KC = (4<<4)|kKeyCode[9] = (4<<4)|12 = 0x4C = A4 ✓
+    static constexpr int16_t kMasterTuneBase = -442;
+
+    // pitchHz から masterTune_ を計算する
+    // 440Hz 基準で ±20Hz (約 ±77cent) の可変範囲
+    static int16_t computeMasterTune(double pitchHz) {
+        return static_cast<int16_t>(kMasterTuneBase
+            + std::round(768.0 * std::log2(pitchHz / 440.0)));
+    }
+
+    // masterTune_ を更新し、発音中チャンネルの F-number を再計算する
+    void onMasterPitchChanged(double pitchHz) {
+        masterTune_ = computeMasterTune(pitchHz);
+        for (int ch = 0; ch < maxChs_; ++ch)
+            if (chState_[ch].isActive())
+                updateFnumber(static_cast<uint8_t>(ch), true);
     }
 };
 

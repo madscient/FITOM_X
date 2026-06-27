@@ -8,6 +8,7 @@
 //   - tables.h (ROM::devmap) を FITOMdefine.h の定数で代替
 
 #include "fitom/CFITOM.h"
+#include "fitom/FnumUtils.h"
 #include "fitom/IPort.h"
 #include "fitom/DeviceFactory.h"
 #include "fitom/SccWaveData.h"
@@ -309,6 +310,13 @@ void CFITOM::initDevices()
     // これにより「物理チップ + FMエンジン内蔵hwif」混在構成でも
     // ノート ON/OFF のタイミングが揃う。
     syncDeviceLatency();
+
+    // マスターピッチを FnumRegistry と全デバイスに反映
+    const double pitch = config_ ? config_->getMasterPitch() : 440.0;
+    fitom::FnumRegistry::instance().setMasterPitch(pitch);
+    for (auto& dev : devices_) {
+        if (dev) dev->onMasterPitchChanged(pitch);
+    }
 }
 
 // ================================================================
@@ -395,6 +403,34 @@ void CFITOM::resetAllCtrl()
         }
     }
 }
+
+// ─── マスターピッチ ──────────────────────────────────────────────────────────
+
+void CFITOM::setMasterPitch(double pitchHz)
+{
+    // 範囲チェック: 430〜450Hz
+    pitchHz = std::clamp(pitchHz, 430.0, 450.0);
+
+    // FnumRegistry キャッシュを更新 (setMasterPitch でキャッシュクリア)
+    fitom::FnumRegistry::instance().setMasterPitch(pitchHz);
+
+    // Config に保存
+    if (config_) config_->setMasterPitch(pitchHz);
+
+    // 全デバイスに通知 (発音中チャンネルの F-number を即時再計算)
+    for (auto& dev : devices_) {
+        if (dev) dev->onMasterPitchChanged(pitchHz);
+    }
+
+    FITOM_LOG_INFO("MasterPitch: " << pitchHz << " Hz");
+}
+
+double CFITOM::getMasterPitch() const
+{
+    return config_ ? config_->getMasterPitch() : 440.0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 void CFITOM::setMasterVolume(uint8_t vol)
 {
