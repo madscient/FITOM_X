@@ -106,6 +106,13 @@ public:
         return static_cast<uint8_t>(clamp(effectiveTL_[op], 0, 127));
     }
 
+    // ベロシティ補正済み EG レート getter
+    uint8_t velAR (int op) const noexcept { return velAR_[op];  }
+    uint8_t velDR (int op) const noexcept { return velDR_[op];  }
+    uint8_t velSL (int op) const noexcept { return velSL_[op];  }
+    uint8_t velSR (int op) const noexcept { return velSR_[op];  }
+    uint8_t velRR (int op) const noexcept { return velRR_[op];  }
+
     // チャンネル LFO の現在値 (ピッチ変調量, -128〜+127 の整数)
     int16_t channelLfoValue() const noexcept { return chLfoValue_; }
 
@@ -121,6 +128,13 @@ private:
 
     int16_t  baseTL_[4]       = {}; // ベロシティ・ボリューム補正後の基準TL
     int16_t  effectiveTL_[4]  = {}; // LFO 変調後の最終TL
+
+    // ベロシティ補正済み EG レート (onNoteOn 時に設定)
+    uint8_t velAR_[4]  = {};   // 補正後 AR  (0-31)
+    uint8_t velDR_[4]  = {};   // 補正後 D1R (0-31)
+    uint8_t velSL_[4]  = {};   // 補正後 D1L (0-15)
+    uint8_t velSR_[4]  = {};   // 補正後 D2R (0-31)
+    uint8_t velRR_[4]  = {};   // 補正後 RR  (0-15)
     int16_t  chLfoValue_      = 0;  // チャンネルLFO現在値
 
     uint8_t  lastVol_  = 127;

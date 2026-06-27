@@ -247,24 +247,63 @@ void FITOMConfig::buildDevice(const json& dev)
         }
 
     } else if (ifType == "HW") {
-        if (!hwPlugin_) {
-            FITOM_LOG_ERR("HW device '" << label << "' requested but hw_plugin not loaded");
+        // --- DLL の選択 --------------------------------------------------------
+        // profile の devices[].dll が指定されていればそのキーで検索する。
+        // 未指定の場合は後方互換で "__default__" を使用する。
+        std::string dllKey = dev.value("dll", "");
+        std::shared_ptr<HWPluginInstance> hwPlugin;
+
+        if (!dllKey.empty()) {
+            auto it = hwPlugins_.find(dllKey);
+            if (it == hwPlugins_.end()) {
+                // ベース名でも検索（"fitom_hw.dll" → "fitom_hw.dll" のキー以外に
+                // stem() だけで登録されている場合も許容）
+                std::string base = fs::path(dllKey).filename().string();
+                it = hwPlugins_.find(base);
+            }
+            if (it != hwPlugins_.end()) {
+                hwPlugin = it->second;
+            } else {
+                // 未登録: 実行時に DLL を動的ロードして登録（同一 DLL は共有）
+                FITOM_LOG_INFO("HW device '" << label << "': loading DLL on demand: " << dllKey);
+                try {
+                    auto inst = HWPluginInstance::load(dllKey);
+                    hwPlugins_[dllKey] = inst;
+                    hwPlugin = inst;
+                } catch (const std::exception& ex) {
+                    FITOM_LOG_ERR("Failed to load HW plugin DLL '" << dllKey
+                        << "' for device '" << label << "': " << ex.what());
+                    return;
+                }
+            }
+        } else {
+            // dll 未指定 → __default__ を使用（setHWPlugin() で登録した単一 DLL）
+            auto it = hwPlugins_.find(kDefaultHWPluginKey);
+            if (it != hwPlugins_.end()) hwPlugin = it->second;
+        }
+
+        if (!hwPlugin) {
+            FITOM_LOG_ERR("HW device '" << label
+                << "': no hw_plugin available"
+                << " (specify \"dll\" in device entry, or call setHWPlugin())");
             return;
         }
-        // params_json を組み立てて HWPort を生成
+
+        // --- params_json を組み立てて HWPort を生成 ----------------------------
         json params;
         params["type"] = dev.value("type", "");
         if (dev.contains("serial")) params["serial"] = dev["serial"];
         if (dev.contains("port"))   params["port"]   = dev["port"];
-        params["slot"]  = dev.value("slot", 0);
-        params["clock"] = dev.value("hw_clock", 0);
-        params["pan"]   = dev.value("pan", 0);
+        params["slot"]        = dev.value("slot", 0);
+        params["clock"]       = dev.value("hw_clock", 0);
+        params["pan"]         = dev.value("pan", 0);
+        params["sample_rate"] = dev.value("sample_rate", 44100u);
 
         // B-2: extra_slot → 2ポート目の HWPort を生成
         int extraSlot = dev.value("extra_slot", -1);
 
         try {
-            auto port = std::make_unique<HWPort>(hwPlugin_, params.dump());
+            auto port = std::make_unique<HWPort>(hwPlugin, params.dump());
             DeviceEntry e;
             e.label      = label;
             e.deviceType = resolveChipDeviceId(dev.value("chip", ""));
@@ -275,7 +314,7 @@ void FITOMConfig::buildDevice(const json& dev)
                 json params2 = params;
                 params2["slot"] = extraSlot;
                 try {
-                    e.port2 = std::make_unique<HWPort>(hwPlugin_, params2.dump());
+                    e.port2 = std::make_unique<HWPort>(hwPlugin, params2.dump());
                     FITOM_LOG_INFO("Device[" << label << "]: extra_slot=" << extraSlot
                         << " port2 created");
                 } catch (const std::exception& ex) {
@@ -284,7 +323,9 @@ void FITOMConfig::buildDevice(const json& dev)
                 }
             }
             devices_.push_back(std::move(e));
-            FITOM_LOG_INFO("Device added: " << label << " [HW/" << params["type"].get<std::string>() << "]");
+            FITOM_LOG_INFO("Device added: " << label
+                << " [HW/" << params["type"].get<std::string>() << "]"
+                << (dllKey.empty() ? "" : " dll=" + dllKey));
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
         }
@@ -423,7 +464,12 @@ uint32_t           FITOMConfig::getAudioSampleRate() const  { return audioSample
 FmEngineRegistry& FITOMConfig::getFmEngineRegistry() { return fmRegistry_; }
 
 void FITOMConfig::setHWPlugin(std::shared_ptr<HWPluginInstance> plugin) {
-    hwPlugin_ = std::move(plugin);
+    // 後方互換: 単一 DLL を "__default__" キーで登録
+    hwPlugins_[kDefaultHWPluginKey] = std::move(plugin);
+}
+
+void FITOMConfig::setHWPlugins(std::map<std::string, std::shared_ptr<HWPluginInstance>> plugins) {
+    hwPlugins_ = std::move(plugins);
 }
 
 } // namespace fitom
