@@ -71,12 +71,11 @@ protected:
                 const uint8_t dr_opll = car_opll ? s.proc.velDR(i) : (o.DR & 0x1F);
                 setReg(static_cast<uint16_t>(4 + i),
                        static_cast<uint8_t>(((ar_opll >> 1) << 4) | (dr_opll >> 1)));
-                // SL / RR
+                // SL / RR (Sustain は SUS bit で制御するため RR をそのまま書く)
                 const uint8_t sl_opll = car_opll ? s.proc.velSL(i) : (o.SL & 0xF);
                 const uint8_t rr_opll = car_opll ? s.proc.velRR(i) : (o.RR & 0xF);
-                const uint8_t rr_fin  = s.sustain ? 4u : rr_opll;
                 setReg(static_cast<uint16_t>(6 + i),
-                       static_cast<uint8_t>(((sl_opll & 0xF) << 4) | (rr_fin & 0xF)));
+                       static_cast<uint8_t>(((sl_opll & 0xF) << 4) | (rr_opll & 0xF)));
             }
             // TL / KSL (op0)
             setReg(0x02, static_cast<uint8_t>(((p.hwOp[0].KSL & 3) << 6) | (p.hwOp[0].TL >> 1)));
@@ -128,15 +127,17 @@ protected:
     }
 
     void updateSustain(uint8_t ch) override {
+        // OPLL: 0x20+ch レジスタの bit5 = SUS フラグを操作する。
+        // ROM 音色はエンベロープパラメータ変更不可のため、
+        // ユーザー音色・ROM 音色を問わず常に SUS bit で制御する。
+        // SUS=1: NoteOff 後もチップが無限サスティンレートで引き延ばす。
+        // SUS=0: 通常のリリース動作に戻す。
+        // 旧 FITOM COPLL::UpdateSustain と同等。
         const auto& s = chState_[ch];
-        const HwPatch& p = s.hwPatch;
-        if (p.ext.ALG_EXT & 1) return; // プリセット時はスキップ
-        for (int i = 0; i < 2; ++i) {
-            const FmHwOp& o = p.hwOp[i];
-            uint8_t rr = s.sustain ? 4u : (uint8_t)o.RR;
-            setReg(static_cast<uint16_t>(6 + i),
-                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
-        }
+        const uint8_t sus_bit = s.sustain ? 0x20u : 0x00u;
+        const uint8_t cur     = getReg(static_cast<uint16_t>(0x20 + ch));
+        setReg(static_cast<uint16_t>(0x20 + ch),
+               static_cast<uint8_t>((cur & 0xDFu) | sus_bit));
     }
 
     void updateKey(uint8_t ch, bool keyOn) override {
