@@ -221,9 +221,12 @@ void CSoundDevice::onMasterPitchChanged(double pitchHz)
 {
     // FnumRegistry のキャッシュはセッター側でクリア済み (呼び出し元責務)
     // fnumTable_ を再取得してキャッシュを更新
-    if (fnumMaster_ && fnumDivide_) {
+    // (コンストラクタと同じフォールバック値を使う)
+    const int master = (fnumMaster_ > 0) ? fnumMaster_ : 3993600;
+    const int divide = (fnumDivide_ > 0) ? fnumDivide_ : 144;
+    if (fnumType_ != FnumTableType::None) {
         fnumTable_ = FnumRegistry::instance().getTable(
-            fnumType_, fnumMaster_, fnumDivide_, noteOffset_);
+            fnumType_, master, divide, noteOffset_);
     }
     // 発音中チャンネルの F-number を再計算
     for (int ch = 0; ch < maxChs_; ++ch) {
