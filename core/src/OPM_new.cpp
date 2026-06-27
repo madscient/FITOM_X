@@ -91,27 +91,33 @@ protected:
                    ((o.DT1 & 7) << 4) | (o.MUL & 0xF));
 
             // TL (キャリアは effectiveTL、モジュレータは固定)
-            uint8_t tl = isCarrier(ch, kMap[i])
+            const bool car_opm = isCarrier(ch, kMap[i]);
+            const uint8_t tl = car_opm
                 ? s.proc.effectiveTL(kMap[i])
                 : o.TL;
             setReg(static_cast<uint16_t>(0x60 + i * 8 + ch), tl);
 
-            // KSR / AR / DM0 (noise/fixed flag)
-            bool dm0 = (ex.DM0 != 0);
+            // KSR / AR / DM0
+            const bool dm0 = (ex.DM0 != 0);
+            const uint8_t ar_opm = car_opm ? s.proc.velAR(kMap[i]) : (o.AR & 0x1F);
             setReg(static_cast<uint16_t>(0x80 + i * 8 + ch),
-                   ((o.KSR & 3) << 6) | (o.AR >> 2) | (dm0 ? 0x20 : 0));
+                   ((o.KSR & 3) << 6) | (ar_opm >> 2) | (dm0 ? 0x20 : 0));
 
             // AM / DR
+            const uint8_t dr_opm = car_opm ? s.proc.velDR(kMap[i]) : (o.DR & 0x1F);
             setReg(static_cast<uint16_t>(0xA0 + i * 8 + ch),
-                   ((o.AM & 1) << 7) | (o.DR >> 2));
+                   ((o.AM & 1) << 7) | (dr_opm >> 2));
 
             // DT2 / SR
+            const uint8_t sr_opm = car_opm ? s.proc.velSR(kMap[i]) : (o.D2R & 0x1F);
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
-                   (dm0 ? 0 : ((o.DT2 & 3) << 6)) | (o.SR >> 2));
+                   (dm0 ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm >> 2));
 
             // SL / RR
+            const uint8_t sl_opm = car_opm ? s.proc.velSL(kMap[i]) : (o.SL & 0xF);
+            const uint8_t rr_opm = car_opm ? s.proc.velRR(kMap[i]) : (o.RR & 0xF);
             setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
-                   ((o.SL >> 3) << 4) | (o.RR >> 3));
+                   ((sl_opm >> 3) << 4) | (rr_opm >> 3));
         }
 
         // ch7: ノイズ有効チェック (ALG_EXT bit = 1 → NFQ を設定)

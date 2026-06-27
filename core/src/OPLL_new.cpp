@@ -65,13 +65,18 @@ protected:
                            ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
                            ((o.SR > 0) ? 0 : 0x20) |
                            ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
-                // AR / DR
+                // AR / DR (キャリア=i:1 はベロシティ補正)
+                const bool car_opll = (i == 1);
+                const uint8_t ar_opll = car_opll ? s.proc.velAR(i) : (o.AR & 0x1F);
+                const uint8_t dr_opll = car_opll ? s.proc.velDR(i) : (o.DR & 0x1F);
                 setReg(static_cast<uint16_t>(4 + i),
-                       static_cast<uint8_t>(((o.AR >> 1) << 4) | (o.DR >> 1)));
+                       static_cast<uint8_t>(((ar_opll >> 1) << 4) | (dr_opll >> 1)));
                 // SL / RR
-                uint8_t rr = s.sustain ? 4u : (uint8_t)(o.RR);
+                const uint8_t sl_opll = car_opll ? s.proc.velSL(i) : (o.SL & 0xF);
+                const uint8_t rr_opll = car_opll ? s.proc.velRR(i) : (o.RR & 0xF);
+                const uint8_t rr_fin  = s.sustain ? 4u : rr_opll;
                 setReg(static_cast<uint16_t>(6 + i),
-                       static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
+                       static_cast<uint8_t>(((sl_opll & 0xF) << 4) | (rr_fin & 0xF)));
             }
             // TL / KSL (op0)
             setReg(0x02, static_cast<uint8_t>(((p.hwOp[0].KSL & 3) << 6) | (p.hwOp[0].TL >> 1)));
