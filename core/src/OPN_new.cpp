@@ -156,8 +156,19 @@ protected:
         setReg(static_cast<uint16_t>(0xB4 + ch), lr);
     }
 
-    void updateSustain(uint8_t /*ch*/) override {
-        // OPN はハードウェアサスティンなし → NoteOff でキーオフ
+    void updateSustain(uint8_t ch) override {
+        // Sustain ON: 全 OP の RR を 4 固定にして音を引き延ばす
+        // Sustain OFF: 音色の RR に戻す
+        // 旧 FITOM COPN::UpdateSustain と同等 (REV パラメータは新FITOMにないため固定値 4)
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        for (int op = 0; op < 4; ++op) {
+            const FmHwOp& o = p.hwOp[op];
+            const uint8_t rr = s.sustain ? 4u : (o.RR & 0x1F);
+            const uint8_t sl = o.SL & 0xF;
+            setReg(static_cast<uint16_t>(0x80 + kOpMap[op] + ch),
+                   static_cast<uint8_t>((sl << 4) | (rr & 0xF)));
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
