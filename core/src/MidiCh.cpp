@@ -211,11 +211,17 @@ void CInstCh::noteOff(uint8_t note)
         if (!h.isValid()) continue;
         if (note != 0xFF && h.note != note) continue;
 
-        if (h.dev) {
-            h.dev->noteOff(h.devCh);
-            // releaseCh は noteOff に内包済み。別途呼び出し不要。
+        if (h.sostenutoHeld) {
+            // Sostenuto 保持中: 実際の noteOff() を遅延させる。
+            // notes_[] のエントリは残したまま、pendingRelease だけ立てる。
+            h.pendingRelease = true;
+        } else {
+            if (h.dev) {
+                h.dev->noteOff(h.devCh);
+                // releaseCh は noteOff に内包済み。別途呼び出し不要。
+            }
+            leaveNote(hi);
         }
-        leaveNote(hi);
         if (note != 0xFF) break; // 1音だけ止める
     }
 }
@@ -231,7 +237,7 @@ void CInstCh::allNoteOff()
         if (h.dev) {
             h.dev->noteOff(h.devCh);   // releaseCh は noteOff に内包済み
         }
-        leaveNote(hi);
+        leaveNote(hi);   // sostenutoHeld/pendingRelease も同時にクリアされる
     }
     portamento_.stop();
     timbres_ = 0;
@@ -248,7 +254,7 @@ void CInstCh::allSoundOff()
         if (h.dev) {
             h.dev->forceDamp(h.devCh);
         }
-        leaveNote(hi);
+        leaveNote(hi);   // sostenutoHeld/pendingRelease も同時にクリアされる
     }
     portamento_.stop();
     timbres_ = 0;
@@ -264,6 +270,7 @@ void CInstCh::resetAllCtrl()
     setPanpot(64);
     setPitchBend(8192);
     setSustain(false);
+    setSostenuto(false);   // 保留中のノートも releaseSostenutoNotes() で解放される
     setModulation(0);
     setPortamento(false);
     setLegato(false);
@@ -352,7 +359,42 @@ void CInstCh::setLegato(bool leg)
 
 void CInstCh::setSostenuto(bool sos)
 {
+    if (sos == sostenuto_) return;
     sostenuto_ = sos;
+
+    if (sos) {
+        // ON: 現在発音中の全ノートをスナップショットしてホールド対象にする。
+        // これ以降に NoteOn したノートは対象外 (sostenutoHeld=false のまま)。
+        for (auto& h : notes_) {
+            if (h.isValid()) h.sostenutoHeld = true;
+        }
+    } else {
+        // OFF: ホールド中のノートを解放する。
+        releaseSostenutoNotes();
+    }
+}
+
+// Sostenuto OFF 時、または強制リセット時に呼ばれる。
+// pendingRelease 中 (MIDI NoteOff 済み) のノートは実際に noteOff() する。
+// まだ鍵盤が押されたまま (pendingRelease=false) のノートは
+// sostenutoHeld フラグだけ落とし、通常の NoteOff 待ちに戻す。
+void CInstCh::releaseSostenutoNotes()
+{
+    for (int hi = 0; hi < MAX_NOTES; ++hi) {
+        auto& h = notes_[hi];
+        if (!h.isValid() || !h.sostenutoHeld) continue;
+
+        h.sostenutoHeld = false;
+
+        if (h.pendingRelease) {
+            // ボイススティールで devCh が別の発音に再利用されていないか確認
+            if (h.dev && h.dev->isChOwnedBy(h.devCh, this)) {
+                h.dev->noteOff(h.devCh);
+            }
+            leaveNote(hi);
+        }
+        // pendingRelease=false (まだ鍵盤保持中) はそのまま発音継続
+    }
 }
 
 void CInstCh::setForceDamp(bool fd)

@@ -217,6 +217,13 @@ void CSoundDevice::releaseCh(uint8_t ch)
 // デフォルト実装: FnumRegistry のキャッシュを更新し、
 // 発音中チャンネルの F-number を即時再計算して書き込む。
 // OPM のようにチップ固有の計算が必要な場合はオーバーライドする。
+bool CSoundDevice::isChOwnedBy(uint8_t ch, const IMidiCh* owner) const
+{
+    if (ch >= maxChs_) return false;
+    const auto& s = chState_[ch];
+    return s.isActive() && s.owner == owner;
+}
+
 void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
 {
     if (ch >= maxChs_) return;
