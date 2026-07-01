@@ -20,8 +20,10 @@ std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr);
@@ -31,13 +33,15 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
 //  DeviceFactory::create
 // ================================================================
 std::unique_ptr<ISoundDevice> DeviceFactory::create(
-    uint32_t deviceType, IPort* port, int sampleRate, IPort* extraPort)
+    uint32_t deviceType, IPort* port, int sampleRate, IPort* extraPort, bool rhythmMode)
 {
     if (!port) {
         FITOM_LOG_ERR("DeviceFactory::create: port is null for device 0x"
             << std::hex << deviceType);
         return nullptr;
     }
+
+    const uint8_t mode = rhythmMode ? 1 : 0;
 
     switch (deviceType) {
     case DEVICE_OPN:
@@ -67,10 +71,11 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPL3:
     case DEVICE_OPN3_L3:   return createCOPL3(port, sampleRate);
 
-    case DEVICE_OPLL:      return createCOPLL(port, sampleRate, 0);
-    case DEVICE_OPLL2:     return createCOPLL2(port, sampleRate);
-    case DEVICE_OPLLP:
-    case DEVICE_OPLLX:     return createCOPLLP(port, sampleRate);
+    case DEVICE_OPLL:      return createCOPLL(port, sampleRate, mode);
+    case DEVICE_OPLL2:     return createCOPLL2(port, sampleRate, mode);
+    case DEVICE_OPLLP:     return createCOPLLP(port, sampleRate, mode);
+    case DEVICE_OPLLX:     return createCOPLLX(port, sampleRate, mode);
+    case DEVICE_VRC7:      return createCVRC7(port, sampleRate);
 
     case DEVICE_SSG:
     case DEVICE_PSG:
@@ -109,7 +114,8 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_OPN2L: case DEVICE_OPN3:                 return 6;
     case DEVICE_OPN: case DEVICE_OPNB: case DEVICE_OPNC: return 3;
     case DEVICE_OPL: case DEVICE_OPL2: case DEVICE_OPL3:
-    case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: return 9;
+    case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: case DEVICE_OPLLX: return 9;
+    case DEVICE_VRC7:                                     return 6;
     case DEVICE_SSG: case DEVICE_PSG:                    return 3;
     case DEVICE_DCSG:                                     return 4;
     case DEVICE_SCC: case DEVICE_SCCP:                   return 5;

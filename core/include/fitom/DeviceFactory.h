@@ -30,11 +30,14 @@ public:
     // port: FmEnginePort または HWPort
     // sampleRate: エミュレーターバックエンド使用時のサンプルレート
     // extraPort: OPN2/OPNA のように 2 ポート必要なチップ用
+    // rhythmMode: チップ内蔵リズム音源の有効/無効 (OPLL/OPL/OPL2/OPL3 等、
+    //             対応するチップのみ効果を持つ。非対応チップでは無視される)
     static std::unique_ptr<ISoundDevice> create(
         uint32_t deviceType,
         IPort*   port,
         int      sampleRate = 44100,
-        IPort*   extraPort  = nullptr);
+        IPort*   extraPort  = nullptr,
+        bool     rhythmMode = false);
 
     // デバイス ID がチップドライバでサポートされているか
     static bool isSupported(uint32_t deviceType);

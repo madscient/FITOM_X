@@ -271,7 +271,8 @@ void CFITOM::initDevices()
         // エミュレーター (FmEnginePort): port == extraPort → SplitPort 不要
         // HW 2ポート: extraPort が別 IPort → createCOPNA 内で SplitPort を利用
         auto dev = DeviceFactory::create(deviceType, port, sampleRate,
-                                         (extraPort != port) ? extraPort : nullptr);
+                                         (extraPort != port) ? extraPort : nullptr,
+                                         config_->getDeviceRhythmMode(i));
         if (!dev) {
             FITOM_LOG_ERR("Device[" << i << "] '"
                 << config_->getDeviceLabel(i)

@@ -17,9 +17,12 @@ namespace fitom {
 class COPLL : public CSoundDevice {
 public:
     // mode: 0=トーンのみ (9ch), 1=リズムモード (6ch + リズム)
+    // maxChs: 物理チャンネル数。VRC7 (リズム回路なし) は 6 を渡す。
+    //         CSoundDevice のコンストラクタが maxChs 以降のチャンネルを
+    //         自動的に disable() するため、getChCount() も正しく反映される。
     COPLL(IPort* port, int sampleRate, uint8_t mode = 0,
-          uint8_t devId = DEVICE_OPLL)
-        : CSoundDevice(devId, 9, port,
+          uint8_t devId = DEVICE_OPLL, uint8_t maxChs = 9)
+        : CSoundDevice(devId, maxChs, port,
                        sampleRate, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
@@ -29,11 +32,21 @@ public:
         opCount_ = 2;
         if (rhythmMode_) {
             // ch 6-8 をリズム専用として自動割り当て禁止
-            for (int i = 6; i < 9; ++i) chState_[i].disable();
+            // (maxChs=6 の場合は既に disable 済みのため範囲外アクセスにならない)
+            for (int i = 6; i < 9 && i < MAX_CHS; ++i) chState_[i].disable();
         }
     }
 
-    std::string getDescriptor() const override { return "OPLL (YM2413) 9ch"; }
+    // getDescriptor: リズムモードの有無を反映する。
+    // "OPLL (YM2413) 9ch" または "OPLL (YM2413) 6ch + Rhythm 5ch"
+    // 派生クラスは chipLabel() だけをオーバーライドすればよい。
+    std::string getDescriptor() const override {
+        std::string label = chipLabel();
+        if (rhythmMode_) {
+            return label + " " + std::to_string(maxChs_ - 3) + "ch + Rhythm 5ch";
+        }
+        return label + " " + std::to_string(maxChs_) + "ch";
+    }
     void init() override {}
 
     void reset() override {
@@ -45,6 +58,9 @@ public:
 
 protected:
     bool rhythmMode_;
+
+    // 派生クラスがチップ名部分だけを差し替えるためのフック。
+    virtual std::string chipLabel() const { return "OPLL (YM2413)"; }
 
     // OPLL 専用: プリセットか否かで UpdateVoice 挙動が変わる
     void updateVoice(uint8_t ch) override {
@@ -162,26 +178,56 @@ protected:
 };
 
 // ================================================================
-//  COPLL2 / COPLLP / COPLLX — デバイス ID 違いのみ
+//  COPLL2 / COPLLP / COPLLX — デバイス ID 違いのみ (制御ロジックは共通)
+//  内蔵プリセット音色がそれぞれ異なるため、独立したチップとして扱う。
+//  リズムモードは OPLL と同じレジスタ構造のためそのまま利用できる。
 // ================================================================
 class COPLL2 : public COPLL {
 public:
-    COPLL2(IPort* port, int sampleRate)
-        : COPLL(port, sampleRate, 0, DEVICE_OPLL2) {}
-    std::string getDescriptor() const override { return "OPLL2 9ch"; }
+    COPLL2(IPort* port, int sampleRate, uint8_t mode = 0)
+        : COPLL(port, sampleRate, mode, DEVICE_OPLL2) {}
+protected:
+    std::string chipLabel() const override { return "OPLL2 (YM2420)"; }
 };
 
 class COPLLP : public COPLL {
 public:
-    COPLLP(IPort* port, int sampleRate)
-        : COPLL(port, sampleRate, 0, DEVICE_OPLLP) {}
-    std::string getDescriptor() const override { return "VRC7 (OPLLP) 9ch"; }
+    COPLLP(IPort* port, int sampleRate, uint8_t mode = 0)
+        : COPLL(port, sampleRate, mode, DEVICE_OPLLP) {}
+protected:
+    std::string chipLabel() const override { return "OPLLP (YMF281B)"; }
+};
+
+class COPLLX : public COPLL {
+public:
+    COPLLX(IPort* port, int sampleRate, uint8_t mode = 0)
+        : COPLL(port, sampleRate, mode, DEVICE_OPLLX) {}
+protected:
+    std::string chipLabel() const override { return "OPLLX (YM2423-X)"; }
+};
+
+// ================================================================
+//  CVRC7 — OPLL からリズムチャンネルを削除した派生 (FS1001)
+//  制御ロジックは OPLL と同一だが、リズム音源回路自体が存在しないため
+//  楽音 6ch のみが有効。CSoundDevice に maxChs=6 を渡すことで
+//  getChCount() も正しく 6 を返し、ch 6-8 は自動的に disable される。
+//  リズム回路自体が存在しないため、rhythmMode は常に無効に固定する
+//  (呼び出し元から true が渡されても無視する)。
+// ================================================================
+class CVRC7 : public COPLL {
+public:
+    CVRC7(IPort* port, int sampleRate)
+        : COPLL(port, sampleRate, /*mode=*/0, DEVICE_VRC7, 6) {}
+protected:
+    std::string chipLabel() const override { return "VRC7 (FS1001)"; }
 };
 
 } // namespace fitom
 
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t m)  { return std::make_unique<COPLL>(p, sr, m); }
-std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr) { return std::make_unique<COPLL2>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr) { return std::make_unique<COPLLP>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLL2>(p, sr, m); }
+std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLP>(p, sr, m); }
+std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLX>(p, sr, m); }
+std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr)  { return std::make_unique<CVRC7>(p, sr); }
 } // namespace fitom
