@@ -605,9 +605,10 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     case 10:  midicch->setPanpot(val); break;
     case 11:  midicch->setExpression(val); break;
     case 32:  midicch->bankSelLSB(val); break;
+    case 64:  midicch->setSustain(val); break;      // Sustain (Damper) Pedal
     case 65:  midicch->setPortamento(val >= 64); break;
     case 66:  midicch->setSostenuto(val >= 64); break;
-    case 67:  midicch->setSustain(val); break;
+    // 67: Soft Pedal — 非対応 (FM音源には直接対応するパラメータがないため)
     case 68:  midicch->setLegato(val >= 64); break;
     case 5:   midicch->setPortTime(val); break;
     case 84:  midicch->setPortamentoSource(val); break; // Portamento Control (Source Note)
