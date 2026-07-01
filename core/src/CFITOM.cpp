@@ -611,7 +611,7 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     case 68:  midicch->setLegato(val >= 64); break;
     case 5:   midicch->setPortTime(val); break;
     case 84:  midicch->setPortamento(true); break; // Source Note
-    case 120: midicch->allNoteOff(); break;        // All Sound Off
+    case 120: midicch->allSoundOff(); break;        // All Sound Off (force damp)
     case 121: midicch->resetAllCtrl(); break;
     case 123: midicch->allNoteOff(); break;
     // RPN / NRPN

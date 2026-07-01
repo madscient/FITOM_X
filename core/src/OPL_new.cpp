@@ -142,6 +142,22 @@ protected:
         setReg(static_cast<uint16_t>(0xC0 + ch), static_cast<uint8_t>(lr | cur));
     }
 
+    // CC#120 (All Sound Off): キャリア OP の RR を最大値にして急速減衰。
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        const auto& s = chState_[ch];
+        if (!s.isActive()) return;
+        const HwPatch& p = s.hwPatch;
+        const uint8_t slot = kMap[ch];
+        for (int i = 0; i < 2; ++i) {
+            if (!isCarrier(ch, i)) continue;
+            const FmHwOp& o = p.hwOp[i];
+            setReg(static_cast<uint16_t>(0x80 + i * 3 + slot),
+                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | 0xF)); // RR=15
+        }
+        noteOff(ch);
+    }
+
     void updateSustain(uint8_t ch) override {
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;

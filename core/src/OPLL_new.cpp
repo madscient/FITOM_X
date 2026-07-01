@@ -126,6 +126,20 @@ protected:
         // OPLL はパンポット非対応
     }
 
+    // CC#120 (All Sound Off): SUS bit を強制的にクリアしてから noteOff。
+    // OPLL は RR を直接操作できないため（ROM音色はEG変更不可）、
+    // SUS bit を外すことで通常のリリース動作に戻してから noteOff する。
+    // これにより sustain 中の音がすぐにリリースフェーズへ移行する。
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        const auto& s = chState_[ch];
+        if (!s.isActive()) return;
+        const uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch));
+        setReg(static_cast<uint16_t>(0x20 + ch),
+               static_cast<uint8_t>(cur & 0xDFu)); // SUS bit クリア
+        noteOff(ch);
+    }
+
     void updateSustain(uint8_t ch) override {
         // OPLL: 0x20+ch レジスタの bit5 = SUS フラグを操作する。
         // ROM 音色はエンベロープパラメータ変更不可のため、

@@ -37,6 +37,9 @@ public:
     virtual void noteOn(uint8_t note, uint8_t vel){}
     virtual void noteOff(uint8_t note)            {}
     virtual void allNoteOff()                      {}
+    // CC#120 (All Sound Off): デフォルトは allNoteOff() と同じ。
+    // FM 系チャンネル (CInstCh) は forceDamp を使う独自実装でオーバーライドする。
+    virtual void allSoundOff()                     { allNoteOff(); }
     virtual void resetAllCtrl()                    {}
 
     // コントロールチェンジ
@@ -134,7 +137,8 @@ public:
     void progChange(uint8_t prog) override;
     void noteOn(uint8_t note, uint8_t vel) override;
     void noteOff(uint8_t note) override;
-    void allNoteOff() override;
+    void allNoteOff() override;   // CC#123
+    void allSoundOff() override;  // CC#120: forceDamp で即座に消音
     void resetAllCtrl() override;
 
     // ─── コントロールチェンジ ──────────────────────────────────────

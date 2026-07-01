@@ -169,11 +169,28 @@ protected:
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
         for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, kMap[i])) continue; // モジュレータは対象外
             const FmHwOp& o = p.hwOp[kMap[i]];
             uint8_t rr = s.sustain ? 4 : (o.RR >> 3);
             setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
                    static_cast<uint8_t>(((o.SL >> 3) << 4) | (rr & 0xF)));
         }
+    }
+
+    // CC#120 (All Sound Off): 全 OP の RR を最大値にして急速減衰させてから noteOff。
+    // (updateKey 内の sustain 再トリガー時ダンプとは別の独立した処理)
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        const auto& s = chState_[ch];
+        if (!s.isActive()) return;
+        const HwPatch& p = s.hwPatch;
+        for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, kMap[i])) continue; // モジュレータは対象外
+            const FmHwOp& o = p.hwOp[kMap[i]];
+            setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
+                   static_cast<uint8_t>(((o.SL >> 3) << 4) | 0xF)); // RR=15
+        }
+        noteOff(ch);
     }
 
     void updateKey(uint8_t ch, bool keyOn) override {

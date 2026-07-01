@@ -229,8 +229,24 @@ void CInstCh::allNoteOff()
         auto& h = notes_[hi];
         if (!h.isValid()) continue;
         if (h.dev) {
-            h.dev->noteOff(h.devCh);
-            h.dev->releaseCh(h.devCh);
+            h.dev->noteOff(h.devCh);   // releaseCh は noteOff に内包済み
+        }
+        leaveNote(hi);
+    }
+    portamento_.stop();
+    timbres_ = 0;
+}
+
+// CC#120 (All Sound Off): sustain を無視して即座に消音する。
+// EG のリリースレートを一時的に最大化してから通常の release() に入るため、
+// allNoteOff (CC#123) より速く無音になる。
+void CInstCh::allSoundOff()
+{
+    for (int hi = MAX_NOTES - 1; hi >= 0; --hi) {
+        auto& h = notes_[hi];
+        if (!h.isValid()) continue;
+        if (h.dev) {
+            h.dev->forceDamp(h.devCh);
         }
         leaveNote(hi);
     }

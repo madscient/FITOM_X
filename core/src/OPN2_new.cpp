@@ -161,12 +161,30 @@ protected:
                      static_cast<uint16_t>(lr));
     }
 
+    // CC#120 (All Sound Off): 全 OP の RR を最大値にして急速減衰させてから noteOff。
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        const auto& s = chState_[ch];
+        if (!s.isActive()) return;
+        const uint16_t base = portBase(ch);
+        const uint8_t  lch  = localCh(ch);
+        const HwPatch& p = s.hwPatch;
+        for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, kOpMap[i])) continue; // モジュレータは対象外
+            const uint8_t sl = p.hwOp[kOpMap[i]].SL & 0xF;
+            port_->write(static_cast<uint16_t>(base + 0x80 + kOpMap[i] + lch),
+                         static_cast<uint16_t>((sl << 4) | 0xF)); // RR=15
+        }
+        noteOff(ch);
+    }
+
     void updateSustain(uint8_t ch) override {
         uint16_t base = portBase(ch);
         uint8_t  lch  = localCh(ch);
         bool     sus  = chState_[ch].sustain;
         const HwPatch& p = chState_[ch].hwPatch;
         for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, kOpMap[i])) continue; // モジュレータは対象外
             const FmHwOp& o = p.hwOp[kOpMap[i]];
             uint8_t rr = sus ? 4u : o.RR;
             port_->write(static_cast<uint16_t>(base + 0x80 + kOpMap[i] + lch),
