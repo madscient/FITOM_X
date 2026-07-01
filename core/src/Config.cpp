@@ -239,6 +239,7 @@ void FITOMConfig::buildDevice(const json& dev)
             e.label      = label;
             e.deviceType = resolveChipDeviceId(chipName);
             e.sampleRate = static_cast<int>(engineInst->vtable().GetSampleRate(engineInst->handle()));
+            e.rhythmMode = dev.value("rhythm_mode", false);
             e.port       = std::move(port);
             devices_.push_back(std::move(e));
             FITOM_LOG_INFO("Device added: " << label << " [FMENGINE/" << chipName << "]");
@@ -269,6 +270,7 @@ void FITOMConfig::buildDevice(const json& dev)
             e.label      = label;
             e.deviceType = resolveChipDeviceId(dev.value("chip", ""));
             e.extraSlot  = extraSlot;
+            e.rhythmMode = dev.value("rhythm_mode", false);
             e.port       = std::move(port);
 
             if (extraSlot >= 0) {
@@ -447,6 +449,11 @@ uint32_t FITOMConfig::getDeviceType(int index) const {
     return devices_[index].deviceType;
 }
 
+bool FITOMConfig::getDeviceRhythmMode(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
+    return devices_[index].rhythmMode;
+}
+
 // ================================================================
 //  VoicePatchType (音色パッチ互換性分類) 変換テーブル
 //
@@ -476,6 +483,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPLLP:  return VOICE_PATCH_OPLLP;
     case DEVICE_OPLLX:  return VOICE_PATCH_OPLLX;
     case DEVICE_OPLL2:  return VOICE_PATCH_OPLL; // YM2420 は OPLL(0x28) に統合済み
+    case DEVICE_VRC7:   return VOICE_PATCH_VRC7;
 
     case DEVICE_OPL3: case DEVICE_OPN3_L3: return VOICE_PATCH_OPL3;
 
@@ -580,24 +588,7 @@ int FITOMConfig::findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const
 }
 
 // DeviceFactory を使ってポートからデバイスを生成する
-void FITOMConfig::createDevices() {
-    // DeviceFactory を使って IPort から ISoundDevice を生成する
-    // NOTE: DeviceFactory.h は ADPCM_new.cpp 等のチップドライバに依存するため
-    // fitom_core がフルリンクされた後に呼ぶ
-    for (auto& entry : devices_) {
-        if (!entry.port || entry.device) continue;
-        if (entry.deviceType == DEVICE_NONE) {
-            FITOM_LOG_WARN("createDevices: deviceType not set for '" << entry.label << "'");
-            continue;
-        }
-        // 循環依存を避けるため DeviceFactory を関数ポインタ経由で呼ぶ
-        // 実装は DeviceFactory.cpp の createCXXX 群が担う
-        FITOM_LOG_INFO("createDevices: creating '" << entry.label
-            << "' type=0x" << std::hex << entry.deviceType);
-        // DeviceFactory::create はリンク時に解決される
-        // entry.device = DeviceFactory::create(entry.deviceType, entry.port.get(), entry.sampleRate);
-    }
-}
+
 
 // ================================================================
 //  チップ名 → DEVICE_* 変換ヘルパー
@@ -614,7 +605,8 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPL",   DEVICE_OPL},   {"OPL2",  DEVICE_OPL2},
         {"OPL3",  DEVICE_OPL3},  {"Y8950", DEVICE_Y8950},
         {"OPLL",  DEVICE_OPLL},  {"OPLL2", DEVICE_OPLL2},
-        {"VRC7",  DEVICE_OPLLP}, {"OPLLP", DEVICE_OPLLP},
+        {"OPLLP", DEVICE_OPLLP}, {"OPLLX", DEVICE_OPLLX},
+        {"VRC7",  DEVICE_VRC7},
         {"SSG",   DEVICE_SSG},   {"PSG",   DEVICE_PSG},
         {"EPSG",  DEVICE_EPSG},  {"DCSG",  DEVICE_DCSG},
         {"SCC",   DEVICE_SCC},   {"SCCP",  DEVICE_SCCP},

@@ -28,6 +28,9 @@ struct DeviceEntry {
     // B-2: 2ポートチップ用の2番目のポート（HW SPFM extra_slot）
     std::unique_ptr<IPort>         port2;        // nullptr = 1ポート
     int                            extraSlot   = -1; // -1 = 未使用
+    // リズムモード (OPLL/OPL/OPL2/OPL3 等、チップ内蔵リズム音源を持つ
+    // デバイス共通のオプション)。特定チップに限定しない汎用フィールド。
+    bool                           rhythmMode  = false;
 };
 
 struct ChannelMapEntry {
@@ -57,6 +60,8 @@ public:
     IPort*           getDevicePort(int index)      const;
     ISoundDevice*    getDevice(int index)          const;
     uint32_t         getDeviceType(int index)      const;
+    // リズムモード (OPLL/OPL系等、チップ内蔵リズム音源の有効/無効)
+    bool             getDeviceRhythmMode(int index) const;
     std::string      getDeviceLabel(int index)     const;
 
     // ─── VoicePatchType (音色パッチ互換性分類) ──────────────────────────────
@@ -104,7 +109,6 @@ protected:
     virtual void buildDevice(const nlohmann::json& dev);
     virtual void validateProfile();
     virtual void loadLegacyManualDevices(const nlohmann::json& ini);
-    void createDevices();
 
     FmEngineRegistry fmRegistry_;
     std::shared_ptr<HWPluginInstance> hwPlugin_;
