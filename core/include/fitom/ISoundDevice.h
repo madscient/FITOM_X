@@ -121,6 +121,14 @@ public:
     virtual void noteOn(uint8_t ch, uint8_t vel)                            = 0;
     virtual void noteOff(uint8_t ch)                                        = 0;
 
+    // フォースダンプ: 発音中チャンネルを強制的に急速減衰させる。
+    // CC#120 (All Sound Off) から呼ばれる。noteOff とは異なり、
+    // EG のリリースレートを一時的に最大化してから release() する。
+    // デフォルト実装: 単に noteOff() を呼ぶ (EG を持たないデバイス向け)。
+    // FM 系チップは各ドライバでオーバーライドし、RR を最大値に書いてから
+    // noteOff() を呼ぶことで通常のリリースより速く消音する。
+    virtual void forceDamp(uint8_t ch) { noteOff(ch); }
+
     // マスターピッチ変更通知 (デフォルト実装: FnumTable キャッシュ破棄 + 再計算)
     virtual void onMasterPitchChanged(double pitchHz);
 
