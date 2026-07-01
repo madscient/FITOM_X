@@ -20,12 +20,16 @@ namespace fitom {
 // ================================================================
 class COPN : public CSoundDevice {
 public:
-    COPN(IPort* port, uint8_t deviceId = DEVICE_OPN)
+    // fnumMaster: チップのマスタークロック [Hz]。
+    // 単体 OPN (YM2203) はデフォルト 3.993MHz。
+    // OPN2/OPNA 系のサブチップとして使用する場合は
+    // 親クラスのコンストラクタから適切なクロック値を渡す。
+    COPN(IPort* port, uint8_t deviceId = DEVICE_OPN, int fnumMaster = 3993600)
         : CSoundDevice(deviceId, 3, port,
-                       3993600, 144,   // fnumMaster=3.993MHz, divide=144
-                       -576,           // noteOffset (standard)
+                       fnumMaster, 144,
+                       -576,
                        FnumTableType::Fnumber,
-                       256)            // regSize
+                       256)
     {
         opCount_ = 4;
     }
@@ -220,6 +224,15 @@ const uint8_t COPN::kOpMap[4] = {0, 8, 4, 12};
 //  ファクトリ関数 (DeviceFactory.cpp から呼ばれる)
 // ================================================================
 namespace fitom {
+
+// OPN2_new.cpp の COPNA/COPN2 がサブチップとして COPN を生成するための関数。
+// (OPN2_new.cpp は OPN_new.cpp の COPN 定義に依存するが、
+//  ヘッダで公開すると循環インクルードが起きるため、
+//  名前でリンク解決する間接ファクトリを使う)
+std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster) {
+    return std::make_unique<COPN>(port, DEVICE_OPN, fnumMaster);
+}
+
 std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr) {
     return std::make_unique<COPN>(p);
 }
