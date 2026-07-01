@@ -199,6 +199,62 @@
 #define RHYTHM_BANK	DEVICE_RHYTHM
 #define ADPCM_BANK	0x77
 
+// ================================================================
+//  VoicePatchType — 音色パッチ互換性分類 (0x10-0x74)
+//
+//  DeviceFactory の DEVICE_* (チップドライバ生成用) とは独立した分類。
+//  「ボイスパラメータ・ハードウェア機能が一致するもの」だけをまとめる。
+//  0 = 無効/未指定 (予約値、設定禁止)。
+//
+//  各ブロックの先頭値がそのまま VoiceGroup (HwBankRegistry 検索キー、
+//  データフォーマット/パラメータ範囲の分類) に対応する。
+// ================================================================
+#define VOICE_PATCH_NONE     0x00
+
+// 0x10: VoiceGroup=OPNA
+#define VOICE_PATCH_OPN      0x10  // YM2203, YMF264
+#define VOICE_PATCH_OPN2     0x11  // YM2612,YM3438,YMF276,YM2608,YMF288,YM2610,YM2610B,YMF286K
+
+// 0x18: VoiceGroup=OPM
+#define VOICE_PATCH_OPM      0x19  // YM2151, YM2164
+#define VOICE_PATCH_OPZ      0x1a  // YM2414
+#define VOICE_PATCH_OPZ2     0x1b  // YM2424
+
+// 0x20: VoiceGroup=OPL2
+#define VOICE_PATCH_OPL      0x20  // YM3526, YM3801
+#define VOICE_PATCH_OPL2     0x21  // YM3812, YMF264/289/278-2OP
+
+// 0x28: VoiceGroup=OPLL
+#define VOICE_PATCH_OPLL     0x28  // YM2413, YM2420
+#define VOICE_PATCH_OPLLP    0x29  // YMF281
+#define VOICE_PATCH_OPLLX    0x2a  // YM2423
+#define VOICE_PATCH_VRC7     0x2b  // FS1001
+
+// 0x30: VoiceGroup=OPL3
+#define VOICE_PATCH_OPL3     0x30  // YMF264/289/278-4OP
+
+// 0x38: VoiceGroup=MA3 (未実装、値のみ予約)
+#define VOICE_PATCH_SD1      0x38  // YMF825
+#define VOICE_PATCH_MA3      0x39
+#define VOICE_PATCH_MA5      0x3a
+#define VOICE_PATCH_MA7      0x3b
+
+// 0x40: VoiceGroup=PSG (無波形メモリ)
+#define VOICE_PATCH_SSG      0x40  // YM2149, AY-3-8910
+#define VOICE_PATCH_AY8930   0x41
+#define VOICE_PATCH_DCSG     0x42  // SN76489
+#define VOICE_PATCH_SAA1099  0x43  // 未実装、値のみ予約
+
+// 0x48: VoiceGroup=PSG (波形ROM)
+#define VOICE_PATCH_SCC      0x48  // SCC, SCCP
+
+// 0x70: VoiceGroup=PCM
+#define VOICE_PATCH_ADPCMB_Y8950 0x70  // Y8950
+#define VOICE_PATCH_ADPCMB       0x71  // YM2608
+#define VOICE_PATCH_ADPCMA       0x72  // YM2610
+#define VOICE_PATCH_PCMD8        0x73  // YMZ280
+#define VOICE_PATCH_AWM          0x74  // YMF278-AWM+YRW801, 未実装、値のみ予約
+
 #define LOCATION_MONO	0
 #define LOCATION_LEFT	1
 #define LOCATION_RIGHT	2

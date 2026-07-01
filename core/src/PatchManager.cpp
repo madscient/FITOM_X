@@ -66,20 +66,6 @@ const PatchBank* PatchManager::findPatchBank(int bankNo) const
     return (it != patchBanks_.end()) ? &it->second : nullptr;
 }
 
-HwBankRegistry::VoiceGroup PatchManager::resolveVoiceGroup(
-    int deviceIndex, const FITOMConfig& config) const
-{
-    // FITOMConfig::getDeviceType() でデバイス種別を取得し
-    // HwBankRegistry::groupFromDeviceId() で VoiceGroup に変換する
-    uint32_t deviceType = config.getDeviceType(deviceIndex);
-    if (deviceType == 0 || deviceType == DEVICE_NONE) {
-        FITOM_LOG_WARN("resolveVoiceGroup: device[" << deviceIndex
-            << "] has no deviceType");
-        return VOICE_GROUP_NONE;
-    }
-    return HwBankRegistry::groupFromDeviceId(deviceType);
-}
-
 ResolvedPatch PatchManager::resolve(const Patch& patch,
                                      const FITOMConfig& config) const
 {
@@ -94,30 +80,93 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
     }
 
     // 各 ToneLayer の HwPatch を解決
+    // voicePatchType に一致するデバイスが見つからない、または
+    // HwBank のタグと不一致の場合、そのレイヤーだけをスキップする
+    // (Patch全体は無効にしない。確保できたレイヤーのみ発音する)。
     for (int i = 0; i < MAX_TONE_LAYERS; ++i) {
         const auto& layer = patch.layers[i];
         if (!layer.isActive()) continue;
 
-        ResolvedLayer rl;
-        rl.layer       = &layer;
-        rl.deviceIndex = layer.deviceIndex;
-
-        // デバイス種別 → VoiceGroup → HwPatch
-        auto group = resolveVoiceGroup(layer.deviceIndex, config);
-        rl.hwPatch = hwReg_.resolve(group, layer.hwBank, layer.hwProg);
-
-        if (!rl.hwPatch) {
-            FITOM_LOG_WARN("HwPatch not found: layer=" << i
-                << " bank=" << (int)layer.hwBank
-                << " prog=" << (int)layer.hwProg
-                << " group=0x" << std::hex << group);
+        int deviceIndex = config.findDeviceIndexByVoicePatchType(layer.voicePatchType);
+        if (deviceIndex < 0) {
+            FITOM_LOG_WARN("resolve: layer=" << i << " voicePatchType=0x"
+                << std::hex << (int)layer.voicePatchType
+                << " — no matching device, layer skipped");
+            continue;
         }
 
+        auto group = FITOMConfig::voicePatchTypeToVoiceGroup(layer.voicePatchType);
+        const HwBank* bank = hwReg_.find(group, layer.hwBank);
+        if (!bank || bank->voicePatchType != layer.voicePatchType) {
+            FITOM_LOG_WARN("resolve: layer=" << i
+                << " bank=" << (int)layer.hwBank
+                << " voicePatchType mismatch (bank="
+                << (bank ? bank->voicePatchType : 0)
+                << ", layer=" << (int)layer.voicePatchType
+                << ") — layer skipped");
+            continue;
+        }
+
+        const HwPatch* hwPatch = &bank->get(layer.hwProg);
+        if (!hwPatch->isValid()) {
+            FITOM_LOG_WARN("HwPatch not found: layer=" << i
+                << " bank=" << (int)layer.hwBank
+                << " prog=" << (int)layer.hwProg);
+            continue;
+        }
+
+        ResolvedLayer rl;
+        rl.layer       = &layer;
+        rl.deviceIndex = deviceIndex;
+        rl.hwPatch     = hwPatch;
         result.layers[result.layerCount++] = rl;
     }
 
     return result;
 }
+
+ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
+                                          const FITOMConfig& config, Patch& storage) const
+{
+    int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
+    if (deviceIndex < 0) {
+        FITOM_LOG_WARN("resolveDirect: voicePatchType=0x" << std::hex << (int)voicePatchType
+            << " — no matching device");
+        return {};
+    }
+
+    auto group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    const HwBank* bank = hwReg_.find(group, hwBank);
+    if (!bank || bank->voicePatchType != voicePatchType) {
+        FITOM_LOG_WARN("resolveDirect: bank=" << (int)hwBank
+            << " voicePatchType mismatch (bank="
+            << (bank ? bank->voicePatchType : 0)
+            << ", requested=" << (int)voicePatchType << ")");
+        return {};
+    }
+
+    const HwPatch* hwPatch = &bank->get(hwProg);
+    if (!hwPatch->isValid()) {
+        FITOM_LOG_WARN("resolveDirect: HwPatch not found bank=" << (int)hwBank
+            << " prog=" << (int)hwProg);
+        return {};
+    }
+
+    // storage (呼び出し元が寿命を保持) に単層Patchを構築する
+    storage = Patch::fromSingleLayer(*hwPatch, voicePatchType, hwBank, hwProg);
+
+    ResolvedPatch result;
+    result.patch      = &storage;
+    result.swPatch     = nullptr;   // 直接モードはSWパッチなし (VTL等は0=無感度)
+    ResolvedLayer rl;
+    rl.layer       = &storage.layers[0];
+    rl.hwPatch     = hwPatch;
+    rl.deviceIndex = deviceIndex;
+    result.layers[0]  = rl;
+    result.layerCount = 1;
+    return result;
+}
+
 
 ResolvedPatch PatchManager::resolve(int patchBankNo, int prog,
                                      const FITOMConfig& config) const
@@ -195,19 +244,21 @@ json swOpToJson(const FmSwOp& op) {
     return json{
         {"VTL",op.VTL},{"VAR",op.VAR},{"VDR",op.VDR},{"VSL",op.VSL},
         {"VSR",op.VSR},{"VRR",op.VRR},{"VLD",op.VLD},{"VLR",op.VLR},
-        {"SLF",op.SLF},{"SLW",op.SLW},{"SLD",op.SLD},{"SLY",op.SLY},{"SLR",op.SLR}
+        {"SLW",op.SLW},{"SLS",op.SLS},{"SLM",op.SLM},{"SLD",op.SLD},
+        {"SLY",op.SLY},{"SLR",op.SLR},{"SLI",op.SLI}
     };
 }
 void jsonToSwOp(const json& j, FmSwOp& op) {
     auto g = [&](const char* k, uint8_t& v){ if(j.contains(k)) v=j[k].get<uint8_t>(); };
     g("VTL",op.VTL); g("VAR",op.VAR); g("VDR",op.VDR); g("VSL",op.VSL);
     g("VSR",op.VSR); g("VRR",op.VRR); g("VLD",op.VLD); g("VLR",op.VLR);
-    g("SLF",op.SLF); g("SLW",op.SLW); g("SLD",op.SLD); g("SLY",op.SLY); g("SLR",op.SLR);
+    g("SLW",op.SLW); g("SLS",op.SLS); g("SLM",op.SLM); g("SLD",op.SLD);
+    g("SLY",op.SLY); g("SLR",op.SLR); g("SLI",op.SLI);
 }
 
 json toneLayerToJson(const ToneLayer& l) {
     return json{
-        {"device_index",l.deviceIndex},
+        {"voice_patch_type",l.voicePatchType},
         {"hw_bank",l.hwBank},{"hw_prog",l.hwProg},
         {"note_range_lo",l.noteRangeLo},{"note_range_hi",l.noteRangeHi},
         {"transpose",l.transpose},
@@ -217,7 +268,7 @@ json toneLayerToJson(const ToneLayer& l) {
 }
 ToneLayer jsonToToneLayer(const json& j) {
     ToneLayer l;
-    if(j.contains("device_index")) l.deviceIndex = j["device_index"].get<int8_t>();
+    if(j.contains("voice_patch_type")) l.voicePatchType = j["voice_patch_type"].get<uint8_t>();
     if(j.contains("hw_bank"))      l.hwBank      = j["hw_bank"].get<uint8_t>();
     if(j.contains("hw_prog"))      l.hwProg      = j["hw_prog"].get<uint8_t>();
     if(j.contains("note_range_lo"))l.noteRangeLo = j["note_range_lo"].get<uint8_t>();
@@ -236,7 +287,8 @@ ToneLayer jsonToToneLayer(const json& j) {
 // ================================================================
 
 bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
-                                   HwBankRegistry::VoiceGroup group, int bankNo)
+                                   HwBankRegistry::VoiceGroup group, int bankNo,
+                                   uint8_t voicePatchType)
 {
     reportProgress("Loading HwBank: " + path.string());
     std::ifstream f(path);
@@ -246,6 +298,7 @@ bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
         auto& bank = hwReg_.getOrCreate(group, bankNo);
         if (j.contains("name")) bank.name = j["name"].get<std::string>();
         bank.filename = path.string();
+        bank.voicePatchType = voicePatchType;
         if (j.contains("patches") && j["patches"].is_array()) {
             for (auto& entry : j["patches"]) {
                 int prog = entry.value("prog", -1);
@@ -254,7 +307,8 @@ bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
             }
         }
         FITOM_LOG_INFO("HwBank loaded: " << bank.name
-            << " (" << path.filename().string() << ")");
+            << " (" << path.filename().string() << ")"
+            << " voicePatchType=0x" << std::hex << (int)voicePatchType);
         return true;
     } catch (const std::exception& e) {
         FITOM_LOG_ERR("HwBank parse error: " << e.what());
@@ -311,8 +365,8 @@ bool PatchManager::loadSwBankJson(const std::filesystem::path& path, int bankNo)
                     auto g8 = [&](const char* k, uint8_t& v){
                         if(sw.contains(k)) v=sw[k].get<uint8_t>();
                     };
-                    g8("LFO",p.sw.LFO); g8("LWF",p.sw.LWF); g8("LFS",p.sw.LFS);
-                    g8("LFD",p.sw.LFD); g8("LFR",p.sw.LFR);
+                    g8("LWF",p.sw.LWF); g8("LFS",p.sw.LFS); g8("LFM",p.sw.LFM);
+                    g8("LFD",p.sw.LFD); g8("LFR",p.sw.LFR); g8("LFI",p.sw.LFI);
                     g8("LDM",p.sw.LDM); g8("LDL",p.sw.LDL);
                 }
                 if (entry.contains("ops") && entry["ops"].is_array()) {
@@ -339,8 +393,8 @@ bool PatchManager::saveSwBankJson(const std::filesystem::path& path, int bankNo)
         return json{
             {"VTL",op.VTL},{"VAR",op.VAR},{"VDR",op.VDR},{"VSL",op.VSL},
             {"VSR",op.VSR},{"VRR",op.VRR},{"VLD",op.VLD},{"VLR",op.VLR},
-            {"SLF",op.SLF},{"SLW",op.SLW},{"SLD",op.SLD},{"SLY",op.SLY},
-            {"SLR",op.SLR}
+            {"SLW",op.SLW},{"SLS",op.SLS},{"SLM",op.SLM},{"SLD",op.SLD},
+            {"SLY",op.SLY},{"SLR",op.SLR},{"SLI",op.SLI}
         };
     };
 
@@ -353,8 +407,8 @@ bool PatchManager::saveSwBankJson(const std::filesystem::path& path, int bankNo)
         patches.push_back(json{
             {"prog", i}, {"name", p.name},
             {"sw", json{
-                {"LFO",p.sw.LFO},{"LWF",p.sw.LWF},{"LFS",p.sw.LFS},
-                {"LFD",p.sw.LFD},{"LFR",p.sw.LFR},
+                {"LWF",p.sw.LWF},{"LFS",p.sw.LFS},{"LFM",p.sw.LFM},
+                {"LFD",p.sw.LFD},{"LFR",p.sw.LFR},{"LFI",p.sw.LFI},
                 {"LDM",p.sw.LDM},{"LDL",p.sw.LDL}
             }},
             {"ops", ops}

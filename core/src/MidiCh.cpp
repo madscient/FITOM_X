@@ -56,32 +56,36 @@ void CInstCh::progChange(uint8_t prog)
     programNo_ = prog;
     if (!patchMgr_ || !fitom_) return;
 
-    auto resolved = patchMgr_->resolve(bankSelM_, prog, fitom_->getConfig());
-    resolver_.apply(resolved);
+    ResolvedPatch resolved;
+    if (bankSelL_ > 0) {
+        // 直接モード: LSB=VoicePatchType, MSB=HwBank, prog=HwProg
+        resolved = patchMgr_->resolveDirect(bankSelL_, bankSelM_, prog,
+                                             fitom_->getConfig(), directPatch_);
+    } else {
+        resolved = patchMgr_->resolve(bankSelM_, prog, fitom_->getConfig());
+    }
 
     if (!resolved.isValid()) {
+        // 無効なバンク/プログラムの場合は resolver_ を上書きしない。
+        // 直前まで有効だったパッチをそのまま保持し、チャンネルが
+        // 無音状態に陥ることを防ぐ。
         FITOM_LOG_WARN("CInstCh ch=" << static_cast<int>(ch_)
             << ": ProgChange " << static_cast<int>(prog)
-            << " (bank=" << static_cast<int>(bankSelM_) << ") — no patch found");
+            << " (bank=" << static_cast<int>(bankSelM_)
+            << " lsb=" << static_cast<int>(bankSelL_) << ") — no patch found"
+            << " (keeping previous patch)");
         return;
     }
+
+    resolver_.apply(resolved);
 
     FITOM_LOG_DEBUG("CInstCh ch=" << static_cast<int>(ch_)
         << ": ProgChange " << static_cast<int>(prog)
         << " '" << resolved.patch->name << "'"
         << " layers=" << resolved.layerCount);
 
-    // 発音中ノートに新しいパッチを適用
-    for (int hi = 0; hi < MAX_NOTES; ++hi) {
-        auto& h = notes_[hi];
-        if (!h.isValid() || !h.dev) continue;
-        if (h.layerIdx < resolver_.layerCount()) {
-            const auto* rl = resolver_.layer(h.layerIdx);
-            if (rl && rl->hwPatch) {
-                h.dev->setVoice(h.devCh, *rl->hwPatch);
-            }
-        }
-    }
+    // Program Change は発音中のノートに一切作用しない (全モード共通の仕様)。
+    // 新しいパッチは次の NoteOn から適用される。
 }
 
 // ----------------------------------------------------------------
