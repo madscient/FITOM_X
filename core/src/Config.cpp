@@ -257,9 +257,12 @@ void FITOMConfig::buildDevice(const json& dev)
         params["type"] = dev.value("type", "");
         if (dev.contains("serial")) params["serial"] = dev["serial"];
         if (dev.contains("port"))   params["port"]   = dev["port"];
-        params["slot"]  = dev.value("slot", 0);
-        params["clock"] = dev.value("hw_clock", 0);
-        params["pan"]   = dev.value("pan", 0);
+        params["slot"]        = dev.value("slot", 0);
+        params["clock"]       = dev.value("hw_clock", 0);
+        params["pan"]         = dev.value("pan", 0);
+        // fitom_hw.dll / fitom_fmhwif.dll のキューイング遅延計算に使用
+        // (IHWPlugin.h HWPlugin_SetDelaySamples のレイテンシ同期機構)
+        params["sample_rate"] = dev.value("sample_rate", 44100u);
 
         // B-2: extra_slot → 2ポート目の HWPort を生成
         int extraSlot = dev.value("extra_slot", -1);
