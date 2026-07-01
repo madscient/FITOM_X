@@ -131,6 +131,12 @@ struct HwBank {
     std::string filename;                          // ソースファイルパス
     std::array<HwPatch, BANK_PROG_SIZE> patches;  // 128エントリ
 
+    // このバンク全体で共通の VoicePatchType (VOICE_PATCH_*)。
+    // 「同一HwBank内は同一VoicePatchTypeのみ」という規則の下、
+    // バンク単位で1つだけ保持する (パッチ単位では持たない)。
+    // 0 = 未設定 (旧データ・後方互換用)。
+    uint8_t voicePatchType = 0;
+
     HwBank() { for (auto& p : patches) p = HwPatch{}; }
 
     const HwPatch& get(int prog) const noexcept {
@@ -234,12 +240,19 @@ private:
 // ================================================================
 struct ToneLayer {
     // ─── デバイス参照 ─────────────────────────────────────────────
-    int8_t  deviceIndex;  // profiles の devices[] インデックス (-1=無効)
+    // voicePatchType (VOICE_PATCH_*): バンクセレクトLSB直接指定モードと
+    // 同じ方式でデバイスを選択する。実際のデバイスは
+    // Config::findDeviceIndexByVoicePatchType() で実行時に解決する。
+    // 0 (VOICE_PATCH_NONE) = 無効 (設定禁止の予約値)。
+    uint8_t voicePatchType;
 
     // ─── HW パッチ参照 ────────────────────────────────────────────
     // hw_bank / hw_prog はチップ族から適切な HwBank を引くためのキー。
-    // 実際の VoiceGroup はデバイスの device_type から実行時に決定する。
-    uint8_t hwBank;       // HW バンク番号 (MIDI CC#0)
+    // 実際の VoiceGroup は voicePatchType から一意に決定する。
+    // 注意: これらは Patch プリセット (JSON) に静的に埋め込まれた値であり、
+    // ライブの MIDI Bank Select (CC#0/CC#32) からは供給されない。
+    // どのデバイス・どの HW バンクで鳴らすかは Patch 定義時に固定される。
+    uint8_t hwBank;       // HW バンク番号
     uint8_t hwProg;       // HW プログラム番号
 
     // ─── レイヤー固有 MIDI パラメータ ────────────────────────────
@@ -251,14 +264,14 @@ struct ToneLayer {
     bool     enabled;       // このレイヤーを使用するか
 
     ToneLayer() noexcept
-        : deviceIndex(-1)
+        : voicePatchType(0)
         , hwBank(0), hwProg(0)
         , noteRangeLo(0), noteRangeHi(127)
         , transpose(0), volumeOffset(0), panOffset(0)
         , enabled(false) {}
 
     bool isActive() const noexcept {
-        return enabled && deviceIndex >= 0;
+        return enabled && voicePatchType != 0;
     }
 
     // ノートがこのレイヤーの音域に含まれるか
@@ -285,7 +298,9 @@ struct Patch {
 
     // ─── SW パッチ参照 ────────────────────────────────────────────
     // SW パラメータはすべての ToneLayer で共有する（1パッチ1セット）。
-    uint8_t swBank;   // SW バンク番号 (MIDI CC#32)
+    // 注意: hwBank/hwProg と同様、Patch プリセット (JSON) に静的に
+    // 埋め込まれた値であり、ライブの MIDI CC からは供給されない。
+    uint8_t swBank;   // SW バンク番号
     uint8_t swProg;   // SW プログラム番号
 
     // ─── パッチ共通パラメータ ─────────────────────────────────────
@@ -307,12 +322,13 @@ struct Patch {
     }
 
     // 後方互換: 旧 FMVOICE 1本からシングルレイヤーパッチを作成
-    static Patch fromSingleLayer(const HwPatch& hwp, int deviceIndex,
+    // 直接モード (バンクセレクトLSB) の単層パッチ構築にも使用する。
+    static Patch fromSingleLayer(const HwPatch& hwp, uint8_t voicePatchType,
                                   uint32_t bank, uint32_t prog) noexcept {
         Patch p;
         p.id = (bank << 16) | prog;
         std::strncpy(p.name, hwp.name, sizeof(p.name) - 1);
-        p.layers[0].deviceIndex = static_cast<int8_t>(deviceIndex);
+        p.layers[0].voicePatchType = voicePatchType;
         p.layers[0].hwBank      = static_cast<uint8_t>(bank & 0xFF);
         p.layers[0].hwProg      = static_cast<uint8_t>(prog & 0x7F);
         p.layers[0].enabled     = true;

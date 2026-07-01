@@ -223,7 +223,10 @@ private:
     // ─── MIDI チャンネル状態 ───────────────────────────────────────
     uint8_t  ch_;
     uint8_t  programNo_  = 0;
+    // CC#0: PatchManager::patchBanks_ の検索キー (PatchBank選択)。
+    // 旧FITOMのようなデバイス選択の意味は持たない。
     uint8_t  bankSelM_   = 0;
+    // CC#32: 現状 PatchManager::resolve() では未使用 (将来の独自機能用に予約)。
     uint8_t  bankSelL_   = 0;
     uint8_t  volume_     = 100;
     uint8_t  expression_ = 127;
@@ -250,6 +253,10 @@ private:
     PatchManager*  patchMgr_  = nullptr;
     CFITOM*        fitom_     = nullptr;
     PatchResolver  resolver_;
+    // バンクセレクトLSB直接指定モード用: resolveDirect() が構築する
+    // 単層Patchの実体。ResolvedPatch::patch はこれを指すため、
+    // 寿命が続く限りここに保持する。
+    Patch          directPatch_;
 
     // ─── ポルタメント ──────────────────────────────────────────────
     PortaCtrl portamento_;
@@ -346,7 +353,9 @@ private:
     uint8_t  lastNote_  = 0xFF;
     uint8_t  volume_    = 100;
     uint8_t  programNo_ = 0;
+    // CC#0: DrumBankRegistry の検索キー。CInstCh と同様の意味。
     uint8_t  bankSelM_  = 0;
+    // CC#32: 現状未使用 (将来の独自機能用に予約)。
     uint8_t  bankSelL_  = 0;
 
     const DrumPatch* currentPatch_ = nullptr;

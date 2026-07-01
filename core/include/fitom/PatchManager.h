@@ -59,11 +59,22 @@ public:
     ResolvedPatch resolve(int patchBank, int prog,
                           const FITOMConfig& config) const;
 
+    // バンクセレクトLSB直接指定モード: PatchBank/ToneLayerを経由せず、
+    // voicePatchType + hwBank + hwProg から単層 ResolvedPatch を直接構築する。
+    // storage は呼び出し側 (CInstCh) が寿命を保持する実体
+    // (ResolvedPatch::patch はここを指す)。
+    // SwPatch は常に nullptr (直接モードはベロシティ感度等を持たない)。
+    ResolvedPatch resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
+                                const FITOMConfig& config, Patch& storage) const;
+
     // ─── バンクファイル I/O ───────────────────────────────────────
 
     // JSON 形式でバンクを読み込む
+    // voicePatchType: バンク全体で共通の VoicePatchType (VOICE_PATCH_*)。
+    // 省略時は 0 (未設定、後方互換用)。
     bool loadHwBankJson(const std::filesystem::path& path,
-                        HwBankRegistry::VoiceGroup group, int bankNo);
+                        HwBankRegistry::VoiceGroup group, int bankNo,
+                        uint8_t voicePatchType = 0);
     bool loadSwBankJson(const std::filesystem::path& path, int bankNo);
     bool loadPatchBankJson(const std::filesystem::path& path, int bankNo);
 
@@ -120,10 +131,6 @@ private:
     void reportProgress(const std::string& msg) const {
         if (progressCb_) progressCb_(msg);
     }
-
-    // デバイスインデックス → VoiceGroup の解決
-    HwBankRegistry::VoiceGroup resolveVoiceGroup(
-        int deviceIndex, const FITOMConfig& config) const;
 };
 
 // ================================================================

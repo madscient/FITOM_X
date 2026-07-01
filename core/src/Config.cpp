@@ -247,63 +247,24 @@ void FITOMConfig::buildDevice(const json& dev)
         }
 
     } else if (ifType == "HW") {
-        // --- DLL の選択 --------------------------------------------------------
-        // profile の devices[].dll が指定されていればそのキーで検索する。
-        // 未指定の場合は後方互換で "__default__" を使用する。
-        std::string dllKey = dev.value("dll", "");
-        std::shared_ptr<HWPluginInstance> hwPlugin;
-
-        if (!dllKey.empty()) {
-            auto it = hwPlugins_.find(dllKey);
-            if (it == hwPlugins_.end()) {
-                // ベース名でも検索（"fitom_hw.dll" → "fitom_hw.dll" のキー以外に
-                // stem() だけで登録されている場合も許容）
-                std::string base = fs::path(dllKey).filename().string();
-                it = hwPlugins_.find(base);
-            }
-            if (it != hwPlugins_.end()) {
-                hwPlugin = it->second;
-            } else {
-                // 未登録: 実行時に DLL を動的ロードして登録（同一 DLL は共有）
-                FITOM_LOG_INFO("HW device '" << label << "': loading DLL on demand: " << dllKey);
-                try {
-                    auto inst = HWPluginInstance::load(dllKey);
-                    hwPlugins_[dllKey] = inst;
-                    hwPlugin = inst;
-                } catch (const std::exception& ex) {
-                    FITOM_LOG_ERR("Failed to load HW plugin DLL '" << dllKey
-                        << "' for device '" << label << "': " << ex.what());
-                    return;
-                }
-            }
-        } else {
-            // dll 未指定 → __default__ を使用（setHWPlugin() で登録した単一 DLL）
-            auto it = hwPlugins_.find(kDefaultHWPluginKey);
-            if (it != hwPlugins_.end()) hwPlugin = it->second;
-        }
-
-        if (!hwPlugin) {
-            FITOM_LOG_ERR("HW device '" << label
-                << "': no hw_plugin available"
-                << " (specify \"dll\" in device entry, or call setHWPlugin())");
+        if (!hwPlugin_) {
+            FITOM_LOG_ERR("HW device '" << label << "' requested but hw_plugin not loaded");
             return;
         }
-
-        // --- params_json を組み立てて HWPort を生成 ----------------------------
+        // params_json を組み立てて HWPort を生成
         json params;
         params["type"] = dev.value("type", "");
         if (dev.contains("serial")) params["serial"] = dev["serial"];
         if (dev.contains("port"))   params["port"]   = dev["port"];
-        params["slot"]        = dev.value("slot", 0);
-        params["clock"]       = dev.value("hw_clock", 0);
-        params["pan"]         = dev.value("pan", 0);
-        params["sample_rate"] = dev.value("sample_rate", 44100u);
+        params["slot"]  = dev.value("slot", 0);
+        params["clock"] = dev.value("hw_clock", 0);
+        params["pan"]   = dev.value("pan", 0);
 
         // B-2: extra_slot → 2ポート目の HWPort を生成
         int extraSlot = dev.value("extra_slot", -1);
 
         try {
-            auto port = std::make_unique<HWPort>(hwPlugin, params.dump());
+            auto port = std::make_unique<HWPort>(hwPlugin_, params.dump());
             DeviceEntry e;
             e.label      = label;
             e.deviceType = resolveChipDeviceId(dev.value("chip", ""));
@@ -314,7 +275,7 @@ void FITOMConfig::buildDevice(const json& dev)
                 json params2 = params;
                 params2["slot"] = extraSlot;
                 try {
-                    e.port2 = std::make_unique<HWPort>(hwPlugin, params2.dump());
+                    e.port2 = std::make_unique<HWPort>(hwPlugin_, params2.dump());
                     FITOM_LOG_INFO("Device[" << label << "]: extra_slot=" << extraSlot
                         << " port2 created");
                 } catch (const std::exception& ex) {
@@ -323,9 +284,7 @@ void FITOMConfig::buildDevice(const json& dev)
                 }
             }
             devices_.push_back(std::move(e));
-            FITOM_LOG_INFO("Device added: " << label
-                << " [HW/" << params["type"].get<std::string>() << "]"
-                << (dllKey.empty() ? "" : " dll=" + dllKey));
+            FITOM_LOG_INFO("Device added: " << label << " [HW/" << params["type"].get<std::string>() << "]");
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
         }
@@ -464,12 +423,7 @@ uint32_t           FITOMConfig::getAudioSampleRate() const  { return audioSample
 FmEngineRegistry& FITOMConfig::getFmEngineRegistry() { return fmRegistry_; }
 
 void FITOMConfig::setHWPlugin(std::shared_ptr<HWPluginInstance> plugin) {
-    // 後方互換: 単一 DLL を "__default__" キーで登録
-    hwPlugins_[kDefaultHWPluginKey] = std::move(plugin);
-}
-
-void FITOMConfig::setHWPlugins(std::map<std::string, std::shared_ptr<HWPluginInstance>> plugins) {
-    hwPlugins_ = std::move(plugins);
+    hwPlugin_ = std::move(plugin);
 }
 
 } // namespace fitom
@@ -491,6 +445,138 @@ IPort* FITOMConfig::getDevicePort2(int index) const {
 uint32_t FITOMConfig::getDeviceType(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return 0;
     return devices_[index].deviceType;
+}
+
+// ================================================================
+//  VoicePatchType (音色パッチ互換性分類) 変換テーブル
+//
+//  DeviceFactory の DEVICE_* (チップドライバ生成用IDと deviceType) とは
+//  独立した分類。ボイスパラメータ・ハードウェア機能の互換性のみに着目する。
+// ================================================================
+
+uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
+{
+    switch (deviceType) {
+    case DEVICE_OPN:  case DEVICE_OPNB: case DEVICE_OPNC:
+        return VOICE_PATCH_OPN;
+    case DEVICE_OPN2: case DEVICE_OPN2C: case DEVICE_OPN2L:
+    case DEVICE_OPNA: case DEVICE_OPN3L:
+    case DEVICE_2610B: case DEVICE_F286: case DEVICE_OPN3:
+        return VOICE_PATCH_OPN2;
+
+    case DEVICE_OPM:  return VOICE_PATCH_OPM;
+    case DEVICE_OPP:  return VOICE_PATCH_OPM;   // YM2164 は OPM 互換
+    case DEVICE_OPZ:  return VOICE_PATCH_OPZ;
+    case DEVICE_OPZ2: return VOICE_PATCH_OPZ2;
+
+    case DEVICE_OPL:    case DEVICE_Y8950: return VOICE_PATCH_OPL;
+    case DEVICE_OPL2:                      return VOICE_PATCH_OPL2;
+
+    case DEVICE_OPLL:   return VOICE_PATCH_OPLL;
+    case DEVICE_OPLLP:  return VOICE_PATCH_OPLLP;
+    case DEVICE_OPLLX:  return VOICE_PATCH_OPLLX;
+    case DEVICE_OPLL2:  return VOICE_PATCH_OPLL; // YM2420 は OPLL(0x28) に統合済み
+
+    case DEVICE_OPL3: case DEVICE_OPN3_L3: return VOICE_PATCH_OPL3;
+
+    case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
+    case DEVICE_SSGS: case DEVICE_DSG:
+        return VOICE_PATCH_SSG;
+    case DEVICE_EPSG:  return VOICE_PATCH_AY8930;
+    case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
+    case DEVICE_SAA:   return VOICE_PATCH_SAA1099;   // 未実装 (値のみ予約)
+
+    case DEVICE_SCC: case DEVICE_SCCP: return VOICE_PATCH_SCC;
+
+    case DEVICE_ADPCMB: return VOICE_PATCH_ADPCMB;
+    case DEVICE_ADPCMA: return VOICE_PATCH_ADPCMA;
+    case DEVICE_PCMD8:  return VOICE_PATCH_PCMD8;
+
+    default:
+        return VOICE_PATCH_NONE;
+    }
+}
+
+uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
+{
+    switch (vpt) {
+    case VOICE_PATCH_OPN:  case VOICE_PATCH_OPN2:
+        return VOICE_GROUP_OPNA;
+    case VOICE_PATCH_OPM:  case VOICE_PATCH_OPZ:  case VOICE_PATCH_OPZ2:
+        return VOICE_GROUP_OPM;
+    case VOICE_PATCH_OPL:  case VOICE_PATCH_OPL2:
+        return VOICE_GROUP_OPL2;
+    case VOICE_PATCH_OPLL: case VOICE_PATCH_OPLLP:
+    case VOICE_PATCH_OPLLX: case VOICE_PATCH_VRC7:
+        return VOICE_GROUP_OPLL;
+    case VOICE_PATCH_OPL3:
+        return VOICE_GROUP_OPL3;
+    case VOICE_PATCH_SD1: case VOICE_PATCH_MA3:
+    case VOICE_PATCH_MA5: case VOICE_PATCH_MA7:
+        return VOICE_GROUP_MA3;
+    case VOICE_PATCH_SSG: case VOICE_PATCH_AY8930:
+    case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA1099:
+    case VOICE_PATCH_SCC:
+        return VOICE_GROUP_PSG;
+    case VOICE_PATCH_ADPCMB_Y8950: case VOICE_PATCH_ADPCMB:
+    case VOICE_PATCH_ADPCMA: case VOICE_PATCH_PCMD8:
+    case VOICE_PATCH_AWM:
+        return VOICE_GROUP_PCM;
+    default:
+        return VOICE_GROUP_NONE;
+    }
+}
+
+uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
+{
+    // OPNA/OPNBは音色パラメータ互換性の観点でOPN2に統合済み
+    if (s == "OPN")      return VOICE_PATCH_OPN;
+    if (s == "OPN2" || s == "OPNA" || s == "OPNB") return VOICE_PATCH_OPN2;
+    if (s == "OPM")       return VOICE_PATCH_OPM;
+    if (s == "OPZ")       return VOICE_PATCH_OPZ;
+    if (s == "OPZ2")      return VOICE_PATCH_OPZ2;
+    if (s == "OPL")       return VOICE_PATCH_OPL;
+    if (s == "OPL2")      return VOICE_PATCH_OPL2;
+    if (s == "OPLL")      return VOICE_PATCH_OPLL;
+    if (s == "OPLLP")     return VOICE_PATCH_OPLLP;
+    if (s == "OPLLX")     return VOICE_PATCH_OPLLX;
+    if (s == "VRC7")      return VOICE_PATCH_VRC7;
+    if (s == "OPL3")      return VOICE_PATCH_OPL3;
+    if (s == "SD1" || s == "SD-1") return VOICE_PATCH_SD1;
+    if (s == "MA3" || s == "MA-3") return VOICE_PATCH_MA3;
+    if (s == "MA5" || s == "MA-5") return VOICE_PATCH_MA5;
+    if (s == "MA7" || s == "MA-7") return VOICE_PATCH_MA7;
+    if (s == "SSG")       return VOICE_PATCH_SSG;
+    if (s == "AY8930")    return VOICE_PATCH_AY8930;
+    if (s == "DCSG")      return VOICE_PATCH_DCSG;
+    if (s == "SAA1099" || s == "SAA") return VOICE_PATCH_SAA1099;
+    if (s == "SCC" || s == "SCCP")    return VOICE_PATCH_SCC;
+    if (s == "ADPCMB_Y8950") return VOICE_PATCH_ADPCMB_Y8950;
+    if (s == "ADPCMB")    return VOICE_PATCH_ADPCMB;
+    if (s == "ADPCMA")    return VOICE_PATCH_ADPCMA;
+    if (s == "PCMD8")     return VOICE_PATCH_PCMD8;
+    if (s == "AWM")       return VOICE_PATCH_AWM;
+    // 後方互換: 旧来の粗い "PSG"/"PCM" 指定は代表値にフォールバック
+    if (s == "PSG")       return VOICE_PATCH_SSG;
+    if (s == "PCM")       return VOICE_PATCH_ADPCMB;
+    return VOICE_PATCH_NONE;
+}
+
+uint8_t FITOMConfig::getVoicePatchType(int deviceIndex) const
+{
+    if (deviceIndex < 0 || deviceIndex >= static_cast<int>(devices_.size()))
+        return VOICE_PATCH_NONE;
+    return deviceTypeToVoicePatchType(devices_[deviceIndex].deviceType);
+}
+
+int FITOMConfig::findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const
+{
+    if (voicePatchType == VOICE_PATCH_NONE) return -1;
+    for (int i = 0; i < static_cast<int>(devices_.size()); ++i) {
+        if (deviceTypeToVoicePatchType(devices_[i].deviceType) == voicePatchType)
+            return i;
+    }
+    return -1;
 }
 
 // DeviceFactory を使ってポートからデバイスを生成する
@@ -576,15 +662,17 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
             if (file.empty()) continue;
             std::filesystem::path path = file;
             if (path.is_relative()) path = baseDir / path;
-            // VoiceGroup を文字列から解決
-            uint32_t group = VOICE_GROUP_OPNA;
-            if (groupStr == "OPM")  group = VOICE_GROUP_OPM;
-            else if (groupStr == "OPL2") group = VOICE_GROUP_OPL2;
-            else if (groupStr == "OPL3") group = VOICE_GROUP_OPL3;
-            else if (groupStr == "OPLL") group = VOICE_GROUP_OPLL;
-            else if (groupStr == "PSG")  group = VOICE_GROUP_PSG;
-            else if (groupStr == "PCM")  group = VOICE_GROUP_PCM;
-            pm.loadHwBankJson(path, group, bankNo);
+            // "group" 文字列 → VoicePatchType → VoiceGroup(検索キー) の2段変換。
+            // (旧実装は "OPZ" 等の細分類文字列を判定できず VOICE_GROUP_OPNA に
+            //  誤って落ちるバグがあったため、ここで併せて修正する)
+            uint8_t  voicePatchType = FITOMConfig::stringToVoicePatchType(groupStr);
+            uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+            if (voicePatchType == VOICE_PATCH_NONE) {
+                FITOM_LOG_WARN("hw_banks: unknown group \"" << groupStr
+                    << "\" in " << file << " — skipped");
+                continue;
+            }
+            pm.loadHwBankJson(path, group, bankNo, voicePatchType);
         }
     }
     if (banks.contains("sw_banks")) {
