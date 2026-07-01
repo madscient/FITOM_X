@@ -153,7 +153,8 @@ profiles/
     "port":    "COM3",
     "slot":    0,
     "hw_clock": 3993600,
-    "pan":     0
+    "pan":     0,
+    "sample_rate": 44100
   }
 ]
 ```
@@ -177,6 +178,14 @@ profiles/
 | `slot` | - | SPFM スロット番号（デフォルト 0） |
 | `hw_clock` | - | マスタークロック [Hz]（デフォルト 0） |
 | `pan` | - | 0=Stereo / 1=L / 2=R / 3=Mono |
+| `sample_rate` | - | サンプルレート [Hz]（デフォルト 44100）。`fitom_hw.dll`/`fitom_fmhwif.dll` のキューイング遅延計算（レイテンシ同期）に使用する |
+
+`if` に関わらず共通のオプションフィールド:
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `rhythm_mode` | - | `true`でチップ内蔵リズム音源を有効化（デフォルト`false`）。OPLL系（COPLL/COPLL2/COPLLP/COPLLX）で対応済み。OPL系は将来対応予定。特定チップ専用の名前ではなく、内蔵リズム音源を持つチップ全般で共通のフィールド名とする |
+| `extra_slot` | - | 2ポートチップ（OPNA/OPN2/OPL3等）用、2番目のSPFMスロット番号 |
 
 ### MIDI デバイス (`midi_inputs`, `midi_outputs`)
 

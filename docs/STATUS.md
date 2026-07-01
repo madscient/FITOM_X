@@ -90,26 +90,42 @@
 
 ---
 
-## 残作業 (実装で完結できなかったもの)
+## 音源機能の実装状況（追加セッション分）
 
-### TODO コメントになっている箇所
+以下の機能は初期リファクタリング完了後、追加セッションで実装・修正した。
 
-1. **`DeviceFactory.cpp`**: `createDevices()` 内の `DeviceFactory::create()` 呼び出し
-   - `Config.cpp` で DeviceFactory.h を include して `entry.device = DeviceFactory::create(...)` を呼ぶ
-   - 現在は循環依存を避けてコメントアウト
+| 機能 | 状態 | 関連ドキュメント |
+|---|---|---|
+| ベロシティ感度 (VTL + VAR〜VRR、全FMチップ + PSG) | ✅ | `voice-data-design.md` |
+| ソフトウェアLFO 全面再設計 (LfoControl) | ✅ | `voice-data-design.md` |
+| CC#1 Modulation → LFR=0音色専用のCC駆動LFO | ✅ | `midi-implementation-status.md` |
+| マスターピッチ可変 (430-450Hz) + OPM算出バグ修正 | ✅ | — |
+| ダイナミックボイスアサイン (findBestCh 1パス化) | ✅ | — |
+| Sustain (CC#64) チップ依存実装 + MIDI配線バグ修正 | ✅ | `midi-implementation-status.md` |
+| Sostenuto (CC#66) | ✅ | `midi-implementation-status.md` |
+| Portamento/Legato モノフォニック専用化 + バグ修正 | ✅ | `midi-implementation-status.md` |
+| CC#120 forceDamp (全チップ、ALGキャリア判定込み) | ✅ | `midi-implementation-status.md` |
+| VoicePatchType システム (音色パッチ互換性分類) | ✅ | `patch-structure-design.md` |
+| バンクセレクトLSB直接指定モード | ✅ | `patch-structure-design.md` |
+| PSGソフトウェアエンベロープ (SoftEnvelope, FM実機準拠ADSR) | ✅ | `voice-data-design.md` |
+| AY-3-8910 HW EGレジスタ仕様修正 (ext.HWEP) | ✅ | `voice-data-design.md` |
+| OPLLX / VRC7 (6ch専用) チップドライバ | ✅ | — |
+| リズムモード汎用フィールド (`rhythm_mode`) | ✅ | `config-design.md` |
+| RtAudio削除 (fitom_fmhwif DLLへ移管) | ✅ | `plugin-hwif.md` |
+| HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `plugin-hwif.md` |
 
-2. **`FITOMBridge.cpp`**: 音色エディタ連携の TODO
-   - `getHwPatchJson()` / `setHwPatchJson()` の完全実装
-   - HwBankRegistry からの JSON 変換
+---
 
-3. **`PatchManager.cpp`**: `saveSwBankJson()` の実装
-   - SwBankRegistry に `find()` 追加後に実装
+## 既知の未対応・将来課題
 
-4. **`CFITOM.cpp`**: `getDevice()` の完全実装
-   - `FITOMConfig::getDevice()` が ISoundDevice* を返すよう Config.cpp の `createDevices()` を完成させる
-
-5. **`CRhythmCh`**: `getDrum()` / `getDrumPatch()` の実装
-   - `CFITOM::getDrum()` の DrumBank → PatchManager 統合
+- Poly Pressure / Channel Pressure
+- CC#67 Soft Pedal（FM音源に対応するパラメータがないため意図的に非対応）
+- RPN 0x0002 Coarse Tuning、RPN 0x7F7F Null
+- CC#2/CC#4 の変数分離
+- VoicePatchType 未実装チップ (MA3系列, SAA1099, AWM) のドライバ実装
+- OPL系のリズムモード対応（現状OPLL系のみ対応）
+- VoicePatchType 完全一致以外へのフォールバック（旧FITOMの互換リスト相当、将来実装予定）
+- GUI (Qt6) 実装
 
 ### FitomIFTest 側の追加作業
 

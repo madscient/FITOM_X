@@ -83,11 +83,12 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 
 ```json
 {
-  "type":   "SPFM_TOWER",
-  "port":   "COM3",
-  "slot":   0,
-  "clock":  7987200,
-  "pan":    0
+  "type":         "SPFM_TOWER",
+  "port":         "COM3",
+  "slot":         0,
+  "clock":        7987200,
+  "pan":          0,
+  "sample_rate":  44100
 }
 ```
 
@@ -113,9 +114,9 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 | `slot` | number | 省略時 0 | SPFM 系のスロット番号 |
 | `clock` | number | 省略時 0 | チップのマスタークロック [Hz] |
 | `pan` | number | 省略時 0 | パノラマ。0=Stereo, 1=L only, 2=R only |
+| `sample_rate` | number | 省略時 44100 | サンプルレート [Hz]。**物理HW・FMHWIF共通**。物理HWではキューイング遅延計算（レイテンシ同期）に使用する |
 | `engine` | string | FMHWIF必須 | FMエンジン DLL 名 |
 | `chip` | string | FMHWIF必須 | チップ種別 |
-| `sample_rate` | number | 省略時 44100 | サンプルレート [Hz]（FMHWIF のみ） |
 | `buffer_frames` | number | 省略時 512 | バッファサイズ [samples]（FMHWIF のみ） |
 | `audio_api` | string | 省略時 "auto" | RtAudio API 名（FMHWIF のみ）|
 
