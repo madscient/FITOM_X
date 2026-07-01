@@ -215,7 +215,7 @@ json hwPatchToJson(const HwPatch& p) {
         {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
         {"ops",ops},
         {"ext",json{{"REV",p.ext.REV},{"EGS",p.ext.EGS},{"DM0",p.ext.DM0},
-                    {"DT3",p.ext.DT3},{"ALG_EXT",p.ext.ALG_EXT}}}
+                    {"DT3",p.ext.DT3},{"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP}}}
     };
 }
 HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
@@ -233,9 +233,14 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
             jsonToHwOp(j["ops"][i], p.hwOp[i]);
     }
     if (j.contains("ext")) {
-        auto& ex = j["ext"];
-        g8("REV",p.ext.REV); g8("EGS",p.ext.EGS); g8("DM0",p.ext.DM0);
-        g8("DT3",p.ext.DT3); g8("ALG_EXT",p.ext.ALG_EXT);
+        // 注意: ext サブオブジェクトのフィールドは ex から読む必要がある。
+        // (以前は誤って親スコープ j を参照する g8 を流用しており、
+        //  ext.* が正しく読み込まれていなかった)
+        const auto& ex = j["ext"];
+        auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
+        ge8("REV",p.ext.REV); ge8("EGS",p.ext.EGS); ge8("DM0",p.ext.DM0);
+        ge8("DT3",p.ext.DT3); ge8("ALG_EXT",p.ext.ALG_EXT);
+        if (ex.contains("HWEP")) p.ext.HWEP = ex["HWEP"].get<uint16_t>();
     }
     return p;
 }
