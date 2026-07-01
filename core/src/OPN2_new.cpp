@@ -1,278 +1,200 @@
 // fitom/OPN2_new.cpp
-// COPNA / COPN2: OPN を 2 ポート (SplitPort) でまとめた 6ch ドライバ
+// COPNA / COPN2 チップドライバ — CSpanDevice を使った正しい継承構造
 //
-// B-2 対応:
-//   チップドライバは SplitPort を受け取り、
-//   addr < 0x100  → port1 (ch0-2)
-//   addr >= 0x100 → port2 (ch3-5)
-//   と書くだけでよい。HW/エミュレーターの差異は SplitPort が吸収する。
+// 設計方針:
+//   旧FITOMと同様に、OPN2/OPNA は CSpanDevice を継承し、
+//   内部に2つの COPN サブチップ (各3ch) を保持する。
 //
-// エミュレーター (FmEnginePort):
-//   FmEnginePort は addr 上位バイトを port 引数として渡すため、
-//   SplitPort を経由しない 1 ポートで 6ch を処理できる。
-//   DeviceFactory がエミュレーター時は SplitPort を作らず FmEnginePort を直接渡す。
+//   ch 0-2: chip1_ (port1: アドレス 0x000-0x0FF)
+//   ch 3-5: chip2_ (port2: アドレス 0x100-0x1FF)
 //
-// HW (SPFM 等):
-//   port1: HWPort(slot=N)   → OPN の CS0 (ch0-2)
-//   port2: HWPort(slot=N+1) → OPN の CS1 (ch3-5)
-//   を SplitPort でまとめて COPNA に渡す。
+// ポート構成:
+//   エミュレーター (単一 IPort): chip2_ は OffsetPort(port, 0x100) を使用。
+//   SPFM 等の2スロット構成 (2つの IPort): chip2_ は extraPort を使用。
+//
+// 0x28 レジスタ (キーオン/オフ) の特別扱い:
+//   0x28 は「ポート1専用のグローバルレジスタ」であり、
+//   ポート2チャンネルはビット2 (0x04) で区別する。
+//   OffsetPort でアドレスをずらしただけでは正しく動かないため、
+//   OPN2Port2 ラッパーが 0x28 をインターセプトして正しく変換する:
+//     chip1->setReg(0x28, data) → port1->write(0x28, data)          (ポート1)
+//     chip2->setReg(0x28, data) → port1->write(0x28, data | 0x04)   (ポート2フラグ付き)
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/IPort.h"
 #include "fitom/Log.h"
-#include <memory>
 
 namespace fitom {
 
+// COPN は OPN_new.cpp で定義されているが、ここから使う
+class COPN;
+std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster);
+
 // ================================================================
-//  COPNA: OPN2/OPNA 6ch ドライバ
-//  単一の IPort (FmEnginePort または SplitPort) を受け取る
+//  OPN2Port2: OPN2/OPNA ポート2専用のポートラッパー
+//
+//  register 0x28 (キーオン/オフ) はポート1専用のグローバルレジスタ。
+//  ポート2チャンネルを制御するにはビット2 (0x04) を立てた上で
+//  ポート1に書く必要がある。それ以外のレジスタは OffsetPort で
+//  +0x100 オフセットを加えてデータポートに書く。
+//  ハードウェアの2スロット構成では masterPort_=port1, dataPort_=port2
+//  が独立した IPort になる。
 // ================================================================
-class COPNA : public CSoundDevice {
+class OPN2Port2 : public IPort {
 public:
-    explicit COPNA(IPort* port, int sampleRate = 44100,
-                   uint8_t devId = DEVICE_OPNA)
-        : CSoundDevice(devId, 6, port,
-                       sampleRate, 144,   // fnumMaster/divide: OPN 系標準
-                       -576,
-                       FnumTableType::Fnumber,
-                       0x200)             // 0x000〜0x0FF + 0x100〜0x1FF
-        , lfoUsed_(0), lfoAmDepth_(0), lfoPmDepth_(0)
-        , lfoAmRate_(0), lfoPmRate_(0)
-        , sampleRate_(sampleRate)
-    {
-        opCount_ = 4;
-    }
+    // masterPort: 0x28 の書き込み先 (常にポート1)
+    // dataPort:   FMパラメータレジスタの書き込み先 (OffsetPort か物理ポート2)
+    OPN2Port2(IPort* masterPort, IPort* dataPort) noexcept
+        : masterPort_(masterPort), dataPort_(dataPort) {}
 
-    std::string getDescriptor() const override {
-        return std::string(getDeviceType() == DEVICE_OPN2 ? "OPN2 (YM2612)" : "OPNA (YM2608)")
-               + " 6ch via SplitPort";
-    }
-
-    void init() override {
-        // 全チャンネルサイレント
-        port_->write(0x28, 0x00, true);  // all key off
-        port_->write(0x27, 0x30, true);  // ch3 normal mode, timer stop
-        // LFO 無効
-        port_->write(0x22, 0x00, true);
-    }
-
-    void reset() override {
-        CSoundDevice::reset();
-        for (int i = 0x30; i < 0xB0; ++i) {
-            port_->write(static_cast<uint16_t>(i),       0, true);
-            port_->write(static_cast<uint16_t>(0x100+i), 0, true);
-        }
-        for (int ch = 0; ch < 3; ++ch) {
-            port_->write(static_cast<uint16_t>(0xB4 + ch),       0xC0, true);
-            port_->write(static_cast<uint16_t>(0x100 + 0xB4 + ch), 0xC0, true);
-        }
-        lfoUsed_ = 0;
-    }
-
-protected:
-    // ch0-2: 0x000〜0x0FF  / ch3-5: 0x100〜0x1FF
-    // SplitPort がアドレスに従って port1/port2 に振り分ける
-    uint16_t portBase(uint8_t ch) const {
-        return (ch < 3) ? 0x000 : 0x100;
-    }
-    uint8_t localCh(uint8_t ch) const { return ch % 3; }
-
-    static const uint8_t kOpMap[4];  // {0, 8, 4, 12}
-
-    bool isCarrier(uint8_t ch, int op) const {
-        return (kCarrierMask[chState_[ch].hwPatch.hw.ALG & 7] >> op) & 1;
-    }
-
-    void updateVoice(uint8_t ch) override {
-        const auto& s   = chState_[ch];
-        const HwPatch& p = s.hwPatch;
-        uint16_t base    = portBase(ch);
-        uint8_t  lch     = localCh(ch);
-
-        // FB / ALG
-        port_->write(static_cast<uint16_t>(base + 0xB0 + lch),
-                     static_cast<uint16_t>(((p.hw.FB & 7) << 3) | (p.hw.ALG & 7)));
-        // L/R / AMS / PMS (デフォルト: 両方有効)
-        port_->write(static_cast<uint16_t>(base + 0xB4 + lch), 0xC0);
-
-        for (int i = 0; i < 4; ++i) {
-            const FmHwOp& o = p.hwOp[kOpMap[i]];
-            bool carrier = isCarrier(ch, kOpMap[i]);
-
-            port_->write(static_cast<uint16_t>(base + 0x30 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.DT1 & 7) << 4) | (o.MUL & 0xF)));
-
-            uint8_t tl = carrier ? s.proc.effectiveTL(kOpMap[i]) : o.TL;
-            port_->write(static_cast<uint16_t>(base + 0x40 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(tl & 0x7F));
-
-            const uint8_t ar_n2 = carrier ? s.proc.velAR(kOpMap[i]) : (o.AR & 0x1F);
-            port_->write(static_cast<uint16_t>(base + 0x50 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.KSR & 3) << 6) | ar_n2));
-            const uint8_t dr_n2 = carrier ? s.proc.velDR(kOpMap[i]) : (o.DR & 0x1F);
-            port_->write(static_cast<uint16_t>(base + 0x60 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.AM & 1) << 7) | dr_n2));
-            const uint8_t sr_n2 = carrier ? s.proc.velSR(kOpMap[i]) : (o.SR & 0x1F);
-            port_->write(static_cast<uint16_t>(base + 0x70 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(sr_n2));
-            const uint8_t sl_n2 = carrier ? s.proc.velSL(kOpMap[i]) : (o.SL & 0xF);
-            const uint8_t rr_n2 = carrier ? s.proc.velRR(kOpMap[i]) : (o.RR & 0xF);
-            port_->write(static_cast<uint16_t>(base + 0x80 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((sl_n2 & 0xF) << 4) | (rr_n2 & 0xF)));
-            port_->write(static_cast<uint16_t>(base + 0x90 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(o.EGT & 0xF));
-        }
-        updatePanpot(ch);
-    }
-
-    void updateVolExp(uint8_t ch) override {
-        uint16_t base = portBase(ch);
-        uint8_t  lch  = localCh(ch);
-        const auto& s = chState_[ch];
-        const HwPatch& p = s.hwPatch;
-        for (int i = 0; i < 4; ++i) {
-            if (!isCarrier(ch, kOpMap[i])) continue;
-            port_->write(static_cast<uint16_t>(base + 0x40 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(s.proc.effectiveTL(kOpMap[i]) & 0x7F));
-        }
-    }
-
-    void updateTL(uint8_t ch, uint8_t op, uint8_t tl) override {
-        port_->write(static_cast<uint16_t>(portBase(ch) + 0x40 + kOpMap[op] + localCh(ch)),
-                     static_cast<uint16_t>(tl & 0x7F));
-    }
-
-    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
-        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        uint16_t base = portBase(ch);
-        uint8_t  lch  = localCh(ch);
-        // MSB 先書き
-        port_->write(static_cast<uint16_t>(base + 0xA4 + lch),
-                     static_cast<uint16_t>((fnum.block << 3) | ((fnum.fnum >> 8) & 7)));
-        port_->write(static_cast<uint16_t>(base + 0xA0 + lch),
-                     static_cast<uint16_t>(fnum.fnum & 0xFF));
-    }
-
-    void updatePanpot(uint8_t ch) override {
-        int8_t  pan   = chState_[ch].panpot;
-        uint8_t lr    = (pan > 20) ? 0x40 : (pan < -20) ? 0x80 : 0xC0;
-        port_->write(static_cast<uint16_t>(portBase(ch) + 0xB4 + localCh(ch)),
-                     static_cast<uint16_t>(lr));
-    }
-
-    // CC#120 (All Sound Off): 全 OP の RR を最大値にして急速減衰させてから noteOff。
-    void forceDamp(uint8_t ch) override {
-        if (ch >= maxChs_) return;
-        const auto& s = chState_[ch];
-        if (!s.isActive()) return;
-        const uint16_t base = portBase(ch);
-        const uint8_t  lch  = localCh(ch);
-        const HwPatch& p = s.hwPatch;
-        for (int i = 0; i < 4; ++i) {
-            if (!isCarrier(ch, kOpMap[i])) continue; // モジュレータは対象外
-            const uint8_t sl = p.hwOp[kOpMap[i]].SL & 0xF;
-            port_->write(static_cast<uint16_t>(base + 0x80 + kOpMap[i] + lch),
-                         static_cast<uint16_t>((sl << 4) | 0xF)); // RR=15
-        }
-        noteOff(ch);
-    }
-
-    void updateSustain(uint8_t ch) override {
-        uint16_t base = portBase(ch);
-        uint8_t  lch  = localCh(ch);
-        bool     sus  = chState_[ch].sustain;
-        const HwPatch& p = chState_[ch].hwPatch;
-        for (int i = 0; i < 4; ++i) {
-            if (!isCarrier(ch, kOpMap[i])) continue; // モジュレータは対象外
-            const FmHwOp& o = p.hwOp[kOpMap[i]];
-            uint8_t rr = sus ? 4u : o.RR;
-            port_->write(static_cast<uint16_t>(base + 0x80 + kOpMap[i] + lch),
-                         static_cast<uint16_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
-        }
-    }
-
-    void updateKey(uint8_t ch, bool keyOn) override {
-        // OPN2/OPNA: 0x28 は常に port1 (0x000 側) に書く
-        // ch0-2 → value & 0x03、ch3-5 → value | 0x04
-        uint8_t slotMask = keyOn ? 0xF0u : 0x00u;
-        uint8_t chBits   = static_cast<uint8_t>((ch % 3) | ((ch >= 3) ? 0x04 : 0x00));
-        port_->write(0x28, static_cast<uint16_t>(slotMask | chBits));
-    }
-
-    // HW LFO (PM) — チップ全体で 1 リソース
-    void enablePM(uint8_t ch, bool on) override {
-        if (on) {
-            lfoUsed_ |= (1u << ch);
+    void write(uint16_t addr, uint16_t data) override {
+        if (addr == 0x28) {
+            // キーオン/オフ: ポート2フラグ (bit2) を立ててポート1に書く
+            if (masterPort_)
+                masterPort_->write(0x28, static_cast<uint16_t>(data | 0x04));
         } else {
-            lfoUsed_ &= ~(1u << ch);
+            if (dataPort_) dataPort_->write(addr, data);
         }
-        // LFO enable/disable を 0x22 に書く
-        port_->write(0x22,
-            static_cast<uint16_t>(lfoUsed_ ? (0x08 | (lfoPmRate_ >> 4)) : 0x00));
     }
-    void setPMDepth(uint8_t, uint8_t dep) override {
-        lfoPmDepth_ = dep;
-        // AMS/PMS を B4 レジスタに反映（要: 各 ch の updatePanpot を再呼び出し）
+    void writeRaw(uint16_t addr, uint16_t data) override {
+        if (dataPort_) dataPort_->writeRaw(addr, data);
     }
-    void setPMRate(uint8_t, uint8_t rate) override {
-        lfoPmRate_ = rate;
-        port_->write(0x22, static_cast<uint16_t>(lfoUsed_ ? (0x08 | (rate >> 4)) : 0x00));
+    uint8_t read(uint16_t addr) override {
+        return dataPort_ ? dataPort_->read(addr) : 0;
+    }
+    uint8_t status()  override { return masterPort_ ? masterPort_->status() : 0; }
+    void    reset()   override {}
+    int     getClock()   override { return masterPort_ ? masterPort_->getClock() : 0; }
+    int     getPanpot()  override { return masterPort_ ? masterPort_->getPanpot() : 0; }
+    std::string getInterfaceDesc() override {
+        return masterPort_ ? masterPort_->getInterfaceDesc() : "";
     }
 
 private:
-    uint32_t lfoUsed_;
-    uint8_t  lfoAmDepth_, lfoPmDepth_, lfoAmRate_, lfoPmRate_;
-    int      sampleRate_;
+    IPort* masterPort_;
+    IPort* dataPort_;
 };
 
-const uint8_t COPNA::kOpMap[4] = {0, 8, 4, 12};
+// ================================================================
+//  COPNA: YM2608 (OPNA) / OPN2系 の共通基底
+//
+//  CSpanDevice を継承し、内部に2つの COPN サブチップを保持する。
+//  ch 0-2 → chip1_ (port1)
+//  ch 3-5 → chip2_ (OPN2Port2 経由)
+// ================================================================
+class COPNA : public CSpanDevice {
+public:
+    // port1: 必須。エミュレーターの場合はこれ1つだけ渡す。
+    // port2: SPFM 等の2スロット構成で2番目の IPort がある場合に渡す。
+    //        nullptr の場合は内部で OffsetPort(port1, 0x100) を生成する。
+    // fnumMaster: チップのマスタークロック [Hz]。OPN2/OPNA 系は 8MHz。
+    COPNA(IPort* port1, IPort* port2 = nullptr,
+          uint8_t deviceId = DEVICE_OPNA, int fnumMaster = 8000000)
+    {
+        // エミュレーター (単一ポート) の場合はオフセットポートを生成
+        if (!port2) {
+            offsetPort_ = std::make_unique<OffsetPort>(port1, 0x100);
+            port2 = offsetPort_.get();
+        }
+        // OPN2Port2: 0x28 をインターセプトし、それ以外は port2 に転送
+        port2Wrapper_ = std::make_unique<OPN2Port2>(port1, port2);
+
+        // 2つの COPN サブチップを生成
+        chip1_ = createSubCOPN(port1,              fnumMaster);
+        chip2_ = createSubCOPN(port2Wrapper_.get(), fnumMaster);
+
+        addDevice(chip1_.get()); // ch 0-2
+        addDevice(chip2_.get()); // ch 3-5
+
+        deviceId_ = deviceId;
+    }
+
+    uint8_t     getDeviceType() const override { return deviceId_; }
+    std::string getDescriptor() const override { return "OPNA (YM2608) 6ch"; }
+
+    void init() override {
+        // サブチップをリセット (FMレジスタの初期化)
+        chip1_->reset();
+        chip2_->reset();
+
+        // ポート1専用グローバルレジスタ (chip1 = port1 経由で書く)
+        chip1_->setReg(0x27, 0x30, true); // ch3 通常モード, タイマー停止
+        chip1_->setReg(0x29, 0x80, true); // FM enable (OPNA: port1 のみ)
+        chip1_->setReg(0x22, 0x00, true); // HW LFO 無効 (ソフトLFO使用のため)
+        chip1_->setReg(0x10, 0xBF, true); // ADPCM-B: BRDY割り込み有効
+        chip1_->setReg(0x10, 0x00, true); // ADPCM-B: リセット
+
+        // ポート2タイマーモード (chip2 → OPN2Port2 → port2:0x127 で書かれる)
+        chip2_->setReg(0x27, 0x00, true);
+    }
+
+    void reset() override {
+        CMultiDevice::reset();
+    }
+
+protected:
+    uint8_t deviceId_ = DEVICE_OPNA;
+
+private:
+    std::unique_ptr<ISoundDevice> chip1_;        // ch 0-2 (port1)
+    std::unique_ptr<ISoundDevice> chip2_;        // ch 3-5 (port2 via OPN2Port2)
+    std::unique_ptr<OffsetPort>   offsetPort_;   // エミュレーター用 +0x100 オフセット
+    std::unique_ptr<OPN2Port2>    port2Wrapper_; // 0x28 インターセプター
+};
 
 // ================================================================
-//  COPN2: OPN2 (YM2612) — devId 違いのみ
+//  COPN2: YM2612 / YM3438 / YMF276 系
+//
+//  COPNA から派生し、ADPCM/FM enable 等 OPNA 固有の初期化を省く。
+//  基本的な6ch FM 動作のみ。
 // ================================================================
 class COPN2 : public COPNA {
 public:
-    explicit COPN2(IPort* port, int sampleRate = 44100)
-        : COPNA(port, sampleRate, DEVICE_OPN2) {}
-    std::string getDescriptor() const override {
-        return "OPN2 (YM2612) 6ch via SplitPort";
+    COPN2(IPort* port1, IPort* port2 = nullptr,
+          uint8_t deviceId = DEVICE_OPN2)
+        : COPNA(port1, port2, deviceId, 8000000)
+    {}
+
+    std::string getDescriptor() const override { return "OPN2 (YM2612) 6ch"; }
+
+    void init() override {
+        // OPNA と異なり 0x29 FM enable / ADPCM-B は持たない
+        chip1_ref()->reset();
+        chip2_ref()->reset();
+        chip1_ref()->setReg(0x27, 0x00, true); // タイマー停止 (port1)
+        chip2_ref()->setReg(0x27, 0x00, true); // タイマー停止 (port2)
+        // YM2612 固有: DAC 無効化
+        chip1_ref()->setReg(0x2B, 0x00, true); // DAC disable
     }
+
+private:
+    // CSpanDevice の chips_[0] と chips_[1] への参照を返すヘルパー
+    ISoundDevice* chip1_ref() { return chips_.size() > 0 ? chips_[0] : nullptr; }
+    ISoundDevice* chip2_ref() { return chips_.size() > 1 ? chips_[1] : nullptr; }
 };
 
 // ================================================================
-//  ファクトリ関数 (DeviceFactory.cpp から呼ばれる)
-//
-//  エミュレーター: extraPort == port → SplitPort 不要 (FmEnginePort が port 引数で解決)
-//  HW:             port=port1, extraPort=port2 → SplitPort を生成して COPNA に渡す
-//
-//  SplitPort の寿命は CFITOM が管理する (splitPorts_ ベクタで保持)
+//  ファクトリ関数
 // ================================================================
-// createCOPNA / createCOPN2:
-//   p2 == nullptr → 1ポートモード (エミュレーター: FmEnginePort が port 引数で解決)
-//   p2 != nullptr → CFITOM::initDevices が SplitPort を生成して p1 として渡してくる
-//                   (CFITOM::splitPorts_ が寿命を管理; ここでは raw new しない)
-std::unique_ptr<ISoundDevice> createCOPNA(IPort* p1, IPort* p2, int sr)
-{
-    if (p2 == nullptr) {
-        // エミュレーター or 1ポートHW: p1 = FmEnginePort or HWPort(slot0)
-        FITOM_LOG_INFO("createCOPNA: single-port mode");
-        return std::make_unique<COPNA>(p1, sr, DEVICE_OPNA);
-    }
-    // p2 は CFITOM が生成した SplitPort.get() が渡ってくる
-    // ここでは p2 を使わず p1 (= SplitPort*) をそのまま使う
-    // (CFITOM::initDevices で SplitPort(port1, port2) を生成し
-    //  extraPort = splitPorts_.back().get() として渡している)
-    FITOM_LOG_INFO("createCOPNA: SplitPort mode (HW) via CFITOM");
-    return std::make_unique<COPNA>(p1, sr, DEVICE_OPNA);
+
+// OPN_new.cpp で定義される COPN サブチップ生成関数
+// (ヘッダ経由ではなくリンク時解決)
+extern std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster);
+std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster) {
+    return createSubCOPN_impl(port, fnumMaster);
 }
 
-std::unique_ptr<ISoundDevice> createCOPN2(IPort* p1, IPort* p2, int sr)
-{
-    if (p2 == nullptr) {
-        return std::make_unique<COPN2>(p1, sr);
-    }
-    return std::make_unique<COPN2>(p1, sr);
+std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int /*sr*/, IPort* p2) {
+    return std::make_unique<COPNA>(p, p2, DEVICE_OPNA);
+}
+std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int /*sr*/, IPort* p2) {
+    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2);
+}
+std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int /*sr*/, IPort* p2) {
+    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2C);
+}
+std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int /*sr*/, IPort* p2) {
+    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2L);
 }
 
 } // namespace fitom

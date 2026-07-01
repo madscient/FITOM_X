@@ -11,8 +11,10 @@
 namespace fitom {
 
 std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPNA(IPort* p1, IPort* p2, int sr);
-std::unique_ptr<ISoundDevice> createCOPN2(IPort* p1, IPort* p2, int sr);
+std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int sr, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int sr, IPort* p2 = nullptr);
 std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
@@ -53,12 +55,15 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_2610B:
     case DEVICE_F286:
     case DEVICE_OPN3:
-        return createCOPNA(port, extraPort ? extraPort : port, sampleRate);
+        // extraPort が nullptr の場合 COPNA 内部で OffsetPort を生成する
+        return createCOPNA(port, sampleRate, extraPort);
 
     case DEVICE_OPN2:
+        return createCOPN2(port, sampleRate, extraPort);
     case DEVICE_OPN2C:
+        return createCOPN2C(port, sampleRate, extraPort);
     case DEVICE_OPN2L:
-        return createCOPN2(port, extraPort ? extraPort : port, sampleRate);
+        return createCOPN2L(port, sampleRate, extraPort);
 
     case DEVICE_OPM:       return createCOPM(port, sampleRate);
     case DEVICE_OPP:       return createCOPP(port, sampleRate);
