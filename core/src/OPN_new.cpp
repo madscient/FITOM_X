@@ -87,17 +87,17 @@ protected:
             setReg(static_cast<uint16_t>(0x50 + reg),
                    ((o.KSR & 3) << 6) | ar);
 
-            // AM / DR
-            const uint8_t dr = car ? s.proc.velDR(op) : (o.D1R & 0x1F);
+            // AM / DR (FmHwOp では DR = OPN の "DR" = OPM の "D1R")
+            const uint8_t dr = car ? s.proc.velDR(op) : (o.DR & 0x1F);
             setReg(static_cast<uint16_t>(0x60 + reg),
                    ((o.AM & 1) << 7) | dr);
 
-            // SR
-            const uint8_t sr = car ? s.proc.velSR(op) : (o.D2R & 0x1F);
+            // SR (FmHwOp では SR = OPN の "SR" = OPM の "D2R")
+            const uint8_t sr = car ? s.proc.velSR(op) : (o.SR & 0x1F);
             setReg(static_cast<uint16_t>(0x70 + reg), sr);
 
-            // SL / RR
-            const uint8_t sl = car ? s.proc.velSL(op) : (o.D1L & 0xF);
+            // SL / RR (FmHwOp では SL = OPN の "SL" = OPM の "D1L")
+            const uint8_t sl = car ? s.proc.velSL(op) : (o.SL & 0xF);
             const uint8_t rr = car ? s.proc.velRR(op) : (o.RR  & 0xF);
             setReg(static_cast<uint16_t>(0x80 + reg),
                    ((sl & 0xF) << 4) | (rr & 0xF));
@@ -180,7 +180,7 @@ protected:
         for (int op = 0; op < 4; ++op) {
             if (!isCarrier(ch, op)) continue; // モジュレータは対象外
             const FmHwOp& o = p.hwOp[op];
-            const uint8_t rr = s.sustain ? 4u : (o.RR & 0x1F);
+            const uint8_t rr = s.sustain ? 4u : (o.RR & 0xF);  // RR は 4bit
             const uint8_t sl = o.SL & 0xF;
             setReg(static_cast<uint16_t>(0x80 + kOpMap[op] + ch),
                    static_cast<uint8_t>((sl << 4) | (rr & 0xF)));
