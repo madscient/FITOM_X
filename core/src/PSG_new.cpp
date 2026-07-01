@@ -9,13 +9,138 @@
 //   - ノイズチャンネルは ALG で選択 (ALG=0:トーン/1:ノイズ/2:両方/3:MIX)
 //   - DCSG (SN76489): 非対称アドレス (writeRaw のみ)
 //   - SCC: 波形テーブル書き込みが必要
+//
+// ソフトウェアエンベロープ (SoftEnvelope):
+//   PSG 系チップは HW EG (AY-3-8910/YM2149 のチップ内蔵エンベロープ) を
+//   持つが機能が限定的なため、通常は AR/DR/SL/SR/RR による
+//   ソフトウェア ADSR で音量を時間変化させる。
+//   パラメータ範囲・挙動は一般的な FM 音源 (OPN) と同じ設定範囲
+//   (AR/DR/SR: 5bit 0-31, SL/RR: 4bit 0-15) を使い、実機 FM 音源特有の
+//   「凹型アタックカーブ (乗算的減衰)」「指数的ディケイ/リリース」を
+//   ソフトウェアで再現する。旧 FITOM の CEnvelope (線形加算モデル) とは
+//   別物として全面的に作り直した。
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/Log.h"
+#include "fitom/VolumeUtils.h"
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 namespace fitom {
+
+// ================================================================
+//  SoftEnvelope: FM音源 (OPN) 相当の ADSR をソフトウェアで再現する
+//
+//  値域: 0(最大音量) 〜 127(無音) — FITOM_X の TL 空間と同じ極性。
+//  パラメータ範囲は OPN の HwOp と同じ:
+//    AR/DR/SR: 0-31 (5bit)   SL/RR: 0-15 (4bit)
+//
+//  実機 FM 音源の特性を模す2種類のカーブ:
+//    ATTACK: 乗算的に 0 へ近づける (凹型カーブ。値が大きいほど速く動き、
+//            0 に近づくほど遅くなる。実機の AR 特有の「立ち上がりの粘り」)
+//    DECAY/SUSTAIN/RELEASE: 加算的に増加 (指数的減衰 = dB空間で線形)
+//
+//  レート→速度の対応は「レート+4で速度が概ね2倍になる」という
+//  実機 FM 音源でよく知られる特性を近似したテーブルで表現する。
+//  ビット単位で実機と一致するものではなく実用上の近似値である。
+// ================================================================
+class SoftEnvelope {
+public:
+    enum class Phase { Attack, Decay, Sustain, Release, Stopped };
+
+    // op: ベロシティ補正済みの AR/DR/SL/SR/RR (VoiceProcessor::velAR() 等)
+    void start(uint8_t ar, uint8_t dr, uint8_t sl, uint8_t sr, uint8_t rr) noexcept
+    {
+        ar_ = ar; dr_ = dr; sr_ = sr; rr_ = rr;
+        sl_ = slToAttenuation(sl);
+        value_ = 127.0f;   // NoteOn 時は無音から立ち上がる
+        phase_ = (ar_ > 0) ? Phase::Attack : Phase::Decay;
+    }
+
+    void release() noexcept {
+        if (phase_ != Phase::Stopped) phase_ = Phase::Release;
+    }
+
+    void stop() noexcept {
+        phase_ = Phase::Stopped;
+        value_ = 127.0f;
+    }
+
+    // 1 tick 進める。まだ動作中なら true。
+    bool update() noexcept
+    {
+        switch (phase_) {
+        case Phase::Attack:
+            if (ar_ == 0) break;   // AR=0: 永遠に立ち上がらない (実機と同じ)
+            value_ -= value_ * kAttackCoef[ar_] + kAttackMin[ar_];
+            if (value_ <= 0.0f) { value_ = 0.0f; phase_ = Phase::Decay; }
+            break;
+        case Phase::Decay:
+            if (dr_ == 0) break;   // DR=0: ディケイなし (サステインレベルで保持されない = 永久ホールド)
+            value_ += kRateStep[dr_];
+            if (value_ >= sl_) { value_ = sl_; phase_ = Phase::Sustain; }
+            break;
+        case Phase::Sustain:
+            if (sr_ == 0) break;   // SR=0: サステインレート無効 (無限にホールド)
+            value_ += kRateStep[sr_];
+            if (value_ >= 127.0f) value_ = 127.0f;
+            break;
+        case Phase::Release:
+            // RR は実機同様 effective rate = RR*2+1 (RR=0 でも僅かに減衰する)
+            value_ += kRateStep[std::min(31, rr_ * 2 + 1)];
+            if (value_ >= 127.0f) { value_ = 127.0f; phase_ = Phase::Stopped; }
+            break;
+        case Phase::Stopped:
+            return false;
+        }
+        return phase_ != Phase::Stopped;
+    }
+
+    uint8_t getValue() const noexcept {
+        return static_cast<uint8_t>(std::clamp(value_, 0.0f, 127.0f));
+    }
+    Phase phase() const noexcept { return phase_; }
+
+private:
+    // SL (0-15) → 減衰量 (0-127, 0.75dB単位)。実機は 3dB/step、SL=15 のみ 93dB。
+    static float slToAttenuation(uint8_t sl) noexcept {
+        return (sl >= 15) ? 124.0f : static_cast<float>(sl) * 4.0f;
+    }
+
+    Phase   phase_ = Phase::Stopped;
+    float   value_ = 127.0f;
+    uint8_t ar_ = 0, dr_ = 0, sr_ = 0, rr_ = 0;
+    float   sl_ = 0.0f;
+
+    // ── レートテーブル (実機FM音源の「レート+4で速度倍増」特性の近似) ──────
+    // kRateStep: 加算フェーズ (Decay/Sustain/Release) の1tickあたり増分。
+    //   index 0 = 無効(0)、31 = 最速 (127段を約14tickで走破)、
+    //   1 = 最遅 (127段を約2500tick=2.5秒で走破)。
+    static constexpr float kRateStep[32] = {
+        0.0f,
+        0.050f, 0.059f, 0.071f, 0.084f, 0.100f, 0.119f, 0.141f, 0.168f,
+        0.200f, 0.238f, 0.283f, 0.336f, 0.400f, 0.476f, 0.566f, 0.673f,
+        0.800f, 0.951f, 1.131f, 1.345f, 1.600f, 1.903f, 2.263f, 2.691f,
+        3.200f, 3.805f, 4.525f, 5.382f, 6.400f, 7.609f, 9.051f, 10.765f
+    };
+    // kAttackCoef / kAttackMin: 乗算的アタックの係数と最小減衰量。
+    // value -= value*coef + min という式で、実機特有の凹型カーブを作る。
+    static constexpr float kAttackCoef[32] = {
+        0.0f,
+        0.005f, 0.0059f, 0.0071f, 0.0084f, 0.0100f, 0.0119f, 0.0141f, 0.0168f,
+        0.0200f, 0.0238f, 0.0283f, 0.0336f, 0.0400f, 0.0476f, 0.0566f, 0.0673f,
+        0.0800f, 0.0951f, 0.1131f, 0.1345f, 0.1600f, 0.1903f, 0.2263f, 0.2691f,
+        0.3200f, 0.3805f, 0.4525f, 0.5382f, 0.6400f, 0.7609f, 0.9051f, 1.0000f
+    };
+    static constexpr float kAttackMin[32] = {
+        0.0f,
+        0.005f, 0.0059f, 0.0071f, 0.0084f, 0.0100f, 0.0119f, 0.0141f, 0.0168f,
+        0.0200f, 0.0238f, 0.0283f, 0.0336f, 0.0400f, 0.0476f, 0.0566f, 0.0673f,
+        0.0800f, 0.0951f, 0.1131f, 0.1345f, 0.1600f, 0.1903f, 0.2263f, 0.2691f,
+        0.3200f, 0.3805f, 0.4525f, 0.5382f, 0.6400f, 0.7609f, 0.9051f, 1.0000f
+    };
+};
 
 // ================================================================
 //  CPSGBase: SSG / PSG 共通基底
@@ -37,28 +162,63 @@ public:
 
 protected:
     uint8_t lfoTL_[MAX_CHS]; // ソフトLFO の基準TL (振幅変調用)
+    SoftEnvelope envelopes_[MAX_CHS]; // チャンネルごとのソフトウェアADSR
 
-    // PSG 系共通: キーオン/オフはノイズ/トーン enable の切り替え
-    // チャンネルごとに MixReg (reg 0x07) の対応ビットを制御
+    // PSG 系共通: キーオン/オフはソフトウェアエンベロープの起動/リリースのみ。
+    // トーン/ノイズのミックスレジスタ (reg 0x07) はここでは操作しない
+    // (updateVoice で一度だけ設定し、以降は音量が0になることで無音化する。
+    //  実機FM音源のキーオフがEGのリリースフェーズに入るだけなのと同じ)。
     void updateKey(uint8_t ch, bool keyOn) override {
+        const auto& s = chState_[ch];
+        if (s.hwPatch.hwOp[0].EGT & 0x08) return; // HW EG使用時はチップが自動制御
         if (keyOn) {
-            // ミックスレジスタ: トーンは bit0-2、ノイズは bit3-5
-            const HwPatch& p = chState_[ch].hwPatch;
-            uint8_t mixBit = computeMixBit(ch, p);
-            uint8_t cur = getReg(0x07) & ~((0x09u) << ch);
-            setReg(0x07, static_cast<uint8_t>(cur | (mixBit << ch)), true);
+            envelopes_[ch].start(s.proc.velAR(0), s.proc.velDR(0),
+                                 s.proc.velSL(0), s.proc.velSR(0),
+                                 s.proc.velRR(0));
         } else {
-            // 両方 disable
-            uint8_t cur = getReg(0x07) | ((0x09u) << ch);
-            setReg(0x07, cur, true);
+            envelopes_[ch].release();
         }
+    }
+
+    // 毎tick呼ばれる。ソフトウェアエンベロープを進め、音量レジスタへ反映する。
+    // エンベロープが自然終了 (Release完了) したら、既存の Releasing タイマーを
+    // 即座に0にして次の tick で解放されるようにする (2000ms固定待ちより早く
+    // 正確なタイミングで解放される。2000msは万一の安全網として残る)。
+    void timerCallback(uint32_t tick) override {
+        for (int ch = 0; ch < maxChs_; ++ch) {
+            auto& s = chState_[ch];
+            if (s.hwPatch.hwOp[0].EGT & 0x08) continue; // HW EG対象外
+            if (envelopes_[ch].phase() != SoftEnvelope::Phase::Stopped) {
+                envelopes_[ch].update();
+                updateVolExp(static_cast<uint8_t>(ch));
+            } else if (s.isReleasing()) {
+                s.releaseTimer = 0; // 次の CSoundDevice::timerCallback で free()
+            }
+        }
+        CSoundDevice::timerCallback(tick);
+    }
+
+    // vol×exp×vel×patchTL×ソフトウェアエンベロープ×振幅LFO を統合した
+    // 最終ラウドネス値 (0-127, 高いほど大きい) を返す。
+    // 派生クラスは戻り値を自チップのレジスタ形式に変換するだけでよい。
+    uint8_t computeFinalLoudness(uint8_t ch) const {
+        const auto& s = chState_[ch];
+        uint8_t baseLoudness = fitom::calcVolExpVel(s.volume, s.expression, s.velocity);
+        uint8_t withTL = fitom::calcLinearLevel(baseLoudness, s.hwPatch.hwOp[0].TL);
+
+        int totalAtten = static_cast<int>(envelopes_[ch].getValue())
+                        + (static_cast<int>(lfoTL_[ch]) - 64);
+        totalAtten = std::clamp(totalAtten, 0, 127);
+
+        return fitom::calcLinearLevel(withTL, static_cast<uint8_t>(totalAtten));
     }
 
     void updateVolExp(uint8_t ch) override {
         if (chState_[ch].hwPatch.hwOp[0].EGT & 0x08) return; // HW EG 使用中
-        uint8_t evol = chState_[ch].proc.effectiveTL(0);
-        // PSG は音量が逆 (0=最大, 15=最小)。7bit → 4bit
-        uint8_t vol = 15u - ((evol * 15u) / 127u);
+        uint8_t finalLoudness = computeFinalLoudness(ch);
+        // PSGネイティブ4bitレジスタへ変換 (48dB/3dBステップ)。
+        // AY-3-8910/YM2149 は 0=最大音量, 15=最小音量 (反転極性)。
+        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
         setReg(static_cast<uint16_t>(0x08 + ch), vol & 0x0F, false);
     }
 
@@ -203,9 +363,9 @@ protected:
     uint16_t prevFreq_[4];
 
     void updateVolExp(uint8_t ch) override {
-        uint8_t evol = chState_[ch].proc.effectiveTL(0);
+        uint8_t finalLoudness = computeFinalLoudness(ch);
         // DCSG も逆: 0=最大, 15=最小
-        uint8_t vol = 15u - ((evol * 15u) / 127u);
+        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
         if (prevVol_[ch] == vol) return;
         prevVol_[ch] = vol;
         if (ch < 3) port_->writeRaw(0, static_cast<uint16_t>(0x90 | (ch * 32) | (vol & 0xF)));
@@ -234,8 +394,10 @@ protected:
         // 音量は updateVolExp で書く
     }
 
-    void updateKey(uint8_t /*ch*/, bool /*keyOn*/) override {
-        // DCSG はキーオン/オフなし (音量 0 で代用)
+    void updateKey(uint8_t ch, bool keyOn) override {
+        // DCSG はキーオン/オフレジスタを持たないため音量0で代用するが、
+        // ソフトウェアエンベロープの起動/リリースは基底クラスに任せる。
+        CPSGBase::updateKey(ch, keyOn);
     }
 
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
@@ -325,12 +487,16 @@ protected:
     }
 
     void updateVolExp(uint8_t ch) override {
-        uint8_t evol = chState_[ch].proc.effectiveTL(0);
-        uint8_t vol  = (evol * 15u) / 127u;  // SCC: 0=最小, 15=最大
+        uint8_t finalLoudness = computeFinalLoudness(ch);
+        // SCC は正極性 (0=最小, 15=最大)。48dB/3dBステップは他PSG系と共通。
+        uint8_t atten = fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
+        uint8_t vol   = 15u - atten;
         setReg(static_cast<uint16_t>(0xA8 + ch), vol & 0xF, false);
     }
 
     void updateKey(uint8_t ch, bool keyOn) override {
+        // ソフトウェアエンベロープの起動/リリースは基底クラスに任せる
+        CPSGBase::updateKey(ch, keyOn);
         uint8_t cur = getReg(0xAA);
         if (keyOn) cur |=  (1u << ch);
         else       cur &= ~(1u << ch);
