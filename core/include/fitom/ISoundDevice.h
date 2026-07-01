@@ -121,6 +121,11 @@ public:
     virtual void noteOn(uint8_t ch, uint8_t vel)                            = 0;
     virtual void noteOff(uint8_t ch)                                        = 0;
 
+    // ch が今も owner の発音として有効か確認する (Running/Releasing かつ owner 一致)。
+    // Sostenuto の遅延 NoteOff 等、保持していたチャンネル参照が
+    // ボイススティールで別の発音に再利用されていないかの確認に使う。
+    virtual bool isChOwnedBy(uint8_t ch, const IMidiCh* owner) const = 0;
+
     // フォースダンプ: 発音中チャンネルを強制的に急速減衰させる。
     // CC#120 (All Sound Off) から呼ばれる。noteOff とは異なり、
     // EG のリリースレートを一時的に最大化してから release() する。
@@ -203,6 +208,7 @@ public:
 
     void noteOn(uint8_t ch, uint8_t vel) override;
     void noteOff(uint8_t ch) override;
+    bool isChOwnedBy(uint8_t ch, const IMidiCh* owner) const override;
 
     void setVoice(uint8_t ch, const HwPatch& patch, bool update = true) override;
     void setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool update = true) override;

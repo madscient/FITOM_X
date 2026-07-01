@@ -188,6 +188,12 @@ private:
         uint8_t        devCh   = 0xFF;
         uint8_t        note    = 0xFF;
         ISoundDevice*  dev     = nullptr;
+        // Sostenuto (CC#66): ペダル押下時に鳴っていたノートに立つフラグ。
+        // true の間、MIDI NoteOff が来ても実際の noteOff() を遅延させる。
+        bool sostenutoHeld  = false;
+        // MIDI NoteOff は来たが sostenutoHeld のため noteOff() を保留中。
+        // ペダルが離されたタイミングで実際に noteOff() する。
+        bool pendingRelease = false;
         bool isValid() const { return devCh != 0xFF; }
     };
     static constexpr int MAX_NOTES = 16;
@@ -196,6 +202,11 @@ private:
 
     NoteHist* findNote(uint8_t note, int layerIdx = -1);
     void enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev);
+
+    // Sostenuto OFF 時: pendingRelease 中のノートを実際に noteOff() する。
+    // ボイススティールで devCh が別の発音に再利用されていないか
+    // isChOwnedBy() で確認してから解放する。
+    void releaseSostenutoNotes();
     void leaveNote(int histIdx);
 
     // ─── 内部ヘルパー ──────────────────────────────────────────────

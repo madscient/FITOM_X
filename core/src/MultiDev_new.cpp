@@ -69,6 +69,7 @@ public:
     uint8_t getAvailableChs() const override = 0;
     void    noteOn(uint8_t ch, uint8_t vel) override = 0;
     void    noteOff(uint8_t ch) override = 0;
+    bool    isChOwnedBy(uint8_t ch, const IMidiCh* owner) const override = 0;
     void    setVoice(uint8_t ch, const HwPatch& p, bool u) override = 0;
     void    setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool u) override = 0;
     void    setVolume(uint8_t ch, uint8_t vol, bool u) override = 0;
@@ -157,6 +158,10 @@ public:
     void noteOff(uint8_t gch) override {
         auto [dev, lch] = resolveGlobalCh(gch);
         if (dev) dev->noteOff(lch);
+    }
+    bool isChOwnedBy(uint8_t gch, const IMidiCh* owner) const override {
+        auto [dev, lch] = resolveGlobalCh(gch);
+        return dev && dev->isChOwnedBy(lch, owner);
     }
 
 #define SPAN_DELEGATE(fn, ...) { auto [dev, lch] = resolveGlobalCh(ch); if (dev) dev->fn(lch, __VA_ARGS__); }
@@ -263,6 +268,11 @@ public:
 
     void noteOff(uint8_t gch) override {
         for (auto* c : chips_) c->noteOff(gch);
+    }
+    bool isChOwnedBy(uint8_t gch, const IMidiCh* owner) const override {
+        // ユニゾングループは全チップが同じ owner を共有する設計のため、
+        // 先頭チップの状態を代表として確認する。
+        return !chips_.empty() && chips_[0]->isChOwnedBy(gch, owner);
     }
 
 #define UNISON_BROADCAST(fn, ...) { for (auto* c : chips_) c->fn(ch, __VA_ARGS__); }
