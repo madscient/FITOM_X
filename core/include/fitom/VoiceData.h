@@ -136,8 +136,15 @@ struct FmChipExt {
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
     uint8_t ALG_EXT;  // ALG 拡張ビット (OPN FX mode / OPM noise / OPZ 2OP 拡張)
 
+    // AY-3-8910 / YM2149 (PSG) 固有
+    // HW Envelope Period: レジスタ 0x0B(Fine)+0x0C(Coarse) に対応する
+    // 16bit 値をそのまま指定する。実機は Fine/Coarse の2レジスタに
+    // 分割されているが、意味的には不可分の単一の16bit周期値であるため
+    // ここでは1つの16bitフィールドとして保持する。
+    uint16_t HWEP;
+
     constexpr FmChipExt() noexcept
-        : REV(0), EGS(0), DM0(0), DT3(0), ALG_EXT(0) {}
+        : REV(0), EGS(0), DM0(0), DT3(0), ALG_EXT(0), HWEP(0) {}
 };
 
 // ================================================================

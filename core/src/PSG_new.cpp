@@ -269,13 +269,17 @@ protected:
         // AY-3-8910 / YM2149: HW EG 使用時はすべてのベロシティ感度を無効化する。
         // HW EG はチップ固有のエンベロープ形状 (0xD = attack+decay 等) で制御され、
         // ソフトウェア側からの EG レート補正は意味をなさないためレジスタ値そのまま。
+        //
+        // 実機仕様: レジスタ 0x0B(Fine)+0x0C(Coarse) は分割不可の単一16bit
+        // 「Envelope Period」値であり、SL/RR/DR/SR のような4分割ADSR
+        // パラメータではない。ext.HWEP に16bit値をそのまま指定する。
         if (p.hwOp[0].EGT & 0x08) {
             setReg(static_cast<uint16_t>(0x08 + ch),
                    static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x08 + ch)) & 0xE0)
                    | 0x10 | (p.hwOp[0].EGT & 0xF)), true);
-            setReg(0x0B, static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
-            setReg(0x0C, static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
-            setReg(0x0D, static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);
+            setReg(0x0B, static_cast<uint8_t>(p.ext.HWEP & 0xFF), true);        // Fine
+            setReg(0x0C, static_cast<uint8_t>((p.ext.HWEP >> 8) & 0xFF), true); // Coarse
+            setReg(0x0D, static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);      // Shape
         }
     }
 

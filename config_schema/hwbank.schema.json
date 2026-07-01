@@ -4,27 +4,74 @@
   "title": "FITOM HW パッチバンク (*.hwbank.json)",
   "description": "チップレジスタへ直接書き込むパラメータのバンク。チップ族ごとに独立したファイルで管理する。",
   "type": "object",
-  "required": ["name", "patches"],
+  "required": [
+    "name",
+    "patches"
+  ],
   "properties": {
-    "name":    { "type": "string", "description": "バンク表示名" },
+    "name": {
+      "type": "string",
+      "description": "バンク表示名"
+    },
     "chip_group": {
       "type": "string",
-      "enum": ["OPM","OPN","OPL2","OPL3","OPLL","PSG","PCM"],
+      "enum": [
+        "OPM",
+        "OPN",
+        "OPL2",
+        "OPL3",
+        "OPLL",
+        "PSG",
+        "PCM"
+      ],
       "description": "対象チップ族。ロード時の VoiceGroup 解決に使用。"
     },
     "patches": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["prog"],
+        "required": [
+          "prog"
+        ],
         "properties": {
-          "prog": { "type": "integer", "minimum": 0, "maximum": 127 },
-          "name": { "type": "string" },
-          "FB":   { "type": "integer", "minimum": 0, "maximum": 7,   "description": "Feedback" },
-          "ALG":  { "type": "integer", "minimum": 0, "maximum": 7,   "description": "Algorithm" },
-          "AMS":  { "type": "integer", "minimum": 0, "maximum": 3,   "description": "AM Sensitivity (OPM)" },
-          "PMS":  { "type": "integer", "minimum": 0, "maximum": 7,   "description": "PM Sensitivity (OPM)" },
-          "NFQ":  { "type": "integer", "minimum": 0, "maximum": 31,  "description": "Noise Frequency (OPM)" },
+          "prog": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "name": {
+            "type": "string"
+          },
+          "FB": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7,
+            "description": "Feedback"
+          },
+          "ALG": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7,
+            "description": "Algorithm"
+          },
+          "AMS": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3,
+            "description": "AM Sensitivity (OPM)"
+          },
+          "PMS": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7,
+            "description": "PM Sensitivity (OPM)"
+          },
+          "NFQ": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 31,
+            "description": "Noise Frequency (OPM)"
+          },
           "ops": {
             "type": "array",
             "minItems": 4,
@@ -32,52 +79,192 @@
             "items": {
               "type": "object",
               "properties": {
-                "AR":  { "type": "integer", "minimum": 0, "maximum": 31 },
-                "DR":  { "type": "integer", "minimum": 0, "maximum": 31 },
-                "SL":  { "type": "integer", "minimum": 0, "maximum": 15 },
-                "SR":  { "type": "integer", "minimum": 0, "maximum": 31 },
-                "RR":  { "type": "integer", "minimum": 0, "maximum": 15 },
-                "TL":  { "type": "integer", "minimum": 0, "maximum": 127 },
-                "KSR": { "type": "integer", "minimum": 0, "maximum": 3 },
-                "KSL": { "type": "integer", "minimum": 0, "maximum": 3 },
-                "MUL": { "type": "integer", "minimum": 0, "maximum": 15 },
-                "DT1": { "type": "integer", "minimum": 0, "maximum": 7 },
-                "DT2": { "type": "integer", "minimum": 0, "maximum": 3 },
-                "AM":  { "type": "integer", "minimum": 0, "maximum": 1 },
-                "VIB": { "type": "integer", "minimum": 0, "maximum": 1 },
-                "EGT": { "type": "integer", "minimum": 0, "maximum": 15, "description": "SSG-EG (OPN)" },
-                "WS":  { "type": "integer", "minimum": 0, "maximum": 7,  "description": "Wave Select (OPL/OPZ)" }
+                "AR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 31
+                },
+                "DR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 31
+                },
+                "SL": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15
+                },
+                "SR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 31
+                },
+                "RR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15
+                },
+                "TL": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                },
+                "KSR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "KSL": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "MUL": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15
+                },
+                "DT1": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "DT2": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "AM": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "VIB": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "EGT": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15,
+                  "description": "SSG-EG (OPN)"
+                },
+                "WS": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7,
+                  "description": "Wave Select (OPL/OPZ)"
+                }
               }
             }
           },
           "ext": {
             "type": "object",
-            "description": "チップ固有拡張パラメータ (OPZ 等)",
+            "description": "チップ固有拡張パラメータ (OPZ / PSG 等)",
             "properties": {
-              "REV":     { "type": "integer", "minimum": 0, "maximum": 15 },
-              "EGS":     { "type": "integer", "minimum": 0, "maximum": 127 },
-              "DM0":     { "type": "integer", "minimum": 0, "maximum": 1 },
-              "DT3":     { "type": "integer", "minimum": 0, "maximum": 15 },
-              "ALG_EXT": { "type": "integer", "minimum": 0, "maximum": 1 }
+              "REV": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              },
+              "EGS": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "DM0": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "DT3": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              },
+              "ALG_EXT": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "HWEP": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535,
+                "description": "AY-3-8910/YM2149 HW Envelope Period (レジスタ0x0B Fine + 0x0C Coarse の16bit値、分割不可の単一パラメータ)。HW EG (EGT bit3) 使用時のみ有効。"
+              }
             }
           }
         }
       }
     }
   },
-  "examples": [{
-    "name": "OPM Strings",
-    "chip_group": "OPM",
-    "patches": [{
-      "prog": 0,
-      "name": "Strings 1",
-      "FB": 2, "ALG": 4, "AMS": 0, "PMS": 0, "NFQ": 0,
-      "ops": [
-        { "AR": 20, "DR": 10, "SL": 3, "SR": 5, "RR": 7, "TL": 24, "KSR": 0, "MUL": 1, "DT1": 3, "AM": 0 },
-        { "AR": 31, "DR": 8,  "SL": 4, "SR": 4, "RR": 7, "TL": 20, "KSR": 0, "MUL": 2, "DT1": 0, "AM": 0 },
-        { "AR": 24, "DR": 12, "SL": 2, "SR": 6, "RR": 6, "TL": 30, "KSR": 0, "MUL": 1, "DT1": 7, "AM": 0 },
-        { "AR": 28, "DR": 6,  "SL": 5, "SR": 3, "RR": 8, "TL": 0,  "KSR": 0, "MUL": 1, "DT1": 0, "AM": 0 }
+  "examples": [
+    {
+      "name": "OPM Strings",
+      "chip_group": "OPM",
+      "patches": [
+        {
+          "prog": 0,
+          "name": "Strings 1",
+          "FB": 2,
+          "ALG": 4,
+          "AMS": 0,
+          "PMS": 0,
+          "NFQ": 0,
+          "ops": [
+            {
+              "AR": 20,
+              "DR": 10,
+              "SL": 3,
+              "SR": 5,
+              "RR": 7,
+              "TL": 24,
+              "KSR": 0,
+              "MUL": 1,
+              "DT1": 3,
+              "AM": 0
+            },
+            {
+              "AR": 31,
+              "DR": 8,
+              "SL": 4,
+              "SR": 4,
+              "RR": 7,
+              "TL": 20,
+              "KSR": 0,
+              "MUL": 2,
+              "DT1": 0,
+              "AM": 0
+            },
+            {
+              "AR": 24,
+              "DR": 12,
+              "SL": 2,
+              "SR": 6,
+              "RR": 6,
+              "TL": 30,
+              "KSR": 0,
+              "MUL": 1,
+              "DT1": 7,
+              "AM": 0
+            },
+            {
+              "AR": 28,
+              "DR": 6,
+              "SL": 5,
+              "SR": 3,
+              "RR": 8,
+              "TL": 0,
+              "KSR": 0,
+              "MUL": 1,
+              "DT1": 0,
+              "AM": 0
+            }
+          ]
+        }
       ]
-    }]
-  }]
+    }
+  ]
 }
