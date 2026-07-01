@@ -107,6 +107,10 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // ────────────────────────────────────────────────────────
         // ハードチャンネル割り当て
         // ────────────────────────────────────────────────────────
+        // ポルタメントのグライド元候補 (モノ時、同一レイヤーで直前に
+        // 鳴っていたノート番号)。0xFF = 該当なし (このレイヤー初のノート)。
+        uint8_t prevNote = 0xFF;
+
         uint8_t devCh = 0xFF;
         if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
             devCh = dev->assignCh(phyCh_, this, patch);
@@ -115,6 +119,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             for (int hi = 0; hi < MAX_NOTES; ++hi) {
                 if (notes_[hi].isValid() && notes_[hi].layerIdx == li) {
                     devCh = notes_[hi].devCh;
+                    prevNote = notes_[hi].note;   // ポルタメント用に記録
                     if (!legato_) dev->noteOff(devCh);
                     leaveNote(hi);
                     break;
@@ -161,25 +166,47 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             dev->enableAM(devCh, false);
         }
 
+        // ────────────────────────────────────────────────────────
+        // ポルタメント (モノフォニックチャンネル専用)
+        // ────────────────────────────────────────────────────────
+        // ポリフォニックチャンネルでは常に無効。ポルタメント状態は
+        // CInstCh に1つしかなく、複数ノート (和音) に同じグライドを
+        // 適用すると和音が崩れるため、mono_ == true のときのみ動作する。
+        const bool portaActive = mono_ && portamento_.isEnabled();
+
+        if (portaActive) {
+            if (portaSourceNote_ != 0xFF) {
+                // CC#84 で明示指定されたノートからグライド開始 (one-shot)
+                portamento_.setSource(portaSourceNote_);
+                portaSourceNote_ = 0xFF;
+            } else if (prevNote == 0xFF) {
+                // このチャンネルで最初のノート: グライド元がないので
+                // 現在地 (=目標そのもの) から開始し、実質グライドなしにする。
+                portamento_.setSource(static_cast<uint8_t>(transposed));
+            }
+            // それ以外 (prevNote が有効): setSource() を呼ばない。
+            // PortaCtrl::current_ は前回のグライドの実際の到達点を
+            // 保持しているため、そこから連続的に新しい目標へ滑らせる。
+            portamento_.start(static_cast<uint8_t>(transposed));
+        } else {
+            // ポリフォニック、またはポルタメント無効:
+            // 進行中のグライド状態が残っていても使わない。
+            portaSourceNote_ = 0xFF; // one-shot は消費扱いにする
+        }
+
         // ピッチ (ベンド + チューニング + ポルタメント)
         //
-        // isRunning() は「このノートより前から」ポルタメントが進行中かどうかを見る。
-        // 進行中ならこのノートの fine は 0 (timerCallback が滑らかに追従させる)。
-        // 進行中でなければ即座にそのノートのピッチで鳴らす (最初の1音・ポルタメント無効時)。
-        const bool glideInProgress = portamento_.isEnabled() && portamento_.isRunning();
+        // portaActive の場合、上の portamento_.start() で isRunning()==true に
+        // なっているため、ここでは即座に書き込まず timerCallback の
+        // portamento_.update() に滑らかな追従を任せる。
         int16_t fine = 0;
-        if (glideInProgress) {
-            fine = 0; // ポルタメント中は TimerCallback で更新
-        } else {
+        if (!portaActive) {
             int16_t bendCents = static_cast<int16_t>(bendRange_)
                               * (static_cast<int16_t>(pitchBend_ >> 7) - 64);
             int16_t tuneCents = static_cast<int16_t>(tuning_ >> 7) - 64;
             fine = bendCents + tuneCents;
         }
-        // グライド中でなければ即座に F-number をハードウェアへ反映する。
-        // グライド中は timerCallback の portamento_.update() が
-        // 毎tick setNoteFine(..., update=true) を呼ぶため、ここでは書かない。
-        dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !glideInProgress);
+        dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !portaActive);
 
         // VoiceProcessor に SW パッチを適用
         if (resolver_.swPatch()) {
@@ -191,13 +218,6 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             for (int i = 0; i < 4; ++i) fv.swOp[i] = sp->swOp[i];
             auto* st = dev->getChState(devCh);
             if (st) st->proc.onNoteOn(static_cast<uint8_t>(adjVol), expression_, vel, fv);
-        }
-
-        // ポルタメントの目標音程を更新する。
-        // レガート (mono_&&legato_) でも新しいノートへ向けてグライドさせる必要があるため、
-        // mono_/legato_ の状態に関わらず有効なら常に呼ぶ。
-        if (portamento_.isEnabled()) {
-            portamento_.start(static_cast<uint8_t>(transposed));
         }
 
         // NoteOn
@@ -289,6 +309,7 @@ void CInstCh::resetAllCtrl()
     setModulation(0);
     setPortamento(false);
     setLegato(false);
+    portaSourceNote_ = 0xFF;  // CC#84 の保留状態もクリア
     bendRange_ = 2;
     tuning_    = 8192;
     pmDepth_ = amDepth_ = pmRate_ = amRate_ = 0;
@@ -360,6 +381,15 @@ void CInstCh::setPortamento(bool on)
 {
     portamento_.enable(on);
     if (!on) portamento_.stop();
+}
+
+// CC#84 Portamento Control (Source Note)
+// 次の NoteOn のグライド元を明示指定する one-shot コントローラ。
+// 通常は「直前に鳴っていたノート」が自動的にグライド元になるが、
+// これを使うと任意のノートを起点に指定できる。
+void CInstCh::setPortamentoSource(uint8_t note)
+{
+    portaSourceNote_ = note;
 }
 
 void CInstCh::setPortTime(uint8_t pt)
@@ -480,8 +510,10 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 
 void CInstCh::timerCallback(uint32_t tick)
 {
-    // ポルタメント更新
-    if (portamento_.isEnabled() && portamento_.isRunning()) {
+    // ポルタメント更新 (モノフォニックチャンネル専用)
+    // mono_ でチェックすることで、ポリ⇔モノ切り替え時に
+    // 残留したグライド状態がポリの和音に影響しないことを保証する。
+    if (mono_ && portamento_.isEnabled() && portamento_.isRunning()) {
         portamento_.update();
         for (int hi = 0; hi < MAX_NOTES; ++hi) {
             auto& h = notes_[hi];

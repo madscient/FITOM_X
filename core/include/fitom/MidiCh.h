@@ -53,6 +53,9 @@ public:
     virtual void setBreathCtrl(uint8_t dep)        {}
     virtual void setPortamento(bool on)            {}
     virtual void setPortTime(uint8_t pt)           {}
+    // CC#84 Portamento Control (Source Note): 次の NoteOn のグライド元を
+    // 明示指定する one-shot コントローラ。モノフォニックチャンネルのみ有効。
+    virtual void setPortamentoSource(uint8_t note) {}
     virtual void setLegato(bool leg)               {}
     virtual void setSostenuto(bool sos)            {}
     virtual void setForceDamp(bool fd)             {}
@@ -152,6 +155,7 @@ public:
     void setBreathCtrl(uint8_t dep) override;
     void setPortamento(bool on) override;
     void setPortTime(uint8_t pt) override;
+    void setPortamentoSource(uint8_t note) override;
     void setLegato(bool leg) override;
     void setSostenuto(bool sos) override;
     void setForceDamp(bool fd) override;
@@ -230,6 +234,8 @@ private:
     bool     sustain_    = false;
     bool     legato_     = false;
     bool     sostenuto_  = false;
+    // CC#84: 次の NoteOn のグライド元ノート (one-shot, 0xFF=未指定)
+    uint8_t  portaSourceNote_ = 0xFF;
     bool     forceDamp_  = false;
     uint8_t  poly_       = 1;
     bool     mono_       = false;
