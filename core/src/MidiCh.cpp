@@ -162,8 +162,13 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         }
 
         // ピッチ (ベンド + チューニング + ポルタメント)
+        //
+        // isRunning() は「このノートより前から」ポルタメントが進行中かどうかを見る。
+        // 進行中ならこのノートの fine は 0 (timerCallback が滑らかに追従させる)。
+        // 進行中でなければ即座にそのノートのピッチで鳴らす (最初の1音・ポルタメント無効時)。
+        const bool glideInProgress = portamento_.isEnabled() && portamento_.isRunning();
         int16_t fine = 0;
-        if (portamento_.isEnabled() && portamento_.isRunning()) {
+        if (glideInProgress) {
             fine = 0; // ポルタメント中は TimerCallback で更新
         } else {
             int16_t bendCents = static_cast<int16_t>(bendRange_)
@@ -171,7 +176,10 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             int16_t tuneCents = static_cast<int16_t>(tuning_ >> 7) - 64;
             fine = bendCents + tuneCents;
         }
-        dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, false);
+        // グライド中でなければ即座に F-number をハードウェアへ反映する。
+        // グライド中は timerCallback の portamento_.update() が
+        // 毎tick setNoteFine(..., update=true) を呼ぶため、ここでは書かない。
+        dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !glideInProgress);
 
         // VoiceProcessor に SW パッチを適用
         if (resolver_.swPatch()) {
@@ -185,13 +193,20 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             if (st) st->proc.onNoteOn(static_cast<uint8_t>(adjVol), expression_, vel, fv);
         }
 
+        // ポルタメントの目標音程を更新する。
+        // レガート (mono_&&legato_) でも新しいノートへ向けてグライドさせる必要があるため、
+        // mono_/legato_ の状態に関わらず有効なら常に呼ぶ。
+        if (portamento_.isEnabled()) {
+            portamento_.start(static_cast<uint8_t>(transposed));
+        }
+
         // NoteOn
         if (!mono_ || !legato_) {
-            if (portamento_.isEnabled()) {
-                portamento_.start(static_cast<uint8_t>(transposed));
-            }
+            // 通常の NoteOn: エンベロープを再トリガーする
             dev->noteOn(devCh, vel);
         } else {
+            // レガート: エンベロープは維持したまま、ベロシティのみ更新する
+            // (ピッチは上記の setNoteFine / ポルタメントで既に反映済み)
             dev->setVelocity(devCh, vel);
         }
 
