@@ -92,7 +92,12 @@ struct FmHwOp {
     // ─── 発振器 ───────────────────────────────────────────────────
     uint8_t MUL;  // Multiple:  4bit
     uint8_t DT1;  // Detune 1:  3bit (OPN/OPM のみ / OPL: 0固定)
-    uint8_t DT2;  // Detune 2:  2bit (OPM/OPZ のみ)
+    // Detune 2: OPM/OPZ (HW): 2bit (0-3)。
+    // OPN/OPL3(4OPモード)では未使用のため、疑似デチューン値として転用する。
+    // op[0]/op[2] (各2OPペアの先頭オペレータ) の値を、符号付き8bit
+    // (int8_t、-128〜127、単位=100/64セント) として再解釈して使う。
+    // フィールド幅は変更せず、解釈のみで対応する。0=デチューンなし。
+    uint8_t DT2;
 
     // ─── LFO (HW) / AM・VIB ──────────────────────────────────────
     uint8_t AM;   // AM enable:   1bit
