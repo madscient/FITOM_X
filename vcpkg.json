@@ -2,15 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "fitom",
   "version": "2.0.0",
+  "description": "vcpkg は必須ではありません。既定のビルドでは nlohmann-json は git submodule (third_party/nlohmann-json) から、boost はシステムパッケージマネージャ (apt 等) または各プラットフォームの標準的な入手手段から取得します。Windows で boost を手元に用意しづらい場合など、vcpkg 経由で取得したい場合にのみこのマニフェストを使用してください (CMake実行時に -DFITOM_USE_VCPKG_JSON=ON、および CMakePresets.json の該当プリセットで vcpkg toolchain を指定します)。",
   "dependencies": [
-    "nlohmann-json",
-    { "name": "boost-asio",         "platform": "!emscripten" },
-    { "name": "boost-system",       "platform": "!emscripten" },
     { "name": "boost-thread",       "platform": "!emscripten" },
     { "name": "boost-format",       "platform": "!emscripten" },
     { "name": "boost-log",          "platform": "!emscripten" },
-    { "name": "boost-interprocess", "platform": "!emscripten" },
-    { "name": "libftdi1",           "platform": "!uwp" }
+    { "name": "boost-interprocess", "platform": "!emscripten" }
   ],
   "overrides": [],
   "builtin-baseline": "930ecc42b512b564571d767f70775d284a6fa307"

@@ -134,19 +134,37 @@
 
 ---
 
-## ビルド手順 (フェーズ1完了後)
+## ビルド手順
+
+**依存関係の取得（既定: vcpkg不要）**
 
 ```bash
-# vcpkg で依存関係をインストール
-vcpkg install nlohmann-json boost-log boost-format boost-thread boost-system boost-asio boost-interprocess
+# nlohmann-json は git submodule (初回のみ)
+git submodule update --init --recursive
 
-# CMake 設定
-cmake --preset linux-ninja .   # Linux
-cmake --preset windows-vs2022-x64 .  # Windows
+# boost (thread/log/log_setup/format/interprocess) はシステムパッケージマネージャで取得
+# Ubuntu/Debian の例:
+apt install libboost-dev libboost-log-dev libboost-thread-dev
+# Windows は公式バイナリ配布や MSYS2 等で入手するか、
+# 後述の vcpkg プリセットを使う
+```
 
-# ビルド
+**CMake 設定・ビルド**
+
+```bash
+cmake --preset linux-ninja .          # Linux (vcpkg不要)
+cmake --preset windows-vs2022-x64 .   # Windows (vcpkg不要、boostは別途用意)
+
 cmake --build build/linux-ninja
-
-# テスト
 ctest --preset linux-test
 ```
+
+**vcpkg を使いたい場合（任意）**
+
+boost をシステムに用意しづらい場合など、vcpkg 経由でも取得できる。
+
+```bash
+cmake --preset windows-vs2022-x64-vcpkg .
+```
+
+このプリセットは `FITOM_USE_VCPKG_JSON=ON` を指定し、`vcpkg.json`（`boost-thread`/`boost-format`/`boost-log`/`boost-interprocess`のみ、`nlohmann-json`/`boost-asio`/`libftdi1`は含まない）経由でboostとnlohmann-jsonの両方を取得する。

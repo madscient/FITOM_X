@@ -9,7 +9,7 @@ CFnumTable::CFnumTable()
 	tablelist.clear();
 }
 
-CFnumTable::‾CFnumTable()
+CFnumTable::~CFnumTable()
 {
 	for (std::vector<FnumTableInfo>::iterator iter = tablelist.begin(); iter != tablelist.end(); iter++) {
 		delete[] iter->body;
@@ -57,10 +57,10 @@ CFnumTable::FREQFUNC CFnumTable::GetFreqFunc(FnumTableType type)
 	case FnumTableType::TonePeriod:
 		pfunc = &CFnumTable::GetTP;
 		break;
-	case FnumTableType::opl4:
+	case FnumTableType::OPL4:
 		pfunc = &CFnumTable::GetOPL4Fnum;
 		break;
-	case FnumTableType::saa:
+	case FnumTableType::SAA:
 		pfunc = &CFnumTable::GetSAATP;
 		break;
 	default:

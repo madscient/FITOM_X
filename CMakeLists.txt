@@ -15,6 +15,7 @@ option(FITOM_BUILD_BACKEND_MIDI_ALSA "ALSA MIDI バックエンド DLL"         
 option(FITOM_GUI_MFC                 "MFC GUI shim をビルド (Windows のみ)"       OFF)
 option(FITOM_GUI_QT                  "Qt6 GUI をビルド"                           OFF)
 option(FITOM_BUILD_TESTS             "Catch2 テストをビルド"                       ON)
+option(FITOM_USE_VCPKG_JSON          "nlohmann-json を submodule でなく vcpkg (find_package) から取得" OFF)
 
 # -------------------------------------------------------
 #  コンパイラ設定
@@ -34,16 +35,40 @@ endif()
 
 # -------------------------------------------------------
 #  依存ライブラリ
-#  Boost: asio(SPFMController), thread(named_mutex), format, log
+#  Boost: thread(named_mutex 等), format, log, interprocess(named_mutex)
+#         asio / system は使用箇所なし (旧 RtAudio 経由コードの残骸) のため削除。
 #         filesystem / algorithm / foreach は std で代替済みのため不要
+#
+#  nlohmann-json は git submodule (third_party/nlohmann-json) で取得する。
+#  vcpkg は必須ではなくなった。Windows で boost を手元に用意しづらい場合の
+#  選択肢としてのみ vcpkg.json を残している (任意)。
 # -------------------------------------------------------
-find_package(nlohmann_json CONFIG REQUIRED)
+
+# nlohmann-json: 既定は git submodule (ヘッダオンリー)。
+#   git submodule add https://github.com/nlohmann/json.git third_party/nlohmann-json
+# vcpkg 経由で取得したい場合は -DFITOM_USE_VCPKG_JSON=ON を指定する。
+if(FITOM_USE_VCPKG_JSON)
+    find_package(nlohmann_json CONFIG REQUIRED)
+else()
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/nlohmann-json/CMakeLists.txt")
+        message(FATAL_ERROR
+            "third_party/nlohmann-json が見つかりません。\n"
+            "  git submodule update --init --recursive\n"
+            "を実行してください。(vcpkg を使う場合は代わりに\n"
+            "-DFITOM_USE_VCPKG_JSON=ON を指定してください)")
+    endif()
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+    add_subdirectory(third_party/nlohmann-json)
+endif()
+# nlohmann/json 公式 CMakeLists.txt が nlohmann_json::nlohmann_json という
+# INTERFACE ターゲットを定義するため、vcpkg 版と同じ名前でリンクできる。
+
 find_package(Boost 1.71 REQUIRED COMPONENTS
-    system          # Boost.Asio (SPFMController が要求)
-    thread          # named_mutex (プロセス間排他)
+    thread          # boost::thread
     log             # Boost.Log (ロギング)
     log_setup
 )
+# interprocess::named_mutex はヘッダオンリーのため COMPONENTS 不要 (Boost::headers に含まれる)
 # Boost.Log は ヘッダオンリーでないため DLL/静的リンクを明示
 add_compile_definitions(BOOST_LOG_DYN_LINK)
 
