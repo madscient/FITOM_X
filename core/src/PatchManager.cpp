@@ -512,8 +512,6 @@ bool PatchManager::loadHwBankLegacy(const std::filesystem::path& path,
     return false;
 }
 
-} // namespace fitom
-
 // ================================================================
 //  DrumBank JSON I/O
 // ================================================================
@@ -704,8 +702,8 @@ bool PatchManager::loadDrumBankLegacy(const std::filesystem::path& path, int ban
             }
 
             FITOM_LOG_DEBUG("DrumBank legacy: note=" << noteNo
-                << " '" << dn.name << "' bank=" << (int)dn.hwBank
-                << " prog=" << (int)dn.hwProg);
+                << " '" << dn.name << "' patchBank=" << (int)dn.patchBank
+                << " patchProg=" << (int)dn.patchProg);
         }
     }
     bank.set(0, dp);
@@ -806,7 +804,6 @@ bool PatchManager::saveSccWaveBankJson(const std::filesystem::path& path, int ba
 #include "fitom/PcmBankData.h"
 
 // PcmBank::loadBinary の実装 (ヘッダに宣言、cpp に実体)
-namespace fitom {
 bool PcmBank::loadBinary(const std::filesystem::path& basePath)
 {
     std::filesystem::path binPath = this->binPath;
@@ -824,7 +821,6 @@ bool PcmBank::loadBinary(const std::filesystem::path& basePath)
         << " bytes from " << binPath.string());
     return true;
 }
-} // namespace fitom
 
 bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo)
 {
@@ -953,3 +949,5 @@ bool PatchManager::savePcmBankJson(const std::filesystem::path& path, int bankNo
     ofs << out.dump(2);
     return true;
 }
+
+} // namespace fitom

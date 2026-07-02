@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <cmath>
+#include <algorithm>
 
 namespace fitom {
 

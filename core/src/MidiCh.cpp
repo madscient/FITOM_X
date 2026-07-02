@@ -557,7 +557,7 @@ ISoundDevice* CInstCh::getLayerDevice(int layerIdx) const
     return fitom_->getDevice(rl->deviceIndex);
 }
 
-NoteHist* CInstCh::findNote(uint8_t note, int layerIdx)
+CInstCh::NoteHist* CInstCh::findNote(uint8_t note, int layerIdx)
 {
     for (auto& h : notes_) {
         if (!h.isValid()) continue;
@@ -921,3 +921,5 @@ void CRhythmCh::setNRPNRegister(uint16_t reg, uint16_t val)
     default: break;
     }
 }
+
+} // namespace fitom

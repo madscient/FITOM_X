@@ -7,6 +7,7 @@
 // CAdPcmZ280: YMZ280B (PCMD8) 8ch ADPCM
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/FnumUtils.h"
 #include "fitom/Log.h"
 #include <cstring>
@@ -49,14 +50,14 @@ public:
     }
 
     // B-3: PcmBankRegistry を注入する (CFITOM::initDevices() から呼ぶ)
-    void setPcmRegistry(const PcmBankRegistry* reg, int bankNo = 0) {
+    void setPcmRegistry(const PcmBankRegistry* reg, int bankNo = 0) override {
         pcmReg_    = reg;
         pcmBankNo_ = bankNo;
     }
 
     // PcmBankRegistry からバイナリを取得してチップへ転送する
     // CFITOM::initDevices() でデバイス生成直後に呼ぶ
-    void initPcmData() {
+    void initPcmData() override {
         if (!pcmReg_) return;
         const PcmBank* bank = pcmReg_->find(pcmBankNo_);
         if (!bank || !bank->hasBinData()) {
@@ -207,7 +208,7 @@ public:
 protected:
     RegMap reg_;
 
-    ChState::Fnum getFnumber(uint8_t ch, int16_t offset) const override {
+    ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
         ChState::Fnum ret;
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;
@@ -302,7 +303,7 @@ public:
     }
 
 protected:
-    ChState::Fnum getFnumber(uint8_t ch, int16_t offset) const override {
+    ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
         ChState::Fnum ret;
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;

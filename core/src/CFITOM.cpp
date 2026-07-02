@@ -283,20 +283,16 @@ void CFITOM::initDevices()
 
         dev->init();
 
-        // SCC デバイスには SccWaveRegistry を注入する
+        // SCC デバイスには SccWaveRegistry を注入する (非対応チップは空実装で無視される)
         if (deviceType == DEVICE_SCC || deviceType == DEVICE_SCCP) {
-            if (auto* scc = dynamic_cast<CSCC*>(dev.get())) {
-                scc->setWaveRegistry(&patchMgr_->sccWaveRegistry());
-                FITOM_LOG_DEBUG("Device[" << i << "]: SccWaveRegistry injected");
-            }
+            dev->setWaveRegistry(&patchMgr_->sccWaveRegistry());
+            FITOM_LOG_DEBUG("Device[" << i << "]: SccWaveRegistry injected");
         }
 
         // B-3: PCM/ADPCM デバイスには PcmBankRegistry を注入して初期化する
-        if (auto* adpcm = dynamic_cast<CAdPcmBase*>(dev.get())) {
-            adpcm->setPcmRegistry(&patchMgr_->pcmRegistry(), 0);
-            adpcm->initPcmData();
-            FITOM_LOG_DEBUG("Device[" << i << "]: PcmBankRegistry injected");
-        }
+        // (非対応チップは空実装で無視される)
+        dev->setPcmRegistry(&patchMgr_->pcmRegistry(), 0);
+        dev->initPcmData();
 
         FITOM_LOG_INFO("Device[" << i << "]: "
             << config_->getDeviceLabel(i)

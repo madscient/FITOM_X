@@ -21,7 +21,9 @@
 //     chip2->setReg(0x28, data) → port1->write(0x28, data | 0x04)   (ポート2フラグ付き)
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/MultiDevice.h"
 #include "fitom/IPort.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/Log.h"
 
 namespace fitom {

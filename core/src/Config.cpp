@@ -10,6 +10,7 @@
 //   BOOST_FOREACH             → 範囲 for
 
 #include "fitom/Config.h"
+#include "fitom/PatchManager.h"
 #include "fitom/Log.h"
 #include "fitom/FITOMdefine.h"
 #include "fitom/PluginLoader.h"
@@ -29,6 +30,10 @@ namespace fitom {
 
 namespace fs = std::filesystem;
 using json   = nlohmann::json;
+
+// resolveChipDeviceId は本ファイル後方の static 関数で定義されるが、
+// buildDevice() から先に使われるため前方宣言する。
+static uint32_t resolveChipDeviceId(const std::string& chipName);
 
 // -------------------------------------------------------
 //  薄い INI → JSON 変換ユーティリティ
@@ -431,8 +436,6 @@ void FITOMConfig::setHWPlugin(std::shared_ptr<HWPluginInstance> plugin) {
     hwPlugin_ = std::move(plugin);
 }
 
-} // namespace fitom
-
 // ================================================================
 //  ISoundDevice アクセサ (DeviceFactory 経由で生成された device を返す)
 // ================================================================
@@ -711,3 +714,5 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
         }
     }
 }
+
+} // namespace fitom

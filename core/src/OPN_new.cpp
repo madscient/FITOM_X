@@ -11,6 +11,7 @@
 //   OPM_new.cpp / OPL_new.cpp / OPLL_new.cpp / SSG_new.cpp 等
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/Log.h"
 
 namespace fitom {

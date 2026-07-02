@@ -9,6 +9,7 @@
 //   - OPZ: WS / DT3 / REV / EGS / DM0 (FmChipExt)
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/Log.h"
 #include <cmath>
 
@@ -48,7 +49,7 @@ public:
 
 protected:
     // OPM 専用 F-number 計算 (KeyCode / KeyFraction 方式)
-    ChState::Fnum getFnumber(uint8_t ch, int16_t offset) const override {
+    ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
         ChState::Fnum ret;
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;
@@ -108,8 +109,8 @@ protected:
             setReg(static_cast<uint16_t>(0xA0 + i * 8 + ch),
                    ((o.AM & 1) << 7) | (dr_opm >> 2));
 
-            // DT2 / SR
-            const uint8_t sr_opm = car_opm ? s.proc.velSR(kMap[i]) : (o.D2R & 0x1F);
+            // DT2 / SR (FmHwOp では SR = OPM の "D2R")
+            const uint8_t sr_opm = car_opm ? s.proc.velSR(kMap[i]) : (o.SR & 0x1F);
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
                    (dm0 ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm >> 2));
 
@@ -271,8 +272,9 @@ protected:
         if (lfoAmRate_ != rate) { lfoAmRate_ = rate; setReg(0x18, static_cast<uint8_t>(rate << 1)); }
     }
 
-private:
+protected:
     static const uint8_t kMap[4];
+private:
     static const uint8_t kKeyCode[12];
 
     IMidiCh* lfoOwner_;
@@ -371,8 +373,7 @@ public:
         }
         COPM::updateVoice(ch); // 共通部分を呼ぶ
     }
-private:
-    static constexpr const uint8_t* kMap = COPM::kMap; // 同じマップを使う
+    // kMap は COPM::kMap (protected) をそのまま継承して使う
 };
 
 } // namespace fitom
