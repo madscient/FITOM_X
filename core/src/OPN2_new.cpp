@@ -24,13 +24,14 @@
 #include "fitom/MultiDevice.h"
 #include "fitom/IPort.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/VolumeUtils.h"
 #include "fitom/Log.h"
 
 namespace fitom {
 
 // COPN は OPN_new.cpp で定義されているが、ここから使う
 class COPN;
-std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster);
+std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster, bool fxCapable);
 
 // ================================================================
 //  OPN2Port2: OPN2/OPNA ポート2専用のポートラッパー
@@ -102,8 +103,11 @@ public:
         port2Wrapper_ = std::make_unique<OPN2Port2>(port1, port2);
 
         // 2つの COPN サブチップを生成
-        chip1_ = createSubCOPN(port1,              fnumMaster);
-        chip2_ = createSubCOPN(port2Wrapper_.get(), fnumMaster);
+        // FXモード(3rd channel special mode)は実機上 chip1_(port1側、ch0-2)
+        // のch2にのみ存在し、chip2_(port2側、ch3-5)には対応するレジスタが
+        // 実機に存在しない (旧FITOMの fxena フラグ相当の区別)。
+        chip1_ = createSubCOPN(port1,              fnumMaster, true);
+        chip2_ = createSubCOPN(port2Wrapper_.get(), fnumMaster, false);
 
         addDevice(chip1_.get()); // ch 0-2
         addDevice(chip2_.get()); // ch 3-5
@@ -176,14 +180,65 @@ private:
 };
 
 // ================================================================
+//  COPNARhythm: YM2608 (OPNA) 内蔵リズム音源 (6パート: BD/SD/TOP/HH/TOM/RIM)
+//
+//  FM/SSG/ADPCM-Bとは独立したレジスタ体系:
+//    0x10: キーオン (bit0-5 = 1<<ch)
+//    0x11: 総合リズム音量 (6bit)
+//    0x18+ch: パン(bit6-7)/パート音量(bit0-4, 5bit)
+//
+//  sub-device自動生成 (Config::resolveCompositeSpec) により、
+//  OPNA本体(FM)と同一の物理ポートを共有する独立デバイスとして生成される。
+//  音程制御は無く (各パート固定音程のサンプル再生)、FnumTableType::None。
+// ================================================================
+class COPNARhythm : public CSoundDevice {
+public:
+    COPNARhythm(IPort* port, int sampleRate)
+        : CSoundDevice(DEVICE_OPNA_RHY, 6, port,
+                       sampleRate, 1, 0,
+                       FnumTableType::None, 0)
+    {}
+
+    std::string getDescriptor() const override { return "OPNA Rhythm 6ch"; }
+    void init() override {}
+
+protected:
+    void updateVoice(uint8_t ch) override {
+        updateVolExp(ch);
+        updatePanpot(ch);
+    }
+
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        int8_t pan = s.panpot;
+        uint8_t chena = (pan > 20) ? 0x40 : (pan < -20) ? 0x80 : 0xC0;
+        uint8_t evol = 31u - fitom::linear2dB(s.velocity, RANGE24DB, STEP075DB, 5);
+        setReg(static_cast<uint16_t>(0x18 + ch),
+               static_cast<uint8_t>(chena | evol), true);
+
+        uint8_t mvol = 63u - fitom::linear2dB(s.volume, RANGE48DB, STEP075DB, 6);
+        if (getReg(0x11) != mvol) setReg(0x11, mvol, true);
+    }
+
+    void updatePanpot(uint8_t ch) override { updateVolExp(ch); }
+    void updateFreq(uint8_t /*ch*/, const ChState::Fnum* /*fn*/) override {}
+    void updateSustain(uint8_t /*ch*/) override {}
+    void updateTL(uint8_t, uint8_t, uint8_t) override {}
+
+    void updateKey(uint8_t ch, bool keyOn) override {
+        if (keyOn) setReg(0x10, static_cast<uint8_t>(1u << ch), true);
+    }
+};
+
+// ================================================================
 //  ファクトリ関数
 // ================================================================
 
 // OPN_new.cpp で定義される COPN サブチップ生成関数
 // (ヘッダ経由ではなくリンク時解決)
-extern std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster);
-std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster) {
-    return createSubCOPN_impl(port, fnumMaster);
+extern std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster, bool fxCapable);
+std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster, bool fxCapable) {
+    return createSubCOPN_impl(port, fnumMaster, fxCapable);
 }
 
 std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int /*sr*/, IPort* p2) {
@@ -197,6 +252,9 @@ std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int /*sr*/, IPort* p2) {
 }
 std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int /*sr*/, IPort* p2) {
     return std::make_unique<COPN2>(p, p2, DEVICE_OPN2L);
+}
+std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr) {
+    return std::make_unique<COPNARhythm>(p, sr);
 }
 
 } // namespace fitom
