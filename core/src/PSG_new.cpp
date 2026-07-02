@@ -214,48 +214,60 @@ protected:
         return fitom::calcLinearLevel(withTL, static_cast<uint8_t>(totalAtten));
     }
 
-    void updateVolExp(uint8_t ch) override {
-        if (chState_[ch].hwPatch.hwOp[0].EGT & 0x08) return; // HW EG 使用中
-        uint8_t finalLoudness = computeFinalLoudness(ch);
-        // PSGネイティブ4bitレジスタへ変換 (48dB/3dBステップ)。
-        // AY-3-8910/YM2149 は 0=最大音量, 15=最小音量 (反転極性)。
-        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
-        setReg(static_cast<uint16_t>(0x08 + ch), vol & 0x0F, false);
-    }
-
+    // 振幅LFO: lfoTL_ (共有状態) を更新して仮想 updateVolExp() を呼ぶだけの
+    // 汎用実装。updateVolExp は各派生クラスがチップ固有形式で実装するため、
+    // ポリモーフィズムにより自然に正しいレジスタへ反映される。
+    // (ノイズ周波数LFO等、チップ固有レジスタへの直接書き込みが必要な
+    //  ケースは CSSG 側で個別にオーバーライドすること)
     void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
-        switch (op) {
-        case 0: // 振幅 LFO
+        if (op == 0) { // 振幅 LFO
             lfoTL_[ch] = lev;
-            updateVolExp(ch); // lfoTL を加味して再計算
-            break;
-        case 1: // ノイズ周波数 LFO
-        {
-            const HwPatch& p = chState_[ch].hwPatch;
-            if ((p.hw.ALG & 3) == 1 || (p.hw.ALG & 3) == 2) {
-                int16_t frq = static_cast<int16_t>(lev) - 64
-                            + static_cast<int16_t>(p.hw.NFQ);
-                frq = std::clamp<int16_t>(frq, 0, 31);
-                setReg(0x06, static_cast<uint8_t>(frq), false);
-            }
-            break;
-        }
+            updateVolExp(ch);
         }
     }
 
     void updateSustain(uint8_t /*ch*/) override {}
     void updatePanpot(uint8_t /*ch*/) override {}
 
-    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
-        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        uint8_t oct = fnum.block;
-        uint16_t etp = fnum.fnum >> (oct + 3);
-        setReg(static_cast<uint16_t>(ch * 2),     static_cast<uint8_t>(etp & 0xFF), false);
-        setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8),   false);
+    // 全PSG系共通の初期化ヘルパー。各派生クラスの updateVoice 先頭で呼ぶ。
+    // (以前は CPSGBase::updateVoice に SSG 固有のレジスタ操作
+    //  (ミックスレジスタ0x07・ノイズ周波数0x06・HW EG 0x08-0x0D) と
+    //  一緒に書かれていたが、これらは AY-3-8910/YM2149 (CSSG) 専用の
+    //  レジスタ配置であり、CDCSG/CSCC は updateVoice を完全に
+    //  オーバーライドして使っていなかった。CSSG 側に移動した)
+    void resetLfoBaseline(uint8_t ch) { lfoTL_[ch] = 64; }
+};
+
+// ================================================================
+//  CSSG (YM2149 SSG / AY-3-8910)
+// ================================================================
+class CSSG : public CPSGBase {
+public:
+    CSSG(IPort* port, int sampleRate, uint8_t devId = DEVICE_SSG)
+        : CPSGBase(devId, port, 0x20, 3, sampleRate) {}
+
+    std::string getDescriptor() const override { return "SSG (YM2149) 3ch"; }
+    void init() override { setReg(0x07, 0x3F, true); } // 全チャンネル無効化
+
+    void updateKey(uint8_t ch, bool keyOn) override {
+        const HwPatch& p = chState_[ch].hwPatch;
+        if (p.hwOp[0].EGT & 0x08) {
+            // HW EG: キーオンはエンベロープ開始で代用
+            if (keyOn) updateVoice(ch);
+            else       setReg(static_cast<uint16_t>(0x08 + ch),
+                              static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x08 + ch)) & 0xE0), true);
+        } else {
+            CPSGBase::updateKey(ch, keyOn);
+        }
     }
 
+protected:
+    // AY-3-8910/YM2149 (SSG) 固有のレジスタ操作。
+    // トーン/ノイズのミックス機能(0x07)・HW EG(0x08-0x0D)はSSG専用のハードウェア
+    // 機能であり、CDCSG(SN76489)/CSCC(SCC)には存在しないため、CPSGBaseではなく
+    // ここ(CSSG)に実装する。
     void updateVoice(uint8_t ch) override {
-        lfoTL_[ch] = 64;
+        resetLfoBaseline(ch);
         const HwPatch& p = chState_[ch].hwPatch;
         uint8_t mixBit = computeMixBit(ch, p);
         uint8_t cur = getReg(0x07) & ~((0x09u) << ch);
@@ -289,15 +301,47 @@ protected:
     // 0=有効, 1=無効 (Active Low)
     static uint8_t computeMixBit(uint8_t ch, const HwPatch& p) {
         switch (p.hw.ALG & 3) {
-        case 0: return 0x01; // トーンのみ (noise disable, tone enable → bit=0b001)
-        case 1: return 0x08; // ノイズのみ (ビット: 0b1000)
+        case 0: return 0x08; // トーンのみ (ノイズ無効ビットを立てる)
+        case 1: return 0x01; // ノイズのみ (トーン無効ビットを立てる)
         case 2: return 0x00; // 両方有効
         case 3: return 0x09; // 両方無効 (実質消音)
         default: return 0x09;
         }
     }
 
-    // ノイズ有効時は ch2 を優先割り当て
+    void updateVolExp(uint8_t ch) override {
+        if (chState_[ch].hwPatch.hwOp[0].EGT & 0x08) return; // HW EG 使用中
+        uint8_t finalLoudness = computeFinalLoudness(ch);
+        // PSGネイティブ4bitレジスタへ変換 (48dB/3dBステップ)。
+        // AY-3-8910/YM2149 は 0=最大音量, 15=最小音量 (反転極性)。
+        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
+        setReg(static_cast<uint16_t>(0x08 + ch), vol & 0x0F, false);
+    }
+
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        uint8_t oct = fnum.block;
+        uint16_t etp = fnum.fnum >> (oct + 3);
+        setReg(static_cast<uint16_t>(ch * 2),     static_cast<uint8_t>(etp & 0xFF), false);
+        setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8),   false);
+    }
+
+    // 振幅LFOは CPSGBase::updateTL (汎用実装) に任せ、
+    // ノイズ周波数LFO (SSG固有、reg 0x06 直書き) のみここで追加処理する。
+    void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
+        CPSGBase::updateTL(ch, op, lev);
+        if (op == 1) { // ノイズ周波数 LFO
+            const HwPatch& p = chState_[ch].hwPatch;
+            if ((p.hw.ALG & 3) == 1 || (p.hw.ALG & 3) == 2) {
+                int16_t frq = static_cast<int16_t>(lev) - 64
+                            + static_cast<int16_t>(p.hw.NFQ);
+                frq = std::clamp<int16_t>(frq, 0, 31);
+                setReg(0x06, static_cast<uint8_t>(frq), false);
+            }
+        }
+    }
+
+    // ノイズ有効時は ch2 を優先割り当て (SSGは3chのうちch2がノイズと共有)
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
         if (patch && (patch->hw.ALG & 3) != 0) {
             const auto& s2 = chState_[2];
@@ -305,30 +349,6 @@ protected:
             return avail ? 2 : 0xFF;
         }
         return CSoundDevice::queryCh(owner, patch, mode);
-    }
-};
-
-// ================================================================
-//  CSSG (YM2149 SSG / AY-3-8910)
-// ================================================================
-class CSSG : public CPSGBase {
-public:
-    CSSG(IPort* port, int sampleRate, uint8_t devId = DEVICE_SSG)
-        : CPSGBase(devId, port, 0x20, 3, sampleRate) {}
-
-    std::string getDescriptor() const override { return "SSG (YM2149) 3ch"; }
-    void init() override { setReg(0x07, 0x3F, true); } // 全チャンネル無効化
-
-    void updateKey(uint8_t ch, bool keyOn) override {
-        const HwPatch& p = chState_[ch].hwPatch;
-        if (p.hwOp[0].EGT & 0x08) {
-            // HW EG: キーオンはエンベロープ開始で代用
-            if (keyOn) updateVoice(ch);
-            else       setReg(static_cast<uint16_t>(0x08 + ch),
-                              static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x08 + ch)) & 0xE0), true);
-        } else {
-            CPSGBase::updateKey(ch, keyOn);
-        }
     }
 };
 
@@ -389,6 +409,7 @@ protected:
     }
 
     void updateVoice(uint8_t ch) override {
+        resetLfoBaseline(ch);
         if (ch == 3) {
             const HwPatch& p = chState_[3].hwPatch;
             if (p.hw.ALG == 1) {
@@ -467,6 +488,7 @@ protected:
 
     void updateVoice(uint8_t ch) override {
         if (ch >= 5) return;
+        resetLfoBaseline(ch);
         const auto& p  = chState_[ch].hwPatch;
         // ch に対応するオペレータの WS を波形番号として使う
         // SCC は ch ごとに独立した波形を持つので hwOp[0].WS を使う
