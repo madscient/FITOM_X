@@ -105,6 +105,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_ADPCM:
     case DEVICE_ADPCMA:
     case DEVICE_ADPCMB:
+    case DEVICE_ADPCMB_OPNA:
     case DEVICE_PCMD8:
     case DEVICE_MA1:
     case DEVICE_MA2:       return createCAdPcm(port, sampleRate, deviceType);
