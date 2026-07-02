@@ -12,6 +12,9 @@
 //   - パンポット: レジスタ 0xC0 の bit7/bit6 (OPL3 は 4bit)
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/MultiDevice.h"
+#include "fitom/IPort.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/Log.h"
 #include <algorithm>
 
@@ -227,47 +230,53 @@ public:
 };
 
 // ================================================================
-//  COPL3 (OPL3 = YMF262) — 18ch
-//  B-2 対応: ch9-17 は 0x100 番台レジスタ → SplitPort が port2 に振り分ける
+//  COPL3 (OPL3 = YMF262) — CSpanDevice + 2×COPL2 構成
+//
+//  旧FITOMと同様に CSpanDevice を継承し、内部に2つの COPL2 サブチップを持つ。
+//
+//  ch  0- 8 → chip1_ (port1: アドレス 0x000-0x0FF)
+//  ch  9-17 → chip2_ (port2: OffsetPort(port, 0x100) → 0x100-0x1FF)
+//
+//  OPL3 固有の初期化:
+//    0x001: Wave Select Enable (port1)     → chip1_->setReg(0x01, 0x20)
+//    0x101: Wave Select Enable (port2)     → chip2_->setReg(0x01, 0x20)
+//    0x105: OPL3 NEW1 = 1 (OPL3 モード有効) → chip2_->setReg(0x05, 0x01)
+//           (OffsetPort により 0x100+0x05 = 0x105 に書かれる)
+//
+//  OPL のキーオン/オフは B0+ch レジスタ (bit5) で完結しており、
+//  OPN2 の 0x28 のようなグローバルレジスタではないため、
+//  特殊なポートラッパーは不要。OffsetPort だけで正しく動作する。
 // ================================================================
-class COPL3 : public COPL2 {
+class COPL3 : public CSpanDevice {
 public:
     COPL3(IPort* port, int sampleRate)
-        : COPL2(port, sampleRate)
     {
-        maxChs_ = 18;
+        offsetPort_ = std::make_unique<OffsetPort>(port, 0x100);
+        chip1_ = std::make_unique<COPL2>(port,              sampleRate);
+        chip2_ = std::make_unique<COPL2>(offsetPort_.get(), sampleRate);
+        addDevice(chip1_.get()); // ch  0-8
+        addDevice(chip2_.get()); // ch 9-17
     }
-    std::string getDescriptor() const override { return "OPL3 (YMF262) 18ch via SplitPort"; }
+
+    uint8_t     getDeviceType() const override { return DEVICE_OPL3; }
+    std::string getDescriptor() const override { return "OPL3 (YMF262) 18ch"; }
 
     void init() override {
-        COPL2::init();
-        // OPL3 NEW1 bit: 0x105 → SplitPort が addr=0x105 を port2 に送る
-        setReg(0x105, 0x01, true);
+        chip1_->reset();
+        chip2_->reset();
+        // Wave Select Enable: 両ポートに書く
+        chip1_->setReg(0x01, 0x20, true); // 0x001
+        chip2_->setReg(0x01, 0x20, true); // 0x101 (OffsetPort 経由)
+        // OPL3 NEW1: port2 の 0x05 → OffsetPort で 0x105 に書かれる
+        chip2_->setReg(0x05, 0x01, true); // 0x105: OPL3 モード有効
     }
 
-protected:
-    // ch0-8: 0x000〜0x0FF / ch9-17: 0x100〜0x1FF
-    // SplitPort (または FmEnginePort の port 引数) が透過的に振り分ける
-    uint16_t portBase(uint8_t ch) const { return (ch < 9) ? 0x000 : 0x100; }
-    uint8_t  localCh(uint8_t ch)  const { return ch % 9; }
+    void reset() override { CMultiDevice::reset(); }
 
-    void updateVoice(uint8_t ch) override {
-        // COPL の updateVoice はアドレスオフセットなしで 0〜8ch を想定している
-        // → portBase を加算して呼び直す
-        // 簡略実装: ch を 0-8 に変換して COPL2 の処理を流用し、
-        //           レジスタアドレスに portBase を加算する
-        // （実際は COPL::updateVoice のアドレス計算を portBase 対応にリファクタリングする）
-        COPL2::updateVoice(ch % 9); // COPL は 9ch 固定なので ch%9 で流用
-        updatePanpot(ch);
-    }
-
-    void updatePanpot(uint8_t ch) override {
-        int8_t  pan = chState_[ch].panpot;
-        uint8_t lr  = (pan > 20) ? 0x10 : (pan < -20) ? 0x20 : 0x30;
-        uint16_t reg = static_cast<uint16_t>(portBase(ch) + 0xC0 + localCh(ch));
-        uint8_t  cur = getReg(reg) & 0x0F;
-        setReg(reg, static_cast<uint8_t>(lr | cur));
-    }
+private:
+    std::unique_ptr<COPL2>      chip1_;
+    std::unique_ptr<COPL2>      chip2_;
+    std::unique_ptr<OffsetPort> offsetPort_;
 };
 
 } // namespace fitom

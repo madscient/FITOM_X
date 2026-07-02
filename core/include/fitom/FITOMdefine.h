@@ -178,6 +178,13 @@
 #define VOICE_TYPE_PCM	0x70
 #define VOICE_TYPE_OPL4 0x71
 
+// 以下3つは CFITOM.cpp の kDevMap (死んだコード、呼び出し元なし。
+// VoicePatchType システムと機能重複) が参照するために暫定追加。
+// kDevMap 自体の削除・整理を検討中のため、正式な体系には組み込んでいない。
+#define VOICE_TYPE_FM4  0x60
+#define VOICE_TYPE_FM2  0x61
+#define VOICE_TYPE_PSG  0x62
+
 #define VOICE_GROUP_NONE 0x00
 #define VOICE_GROUP_OPM  0x01
 #define VOICE_GROUP_OPNA 0x02

@@ -27,6 +27,7 @@
 #include <string>
 #include <unordered_map>
 #include <filesystem>
+#include <cmath>
 
 namespace fitom {
 

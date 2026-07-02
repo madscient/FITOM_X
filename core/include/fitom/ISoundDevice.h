@@ -21,6 +21,11 @@
 #include <array>
 
 namespace fitom {
+class SccWaveRegistry;   // fitom/SccWaveData.h
+class PcmBankRegistry;   // fitom/PcmBankData.h
+}
+
+namespace fitom {
 
 class IMidiCh;  // forward
 
@@ -147,11 +152,34 @@ public:
     virtual void setSustain(uint8_t ch, bool sus, bool update = true)       = 0;
     virtual void setMasterVolume(uint8_t vol)                               = 0;
 
+    // CC#1 Modulation: LFR=0 の音色のみ CC#1 駆動 LFO が作用する。
+    // cc1: MIDI CC#1 の値 (0-127)。maxDepth: RPN#5 由来の最大デプス。
+    virtual void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) = 0;
+
+    // ─── ChState への直接アクセス (VoiceProcessor::onNoteOn 等で使用) ───────
+    // CMultiDevice (CSpanDevice/CUnison) 経由の場合、グローバルch→
+    // ローカルchへの変換を行った上で実チップの ChState を返す。
+    virtual ChState*       getChState(uint8_t ch)       = 0;
+    virtual const ChState* getChState(uint8_t ch) const = 0;
+
+    // ソフトLFO (VoiceProcessor::onTick) の変調結果を反映するための公開API。
+    // 通常の CInstCh では CSoundDevice::timerCallback() が内部で自動的に
+    // 呼び出すが、CRhythmCh は独自に onTick を回すため直接呼ぶ必要がある。
+    virtual void updateTL(uint8_t ch, uint8_t op, uint8_t tl) = 0;
+
+
     // ─── HW LFO (チップ内蔵 LFO) ────────────────────────────────────────
     virtual void enablePM(uint8_t ch, bool on)              {}
     virtual void enableAM(uint8_t ch, bool on)              {}
     virtual void setPMDepth(uint8_t ch, uint8_t dep)        {}
     virtual void setAMDepth(uint8_t ch, uint8_t dep)        {}
+
+    // ─── 特定チップのみ有効なオプショナルインターフェース ──────────────────
+    // CSCC (SCC/SCCP) のみ: 波形テーブルレジストリを注入する
+    virtual void setWaveRegistry(const SccWaveRegistry* /*reg*/) {}
+    // ADPCM系 (CAdPcmBase 派生) のみ: PCMバンクレジストリを注入・初期化する
+    virtual void setPcmRegistry(const PcmBankRegistry* /*reg*/, int /*bankNo*/ = 0) {}
+    virtual void initPcmData() {}
     virtual void setPMRate(uint8_t ch, uint8_t rate)        {}
     virtual void setAMRate(uint8_t ch, uint8_t rate)        {}
 
@@ -218,6 +246,8 @@ public:
     void setPanpot(uint8_t ch, int8_t pan, bool update = true) override;
     void setSustain(uint8_t ch, bool sus, bool update = true) override;
     void setMasterVolume(uint8_t vol) override;
+    void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) override;
+    void onMasterPitchChanged(double pitchHz) override;
 
     void    setReg(uint16_t reg, uint8_t data, bool forceWrite = false) override;
     uint8_t getReg(uint16_t reg) const override;
@@ -230,10 +260,10 @@ public:
 
     // ─── 旧 API 互換 (移行期) ───────────────────────────────────────────
     // チップドライバが既存コードを参照する箇所のため残す
-    ChState* getChState(uint8_t ch) {
+    ChState* getChState(uint8_t ch) override {
         return (ch < maxChs_) ? &chState_[ch] : nullptr;
     }
-    const ChState* getChState(uint8_t ch) const {
+    const ChState* getChState(uint8_t ch) const override {
         return (ch < maxChs_) ? &chState_[ch] : nullptr;
     }
 
@@ -245,7 +275,7 @@ protected:
     virtual void updatePanpot(uint8_t ch)                     = 0;
     virtual void updateSustain(uint8_t ch)                    = 0;
     virtual void updateKey(uint8_t ch, bool keyOn)            = 0;
-    virtual void updateTL(uint8_t ch, uint8_t op, uint8_t tl) = 0;
+    // updateTL は public セクションに公開 (CRhythmCh のLFO処理用)
     virtual void updateFnumber(uint8_t ch, bool forceWrite = true);
 
     // ─── Fnum 計算 ──────────────────────────────────────────────────────

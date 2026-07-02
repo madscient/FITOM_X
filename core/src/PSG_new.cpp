@@ -21,6 +21,7 @@
 //   別物として全面的に作り直した。
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/Log.h"
 #include "fitom/VolumeUtils.h"
 #include <cstring>
@@ -122,7 +123,7 @@ private:
         0.050f, 0.059f, 0.071f, 0.084f, 0.100f, 0.119f, 0.141f, 0.168f,
         0.200f, 0.238f, 0.283f, 0.336f, 0.400f, 0.476f, 0.566f, 0.673f,
         0.800f, 0.951f, 1.131f, 1.345f, 1.600f, 1.903f, 2.263f, 2.691f,
-        3.200f, 3.805f, 4.525f, 5.382f, 6.400f, 7.609f, 9.051f, 10.765f
+        3.200f, 3.805f, 4.525f, 5.382f, 6.400f, 7.609f, 9.051f
     };
     // kAttackCoef / kAttackMin: 乗算的アタックの係数と最小減衰量。
     // value -= value*coef + min という式で、実機特有の凹型カーブを作る。
@@ -131,14 +132,14 @@ private:
         0.005f, 0.0059f, 0.0071f, 0.0084f, 0.0100f, 0.0119f, 0.0141f, 0.0168f,
         0.0200f, 0.0238f, 0.0283f, 0.0336f, 0.0400f, 0.0476f, 0.0566f, 0.0673f,
         0.0800f, 0.0951f, 0.1131f, 0.1345f, 0.1600f, 0.1903f, 0.2263f, 0.2691f,
-        0.3200f, 0.3805f, 0.4525f, 0.5382f, 0.6400f, 0.7609f, 0.9051f, 1.0000f
+        0.3200f, 0.3805f, 0.4525f, 0.5382f, 0.6400f, 0.7609f, 0.9051f
     };
     static constexpr float kAttackMin[32] = {
         0.0f,
         0.005f, 0.0059f, 0.0071f, 0.0084f, 0.0100f, 0.0119f, 0.0141f, 0.0168f,
         0.0200f, 0.0238f, 0.0283f, 0.0336f, 0.0400f, 0.0476f, 0.0566f, 0.0673f,
         0.0800f, 0.0951f, 0.1131f, 0.1345f, 0.1600f, 0.1903f, 0.2263f, 0.2691f,
-        0.3200f, 0.3805f, 0.4525f, 0.5382f, 0.6400f, 0.7609f, 0.9051f, 1.0000f
+        0.3200f, 0.3805f, 0.4525f, 0.5382f, 0.6400f, 0.7609f, 0.9051f
     };
 };
 
@@ -433,7 +434,7 @@ public:
     std::string getDescriptor() const override { return "SCC (K051649) 5ch"; }
 
     // PatchManager から SccWaveRegistry を注入する
-    void setWaveRegistry(const SccWaveRegistry* reg) { waveReg_ = reg; }
+    void setWaveRegistry(const SccWaveRegistry* reg) override { waveReg_ = reg; }
     // SCC Wave Bank 番号 (デフォルト 0)
     void setWaveBankNo(int bankNo) { waveBankNo_ = bankNo; }
 

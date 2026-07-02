@@ -9,6 +9,7 @@
 //   - リズムモード: ch 6-8 はリズムとして使用 (有効/無効を enableCh で管理)
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/FITOMdefine.h"
 #include "fitom/Log.h"
 #include <algorithm>
 
