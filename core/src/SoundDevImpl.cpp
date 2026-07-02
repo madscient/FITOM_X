@@ -13,6 +13,7 @@
 #include "fitom/Fnum.h"
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 // F-number テーブルは FnumRegistry が動的生成して返す
 // (旧 Fnum.cpp の静的配列 FnumTable[] は使用しない)
@@ -479,6 +480,26 @@ ChState::Fnum CSoundDevice::getFnumber(uint8_t ch, int16_t offset) const
     } else {
         ret.block = static_cast<uint8_t>(oct);
     }
+    return ret;
+}
+
+ChState::Fnum CSoundDevice::getFnumberFromHz(double hz) const
+{
+    ChState::Fnum ret{0, 0};
+    if (hz <= 0.0 || fnumMaster_ <= 0) return ret;
+
+    // FnumUtils.h の generateTable() と同じ式 (FnumTableType::Fnumber専用):
+    //   val = freq * (2^17 / master) * divide
+    double val = hz * (std::pow(2.0, 17.0) / fnumMaster_)
+               * (fnumDivide_ > 0 ? fnumDivide_ : 144);
+
+    // 11bit(0-2047)に収まるまでオクターブ正規化
+    int oct = 0;
+    while (val >= 2048.0 && oct < 7) { val /= 2.0; ++oct; }
+    while (val <  1024.0 && oct > 0) { val *= 2.0; --oct; }
+
+    ret.fnum  = static_cast<uint16_t>(std::clamp<long long>(std::llround(val), 0, 2047));
+    ret.block = static_cast<uint8_t>(oct);
     return ret;
 }
 

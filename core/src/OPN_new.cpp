@@ -111,6 +111,14 @@ protected:
             setReg(static_cast<uint16_t>(0x90 + reg), o.EGT & 0xF);
         }
 
+        // FXモード (3rd channel special mode): ch2専用。
+        // ext.DM0 (0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数) で
+        // モードを選択する。0以外ならFXモード有効(0x27 bit7)。
+        if (ch == 2) {
+            uint8_t cur = getReg(0x27) & 0x7F;
+            setReg(0x27, static_cast<uint8_t>(cur | (p.ext.DM0 != 0 ? 0x80 : 0)), true);
+        }
+
         updatePanpot(ch);
     }
 
@@ -119,12 +127,47 @@ protected:
     // ──────────────────────────────────────────────────────────────
     void updateFreq(uint8_t ch, const ChState::Fnum* fn = nullptr) override {
         if (ch >= 3) return;
+
+        // FXモード有効時 (ch2のみ): 4オペレータ独立のFnumberを書く
+        const HwPatch& p = chState_[ch].hwPatch;
+        if (ch == 2 && p.ext.DM0 != 0 && !fn) {
+            updateFxModeFreq(ch, p);
+            return;
+        }
+
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         // MSB 書き込み後に LSB 書き込み (OPN の仕様)
         setReg(static_cast<uint16_t>(0xA4 + ch),
                (fnum.block << 3) | ((fnum.fnum >> 8) & 0x7));
         setReg(static_cast<uint16_t>(0xA0 + ch),
                fnum.fnum & 0xFF);
+    }
+
+    // FXモード時、4オペレータそれぞれに独立したFnumberを書く。
+    // レジスタ対応 (実機仕様): hwOp[0](Slot1)→0xA9/AD, hwOp[1](Slot3)→0xA8/AC,
+    //                          hwOp[2](Slot2)→0xAA/AE, hwOp[3](Slot4)→0xA2/A6(通常ch2兼用)
+    void updateFxModeFreq(uint8_t ch, const HwPatch& p) {
+        static constexpr uint8_t kFnumLoReg[4] = {0xA9, 0xA8, 0xAA, 0xA2};
+        static constexpr uint8_t kFnumHiReg[4] = {0xAD, 0xAC, 0xAE, 0xA6};
+
+        for (int op = 0; op < 4; ++op) {
+            const FmHwOp& o = p.hwOp[op];
+            ChState::Fnum fnum;
+            switch (p.ext.DM0) {
+            case 1: // 疑似デチューン
+            case 2: // 非整数倍率 (どちらもセントオフセットとして加算)
+                fnum = getFnumber(ch, o.FXV);
+                break;
+            case 3: // 固定周波数 (0.1Hz単位)
+                fnum = getFnumberFromHz(static_cast<double>(o.FXV) / 10.0);
+                break;
+            default:
+                fnum = getFnumber(ch);
+                break;
+            }
+            setReg(kFnumHiReg[op], static_cast<uint8_t>((fnum.block << 3) | ((fnum.fnum >> 8) & 0x7)));
+            setReg(kFnumLoReg[op], static_cast<uint8_t>(fnum.fnum & 0xFF));
+        }
     }
 
     // ──────────────────────────────────────────────────────────────

@@ -290,6 +290,11 @@ protected:
     // ─── Fnum 計算 ──────────────────────────────────────────────────────
     virtual ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const;
 
+    // 指定Hzを直接Fnum/Blockに変換する (FnumTableType::Fnumber専用)。
+    // getFnumber()のノートテーブル経由と異なり、任意のHz値を直接指定できる。
+    // OPN ch2 FXモード「固定周波数」等で使用する。
+    ChState::Fnum getFnumberFromHz(double hz) const;
+
     // ─── 共有リソース ───────────────────────────────────────────────────
     uint8_t         deviceType_;
     uint8_t         maxChs_;
