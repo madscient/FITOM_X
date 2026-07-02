@@ -292,12 +292,38 @@ protected:
     static constexpr uint8_t kRhythmReg[5]   = {0x37, 0x38, 0x38, 0x37, 0x36};
     static constexpr uint8_t kRhythmMapCh[5] = {7, 8, 8, 7, 6};
 
-    void updateVoice(uint8_t ch) override { updateVolExp(ch); }
-    void updateFreq(uint8_t /*ch*/, const ChState::Fnum* /*fn*/) override {
-        // リズムパートは固定音程のため、通常のノート番号ベースの
-        // Fnumber計算は行わない (簡略化。旧FITOMは固定Fnumberテーブルを
-        // 使用していたが、実際の周波数はROM内蔵のためソフト側の
-        // Fnumber指定は効果を持たない可能性が高い)。
+    // 物理ch6/7/8固定のFnumber/Block (旧FITOM RhythmFnum完全移植)。
+    // リズム音はROM内蔵の固定音色だが、Fnum/Blockレジスタの値自体は
+    // 実機マニュアル記載の固定値を設定する必要がある
+    // (ノイズ/エンベロープ生成に影響するため無意味な値ではない)。
+    // インデックスは (物理ch - 6) : ch6→0, ch7→1, ch8→2
+    struct FixedFnum { uint8_t block; uint16_t fnum; };
+    static constexpr FixedFnum kRhythmFnum[3] = {
+        {2, 0x480}, // ch6 (BD)
+        {2, 0x540}, // ch7 (HH/SD 共用)
+        {0, 0x700}, // ch8 (CYM/TOM 共用)
+    };
+
+    // リズムパートは固定音程のため、ノート番号は無視し物理ch6-8の
+    // 固定Fnum/Blockを直接書き込む (旧FITOM COPLLRhythm::UpdateFreq 相当)。
+    // COPLLRhythm は OPLL本体と同一の物理ポートを共有しているため、
+    // 親インスタンスを介さず直接 setReg してよい。
+    void updateVoice(uint8_t ch) override {
+        updateFreq(ch, nullptr); // 固定Fnumberを毎回反映 (パッチロード時にも保証)
+        updateVolExp(ch);
+    }
+
+    void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
+        uint8_t vch = kRhythmMapCh[ch];
+        const FixedFnum& f = kRhythmFnum[vch - 6];
+        // getFnumberFromHz/getFnumber は使わず、実機マニュアル記載の
+        // 生のFnum/Block値をそのまま書き込む (COPLL::updateFreqと同じ
+        // 9bit変換は不要、既に9bit相当の生値)。
+        uint8_t b0cur = getReg(static_cast<uint16_t>(0x20 + vch)) & 0x30;
+        setReg(static_cast<uint16_t>(0x10 + vch),
+               static_cast<uint8_t>(f.fnum & 0xFF), true);
+        setReg(static_cast<uint16_t>(0x20 + vch),
+               static_cast<uint8_t>(b0cur | ((f.block & 7) << 1) | ((f.fnum >> 8) & 1)), true);
     }
     void updateSustain(uint8_t /*ch*/) override {}
     void updatePanpot(uint8_t /*ch*/) override {}
