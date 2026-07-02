@@ -195,7 +195,7 @@ json hwOpToJson(const FmHwOp& op) {
     return json{
         {"AR",op.AR},{"DR",op.DR},{"SL",op.SL},{"SR",op.SR},{"RR",op.RR},
         {"TL",op.TL},{"KSR",op.KSR},{"KSL",op.KSL},
-        {"MUL",op.MUL},{"DT1",op.DT1},{"DT2",op.DT2},
+        {"MUL",op.MUL},{"DT1",op.DT1},{"DT2",op.DT2},{"FXV",op.FXV},
         {"AM",op.AM},{"VIB",op.VIB},{"EGT",op.EGT},{"WS",op.WS}
     };
 }
@@ -204,6 +204,7 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
     g("AR",op.AR); g("DR",op.DR); g("SL",op.SL); g("SR",op.SR); g("RR",op.RR);
     g("TL",op.TL); g("KSR",op.KSR); g("KSL",op.KSL);
     g("MUL",op.MUL); g("DT1",op.DT1); g("DT2",op.DT2);
+    if (j.contains("FXV")) op.FXV = j["FXV"].get<int16_t>();
     g("AM",op.AM); g("VIB",op.VIB); g("EGT",op.EGT); g("WS",op.WS);
 }
 

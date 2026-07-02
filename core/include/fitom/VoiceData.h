@@ -99,6 +99,14 @@ struct FmHwOp {
     // フィールド幅は変更せず、解釈のみで対応する。0=デチューンなし。
     uint8_t DT2;
 
+    // OPN ch2 FXモード (3rd channel special mode) 専用パラメータ。
+    // ext.DM0 (チャンネル単位、0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数)
+    // でモードを選択し、本フィールドの解釈が変わる。オペレータ単位。
+    //   モード1/2: 100/64セント単位の符号付きオフセット (getFnumber(ch,FXV))
+    //   モード3  : 0.1Hz単位の絶対周波数 (getFnumberFromHz(FXV/10.0))
+    // OPN以外・ch2以外では無視される。0=無効(通常のch2共有Fnumberを使用)。
+    int16_t FXV;
+
     // ─── LFO (HW) / AM・VIB ──────────────────────────────────────
     uint8_t AM;   // AM enable:   1bit
     uint8_t VIB;  // VIB enable:  1bit (OPL のみ)
@@ -109,7 +117,7 @@ struct FmHwOp {
 
     constexpr FmHwOp() noexcept
         : AR(31), DR(0), SL(0), SR(0), RR(7), TL(0)
-        , KSR(0), KSL(0), MUL(1), DT1(0), DT2(0)
+        , KSR(0), KSL(0), MUL(1), DT1(0), DT2(0), FXV(0)
         , AM(0), VIB(0), EGT(0), WS(0) {}
 };
 
