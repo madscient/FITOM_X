@@ -30,7 +30,7 @@ protected:
 	double GetSAATP(double rate, int note);
 public:
 	CFnumTable();
-	‾CFnumTable();
+	~CFnumTable();
 	void SetMasterPitch(double pitch) { TuningFrequency = pitch; };
 	const uint16_t* GetTable(FnumTableType type, int master, int devide, int offset);
 	double GetOPMMasterOffset(int fsamp);
