@@ -197,8 +197,11 @@ protected:
     void updateKey(uint8_t ch, bool keyOn) override {
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
-        if (keyOn && s.sustain) {
-            // ForceDamp: RR を最大に
+        // リリース中の音が残った状態で同一chに新規ノートオンすると
+        // アタック波形が不正になるため、事前に強制ダンプ(RR最大化)する。
+        // (MIDI CC#64サステインペダルとは無関係。ポリフォニックchでは
+        //  通常NoteOn時点で他chがアサインされるためこの現象は起きない)
+        if (keyOn && s.wasReleasing) {
             for (int i = 0; i < 4; ++i) {
                 const FmHwOp& o = p.hwOp[kMap[i]];
                 setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
@@ -369,7 +372,10 @@ public:
             const FmHwOp& o = p.hwOp[kMap[i]];
             setReg(static_cast<uint16_t>(0x40 + i * 8 + ch),
                    static_cast<uint8_t>(0x80 | ((o.WS & 7) << 4) | (ex.DT3 & 0xF)));
-            setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch), 0x20);
+            // REV(Reverberation)/EGS(EG bias): 旧FITOMは未実装(固定値0x20)のままだった。
+            // 新FITOMの FmChipExt には REV/EGS フィールドがあるため使用する。
+            setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
+                   static_cast<uint8_t>(((ex.EGS & 0x3) << 6) | (ex.REV & 0x1F) | 0x20));
         }
         COPM::updateVoice(ch); // 共通部分を呼ぶ
     }
