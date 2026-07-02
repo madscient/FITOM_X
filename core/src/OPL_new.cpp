@@ -374,9 +374,20 @@ protected:
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
-        // 疑似デチューン(前半/後半ペアで別々のFnumberを使う機能)は
-        // 現時点では未対応。両ペアとも同一のFnumberを使う。
-        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        // 疑似デチューン: op[0]/op[2] (各2OPペアの先頭オペレータ) の
+        // DT2 フィールドを符号付き8bit (int8_t、100/64セント単位) として
+        // 再解釈し、前半/後半ペアで別々のFnumberを計算する。
+        // getFnumber() の offset 引数は index 単位 = 100/64セントであり、
+        // DT2 の単位と一致するため変換不要でそのまま渡せる。
+        const HwPatch& p = chState_[ch].hwPatch;
+        int16_t pdt1 = static_cast<int16_t>(static_cast<int8_t>(p.hwOp[0].DT2));
+        int16_t pdt2 = static_cast<int16_t>(static_cast<int8_t>(p.hwOp[2].DT2));
+
+        ChState::Fnum fnum1 = fn ? *fn : getFnumber(ch, pdt1);
+        ChState::Fnum fnum2 = fn ? *fn : getFnumber(ch, pdt2);
+        // fn (外部から明示指定、例: ポルタメント時) が渡された場合は
+        // 疑似デチューンを適用せず両ペアとも同じ fnum を使う。
+
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
 
@@ -386,12 +397,12 @@ protected:
         uint16_t reg_b2 = static_cast<uint16_t>(rop + 0xB0 + pairCh(ch));
 
         uint8_t b1cur = getReg(reg_b1) & 0x20;
-        setReg(reg_a1, static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
-        setReg(reg_b1, static_cast<uint8_t>(b1cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+        setReg(reg_a1, static_cast<uint8_t>((fnum1.fnum >> 1) & 0xFF), true);
+        setReg(reg_b1, static_cast<uint8_t>(b1cur | ((fnum1.block & 7) << 2) | ((fnum1.fnum >> 9) & 1)), true);
 
         uint8_t b2cur = getReg(reg_b2) & 0x20;
-        setReg(reg_a2, static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
-        setReg(reg_b2, static_cast<uint8_t>(b2cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+        setReg(reg_a2, static_cast<uint8_t>((fnum2.fnum >> 1) & 0xFF), true);
+        setReg(reg_b2, static_cast<uint8_t>(b2cur | ((fnum2.block & 7) << 2) | ((fnum2.fnum >> 9) & 1)), true);
     }
 
     void updatePanpot(uint8_t ch) override {
