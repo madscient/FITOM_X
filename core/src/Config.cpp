@@ -718,6 +718,18 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
         return true;
 
+    case DEVICE_OPLL:
+    case DEVICE_OPLL2:
+    case DEVICE_OPLLP:
+    case DEVICE_OPLLX:
+        // OPLL系: 本体(9ch、rhythm_mode時はch6-8無効化) + リズム(5パート)。
+        // 同一の物理ポートを共有する。リズムデバイスはOPLLファミリ共通の
+        // レジスタ体系のため、派生型に関わらずDEVICE_OPLL_RHYを使う。
+        // (VRC7はリズム回路自体を持たないため対象外)
+        outSpec.push_back({baseDeviceType,  "-FM",     false, true});
+        outSpec.push_back({DEVICE_OPLL_RHY, "-RHYTHM", false, false});
+        return true;
+
     default:
         return false;
     }
