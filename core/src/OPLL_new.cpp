@@ -10,6 +10,7 @@
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/VolumeUtils.h"
 #include "fitom/Log.h"
 #include <algorithm>
 
@@ -112,31 +113,32 @@ protected:
 
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        const HwPatch& p = s.hwPatch;
-        // OPLL はキャリア (op1) の TL がボリューム (4bit)
-        uint8_t tl = s.proc.effectiveTL(1);
-        // 7bit → 4bit (OPLL は RANGE48DB / STEP150DB / 4bit)
-        // 簡易変換: 上位 4bit を使う
-        uint8_t vol = (tl >> 3) & 0xF;
+        // OPLL はキャリア (op1) の effectiveTL (TL空間、0=最大音量) をラウドネスに反転してから
+        // 正しいdB変換 (48dB/1.5dBステップ、4bit) を行う。
+        uint8_t loudness = 127u - s.proc.effectiveTL(1);
+        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
-        setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | vol), false);
+        setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
     }
 
     void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t lev) override {
         // OPLL はボリュームレジスタ (0x30 下位 4bit) のみ
-        uint8_t vol = (lev >> 3) & 0xF;
+        uint8_t loudness = 127u - lev;
+        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
-        setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | vol), false);
+        setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        uint8_t b0cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xF0;
-        // OPLL: 0x10+ch = fnum LSB, 0x20+ch = block/fnum MSB/keyon
+        // getFnumber() は11bit精度で値を返すが、実機OPLLのFnumberは9bit。
+        // 旧FITOMの ">>2" (11bit→9bit変換) が新実装で欠落していたため復元する。
+        uint16_t fnum9 = static_cast<uint16_t>((fnum.fnum >> 2) & 0x1FF);
+        uint8_t b0cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0x30; // KEY/SUSビット保持
         setReg(static_cast<uint16_t>(0x10 + ch),
-               static_cast<uint8_t>(fnum.fnum & 0xFF), false);
+               static_cast<uint8_t>(fnum9 & 0xFF), false);
         setReg(static_cast<uint16_t>(0x20 + ch),
-               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 1) | ((fnum.fnum >> 8) & 1)), false);
+               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 1) | ((fnum9 >> 8) & 1)), false);
     }
 
     void updatePanpot(uint8_t /*ch*/) override {
@@ -172,6 +174,33 @@ protected:
     }
 
     void updateKey(uint8_t ch, bool keyOn) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        bool preset = (p.ext.ALG_EXT & 1) != 0;
+
+        // EGT/RR動的書き換え (OPN/OPL3と同じ技法)。
+        // ユーザー音色のみ対象 (プリセット音色はROMのためEGパラメータ変更不可、
+        // 旧FITOM COPLL::UpdateKey と同様)。
+        // キーオン中はSRをRR位置に書きEGT=0 (サスティンレイトとして機能)、
+        // キーオフ時はEGT=1に切り替えてRRレジスタをリリースレイトとして使う。
+        if (!preset) {
+            for (int i = 0; i < 2; ++i) {
+                const FmHwOp& o = p.hwOp[i];
+                bool car = (i == 1); // OPLLはOP1がキャリア固定
+                uint8_t sr = car ? s.proc.velSR(i) : (o.SR & 0x1F);
+                uint8_t rr = car ? s.proc.velRR(i) : (o.RR & 0xF);
+                uint8_t sl = car ? s.proc.velSL(i) : (o.SL & 0xF);
+                bool useSR = keyOn && (sr != 0);
+                uint8_t rrReg = useSR ? ((sr >> 1) & 0xF) : (rr & 0xF); // 5bit→4bit
+
+                uint8_t egtCur = getReg(static_cast<uint16_t>(i)) & 0xDF;
+                setReg(static_cast<uint16_t>(i),
+                       static_cast<uint8_t>(egtCur | (useSR ? 0 : 0x20)), true);
+                setReg(static_cast<uint16_t>(6 + i),
+                       static_cast<uint8_t>(((sl & 0xF) << 4) | rrReg), true);
+            }
+        }
+
         uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xEF;
         setReg(static_cast<uint16_t>(0x20 + ch),
                static_cast<uint8_t>(cur | (keyOn ? 0x10 : 0)), true);
@@ -189,6 +218,17 @@ public:
         : COPLL(port, sampleRate, mode, DEVICE_OPLL2) {}
 protected:
     std::string chipLabel() const override { return "OPLL2 (YM2420)"; }
+
+    // YM2420 (OPLL2) は Fnumber のレジスタ配置が YM2413 と異なる。
+    // 生の11bit fnum値を直接使用 (COPLL側のような9bit変換は行わない)。
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        setReg(static_cast<uint16_t>(0x10 + ch),
+               static_cast<uint8_t>(((fnum.block & 7) << 5) | ((fnum.fnum >> 6) & 0xFF)), false);
+        setReg(static_cast<uint16_t>(0x20 + ch),
+               static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x20 + ch)) & 0xF0)
+                   | ((fnum.fnum >> 2) & 0xF)), false);
+    }
 };
 
 class COPLLP : public COPLL {
@@ -223,6 +263,77 @@ protected:
     std::string chipLabel() const override { return "VRC7 (FS1001)"; }
 };
 
+// ================================================================
+//  COPLLRhythm: YM2413 (OPLL) 内蔵リズム音源 (5パート: HH/CYM/TOM/SD/BD)
+//
+//  FM本体とは独立したレジスタ体系:
+//    0x0E: bit5=リズムモード有効固定、bit0-4=各パートのキーオン
+//    0x36/0x37/0x38: パート音量 (2パートずつ上位/下位4bitに packing)
+//    パート→物理ch対応 (旧FITOM RhythmMapCh): {7,8,8,7,6}
+//
+//  sub-device自動生成により、OPLL本体と同一の物理ポートを共有する
+//  独立デバイスとして生成される。
+// ================================================================
+class COPLLRhythm : public CSoundDevice {
+public:
+    COPLLRhythm(IPort* port, int sampleRate)
+        : CSoundDevice(DEVICE_OPLL_RHY, 5, port,
+                       sampleRate, 72,
+                       FNUM_OFFSET,
+                       FnumTableType::Fnumber,
+                       0x40)
+    {}
+
+    std::string getDescriptor() const override { return "OPLL Rhythm 5ch"; }
+    void init() override { setReg(0x0E, 0x20, true); }
+
+protected:
+    // パート(0-4: HH,CYM,TOM,SD,BD) → 音量レジスタ / 物理ch対応 (旧FITOM完全移植)
+    static constexpr uint8_t kRhythmReg[5]   = {0x37, 0x38, 0x38, 0x37, 0x36};
+    static constexpr uint8_t kRhythmMapCh[5] = {7, 8, 8, 7, 6};
+
+    void updateVoice(uint8_t ch) override { updateVolExp(ch); }
+    void updateFreq(uint8_t /*ch*/, const ChState::Fnum* /*fn*/) override {
+        // リズムパートは固定音程のため、通常のノート番号ベースの
+        // Fnumber計算は行わない (簡略化。旧FITOMは固定Fnumberテーブルを
+        // 使用していたが、実際の周波数はROM内蔵のためソフト側の
+        // Fnumber指定は効果を持たない可能性が高い)。
+    }
+    void updateSustain(uint8_t /*ch*/) override {}
+    void updatePanpot(uint8_t /*ch*/) override {}
+    void updateTL(uint8_t, uint8_t, uint8_t) override {}
+
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        // 旧FITOM: CalcLinearLevel(GetVolume(), 127-velocity) という
+        // MIDI Volume(CC#7)とベロシティの組み合わせ (Expressionは含まない)。
+        uint8_t loudness = fitom::calcVolExpVel(s.volume, 127u, 127u - s.velocity);
+        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 4);
+        uint16_t addr = kRhythmReg[ch];
+        // ch&5: ch=1,3,4 は上位nibble、ch=0,2 は下位nibble (旧FITOM完全移植)
+        bool highNibble = (ch & 5) != 0;
+        uint8_t mask = highNibble ? 0x0F : 0xF0;
+        uint8_t shifted = highNibble ? static_cast<uint8_t>(vol << 4) : vol;
+        setReg(addr, static_cast<uint8_t>((getReg(addr) & mask) | shifted));
+    }
+
+    void updateKey(uint8_t ch, bool keyOn) override {
+        uint8_t keymask = static_cast<uint8_t>(~(1u << ch));
+        uint8_t cur = getReg(0x0E) & keymask;
+        setReg(0x0E, static_cast<uint8_t>(cur | 0x20 | (keyOn ? (1u << ch) : 0)), true);
+    }
+
+    // パート番号は音色データの hw.ALG (下位3bit) で直接指定する。
+    // 該当パートが既に使用中なら 0xFF (旧FITOM COPLLRhythm::QueryCh 完全移植)。
+    uint8_t queryCh(IMidiCh* /*owner*/, const HwPatch* patch, int mode) override {
+        if (!patch) return 0xFF;
+        uint8_t num = patch->hw.ALG & 0x7;
+        if (num >= 5) return 0xFF;
+        bool inuse = (getReg(0x0E) & (1u << num)) != 0;
+        return mode ? num : (inuse ? 0xFF : num);
+    }
+};
+
 } // namespace fitom
 
 namespace fitom {
@@ -231,4 +342,5 @@ std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t m) { return
 std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLP>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLX>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr)  { return std::make_unique<CVRC7>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr) { return std::make_unique<COPLLRhythm>(p, sr); }
 } // namespace fitom
