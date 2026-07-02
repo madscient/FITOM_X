@@ -169,7 +169,12 @@ protected:
             uint8_t slot = kMap[ch];
             static constexpr uint8_t kFallbackRR = 4;
             const FmHwOp& o = p.hwOp[i];
-            uint8_t rr = s.sustain ? kFallbackRR : (o.SR ? ar4(o.SR) : o.RR);
+            // サステインペダルON時にRR=4固定にするのは、実際にキーオフ中
+            // (リリースフェーズ)の音のみ。キーオン中の音は EGT/RR による
+            // サスティンレイト表現 (updateKey 参照) をそのまま維持する。
+            uint8_t rr = (s.sustain && s.isReleasing())
+                       ? kFallbackRR
+                       : (o.SR ? ar4(o.SR) : o.RR);
             setReg(static_cast<uint16_t>(0x80 + i * 3 + slot),
                    static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
         }
@@ -188,9 +193,10 @@ protected:
                    static_cast<uint8_t>(cur | (keyOn ? 0 : 0x20)), true);
 
             // SL/RR: キーオン中は SR、オフ中は RR
+            // サステインペダルON時のRR=4固定は、キーオフ(リリース)時のみ適用する。
             static constexpr uint8_t kFallbackRR = 4;
             bool carrier = isCarrier(ch, i);
-            uint8_t rr = (s.sustain && carrier) ? kFallbackRR
+            uint8_t rr = (s.sustain && carrier && !keyOn) ? kFallbackRR
                        : (keyOn ? ar4(o.SR) : o.RR);
             setReg(static_cast<uint16_t>(0x80 + i * 3 + slot),
                    static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)), true);
