@@ -241,15 +241,11 @@ public:
 //  1ポートあたり最大3ch(ch0-2)を4OPとして使用 (前半opペア+後半opペア結合)。
 //  2ポート合計で6ch。残りのch6-8(3chずつ)はCOPL3_2(2OP)が別途担当する。
 //
-//  4OPの構成は旧FITOMのAL(4bit)値をそのまま踏襲する:
-//    AL bit0: 前半ペアのCON (0xC0+rop+dch のbit0)
-//    AL bit1: 後半ペアのCON (0xC0+rop+pairCh のbit0)
-//    AL bit2-3: CONNECTIONSEL(0x104)で4OP結合を有効にするかの判定
-//               (0の場合は前半/後半が独立した2opとして動作する)
-//    carmsk[16]: AL(4bit)値ごとのキャリアOPビットマスク (旧FITOM完全移植)
-//
-//  AL(4bit) は hw.ALG(3bit, bit0-2) + ext.ALG_EXT(1bit, bit3) を
-//  結合して復元する (Patch::fromLegacy と同じ変換規則)。
+//  4OPの構成は hw.ALG(3bit)にそのまま収まる:
+//    bit0: 前半ペアのCON (0xC0+rop+dch のbit0)
+//    bit1: 後半ペアのCON (0xC0+rop+pairCh のbit0)
+//    bit2: ConnectionSEL (CONNECTIONSEL(0x104)で4OP結合を有効にするか)
+//    carmsk[8]: hw.ALG(3bit)値ごとのキャリアOPビットマスク
 // ================================================================
 class COPL3 : public CSoundDevice {
 public:
@@ -279,21 +275,19 @@ public:
     }
 
 protected:
-    static const uint8_t opmap[4];   // 4オペレータ分のスロットオフセット
-    static const uint8_t carmsk[16]; // AL(4bit)値ごとのキャリアOPビットマスク
+    static const uint8_t opmap[4];  // 4オペレータ分のスロットオフセット
+    static const uint8_t carmsk[8]; // hw.ALG(3bit)値ごとのキャリアOPビットマスク
 
     uint16_t portBase(uint8_t ch) const { return (ch >= 3) ? 0x100 : 0; }
     uint8_t  localCh(uint8_t ch)  const { return ch % 3; }
     // 後半opペアのローカルch (常に前半+3、旧FITOM同様)
     uint8_t  pairCh(uint8_t ch)   const { return static_cast<uint8_t>(localCh(ch) + 3); }
 
-    // hw.ALG(3bit)+ext.ALG_EXT(1bit) → 旧FMVOICE.AL相当の4bit値
     uint8_t alValue(uint8_t ch) const {
-        const HwPatch& p = chState_[ch].hwPatch;
-        return static_cast<uint8_t>((p.hw.ALG & 0x7) | (p.ext.ALG_EXT ? 0x8 : 0));
+        return chState_[ch].hwPatch.hw.ALG & 0x7;
     }
     bool isCarrier(uint8_t ch, int op) const {
-        return (carmsk[alValue(ch) & 0xF] & (1 << op)) != 0;
+        return (carmsk[alValue(ch)] & (1 << op)) != 0;
     }
     static uint8_t ar4(uint8_t v) { return v >> 1; } // 5bit → 4bit
     static uint8_t tl6(uint8_t v) { return v >> 1; } // 7bit → 6bit
@@ -350,7 +344,7 @@ protected:
 
         // CONNECTIONSEL(0x104): 4OPペア結合ビット
         uint8_t con = getReg(0x104) & static_cast<uint8_t>(~(1u << ch));
-        bool con4op = (al & 0x0C) != 0;
+        bool con4op = (al & 0x04) != 0; // bit2 = ConnectionSEL
         setReg(0x104, static_cast<uint8_t>(con | (con4op ? (1u << ch) : 0)), true);
 
         updateVolExp(ch);
@@ -472,21 +466,16 @@ protected:
         uint16_t reg_b2 = static_cast<uint16_t>(rop + 0xB0 + pairCh(ch));
         uint8_t b1cur = getReg(reg_b1) & 0xDF;
         setReg(reg_b1, static_cast<uint8_t>(b1cur | (keyOn ? 0x20 : 0)), true);
-        // 後半ペアのキーオンは、4OP結合時(前半とのCON次第)またはキーオフ時のみ操作
-        // (旧FITOM: (voice->AL & 0x08) || !keyon)
-        uint8_t al = alValue(ch);
-        if ((al & 0x08) || !keyOn) {
-            uint8_t b2cur = getReg(reg_b2) & 0xDF;
-            setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
-        }
+        // COPL3 は常に4OP専用チャンネルとして使うデバイスのため、
+        // 前半・後半ペアのキーオン/オフは常に同時に行う
+        // (hw.ALG bit2=ConnectionSELの値に関わらず)。
+        uint8_t b2cur = getReg(reg_b2) & 0xDF;
+        setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
     }
 };
 
 const uint8_t COPL3::opmap[4] = {0x0, 0x3, 0x8, 0xb};
-const uint8_t COPL3::carmsk[16] = {
-    0x2, 0x3, 0x8, 0xc,  0x8, 0x9, 0xa, 0xd,
-    0xa, 0xe, 0xb, 0xf,  0xa, 0xe, 0xb, 0xf
-};
+const uint8_t COPL3::carmsk[8] = {0x2, 0x3, 0x8, 0xc, 0x8, 0x9, 0xa, 0xd};
 
 
 //
