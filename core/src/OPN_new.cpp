@@ -25,18 +25,38 @@ public:
     // 単体 OPN (YM2203) はデフォルト 3.993MHz。
     // OPN2/OPNA 系のサブチップとして使用する場合は
     // 親クラスのコンストラクタから適切なクロック値を渡す。
-    COPN(IPort* port, uint8_t deviceId = DEVICE_OPN, int fnumMaster = 3993600)
+    //
+    // fxCapable: FXモード(3rd channel special mode)対応の有無。
+    // 実機OPN系は「チップの ch2 (最初の3ch分の3番目)」のみがFXモード対応で、
+    // OPNA/OPN2 の後半3ch分 (chip2_、port2側) には対応するレジスタが
+    // 実機に存在しない。単体OPNおよびOPNA/OPN2の前半サブチップはtrue、
+    // OPNA/OPN2の後半サブチップはfalseを渡す (旧FITOMのfxenaフラグに相当)。
+    COPN(IPort* port, uint8_t deviceId = DEVICE_OPN, int fnumMaster = 3993600,
+         bool fxCapable = true)
         : CSoundDevice(deviceId, 3, port,
                        fnumMaster, 144,
                        -576,
                        FnumTableType::Fnumber,
                        256)
+        , fxCapable_(fxCapable)
     {
         opCount_ = 4;
     }
 
     std::string getDescriptor() const override {
         return "OPN (YM2203) 3ch";
+    }
+
+    // FXモード(ch2専用)を要求するパッチは、ch2以外では正常動作しないため
+    // 必ずch2を払い出す (旧FITOM COPN::QueryCh 相当)。
+    // fxCapable_=false (OPNA/OPN2後半サブチップ) の場合はこの判定自体を行わない。
+    uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
+        if (fxCapable_ && patch && patch->ext.DM0 != 0) {
+            const auto& s2 = chState_[2];
+            bool avail = mode ? s2.isEmpty() : s2.isEnabled();
+            return avail ? 2 : 0xFF;
+        }
+        return CSoundDevice::queryCh(owner, patch, mode);
     }
 
     void init() override {
@@ -111,10 +131,10 @@ protected:
             setReg(static_cast<uint16_t>(0x90 + reg), o.EGT & 0xF);
         }
 
-        // FXモード (3rd channel special mode): ch2専用。
+        // FXモード (3rd channel special mode): ch2専用、fxCapable_なチップのみ。
         // ext.DM0 (0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数) で
         // モードを選択する。0以外ならFXモード有効(0x27 bit7)。
-        if (ch == 2) {
+        if (fxCapable_ && ch == 2) {
             uint8_t cur = getReg(0x27) & 0x7F;
             setReg(0x27, static_cast<uint8_t>(cur | (p.ext.DM0 != 0 ? 0x80 : 0)), true);
         }
@@ -128,9 +148,9 @@ protected:
     void updateFreq(uint8_t ch, const ChState::Fnum* fn = nullptr) override {
         if (ch >= 3) return;
 
-        // FXモード有効時 (ch2のみ): 4オペレータ独立のFnumberを書く
+        // FXモード有効時 (ch2かつfxCapable_のみ): 4オペレータ独立のFnumberを書く
         const HwPatch& p = chState_[ch].hwPatch;
-        if (ch == 2 && p.ext.DM0 != 0 && !fn) {
+        if (fxCapable_ && ch == 2 && p.ext.DM0 != 0 && !fn) {
             updateFxModeFreq(ch, p);
             return;
         }
@@ -260,6 +280,7 @@ private:
     // オペレータ → レジスタオフセット変換
     // OPN: ch 0/1/2 、op 0/1/2/3 → slot offset
     static const uint8_t kOpMap[4]; // = {0, 8, 4, 12}
+    bool fxCapable_; // FXモード(3rd channel special mode)対応の有無
 
     uint8_t opSlot(uint8_t ch, int op) const {
         return static_cast<uint8_t>(kOpMap[op] + ch);
@@ -284,8 +305,8 @@ namespace fitom {
 // (OPN2_new.cpp は OPN_new.cpp の COPN 定義に依存するが、
 //  ヘッダで公開すると循環インクルードが起きるため、
 //  名前でリンク解決する間接ファクトリを使う)
-std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster) {
-    return std::make_unique<COPN>(port, DEVICE_OPN, fnumMaster);
+std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster, bool fxCapable) {
+    return std::make_unique<COPN>(port, DEVICE_OPN, fnumMaster, fxCapable);
 }
 
 std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr) {
