@@ -500,6 +500,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_SCC: case DEVICE_SCCP: return VOICE_PATCH_SCC;
 
     case DEVICE_ADPCMB: return VOICE_PATCH_ADPCMB;
+    case DEVICE_ADPCMB_OPNA: return VOICE_PATCH_ADPCMB; // 音色パラメータ形式はOPNBと共通
     case DEVICE_ADPCMA: return VOICE_PATCH_ADPCMA;
     case DEVICE_PCMD8:  return VOICE_PATCH_PCMD8;
 
@@ -693,10 +694,11 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
     case DEVICE_OPN3:
         // OPNA本体(FM 6ch) + SSG(3ch) + ADPCM-B + リズム(6パート)。
         // 全サブデバイスが同一の物理ポート(+extraPort)を共有する。
-        outSpec.push_back({baseDeviceType,   "-FM",     true,  false});
-        outSpec.push_back({DEVICE_SSG,       "-SSG",    false, false});
-        outSpec.push_back({DEVICE_ADPCMB,    "-ADPCMB", false, false});
-        outSpec.push_back({DEVICE_OPNA_RHY,  "-RHYTHM", false, true});
+        // ADPCM-BはOPNB系と異なるレジスタマップのため DEVICE_ADPCMB_OPNA を使う。
+        outSpec.push_back({baseDeviceType,      "-FM",     true,  false});
+        outSpec.push_back({DEVICE_SSG,          "-SSG",    false, false});
+        outSpec.push_back({DEVICE_ADPCMB_OPNA,  "-ADPCMB", false, false});
+        outSpec.push_back({DEVICE_OPNA_RHY,     "-RHYTHM", false, true});
         return true;
 
     case DEVICE_2610B:

@@ -64,7 +64,8 @@
 
 #define	DEVICE_ADPCM	119	//virtual device for ADPCM channel
 #define	DEVICE_ADPCMA	118	//YM2610/YM2610B
-#define	DEVICE_ADPCMB	117	//YM2608/YM2610/YM2610B/YM3801
+#define	DEVICE_ADPCMB	117	//YM2610/YM2610B (OPNB系)。OPNA用は DEVICE_ADPCMB_OPNA を使う
+#define	DEVICE_ADPCMB_OPNA	60	//YM2608 (OPNA) 内蔵ADPCM-B。レジスタマップがOPNBと異なるため分離
 
 #define DEVICE_RHYTHM	120	// Virtual device for rhythm channel
 
