@@ -89,7 +89,16 @@ struct ChState {
     static constexpr uint16_t kReleasingHoldMs = 2000;
 
     void assign(IMidiCh* ch) { owner = ch; status = Status::Assigned; }
-    void run()               { status = Status::Running; noteOnAge = 0; }
+    // wasReleasing: run() 直前が Releasing 状態だったかを記録する。
+    // (リリース中の音が残った状態で同一チャンネルに新規ノートオンした場合、
+    //  アタック波形が不正になるのを防ぐため、チップドライバの updateKey が
+    //  この情報を見て NoteOn 直前に強制ダンプ(RR最大化)するかを判定する)
+    bool wasReleasing = false;
+    void run() {
+        wasReleasing = (status == Status::Releasing);
+        status = Status::Running;
+        noteOnAge = 0;
+    }
     void release() {
         status       = Status::Releasing;
         releaseTimer = kReleasingHoldMs;
