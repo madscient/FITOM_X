@@ -196,6 +196,11 @@ bool FITOMConfig::buildFromProfile(const json& j)
         }
     }
 
+    // --- 同種デバイス自動束ね (CSpanDevice) ---
+    // sub-device 展開が完了した devices_ 全体を対象に、
+    // 同一 VoicePatchType・同一物理接続種別のエントリを検出して統合する。
+    mergeSpannableDevices();
+
     // --- MIDI 入力 ---
     if (j.contains("midi_inputs") && j["midi_inputs"].is_array()) {
         for (const auto& name : j["midi_inputs"]) {
@@ -475,6 +480,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 
     case DEVICE_OPL:    case DEVICE_Y8950: return VOICE_PATCH_OPL;
     case DEVICE_OPL2:                      return VOICE_PATCH_OPL2;
+    case DEVICE_OPL3_2:                    return VOICE_PATCH_OPL2; // COPL3_2は実質OPL2
 
     case DEVICE_OPLL:   return VOICE_PATCH_OPLL;
     case DEVICE_OPLLP:  return VOICE_PATCH_OPLLP;
@@ -609,28 +615,108 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
     }
 }
 
+// ================================================================
+//  同種デバイス自動束ね (CSpanDevice)
+// ================================================================
+void FITOMConfig::mergeSpannableDevices()
+{
+    // グループ化キー: (voicePatchType, interfaceDesc, panpot)
+    // 同じキーを持つ複数エントリ (かつ port が物理的に別インスタンス) を
+    // 1つの代表エントリに統合する。
+    struct Key {
+        uint8_t     voicePatchType;
+        std::string interfaceDesc;
+        int         panpot;
+        bool operator==(const Key& o) const {
+            return voicePatchType == o.voicePatchType
+                && interfaceDesc  == o.interfaceDesc
+                && panpot         == o.panpot;
+        }
+    };
+
+    std::vector<bool> merged(devices_.size(), false);
+
+    for (size_t i = 0; i < devices_.size(); ++i) {
+        if (merged[i] || !devices_[i].port) continue;
+        uint8_t vptI = deviceTypeToVoicePatchType(devices_[i].deviceType);
+        if (vptI == VOICE_PATCH_NONE) continue; // 未分類デバイスは束ね対象外
+
+        Key keyI{vptI, devices_[i].port->getInterfaceDesc(), devices_[i].port->getPanpot()};
+
+        for (size_t j = i + 1; j < devices_.size(); ++j) {
+            if (merged[j] || !devices_[j].port) continue;
+            if (devices_[i].port.get() == devices_[j].port.get()) continue; // 同一ポートは対象外
+            uint8_t vptJ = deviceTypeToVoicePatchType(devices_[j].deviceType);
+            if (vptJ == VOICE_PATCH_NONE) continue;
+
+            Key keyJ{vptJ, devices_[j].port->getInterfaceDesc(), devices_[j].port->getPanpot()};
+            if (!(keyI == keyJ)) continue;
+
+            // devices_[j] を devices_[i] に統合する
+            devices_[i].spanPorts.push_back(devices_[j].port);
+            for (auto& sp : devices_[j].spanPorts) devices_[i].spanPorts.push_back(sp);
+            merged[j] = true;
+            FITOM_LOG_INFO("mergeSpannableDevices: '" << devices_[j].label
+                << "' merged into '" << devices_[i].label
+                << "' (VoicePatchType=0x" << std::hex << (int)vptI << ")");
+        }
+    }
+
+    // 統合された (merged==true) エントリを削除する
+    std::vector<DeviceEntry> result;
+    result.reserve(devices_.size());
+    for (size_t i = 0; i < devices_.size(); ++i) {
+        if (!merged[i]) result.push_back(std::move(devices_[i]));
+    }
+    devices_ = std::move(result);
+}
+
+int FITOMConfig::getDeviceSpanPortCount(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return 0;
+    return static_cast<int>(devices_[index].spanPorts.size());
+}
+
+IPort* FITOMConfig::getDeviceSpanPort(int index, int k) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return nullptr;
+    const auto& sp = devices_[index].spanPorts;
+    if (k < 0 || k >= static_cast<int>(sp.size())) return nullptr;
+    return sp[k].get();
+}
+
 bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
                                         std::vector<SubDeviceSpec>& outSpec)
 {
     outSpec.clear();
     switch (baseDeviceType) {
     case DEVICE_OPNA:
-    case DEVICE_2610B:
     case DEVICE_F286:
     case DEVICE_OPN3:
-        // OPNA本体(FM 6ch) + SSG(3ch) + ADPCM-B。
-        // 3者とも同一の物理ポート(+extraPort)を共有する。
-        outSpec.push_back({baseDeviceType,  "-FM",     true,  false});
-        outSpec.push_back({DEVICE_SSG,      "-SSG",    false, false});
-        outSpec.push_back({DEVICE_ADPCMB,   "-ADPCMB", false, false});
+        // OPNA本体(FM 6ch) + SSG(3ch) + ADPCM-B + リズム(6パート)。
+        // 全サブデバイスが同一の物理ポート(+extraPort)を共有する。
+        outSpec.push_back({baseDeviceType,   "-FM",     true,  false});
+        outSpec.push_back({DEVICE_SSG,       "-SSG",    false, false});
+        outSpec.push_back({DEVICE_ADPCMB,    "-ADPCMB", false, false});
+        outSpec.push_back({DEVICE_OPNA_RHY,  "-RHYTHM", false, true});
         return true;
 
-    // OPL3 (4OPモード6ch + 2OPモード6ch) は COPL3(4op) の実装後に
-    // 以下のように展開する予定 (現時点では未展開、単独デバイスのまま):
-    //   outSpec.push_back({DEVICE_OPL3,   "-4OP", true, false});
-    //   outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
-    //   (rhythmCapable=true は COPL3_2 側の port1 サブチップに適用する
-    //    "OPL3(6ch)+OPL2(3ch)+Rhythm(5ch)" 構成に対応するため)
+    case DEVICE_2610B:
+        // OPNB/OPNBB (YM2610/YM2610B): FM本体 + SSG + ADPCM-A + ADPCM-B。
+        // YM2610無印は ADPCM-B のメモリ空間が無いが (実質OPNA兼用扱い)、
+        // ここでは新しい YM2610B (2610B) 系のみ ADPCM-B も併せて生成する。
+        outSpec.push_back({baseDeviceType, "-FM",     true,  false});
+        outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
+        outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", false, false});
+        outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
+        return true;
+
+    case DEVICE_OPL3:
+    case DEVICE_OPN3_L3:
+        // OPL3: 4OPモード(6ch) + 2OP残余(6ch)。同一の物理ポート(port1+port2)を共有する。
+        // COPL3_2側のport1サブチップ(ch6-8)にrhythm_modeを適用すると
+        // "OPL3(6ch)+OPL2(3ch)+Rhythm(5ch)" 構成になる。
+        outSpec.push_back({DEVICE_OPL3,   "-4OP", true, false});
+        outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
+        return true;
 
     default:
         return false;
@@ -670,7 +756,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPM",   DEVICE_OPM},   {"OPP",   DEVICE_OPP},
         {"OPZ",   DEVICE_OPZ},
         {"OPL",   DEVICE_OPL},   {"OPL2",  DEVICE_OPL2},
-        {"OPL3",  DEVICE_OPL3},  {"Y8950", DEVICE_Y8950},
+        {"OPL3",  DEVICE_OPL3},  {"OPL3_2", DEVICE_OPL3_2}, {"Y8950", DEVICE_Y8950},
         {"OPLL",  DEVICE_OPLL},  {"OPLL2", DEVICE_OPLL2},
         {"OPLLP", DEVICE_OPLLP}, {"OPLLX", DEVICE_OPLLX},
         {"VRC7",  DEVICE_VRC7},

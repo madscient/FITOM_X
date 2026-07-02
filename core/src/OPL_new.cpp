@@ -236,12 +236,272 @@ public:
 };
 
 // ================================================================
-//  COPL3 (OPL3 = YMF262) — CSpanDevice + 2×COPL2 構成
+//  COPL3 (OPL3 = YMF262) — 4OPモード専用、6ch
 //
-//  旧FITOMと同様に CSpanDevice を継承し、内部に2つの COPL2 サブチップを持つ。
+//  1ポートあたり最大3ch(ch0-2)を4OPとして使用 (前半opペア+後半opペア結合)。
+//  2ポート合計で6ch。残りのch6-8(3chずつ)はCOPL3_2(2OP)が別途担当する。
 //
-//  ch  0- 8 → chip1_ (port1: アドレス 0x000-0x0FF)
-//  ch  9-17 → chip2_ (port2: OffsetPort(port, 0x100) → 0x100-0x1FF)
+//  4OPの構成は旧FITOMのAL(4bit)値をそのまま踏襲する:
+//    AL bit0: 前半ペアのCON (0xC0+rop+dch のbit0)
+//    AL bit1: 後半ペアのCON (0xC0+rop+pairCh のbit0)
+//    AL bit2-3: CONNECTIONSEL(0x104)で4OP結合を有効にするかの判定
+//               (0の場合は前半/後半が独立した2opとして動作する)
+//    carmsk[16]: AL(4bit)値ごとのキャリアOPビットマスク (旧FITOM完全移植)
+//
+//  AL(4bit) は hw.ALG(3bit, bit0-2) + ext.ALG_EXT(1bit, bit3) を
+//  結合して復元する (Patch::fromLegacy と同じ変換規則)。
+// ================================================================
+class COPL3 : public CSoundDevice {
+public:
+    COPL3(IPort* port, int sampleRate)
+        : CSoundDevice(DEVICE_OPL3, 6, port,
+                       sampleRate, 288,
+                       FNUM_OFFSET,
+                       FnumTableType::Fnumber,
+                       0x200)
+    {
+        opCount_ = 4;
+    }
+
+    std::string getDescriptor() const override { return "OPL3 (YMF262) 4OP 6ch"; }
+
+    void init() override {
+        setReg(0x01, 0x20, true);  // Wave Select Enable (port1)
+        setReg(0x105, 0x01, true); // OPL3 NEW1 (port2経由、OPL3モード有効)
+    }
+
+    void reset() override {
+        CSoundDevice::reset();
+        for (int i = 0x20; i < 0xF6; ++i) {
+            setReg(static_cast<uint16_t>(i), 0, true);
+            setReg(static_cast<uint16_t>(0x100 + i), 0, true);
+        }
+    }
+
+protected:
+    static const uint8_t opmap[4];   // 4オペレータ分のスロットオフセット
+    static const uint8_t carmsk[16]; // AL(4bit)値ごとのキャリアOPビットマスク
+
+    uint16_t portBase(uint8_t ch) const { return (ch >= 3) ? 0x100 : 0; }
+    uint8_t  localCh(uint8_t ch)  const { return ch % 3; }
+    // 後半opペアのローカルch (常に前半+3、旧FITOM同様)
+    uint8_t  pairCh(uint8_t ch)   const { return static_cast<uint8_t>(localCh(ch) + 3); }
+
+    // hw.ALG(3bit)+ext.ALG_EXT(1bit) → 旧FMVOICE.AL相当の4bit値
+    uint8_t alValue(uint8_t ch) const {
+        const HwPatch& p = chState_[ch].hwPatch;
+        return static_cast<uint8_t>((p.hw.ALG & 0x7) | (p.ext.ALG_EXT ? 0x8 : 0));
+    }
+    bool isCarrier(uint8_t ch, int op) const {
+        return (carmsk[alValue(ch) & 0xF] & (1 << op)) != 0;
+    }
+    static uint8_t ar4(uint8_t v) { return v >> 1; } // 5bit → 4bit
+    static uint8_t tl6(uint8_t v) { return v >> 1; } // 7bit → 6bit
+
+    void updateVoice(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        const bool sus = s.sustain;
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+        uint8_t  al  = alValue(ch);
+
+        for (int i = 0; i < 4; ++i) {
+            const FmHwOp& o = p.hwOp[i];
+            uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
+            bool car = isCarrier(ch, i);
+
+            // AM/VIB/EGT/KSR/MUL
+            setReg(static_cast<uint16_t>(0x20 + slot),
+                   static_cast<uint8_t>(
+                       ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
+                       ((o.SR > 0) ? 0 : 0x20) |
+                       ((o.KSR & 1) << 4) | (o.MUL & 0xF)), true);
+
+            // KSL/TL (モジュレータのみ。キャリアはupdateVolExpで書く)
+            if (!car) {
+                setReg(static_cast<uint16_t>(0x40 + slot),
+                       static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)), true);
+            }
+
+            // AR/DR (キャリアはベロシティ補正値)
+            const uint8_t ar_ = car ? s.proc.velAR(i) : (o.AR & 0x1F);
+            const uint8_t dr_ = car ? s.proc.velDR(i) : (o.DR & 0x1F);
+            setReg(static_cast<uint16_t>(0x60 + slot),
+                   static_cast<uint8_t>((ar4(ar_) << 4) | ar4(dr_)), true);
+
+            // SL/RR (サスティン中はフォールバックRR=4、キーオフ時のみ)
+            static constexpr uint8_t kFallbackRR = 4;
+            const uint8_t sl_ = car ? s.proc.velSL(i) : (o.SL & 0xF);
+            const uint8_t rr_base = car ? s.proc.velRR(i) : o.RR;
+            const uint8_t rr_ = (sus && car) ? kFallbackRR : rr_base;
+            setReg(static_cast<uint16_t>(0x80 + slot),
+                   static_cast<uint8_t>(((sl_ & 0xF) << 4) | (rr_ & 0xF)), true);
+
+            // WS (OPL3は3bit)
+            setReg(static_cast<uint16_t>(0xE0 + slot), static_cast<uint8_t>(o.WS & 0x7), true);
+        }
+
+        // FB/CON: 前半ペア・後半ペアそれぞれの0xC0レジスタに書く
+        uint16_t reg1 = static_cast<uint16_t>(0xC0 + rop + dch);
+        uint16_t reg2 = static_cast<uint16_t>(0xC0 + rop + pairCh(ch));
+        setReg(reg1, static_cast<uint8_t>((getReg(reg1) & 0xF0) | ((p.hw.FB & 7) << 1) | (al & 0x1)), true);
+        setReg(reg2, static_cast<uint8_t>((getReg(reg2) & 0xF0) | ((p.hw.FB & 7) << 1) | ((al >> 1) & 0x1)), true);
+
+        // CONNECTIONSEL(0x104): 4OPペア結合ビット
+        uint8_t con = getReg(0x104) & static_cast<uint8_t>(~(1u << ch));
+        bool con4op = (al & 0x0C) != 0;
+        setReg(0x104, static_cast<uint8_t>(con | (con4op ? (1u << ch) : 0)), true);
+
+        updateVolExp(ch);
+        updatePanpot(ch);
+    }
+
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+        for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, i)) continue;
+            uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
+            uint8_t tl = tl6(s.proc.effectiveTL(i));
+            setReg(static_cast<uint16_t>(0x40 + slot),
+                   static_cast<uint8_t>((p.hwOp[i].KSL << 6) | tl), false);
+        }
+    }
+
+    void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+        uint16_t slot = static_cast<uint16_t>(rop + opmap[op] + dch);
+        lev = std::min<uint8_t>(lev, 63);
+        setReg(static_cast<uint16_t>(0x40 + slot), lev, false);
+    }
+
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        // 疑似デチューン(前半/後半ペアで別々のFnumberを使う機能)は
+        // 現時点では未対応。両ペアとも同一のFnumberを使う。
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+
+        uint16_t reg_a1 = static_cast<uint16_t>(rop + 0xA0 + dch);
+        uint16_t reg_b1 = static_cast<uint16_t>(rop + 0xB0 + dch);
+        uint16_t reg_a2 = static_cast<uint16_t>(rop + 0xA0 + pairCh(ch));
+        uint16_t reg_b2 = static_cast<uint16_t>(rop + 0xB0 + pairCh(ch));
+
+        uint8_t b1cur = getReg(reg_b1) & 0x20;
+        setReg(reg_a1, static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
+        setReg(reg_b1, static_cast<uint8_t>(b1cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+
+        uint8_t b2cur = getReg(reg_b2) & 0x20;
+        setReg(reg_a2, static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
+        setReg(reg_b2, static_cast<uint8_t>(b2cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        int8_t pan = chState_[ch].panpot;
+        uint8_t lr = (pan > 20) ? 0x10 : (pan < -20) ? 0x20 : 0x30;
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+        uint16_t reg1 = static_cast<uint16_t>(0xC0 + rop + dch);
+        uint16_t reg2 = static_cast<uint16_t>(0xC0 + rop + pairCh(ch));
+        setReg(reg1, static_cast<uint8_t>(lr | (getReg(reg1) & 0x0F)));
+        setReg(reg2, static_cast<uint8_t>(lr | (getReg(reg2) & 0x0F)));
+    }
+
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        const auto& s = chState_[ch];
+        if (!s.isActive()) return;
+        const HwPatch& p = s.hwPatch;
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+        for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, i)) continue;
+            uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
+            const FmHwOp& o = p.hwOp[i];
+            setReg(static_cast<uint16_t>(0x80 + slot),
+                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | 0xF)); // RR=15
+        }
+        noteOff(ch);
+    }
+
+    void updateSustain(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+        for (int i = 0; i < 4; ++i) {
+            if (!isCarrier(ch, i)) continue;
+            uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
+            static constexpr uint8_t kFallbackRR = 4;
+            const FmHwOp& o = p.hwOp[i];
+            uint8_t rr = (s.sustain && s.isReleasing()) ? kFallbackRR : o.RR;
+            setReg(static_cast<uint16_t>(0x80 + slot),
+                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
+        }
+    }
+
+    void updateKey(uint8_t ch, bool keyOn) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        uint16_t rop = portBase(ch);
+        uint8_t  dch = localCh(ch);
+
+        for (int i = 0; i < 4; ++i) {
+            const FmHwOp& o = p.hwOp[i];
+            uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
+            // EGT: キーオフ時はRRレジスタをリリースレイトとして機能させるため
+            // EGT=1に切り替える (キーオン中は音色データのSR有無で決定済み)
+            uint8_t cur = getReg(static_cast<uint16_t>(0x20 + slot)) & 0xDF;
+            setReg(static_cast<uint16_t>(0x20 + slot),
+                   static_cast<uint8_t>(cur | (keyOn ? 0 : 0x20)), true);
+
+            static constexpr uint8_t kFallbackRR = 4;
+            bool carrier = isCarrier(ch, i);
+            uint8_t rr = (s.sustain && carrier && !keyOn) ? kFallbackRR
+                       : (keyOn ? ar4(o.SR) : o.RR);
+            setReg(static_cast<uint16_t>(0x80 + slot),
+                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)), true);
+        }
+
+        // B0/B3 の bit5 = KeyOn (前半・後半両方)
+        uint16_t reg_b1 = static_cast<uint16_t>(rop + 0xB0 + dch);
+        uint16_t reg_b2 = static_cast<uint16_t>(rop + 0xB0 + pairCh(ch));
+        uint8_t b1cur = getReg(reg_b1) & 0xDF;
+        setReg(reg_b1, static_cast<uint8_t>(b1cur | (keyOn ? 0x20 : 0)), true);
+        // 後半ペアのキーオンは、4OP結合時(前半とのCON次第)またはキーオフ時のみ操作
+        // (旧FITOM: (voice->AL & 0x08) || !keyon)
+        uint8_t al = alValue(ch);
+        if ((al & 0x08) || !keyOn) {
+            uint8_t b2cur = getReg(reg_b2) & 0xDF;
+            setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
+        }
+    }
+};
+
+const uint8_t COPL3::opmap[4] = {0x0, 0x3, 0x8, 0xb};
+const uint8_t COPL3::carmsk[16] = {
+    0x2, 0x3, 0x8, 0xc,  0x8, 0x9, 0xa, 0xd,
+    0xa, 0xe, 0xb, 0xf,  0xa, 0xe, 0xb, 0xf
+};
+
+
+//
+//  実機OPL3は1ポートあたり4OPモード最大3ch(ch0-2)を使うと、
+//  残りのch6-8(3ch)は2OPのまま使える。2ポート合計で
+//  4OP×6ch(COPL3が担当) + 2OP×6ch(本クラスが担当) という構成になる。
+//
+//  ch0-8 → chip1_ (port1), ch9-17 → chip2_ (port2) の各COPL2のうち、
+//  ch0-5 (4OPペア用スロット) は EnableCh で無効化し、
+//  実際に使えるのは各ポートch6-8の3chずつ、計6chのみ。
+//
+//  ch  6- 8 → chip1_ (port1: アドレス 0x000-0x0FF)
+//  ch 15-17 → chip2_ (port2: OffsetPort(port, 0x100) → 0x100-0x1FF)
+//  (CSpanDeviceの通しch番号としては前半9ch+後半9ch=18のうち、
+//   有効なのはch6-8とch15-17の6chのみ)
 //
 //  OPL3 固有の初期化:
 //    0x001: Wave Select Enable (port1)     → chip1_->setReg(0x01, 0x20)
@@ -253,23 +513,33 @@ public:
 //  OPN2 の 0x28 のようなグローバルレジスタではないため、
 //  特殊なポートラッパーは不要。OffsetPort だけで正しく動作する。
 // ================================================================
-class COPL3 : public CSpanDevice {
+class COPL3_2 : public CSpanDevice {
 public:
-    COPL3(IPort* port, int sampleRate)
+    COPL3_2(IPort* port, int sampleRate)
     {
         offsetPort_ = std::make_unique<OffsetPort>(port, 0x100);
         chip1_ = std::make_unique<COPL2>(port,              sampleRate);
         chip2_ = std::make_unique<COPL2>(offsetPort_.get(), sampleRate);
-        addDevice(chip1_.get()); // ch  0-8
-        addDevice(chip2_.get()); // ch 9-17
+        // 各ポートch0-5は4OPモード(COPL3)が使用するため無効化する。
+        // 残りch6-8(3ch)ずつ、計6chのみ2OPとして使用する。
+        for (int i = 0; i < 6; ++i) {
+            chip1_->enableCh(static_cast<uint8_t>(i), false);
+            chip2_->enableCh(static_cast<uint8_t>(i), false);
+        }
+        addDevice(chip1_.get()); // ch  0-8 (有効なのはch6-8のみ)
+        addDevice(chip2_.get()); // ch 9-17 (有効なのはch15-17のみ)
     }
 
-    uint8_t     getDeviceType() const override { return DEVICE_OPL3; }
-    std::string getDescriptor() const override { return "OPL3 (YMF262) 18ch"; }
+    uint8_t     getDeviceType() const override { return DEVICE_OPL3_2; }
+    std::string getDescriptor() const override { return "OPL3 (YMF262) 2OP residual 6ch"; }
 
     void init() override {
         chip1_->reset();
         chip2_->reset();
+        for (int i = 0; i < 6; ++i) {
+            chip1_->enableCh(static_cast<uint8_t>(i), false);
+            chip2_->enableCh(static_cast<uint8_t>(i), false);
+        }
         // Wave Select Enable: 両ポートに書く
         chip1_->setReg(0x01, 0x20, true); // 0x001
         chip2_->setReg(0x01, 0x20, true); // 0x101 (OffsetPort 経由)
@@ -291,4 +561,5 @@ namespace fitom {
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr)  { return std::make_unique<COPL>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr) { return std::make_unique<COPL2>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_unique<COPL3>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr) { return std::make_unique<COPL3_2>(p, sr); }
 } // namespace fitom
