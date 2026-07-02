@@ -179,6 +179,13 @@ public:
         auto [dev, lch] = resolveGlobalCh(gch);
         if (dev) dev->noteOff(lch);
     }
+    // forceDamp は ISoundDevice のデフォルト実装 (単純な noteOff) では
+    // サブチップ本来の急速減衰処理 (RR最大化等) がスキップされてしまうため、
+    // 明示的に委譲する。
+    void forceDamp(uint8_t gch) override {
+        auto [dev, lch] = resolveGlobalCh(gch);
+        if (dev) dev->forceDamp(lch);
+    }
     bool isChOwnedBy(uint8_t gch, const IMidiCh* owner) const override {
         auto [dev, lch] = resolveGlobalCh(gch);
         return dev && dev->isChOwnedBy(lch, owner);
@@ -294,6 +301,9 @@ public:
 
     void noteOff(uint8_t gch) override {
         for (auto* c : chips_) c->noteOff(gch);
+    }
+    void forceDamp(uint8_t gch) override {
+        for (auto* c : chips_) c->forceDamp(gch);
     }
     bool isChOwnedBy(uint8_t gch, const IMidiCh* owner) const override {
         // ユニゾングループは全チップが同じ owner を共有する設計のため、
