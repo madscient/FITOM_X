@@ -6,6 +6,7 @@
 #include "fitom/FmEnginePort.h"
 #include "fitom/HWPort.h"
 #include "fitom/PatchData.h"
+#include "fitom/ISoundDevice.h"
 
 #include <cstdint>
 #include <string>
@@ -17,20 +18,28 @@
 
 namespace fitom {
 
+class PatchManager; // 前方宣言 (loadDrumBanks の引数用)
+
 class ISoundDevice;
 
 struct DeviceEntry {
     std::string                    label;
-    std::unique_ptr<IPort>         port;
+    // shared_ptr: sub-device 自動生成 (例: OPNA→FM+SSG+ADPCMB) で
+    // 複数の DeviceEntry が同一の物理/エミュレーターポートを共有するため。
+    std::shared_ptr<IPort>         port;
     std::unique_ptr<ISoundDevice>  device;
     uint32_t                       deviceType  = 0;
     int                            sampleRate  = 44100;
     // B-2: 2ポートチップ用の2番目のポート（HW SPFM extra_slot）
-    std::unique_ptr<IPort>         port2;        // nullptr = 1ポート
+    std::shared_ptr<IPort>         port2;        // nullptr = 1ポート
     int                            extraSlot   = -1; // -1 = 未使用
     // リズムモード (OPLL/OPL/OPL2/OPL3 等、チップ内蔵リズム音源を持つ
     // デバイス共通のオプション)。特定チップに限定しない汎用フィールド。
     bool                           rhythmMode  = false;
+    // sub-device 自動生成で同一チップ指定から生成された兄弟エントリを
+    // 識別するためのグループID (-1 = 単独デバイス)。同じ物理ポートを
+    // 共有するデバイス群は同じ compositeGroup を持つ。
+    int                            compositeGroup = -1;
 };
 
 struct ChannelMapEntry {
@@ -58,6 +67,9 @@ public:
 
     int              getDeviceCount()              const;
     IPort*           getDevicePort(int index)      const;
+    // B-2: 2ポートチップ (OPN2/OPNA/OPL3等) の2番目のポート。単一ポート
+    // デバイスや未使用の場合は nullptr。
+    IPort*           getDevicePort2(int index)     const;
     ISoundDevice*    getDevice(int index)          const;
     uint32_t         getDeviceType(int index)      const;
     // リズムモード (OPLL/OPL系等、チップ内蔵リズム音源の有効/無効)
@@ -85,6 +97,25 @@ public:
     // 対応する文字列が無い場合は VOICE_PATCH_NONE(0) を返す。
     static uint8_t stringToVoicePatchType(const std::string& s) noexcept;
 
+    // ─── Sub-device 自動生成 (composite chip) ──────────────────────────────
+    // 1つの物理/エミュレーターチップ指定 (例: "OPNA") から、内部的に複数の
+    // ISoundDevice インスタンス (例: FM本体 + SSG + ADPCM-B) を自動生成する。
+    // 各サブデバイスは同一の物理ポートを共有するが、独立した devices_[] の
+    // エントリとして登録され、それぞれ別の VoicePatchType で識別可能になる。
+    struct SubDeviceSpec {
+        uint32_t    deviceType;    // このサブデバイスの DEVICE_*
+        const char* labelSuffix;   // ラベルに付与する接尾辞 (例: "-SSG")
+        bool        usesExtraPort; // 2ポート目 (extraPort) を必要とするか
+        bool        rhythmCapable; // rhythm_mode をこのサブデバイスに適用するか
+    };
+
+    // baseDeviceType (プロファイルの "chip" から解決した DEVICE_*) が
+    // 複数サブデバイスへの展開を必要とするかどうか。
+    // 展開が必要なら true を返し、outSpec に構成一覧を書き込む。
+    // 展開不要 (単独デバイスのまま) なら false を返す。
+    static bool resolveCompositeSpec(uint32_t baseDeviceType,
+                                      std::vector<SubDeviceSpec>& outSpec);
+
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;
 
@@ -107,6 +138,17 @@ protected:
     virtual bool buildFromProfile(const nlohmann::json& j);
     virtual bool buildFromLegacyIni(const nlohmann::json& ini);
     virtual void buildDevice(const nlohmann::json& dev);
+
+    // buildDevice() の FMENGINE/HW 両ブランチ共通処理。
+    // composite chip (resolveCompositeSpec が true を返す場合) なら
+    // 複数の DeviceEntry を、そうでなければ単独の DeviceEntry を devices_ に追加する。
+    void pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
+                            std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
+                            int sampleRate, int extraSlot, bool rhythmModeFromProfile);
+    int nextCompositeGroupId_ = 0;
+    // profile の banks.drum_banks[] を PatchManager に登録する
+    void loadDrumBanks(const nlohmann::json& j, PatchManager& pm,
+                        const std::filesystem::path& baseDir);
     virtual void validateProfile();
     virtual void loadLegacyManualDevices(const nlohmann::json& ini);
 

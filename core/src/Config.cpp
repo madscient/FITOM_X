@@ -238,16 +238,12 @@ void FITOMConfig::buildDevice(const json& dev)
             return;
         }
         try {
-            auto port = std::make_unique<FmEnginePort>(engineInst, chipName, clock);
+            auto port = std::make_shared<FmEnginePort>(engineInst, chipName, clock);
             port->setGain(gainL, gainR);
-            DeviceEntry e;
-            e.label      = label;
-            e.deviceType = resolveChipDeviceId(chipName);
-            e.sampleRate = static_cast<int>(engineInst->vtable().GetSampleRate(engineInst->handle()));
-            e.rhythmMode = dev.value("rhythm_mode", false);
-            e.port       = std::move(port);
-            devices_.push_back(std::move(e));
-            FITOM_LOG_INFO("Device added: " << label << " [FMENGINE/" << chipName << "]");
+            uint32_t deviceType = resolveChipDeviceId(chipName);
+            int sr = static_cast<int>(engineInst->vtable().GetSampleRate(engineInst->handle()));
+            bool rhythmMode = dev.value("rhythm_mode", false);
+            pushDeviceEntries(label, deviceType, port, nullptr, sr, -1, rhythmMode);
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create FmEnginePort for '" << label << "': " << ex.what());
         }
@@ -273,19 +269,13 @@ void FITOMConfig::buildDevice(const json& dev)
         int extraSlot = dev.value("extra_slot", -1);
 
         try {
-            auto port = std::make_unique<HWPort>(hwPlugin_, params.dump());
-            DeviceEntry e;
-            e.label      = label;
-            e.deviceType = resolveChipDeviceId(dev.value("chip", ""));
-            e.extraSlot  = extraSlot;
-            e.rhythmMode = dev.value("rhythm_mode", false);
-            e.port       = std::move(port);
-
+            auto port = std::make_shared<HWPort>(hwPlugin_, params.dump());
+            std::shared_ptr<IPort> port2;
             if (extraSlot >= 0) {
                 json params2 = params;
                 params2["slot"] = extraSlot;
                 try {
-                    e.port2 = std::make_unique<HWPort>(hwPlugin_, params2.dump());
+                    port2 = std::make_shared<HWPort>(hwPlugin_, params2.dump());
                     FITOM_LOG_INFO("Device[" << label << "]: extra_slot=" << extraSlot
                         << " port2 created");
                 } catch (const std::exception& ex) {
@@ -293,8 +283,9 @@ void FITOMConfig::buildDevice(const json& dev)
                         << ex.what() << " — 1-port mode");
                 }
             }
-            devices_.push_back(std::move(e));
-            FITOM_LOG_INFO("Device added: " << label << " [HW/" << params["type"].get<std::string>() << "]");
+            uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
+            bool rhythmMode = dev.value("rhythm_mode", false);
+            pushDeviceEntries(label, deviceType, port, port2, 44100, extraSlot, rhythmMode);
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
         }
@@ -574,6 +565,76 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "PSG")       return VOICE_PATCH_SSG;
     if (s == "PCM")       return VOICE_PATCH_ADPCMB;
     return VOICE_PATCH_NONE;
+}
+
+// ================================================================
+//  Sub-device 自動生成 (composite chip)
+// ================================================================
+// ================================================================
+//  Sub-device 自動生成 (composite chip)
+// ================================================================
+void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
+                                     std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
+                                     int sampleRate, int extraSlot, bool rhythmModeFromProfile)
+{
+    std::vector<SubDeviceSpec> spec;
+    if (resolveCompositeSpec(baseDeviceType, spec)) {
+        int group = nextCompositeGroupId_++;
+        for (const auto& s : spec) {
+            DeviceEntry e;
+            e.label          = baseLabel + s.labelSuffix;
+            e.deviceType     = s.deviceType;
+            e.sampleRate     = sampleRate;
+            e.extraSlot      = extraSlot;
+            e.port           = port;                          // 全サブデバイスで共有
+            e.port2          = s.usesExtraPort ? port2 : nullptr;
+            e.rhythmMode     = s.rhythmCapable ? rhythmModeFromProfile : false;
+            e.compositeGroup = group;
+            FITOM_LOG_INFO("Device added: " << e.label
+                << " (composite sub-device of '" << baseLabel << "', type=0x"
+                << std::hex << s.deviceType << ")");
+            devices_.push_back(std::move(e));
+        }
+    } else {
+        DeviceEntry e;
+        e.label      = baseLabel;
+        e.deviceType = baseDeviceType;
+        e.sampleRate = sampleRate;
+        e.extraSlot  = extraSlot;
+        e.port       = port;
+        e.port2      = port2;
+        e.rhythmMode = rhythmModeFromProfile;
+        FITOM_LOG_INFO("Device added: " << e.label);
+        devices_.push_back(std::move(e));
+    }
+}
+
+bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
+                                        std::vector<SubDeviceSpec>& outSpec)
+{
+    outSpec.clear();
+    switch (baseDeviceType) {
+    case DEVICE_OPNA:
+    case DEVICE_2610B:
+    case DEVICE_F286:
+    case DEVICE_OPN3:
+        // OPNA本体(FM 6ch) + SSG(3ch) + ADPCM-B。
+        // 3者とも同一の物理ポート(+extraPort)を共有する。
+        outSpec.push_back({baseDeviceType,  "-FM",     true,  false});
+        outSpec.push_back({DEVICE_SSG,      "-SSG",    false, false});
+        outSpec.push_back({DEVICE_ADPCMB,   "-ADPCMB", false, false});
+        return true;
+
+    // OPL3 (4OPモード6ch + 2OPモード6ch) は COPL3(4op) の実装後に
+    // 以下のように展開する予定 (現時点では未展開、単独デバイスのまま):
+    //   outSpec.push_back({DEVICE_OPL3,   "-4OP", true, false});
+    //   outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
+    //   (rhythmCapable=true は COPL3_2 側の port1 サブチップに適用する
+    //    "OPL3(6ch)+OPL2(3ch)+Rhythm(5ch)" 構成に対応するため)
+
+    default:
+        return false;
+    }
 }
 
 uint8_t FITOMConfig::getVoicePatchType(int deviceIndex) const
