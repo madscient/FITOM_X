@@ -185,6 +185,17 @@ protected:
         const HwPatch& p = s.hwPatch;
         uint8_t slot = kMap[ch];
 
+        // リリース中の音が残った状態で同一chに新規ノートオンすると
+        // アタック波形が不正になるため、事前に強制ダンプ(RR最大化)する。
+        if (keyOn && s.wasReleasing) {
+            for (int i = 0; i < 2; ++i) {
+                if (!isCarrier(ch, i)) continue;
+                const uint8_t sl = p.hwOp[i].SL & 0xF;
+                setReg(static_cast<uint16_t>(0x80 + i * 3 + slot),
+                       static_cast<uint8_t>((sl << 4) | 0xF));
+            }
+        }
+
         for (int i = 0; i < 2; ++i) {
             const FmHwOp& o = p.hwOp[i];
             // EG type bit (bit5): keyon=0 で SR モードに切り替え
@@ -454,6 +465,18 @@ protected:
         const HwPatch& p = s.hwPatch;
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
+
+        // リリース中の音が残った状態で同一chに新規ノートオンすると
+        // アタック波形が不正になるため、事前に強制ダンプ(RR最大化)する。
+        if (keyOn && s.wasReleasing) {
+            for (int i = 0; i < 4; ++i) {
+                if (!isCarrier(ch, i)) continue;
+                uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
+                const uint8_t sl = p.hwOp[i].SL & 0xF;
+                setReg(static_cast<uint16_t>(0x80 + slot),
+                       static_cast<uint8_t>((sl << 4) | 0xF));
+            }
+        }
 
         for (int i = 0; i < 4; ++i) {
             const FmHwOp& o = p.hwOp[i];

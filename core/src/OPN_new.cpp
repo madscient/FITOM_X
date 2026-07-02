@@ -197,6 +197,17 @@ protected:
     // ──────────────────────────────────────────────────────────────
     void updateKey(uint8_t ch, bool keyOn) override {
         if (ch >= 3) return;
+        // リリース中の音が残った状態で同一chに新規ノートオンすると
+        // アタック波形が不正になるため、事前に強制ダンプ(RR最大化)する。
+        if (keyOn && chState_[ch].wasReleasing) {
+            const HwPatch& p = chState_[ch].hwPatch;
+            for (int op = 0; op < 4; ++op) {
+                if (!isCarrier(ch, op)) continue;
+                const uint8_t sl = p.hwOp[op].SL & 0xF;
+                setReg(static_cast<uint16_t>(0x80 + kOpMap[op] + ch),
+                       static_cast<uint8_t>((sl << 4) | 0xF)); // RR=15
+            }
+        }
         // OPN: 0x28 レジスタ、スロットマスクは 0xF0 (全スロット ON)
         uint8_t data = keyOn ? (0xF0 | (ch & 3)) : (ch & 3);
         setReg(0x28, data, true);
