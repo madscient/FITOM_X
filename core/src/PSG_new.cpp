@@ -494,6 +494,16 @@ protected:
         // SCC は ch ごとに独立した波形を持つので hwOp[0].WS を使う
         uint8_t ws = p.hwOp[0].WS & 0x7F;  // 7bit (0〜127)
 
+        // 実機制約: 無印SCC(K051649)はch3とch4が波形メモリを物理的に共有する
+        // (SCC+では解消済み)。ch4への書き込みはch3のメモリを上書きしてしまう
+        // ため、queryCh()がch3と同一波形の場合のみch4を割り当てる前提で、
+        // ch4への実際のレジスタ書き込みはスキップする(ch3が既に正しい波形を
+        // 書き込み済みのため、ch4は何もしなくてもch3のデータをそのまま使う)。
+        if (deviceType_ == DEVICE_SCC && ch == 4) {
+            prevWS_[4] = ws;
+            return;
+        }
+
         if (ws != prevWS_[ch]) {
             const int8_t* data = waveReg_
                 ? waveReg_->getWaveData(waveBankNo_, ws)
@@ -501,6 +511,36 @@ protected:
             writeWaveform(ch, data);
             prevWS_[ch] = ws;
         }
+    }
+
+    // 実機制約 (無印SCCのみ): ch3/ch4は波形メモリを共有するため、
+    // ch3が既に確保している波形と完全に一致する場合のみch4を割り当てる。
+    // SCC+ (DEVICE_SCCP) はこの制約が解消されているため通常の空きch検索を使う。
+    uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
+        if (deviceType_ != DEVICE_SCC) {
+            return CSoundDevice::queryCh(owner, patch, mode);
+        }
+        // ch0-2は制約なし、通常通り空きを探す
+        for (uint8_t ch = 0; ch < 3; ++ch) {
+            bool avail = mode ? chState_[ch].isEmpty() : chState_[ch].isEnabled();
+            if (avail) return ch;
+        }
+        // ch3が空いていれば優先的にch3を使う
+        {
+            bool avail = mode ? chState_[3].isEmpty() : chState_[3].isEnabled();
+            if (avail) return 3;
+        }
+        // ch3が使用中で、かつ要求された波形がch3のものと完全一致する場合のみ
+        // ch4を候補にする (波形メモリ共有のため、異なる波形では使えない)
+        if (patch && chState_[3].isActive()) {
+            uint8_t requestedWS = patch->hwOp[0].WS & 0x7F;
+            uint8_t ch3WS = chState_[3].hwPatch.hwOp[0].WS & 0x7F;
+            if (requestedWS == ch3WS) {
+                bool avail = mode ? chState_[4].isEmpty() : chState_[4].isEnabled();
+                if (avail) return 4;
+            }
+        }
+        return 0xFF;
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
@@ -700,6 +740,8 @@ protected:
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr)  { return std::make_unique<CSSG>(p, sr); }
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr) { return std::make_unique<CDCSG>(p, sr); }
-std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr)  { return std::make_unique<CSCC>(p, sr); }
+std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr, uint32_t deviceType) {
+    return std::make_unique<CSCC>(p, sr, static_cast<uint8_t>(deviceType));
+}
 std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr) { return std::make_unique<CSAA1099>(p, sr); }
 } // namespace fitom
