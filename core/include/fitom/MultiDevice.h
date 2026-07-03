@@ -417,8 +417,11 @@ private:
     void applyLinearPan(uint8_t ch, bool update) {
         int p = static_cast<int>(masterPan_[ch]) + 64 - 1; // -64..63 → -1..126
         p = std::clamp(p, 0, 126);
-        double lgain = std::cos(M_PI_2 * p / 126.0);
-        double rgain = std::sin(M_PI_2 * p / 126.0);
+        // M_PI_2 は POSIX/GNU拡張でありMSVC標準では未定義のため、
+        // 移植性のためリテラル値 (π/2) を直接使う。
+        constexpr double kHalfPi = 1.5707963267948966;
+        double lgain = std::cos(kHalfPi * p / 126.0);
+        double rgain = std::sin(kHalfPi * p / 126.0);
         uint8_t lvol = static_cast<uint8_t>(std::lround(lgain * masterVolume_[ch]));
         uint8_t rvol = static_cast<uint8_t>(std::lround(rgain * masterVolume_[ch]));
         chips_[0]->setVolume(ch, lvol, update); // L

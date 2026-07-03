@@ -30,6 +30,7 @@ std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr, uint32_t deviceType);
 std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr);
@@ -97,8 +98,8 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_SSGL:
     case DEVICE_SSGLP:
     case DEVICE_SSGS:
-    case DEVICE_EPSG:
     case DEVICE_DSG:       return createCSSG(port, sampleRate);
+    case DEVICE_EPSG:      return createCEPSG(port, sampleRate);
 
     case DEVICE_DCSG:      return createCDCSG(port, sampleRate);
     case DEVICE_SCC:
@@ -137,6 +138,7 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_OPL3: case DEVICE_OPL3_2:                 return 6;
     case DEVICE_VRC7:                                     return 6;
     case DEVICE_SSG: case DEVICE_PSG:                    return 3;
+    case DEVICE_EPSG:                                    return 3;
     case DEVICE_DCSG:                                     return 4;
     case DEVICE_SCC: case DEVICE_SCCP:                   return 5;
     case DEVICE_SAA:                                     return 6;

@@ -495,6 +495,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_VRC7:   return VOICE_PATCH_VRC7;
 
     case DEVICE_OPL3: case DEVICE_OPN3_L3: return VOICE_PATCH_OPL3;
+    case DEVICE_OPL4AWM: return VOICE_PATCH_AWM;
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
     case DEVICE_SSGS: case DEVICE_DSG:
@@ -801,6 +802,15 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
         return true;
 
+    case DEVICE_OPL4:
+        // OPL4 = OPL3(FM部、完全互換) + AWM(PCM部、YRW801 ROM音色)。
+        // FM部はOPL3と同じ3サブデバイス構成(4OP+2OP)、AWM部はさらに別ポート
+        // (メモリアクセス系、ここではport共有のみで足りる)を追加する。
+        outSpec.push_back({DEVICE_OPL3,    "-FM-4OP", true,  false});
+        outSpec.push_back({DEVICE_OPL3_2,  "-FM-2OP", true,  false});
+        outSpec.push_back({DEVICE_OPL4AWM, "-AWM",    false, false});
+        return true;
+
     case DEVICE_OPLL:
     case DEVICE_OPLL2:
     case DEVICE_OPLLP:
@@ -852,6 +862,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPZ",   DEVICE_OPZ},
         {"OPL",   DEVICE_OPL},   {"OPL2",  DEVICE_OPL2},
         {"OPL3",  DEVICE_OPL3},  {"OPL3_2", DEVICE_OPL3_2}, {"Y8950", DEVICE_Y8950},
+        {"OPL4",  DEVICE_OPL4},
         {"OPLL",  DEVICE_OPLL},  {"OPLL2", DEVICE_OPLL2},
         {"OPLLP", DEVICE_OPLLP}, {"OPLLX", DEVICE_OPLLX},
         {"VRC7",  DEVICE_VRC7},
