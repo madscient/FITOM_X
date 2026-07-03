@@ -293,6 +293,7 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     if (!s.isEnabled()) return;
 
     s.velocity = vel;
+    s.volDirty = true; // 新規ノートオンは常にベロシティが変わるため強制的にdirty扱い
     s.run();
     s.noteOnAge = 0;
 
@@ -303,6 +304,16 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     // SwPatch は CInstCh 側が VoiceProcessor に適用済み
     // ここでは volume/expression はデフォルト値で計算
     s.proc.onNoteOn(s.volume, s.expression, vel, dummy);
+
+    // CInstCh::noteOn は volume/expression/sustain/panpot を update=false で
+    // 先に一括設定するため (assignCh内のupdateVoice()より後のタイミングで
+    // ChStateだけ更新される)、ここで dirty なものだけをまとめて実際の
+    // レジスタへ反映する。同一チャンネルでCC値が変化していない場合
+    // (モノフォニックのレガート等) は dirty が立たないため、該当の
+    // update*() 呼び出し自体が発生せず、冗長なレジスタ書き込みを避けられる。
+    if (s.volDirty)     { updateVolExp(ch);  s.volDirty  = false; }
+    if (s.panDirty)     { updatePanpot(ch);  s.panDirty  = false; }
+    if (s.sustainDirty) { updateSustain(ch); s.sustainDirty = false; }
 
     updateKey(ch, true);
 }
@@ -349,36 +360,41 @@ void CSoundDevice::setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool upda
 void CSoundDevice::setVolume(uint8_t ch, uint8_t vol, bool update)
 {
     if (ch >= maxChs_) return;
-    chState_[ch].volume = vol;
-    if (update) updateVolExp(ch);
+    auto& s = chState_[ch];
+    if (s.volume != vol) { s.volume = vol; s.volDirty = true; }
+    if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }
 }
 
 void CSoundDevice::setVelocity(uint8_t ch, uint8_t vel, bool update)
 {
     if (ch >= maxChs_ || vel >= 128) return;
-    chState_[ch].velocity = vel;
-    if (update) updateVolExp(ch);
+    auto& s = chState_[ch];
+    if (s.velocity != vel) { s.velocity = vel; s.volDirty = true; }
+    if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }
 }
 
 void CSoundDevice::setExpression(uint8_t ch, uint8_t exp, bool update)
 {
     if (ch >= maxChs_) return;
-    chState_[ch].expression = exp;
-    if (update) updateVolExp(ch);
+    auto& s = chState_[ch];
+    if (s.expression != exp) { s.expression = exp; s.volDirty = true; }
+    if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }
 }
 
 void CSoundDevice::setPanpot(uint8_t ch, int8_t pan, bool update)
 {
     if (ch >= maxChs_) return;
-    chState_[ch].panpot = pan;
-    if (update) updatePanpot(ch);
+    auto& s = chState_[ch];
+    if (s.panpot != pan) { s.panpot = pan; s.panDirty = true; }
+    if (update && s.panDirty) { updatePanpot(ch); s.panDirty = false; }
 }
 
 void CSoundDevice::setSustain(uint8_t ch, bool sus, bool update)
 {
     if (ch >= maxChs_) return;
-    chState_[ch].sustain = sus;
-    if (update) updateSustain(ch);
+    auto& s = chState_[ch];
+    if (s.sustain != sus) { s.sustain = sus; s.sustainDirty = true; }
+    if (update && s.sustainDirty) { updateSustain(ch); s.sustainDirty = false; }
 }
 
 void CSoundDevice::setMasterVolume(uint8_t vol)
