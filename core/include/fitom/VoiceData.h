@@ -130,9 +130,14 @@ struct FmHwVoice {
     uint8_t AMS;  // AM Sensitivity:  2bit (OPM のみ / 他: 0固定)
     uint8_t PMS;  // PM Sensitivity:  3bit (OPM のみ / 他: 0固定)
     uint8_t NFQ;  // Noise Frequency: 5bit (OPM/OPZ: ノイズ周波数 / 他: 0固定)
+    // OPL3(COPL3) 4OPモード専用: 後半ペア(M2/C2)独立のフィードバック値 (3bit)。
+    // 実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つため、
+    // FBを前半ペア用のみに限定せず、後半ペア用に別フィールドを設ける。
+    // OPL3以外のチップでは未使用 (0固定)。
+    uint8_t FB2;
 
     constexpr FmHwVoice() noexcept
-        : FB(0), ALG(0), AMS(0), PMS(0), NFQ(0) {}
+        : FB(0), ALG(0), AMS(0), PMS(0), NFQ(0), FB2(0) {}
 };
 
 // ================================================================

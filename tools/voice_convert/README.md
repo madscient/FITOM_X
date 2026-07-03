@@ -197,13 +197,16 @@ python3 opl2_merge.py \\
 
 | フィールド | 内容 |
 |---|---|
-| `hw.FB` | Bank-A の FB (M1/C1ペア) |
-| `hw.FB2` | Bank-B の FB (M2/C2ペア) |
-| `hw.ALG` | Bank-A の ALG (M1→C1内接続) |
-| `hw.ALG2` | CON4 (4OP全体接続) |
+| `hw.FB` | Bank-A の FB (M1/C1ペア、独立3bit) |
+| `hw.FB2` | Bank-B の FB (M2/C2ペア、独立3bit) |
+| `hw.ALG` | 3bit統合 (bit0=CON1前半ペア接続, bit1=CON2後半ペア接続, bit2=ConnectionSEL) |
 | `ops[0]` | Bank-A Mod (M1) |
 | `ops[1]` | Bank-A Car (C1) |
 | `ops[2]` | Bank-B Mod (M2) |
 | `ops[3]` | Bank-B Car (C2) |
+
+実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つため、`FB`/`FB2`は
+6bitへのパック無しで、それぞれ独立したフィールドとして格納する
+(`core/src/OPL_new.cpp` の COPL3 実装に完全準拠)。
 
 `midi_note` 等のドラム固有フィールドは Bank-A から自動的に引き継がれます。

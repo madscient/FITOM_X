@@ -20,15 +20,13 @@ OPL3 4OP 接続モード (CON4):
   3: M1→C1 + M2 + M2→C2  3出力混合
 
 FITOM_X hw フィールド対応:
-  hw.ALG   : 1stペア(M1→C1)の接続 (0=FM, 1=AM/加算)
-  hw.ALG2  : 4OP 全体の接続 CON4 (0-3)
-  hw.FB    : 1stペア(M1C1)の FB (Bank-A から取得)
-  hw.FB2   : 2ndペア(M2C2)の FB (Bank-B から取得)
-
-FBマッピング:
-  hw.FB  = Bank-A の hw.FB (M1C1 ペア)
-  hw.FB2 = Bank-B の hw.FB (M2C2 ペア)
-  ユーザー指定ビット表現: [FB2(3bit):FB1(3bit)] = (fb2<<3)|fb1
+  hw.ALG   : 3bit統合 (bit0=CON1前半ペア接続, bit1=CON2後半ペア接続,
+             bit2=ConnectionSEL(常に1、4OPモード有効化))
+  hw.FB    : 1stペア(M1C1)独立FB (Bank-A から取得)
+  hw.FB2   : 2ndペア(M2C2)独立FB (Bank-B から取得)
+  (実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つため、
+   FBを6bitに詰め込む旧方式ではなく、hw.FB/hw.FB2の2フィールドに
+   素直に対応させる。core/src/OPL_new.cpp のCOPL3実装に完全準拠)
 """
 
 import json, argparse, sys
@@ -81,23 +79,22 @@ def merge_banks(bank_a, bank_b, con4, alg_a, alg_b, bank_no, src_name):
         name = f"{name_a[:8].rstrip()}x{name_b[:8].rstrip()}" if name_a != name_b \
                else name_a
 
-        # 旧FITOM方式でALG/FBを統一エンコード:
-        #   ALG bit0 = cnt0 (Array0 CNT = 1stペア接続 = alg_a & 1)
-        #   ALG bit1 = cnt1 (Array1 CNT = 2ndペア接続 = alg_b & 1)
-        #   ALG bit2 = conn_sel = 1 (4OPモード)
-        #   FB  bit2-0 = fb_a (1stペア FB)
-        #   FB  bit5-3 = fb_b (2ndペア FB)
+        # hw.ALG(3bit): bit0=CON1(前半ペア接続), bit1=CON2(後半ペア接続),
+        #               bit2=ConnectionSEL(4OP結合有効化、常に1)
+        # (COPL3実装 core/src/OPL_new.cpp に完全準拠。旧仕様のFB 6bitパック
+        #  方式は、実機OPL3が前半/後半ペアそれぞれ独立したFBレジスタを
+        #  持つことが判明したため廃止し、hw.FB/hw.FB2に分離した)
         cnt0 = alg_a & 1
         cnt1 = alg_b & 1
         alg_enc = (1 << 2) | (cnt1 << 1) | cnt0
-        fb_enc  = (fb_b << 3) | fb_a
 
         patch = {
             "prog": prog,
             "name": name[:16],
             "hw": {
                 "ALG": alg_enc,  # (conn_sel<<2)|(cnt1<<1)|cnt0
-                "FB":  fb_enc,   # (fb_b<<3)|fb_a
+                "FB":  fb_a & 7, # 前半ペア(M1/C1)独立FB
+                "FB2": fb_b & 7, # 後半ペア(M2/C2)独立FB
             },
             "ops": [
                 ops_a[0],        # ops[0] = M1 (Bank-A の Mod)
@@ -145,7 +142,7 @@ def run(args):
                        f" + {Path(args.bank_b).name} [M2/C2]"),
         "note": (
             f"ALG=(conn_sel=1, cnt1={alg_b & 1}, cnt0={alg_a & 1}), "
-            f"FB=(fb_b<<3)|fb_a per patch. "
+            f"FB/FB2は各patchごとにBank-A/Bから独立設定 (パック無し). "
             f"ops[0/1]=Bank-A(M1/C1), ops[2/3]=Bank-B(M2/C2)."
         ),
         "patches": patches,

@@ -202,6 +202,12 @@
                 "description": "AY-3-8910/YM2149 HW Envelope Period (レジスタ0x0B Fine + 0x0C Coarse の16bit値、分割不可の単一パラメータ)。HW EG (EGT bit3) 使用時のみ有効。"
               }
             }
+          },
+          "FB2": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7,
+            "description": "OPL3(COPL3) 4OPモード専用: 後半ペア(M2/C2)独立のフィードバック値。実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つ。OPL3以外のチップでは未使用(0固定)。"
           }
         }
       }
