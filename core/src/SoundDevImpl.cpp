@@ -164,20 +164,32 @@ uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
 
 uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch)
 {
-    // findBestCh の1パス走査で優先度順に最適チャンネルを選択:
-    //   score 4: owner+patch 一致 の Empty/Releasing
-    //   score 3: patch 一致        の Empty/Releasing
-    //   score 2: 任意              の Empty/Releasing
-    //   score 1: 最古 Running      (強制奪取)
-    uint8_t ret = findBestCh(owner, patch, /*allowSteal=*/true);
+    // 仮想関数 queryCh() 経由でチャンネルを選択する。
+    // (修正前は findBestCh() を直接呼んでいたため、派生クラスが queryCh()
+    //  をオーバーライドしてデバイス制約 (例: OPMノイズ→ch7固定、
+    //  SSGノイズ→ch2固定) を課していても、allocCh() 経由の発音では
+    //  その制約が仮想ディスパッチされず完全に無視される重大なバグがあった。
+    //  CSpanDevice/CUnison 経由 (複数チップ束ね時) は queryCh() を正しく
+    //  呼んでいたため制約が効いていたが、単体チップ構成では effectively
+    //  死んでいた。)
+    //
+    // mode=1(奪取なし)→mode=0(奪取あり)の2段階で試す。
+    // findBestCh(allowSteal=false) は score 2-4 (空き/Releasing) のみを
+    // 評価し、score 1 (強制奪取候補) の判定を完全にスキップする設計のため、
+    // 空き/Releasingのchが1つでもあれば1回目(mode=1)で必ず見つかり、
+    // 元の「1回のfindBestCh(allowSteal=true)呼び出し」と全く同じ結果になる
+    // (1パスのまま、コスト増加なし)。全ch使用中の場合のみ2回目(mode=0)が
+    // 走り、最古ノートの強制奪取が行われる。
+    uint8_t ret = 0xFF;
+    for (int mode : {1, 0}) {
+        ret = queryCh(owner, patch, mode); // 仮想呼び出し
+        if (ret != 0xFF) break;
+    }
 
     if (ret == 0xFF) {
         FITOM_LOG_WARN("allocCh: no channel available");
         return 0xFF;
     }
-
-    // priorCh_ を次回探索の起点に更新 (ラウンドロビン)
-    priorCh_ = static_cast<uint8_t>((ret + 1) % maxChs_);
 
     if (chState_[ret].isRunning()) {
         FITOM_LOG_DEBUG("allocCh: forced steal ch=" << static_cast<int>(ret)

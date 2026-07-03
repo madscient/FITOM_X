@@ -142,12 +142,25 @@ public:
         return 0xFF;
     }
 
+    // 単体 CSoundDevice::allocCh (findBestCh) と同じ設計思想:
+    // patch は一切 nullptr にせず (デバイス制約情報を最後まで保持する)、
+    // mode だけを 1(奪取なし)→0(奪取あり) の順に緩和して再試行する。
+    // (旧実装は owner/patch を順に nullptr化する3段階リトライだったが、
+    //  3回ともmode=1のままで強制奪取が機能せず、かつ最終段でpatch=nullptr
+    //  になることでデバイス制約(例: ノイズ→ch7固定)を最も必要な場面
+    //  (強制奪取判断時)で失うという重大な欠陥があった)
     uint8_t allocCh(IMidiCh* owner, const HwPatch* patch) override {
-        uint8_t ret = queryCh(owner, patch, 1);
-        if (ret == 0xFF) ret = queryCh(nullptr, patch, 1);
-        if (ret == 0xFF) ret = queryCh(nullptr, nullptr, 1);
-        if (ret != 0xFF) assignCh(ret, owner, patch);
-        return ret;
+        for (int mode : {1, 0}) {
+            for (auto* c : chips_) {
+                uint8_t lch = c->queryCh(owner, patch, mode);
+                if (lch != 0xFF) {
+                    uint8_t gch = toGlobalCh(c, lch);
+                    assignCh(gch, owner, patch);
+                    return gch;
+                }
+            }
+        }
+        return 0xFF;
     }
 
     uint8_t assignCh(uint8_t gch, IMidiCh* owner, const HwPatch* patch) override {
@@ -262,17 +275,21 @@ public:
         return gch;
     }
 
+    // 単体 CSoundDevice::allocCh と同じ設計思想:
+    // patch は一切 nullptr にせず、mode だけを 1(奪取なし)→0(奪取あり)
+    // の順に緩和して再試行する。queryCh (代表チップ方式、修正済み) が
+    // デバイス制約を正しく反映するため、その戻り値をそのまま使う。
+    // 旧実装の「見つからなければ強制的にグループ0」というフォールバックは、
+    // mode=0 (強制奪取許可) まで正しく試行すればほぼ起こり得ないため削除した。
     uint8_t allocCh(IMidiCh* owner, const HwPatch* patch) override {
-        // CSpanDevice::allocCh と同じ段階的リトライパターン。
-        // デバイス制約 (例: ノイズ→ch7固定) を可能な限り尊重した上で
-        // 空きチャンネルを探し、本当にどこも空いていない場合のみ
-        // 強制奪取 (グループ0) にフォールバックする。
-        uint8_t gch = queryCh(owner, patch, 1);
-        if (gch == 0xFF) gch = queryCh(nullptr, patch, 1);
-        if (gch == 0xFF) gch = queryCh(nullptr, nullptr, 1);
-        if (gch == 0xFF) gch = 0; // 最終手段: 強制奪取
-        assignCh(gch, owner, patch);
-        return gch;
+        for (int mode : {1, 0}) {
+            uint8_t gch = queryCh(owner, patch, mode);
+            if (gch != 0xFF) {
+                assignCh(gch, owner, patch);
+                return gch;
+            }
+        }
+        return 0xFF;
     }
 
     uint8_t assignCh(uint8_t gch, IMidiCh* owner, const HwPatch* patch) override {
