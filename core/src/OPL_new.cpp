@@ -348,10 +348,12 @@ protected:
         }
 
         // FB/CON: 前半ペア・後半ペアそれぞれの0xC0レジスタに書く
+        // (実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つため、
+        //  前半はhw.FB、後半はhw.FB2を使う)
         uint16_t reg1 = static_cast<uint16_t>(0xC0 + rop + dch);
         uint16_t reg2 = static_cast<uint16_t>(0xC0 + rop + pairCh(ch));
         setReg(reg1, static_cast<uint8_t>((getReg(reg1) & 0xF0) | ((p.hw.FB & 7) << 1) | (al & 0x1)), true);
-        setReg(reg2, static_cast<uint8_t>((getReg(reg2) & 0xF0) | ((p.hw.FB & 7) << 1) | ((al >> 1) & 0x1)), true);
+        setReg(reg2, static_cast<uint8_t>((getReg(reg2) & 0xF0) | ((p.hw.FB2 & 7) << 1) | ((al >> 1) & 0x1)), true);
 
         // CONNECTIONSEL(0x104): 4OPペア結合ビット
         uint8_t con = getReg(0x104) & static_cast<uint8_t>(~(1u << ch));

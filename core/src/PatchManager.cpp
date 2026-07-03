@@ -214,6 +214,7 @@ json hwPatchToJson(const HwPatch& p) {
     return json{
         {"id",p.id},{"name",p.name},
         {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
+        {"FB2",p.hw.FB2},
         {"ops",ops},
         {"ext",json{{"REV",p.ext.REV},{"EGS",p.ext.EGS},{"DM0",p.ext.DM0},
                     {"DT3",p.ext.DT3},{"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP}}}
@@ -228,7 +229,7 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
     }
     auto g8 = [&](const char* k, uint8_t& v){ if(j.contains(k)) v=j[k].get<uint8_t>(); };
     g8("FB",p.hw.FB); g8("ALG",p.hw.ALG); g8("AMS",p.hw.AMS);
-    g8("PMS",p.hw.PMS); g8("NFQ",p.hw.NFQ);
+    g8("PMS",p.hw.PMS); g8("NFQ",p.hw.NFQ); g8("FB2",p.hw.FB2);
     if (j.contains("ops") && j["ops"].is_array()) {
         for (int i = 0; i < MAX_HW_OPS && i < (int)j["ops"].size(); ++i)
             jsonToHwOp(j["ops"][i], p.hwOp[i]);
