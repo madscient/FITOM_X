@@ -58,6 +58,16 @@ struct ChState {
     int8_t   panpot     = 0;    // -64..+63
     bool     sustain    = false;
 
+    // dirty flag: セッターが新値を検出したら立て、実際にレジスタへ
+    // 反映した時点(updateVolExp/updatePanpot/updateSustain呼び出し後)で
+    // クリアする。CInstCh::noteOn() は volume/expression/sustain/panpot を
+    // update=false で先に一括設定し、noteOn() の最後でdirtyなものだけ
+    // まとめて反映する設計のため、値が変化していないチャンネル
+    // (モノフォニックのレガート等) では冗長なレジスタ書き込みが発生しない。
+    bool     volDirty     = false; // volume/expression/velocity変更
+    bool     panDirty     = false;
+    bool     sustainDirty = false;
+
     uint16_t releaseTimer = 0;  // Releasing フェーズの残り tick 数
 
     bool isEmpty()     const { return status == Status::Empty; }
@@ -81,6 +91,9 @@ struct ChState {
         expression   = 127;
         panpot       = 0;
         sustain      = false;
+        volDirty     = false;
+        panDirty     = false;
+        sustainDirty = false;
         proc.reset();
     }
 
