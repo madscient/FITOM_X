@@ -417,9 +417,37 @@ protected:
     }
 };
 // ================================================================
+// ================================================================
+//  CAdPcmZ280 (YMZ280B / PCMD8) — 8ch、4bit ADPCM固定
+//
+//  実機データシート (bitsavers YMZ280B_199610.pdf) 確認済み。
+//  旧FITOM(PCMD8.cpp)はStart/Endアドレスの複雑な4ブロック分散配置
+//  (H/M/Lがそれぞれ$20/$40/$60系に分かれる) を正確に再現していたが、
+//  Pitchレジスタの書き込みだけ旧FITOM独自の内部スケール前提
+//  (fnum>>8/fnum>>16という17bit幅を仮定したシフト) に依存しており、
+//  新FITOMの9bit精度Fnumberとは噛み合わないため、その部分のみ
+//  データシートに忠実な形で書き直す。
+//
+//  レジスタマップ (実機確定、chはオフセット0-7):
+//    $00+ch*4: FN7-FN0 (Pitch下位8bit)
+//    $01+ch*4: KON(bit7)|MD1(bit6)|MD0(bit5)|LOOP(bit3)|FN8(bit0)
+//    $02+ch*4: TL7-TL0 (Total Level, 8bit, 256段階)
+//    $03+ch*4: PAN3-PAN0 (Panpot, 4bit, 16段階)
+//    $20/$40/$60+ch*4: Start Address (H/M/L)
+//    $21/$41/$61+ch*4: Loop Start Address (H/M/L) ※未使用のためゼロ固定
+//    $22/$42/$62+ch*4: Loop End Address (H/M/L)   ※未使用のためゼロ固定
+//    $23/$43/$63+ch*4: End Address (H/M/L)
+//    $80: DSP出力chセレクタ (今回はDSP非接続のため無効化のみ)
+//    $FF: KENS(bit0)|MENS(bit1)|IENS(bit2) ※ビット位置はデータシート
+//         記載レイアウトが崩れており確定できず、旧FITOMの実測値(0xc0)
+//         を踏襲する
+//
+//  Pitch精度は9bit(FN8-FN0)。4bit ADPCMモード固定 (MD1MD0=01) のため
+//  0.172〜44.1kHzを256刻みで表現する。
+// ================================================================
 class CAdPcmZ280 : public CAdPcmBase {
 public:
-    static constexpr int kNoteOffset = 356; // YMZ280_OFFSET
+    static constexpr int kNoteOffset = 356; // YMZ280_OFFSET (旧FITOM準拠)
 
     CAdPcmZ280(IPort* port, int sampleRate, size_t memSize)
         : CAdPcmBase(DEVICE_PCMD8, port, 0x100, sampleRate, 384,
@@ -429,11 +457,11 @@ public:
     std::string getDescriptor() const override { return "YMZ280B (PCMD8) 8ch"; }
 
     void init() override {
-        setReg(0xFF, 0xC0, true); // KON enable / Memory enable
-        setReg(0x81, 0x00, true); // DSP disable
-        for (int i = 0; i < 8; ++i) {
-            setReg(0x80, static_cast<uint8_t>(0x88 | (i * 17)), true);
-        }
+        // KENS/MENS 有効化。ビット位置はデータシートのレイアウト崩れで
+        // 確定できないため、旧FITOMの実測値をそのまま踏襲する。
+        setReg(0xFF, 0xC0, true);
+        // DSP出力は使わないため無効化 (Lch/Rch enable bit = 1:Disable)
+        setReg(0x80, 0x88, true);
     }
 
     void loadVoice(int prog, const uint8_t* data, size_t length) override {
@@ -449,18 +477,20 @@ public:
         voices_[prog].startAddr = st;
         voices_[prog].length    = static_cast<uint32_t>(blk);
 
-        // アドレス / データ書き込み
-        for (size_t i = 0; i < length; ++i) {
+        for (size_t i = 0; i < blk; ++i) {
             uint32_t addr = st + i;
             setReg(0x84, static_cast<uint8_t>(addr >> 16));
-            setReg(0x85, static_cast<uint8_t>(addr >> 8));
-            setReg(0x86, static_cast<uint8_t>(addr));
-            setReg(0x87, data[i]);
+            setReg(0x85, static_cast<uint8_t>((addr >> 8) & 0xFF));
+            setReg(0x86, static_cast<uint8_t>(addr & 0xFF));
+            setReg(0x87, (i < length) ? data[i] : uint8_t{0});
         }
         usedMem_ += blk;
     }
 
 protected:
+    // 9bit精度 (FN8-FN0)。実機式は正確な変換係数がデータシートに
+    // 明記されていないため、既存のgetDeltaN基盤 (DeltaN方式テーブル、
+    // 384分周) をそのまま用いる。
     ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
         ChState::Fnum ret;
         const auto& s = chState_[ch];
@@ -469,49 +499,80 @@ protected:
                 + (noteOffset_ * 64 / 12)
                 + s.fineFreq + offset;
         ret.block = 0;
-        ret.fnum  = const_cast<CAdPcmZ280*>(this)->getDeltaN(idx, kNoteOffset);
+        ret.fnum  = const_cast<CAdPcmZ280*>(this)->getDeltaN(idx, kNoteOffset) & 0x1FF; // 9bit
         return ret;
     }
 
-    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
-        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        // YMZ280B: 各チャンネルのピッチレジスタ (0x00 + ch*8 = Pitch)
-        uint8_t base = static_cast<uint8_t>(ch * 8);
-        setReg(static_cast<uint16_t>(base + 2), static_cast<uint8_t>(fnum.fnum >> 8));
-        setReg(static_cast<uint16_t>(base + 3), static_cast<uint8_t>(fnum.fnum & 0xFF));
-    }
-
-    void updateKey(uint8_t ch, bool keyOn) override {
+    // Start/Loop/End アドレス (H/M/L の3ブロックに分散配置)。
+    // ループ再生は使わないため Loop Start/End はゼロ固定 (旧FITOM準拠)。
+    void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         int prog = s.hwPatch.hwOp[0].WS & 0x7F; // B-3 resolvePcmEntry と統一
-        if (prog < 0 || prog >= 128) return;
+        if (prog < 0 || prog >= 128 || !voices_[prog].length) return;
 
-        uint8_t base = static_cast<uint8_t>(ch * 8);
-        if (keyOn) {
-            uint32_t st = voices_[prog].startAddr;
-            uint32_t ed = st + voices_[prog].length - 1;
+        uint32_t st = voices_[prog].startAddr;
+        uint32_t ed = st + voices_[prog].length - 1;
+        uint8_t base = static_cast<uint8_t>(ch * 4);
 
-            // Start / End アドレス
-            setReg(static_cast<uint16_t>(base + 4), static_cast<uint8_t>(st >> 16));
-            setReg(static_cast<uint16_t>(base + 5), static_cast<uint8_t>(st >> 8));
-            setReg(static_cast<uint16_t>(base + 6), static_cast<uint8_t>(st));
-            setReg(static_cast<uint16_t>(base + 7), static_cast<uint8_t>(ed >> 16));
+        setReg(static_cast<uint16_t>(0x20 + base), static_cast<uint8_t>((st >> 16) & 0xFF), true);
+        setReg(static_cast<uint16_t>(0x40 + base), static_cast<uint8_t>((st >> 8) & 0xFF), true);
+        setReg(static_cast<uint16_t>(0x60 + base), static_cast<uint8_t>(st & 0xFF), true);
+        setReg(static_cast<uint16_t>(0x23 + base), static_cast<uint8_t>((ed >> 16) & 0xFF), true);
+        setReg(static_cast<uint16_t>(0x43 + base), static_cast<uint8_t>((ed >> 8) & 0xFF), true);
+        setReg(static_cast<uint16_t>(0x63 + base), static_cast<uint8_t>(ed & 0xFF), true);
 
-            // ボリューム
-            uint8_t vol = s.proc.effectiveTL(0);
-            uint8_t lvol = static_cast<uint8_t>(vol * 255 / 127);
-            setReg(static_cast<uint16_t>(base + 0), lvol); // L
-            setReg(static_cast<uint16_t>(base + 1), lvol); // R
+        // Loop Start/End (未使用、ゼロ固定)
+        setReg(static_cast<uint16_t>(0x21 + base), 0, true);
+        setReg(static_cast<uint16_t>(0x41 + base), 0, true);
+        setReg(static_cast<uint16_t>(0x61 + base), 0, true);
+        setReg(static_cast<uint16_t>(0x22 + base), 0, true);
+        setReg(static_cast<uint16_t>(0x42 + base), 0, true);
+        setReg(static_cast<uint16_t>(0x62 + base), 0, true);
 
-            updateFreq(ch, nullptr);
+        updateVolExp(ch);
+        updatePanpot(ch);
+    }
 
-            // KEY ON (0x80 | ch)
-            setReg(static_cast<uint16_t>(0x80 + ch),
-                   static_cast<uint8_t>(0xC0 | ch), true); // KON
-        } else {
-            setReg(static_cast<uint16_t>(0x80 + ch),
-                   static_cast<uint8_t>(0x80 | ch), true); // KOFF
-        }
+    // Pitch (9bit): FN7-FN0を$00+ch*4、FN8を$01+ch*4のbit0に書く。
+    // (旧FITOMの`>>8`/`>>16`シフトは、旧FITOM独自の内部Fnumber表現を
+    //  前提にした変換であり、新FITOMの9bit精度Fnumberとは異なるため使わない)
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        uint8_t base = static_cast<uint8_t>(ch * 4);
+        setReg(static_cast<uint16_t>(0x00 + base),
+               static_cast<uint8_t>(fnum.fnum & 0xFF), false);
+        uint8_t cur = getReg(static_cast<uint16_t>(0x01 + base)) & 0xFE; // FN8以外を保持
+        setReg(static_cast<uint16_t>(0x01 + base),
+               static_cast<uint8_t>(cur | ((fnum.fnum >> 8) & 1)), false);
+    }
+
+    // Total Level (8bit)。7bit音量を8bit空間へビット拡張 (旧FITOM準拠、
+    // MSB複製による拡張: (v<<1)|(v>>6))。
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        uint8_t vol = s.proc.effectiveTL(0);
+        uint8_t loudness = 127u - vol;
+        setReg(static_cast<uint16_t>(0x02 + ch * 4),
+               static_cast<uint8_t>((loudness << 1) | (loudness >> 6)), false);
+    }
+
+    // Panpot (4bit、16段階)。中央=8相当 (データシートに中央値の明記は
+    // ないため、16段階の中央=8と仮定)。
+    void updatePanpot(uint8_t ch) override {
+        int8_t pan = chState_[ch].panpot; // -64..63
+        int pan4 = std::clamp((static_cast<int>(pan) + 64) * 15 / 127, 0, 15);
+        setReg(static_cast<uint16_t>(0x03 + ch * 4),
+               static_cast<uint8_t>(pan4 & 0xF), false);
+    }
+
+    void updateSustain(uint8_t /*ch*/) override {}
+    void updateTL(uint8_t, uint8_t, uint8_t) override {}
+
+    // KON(bit7)。MD1MD0=01(4bit ADPCM)固定。FN8ビットは保持する。
+    void updateKey(uint8_t ch, bool keyOn) override {
+        uint8_t base = static_cast<uint8_t>(0x01 + ch * 4);
+        uint8_t fn8 = getReg(base) & 0x01;
+        setReg(base, static_cast<uint8_t>((keyOn ? 0xA0 : 0x20) | fn8), true);
     }
 };
 
