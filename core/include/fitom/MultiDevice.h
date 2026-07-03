@@ -242,28 +242,35 @@ public:
     }
 
     // ch はグループインデックス。全チップの同番チャンネルに同時発音
+    // 代表チップ(chips_[0])に queryCh を尋ね、その戻り値 (デバイス制約を
+    // 反映したch番号、または制約を満たせない場合は0xFF) をそのまま採用する。
+    // CUnison は同一デバイス種別のチップのみを束ねる前提のため、
+    // 代表チップの制約判定は他の全チップにもそのまま当てはまる。
+    // (修正前は各チップのqueryCh戻り値を完全に無視し、gch=0から単純な
+    //  空きチェックのみで判定していたため、OPMノイズ(ch7固定)等の
+    //  デバイス制約付き音色がCUnison経由で正しくch7に割り当てられない
+    //  重大なバグがあった)
     uint8_t queryCh(IMidiCh* o, const HwPatch* p, int mode) override {
-        for (uint8_t gch = 0; gch < getChCount(); ++gch) {
-            bool ok = true;
-            for (auto* c : chips_) {
-                c->queryCh(o, p, mode); // 状態確認のため呼ぶ (戻り値は使わない)
-                // 全チップで同番チャンネルが空いている場合のみ OK
-                const auto* st = c->getChState(gch);
-                if (!st || !st->isEmpty()) {
-                    ok = false; break;
-                }
-            }
-            if (ok) return gch;
+        if (chips_.empty()) return 0xFF;
+        uint8_t gch = chips_[0]->queryCh(o, p, mode);
+        if (gch == 0xFF) return 0xFF;
+        // 代表チップ以外も同じgchが実際に空いているか再確認
+        for (auto* c : chips_) {
+            const auto* st = c->getChState(gch);
+            if (!st || !st->isEmpty()) return 0xFF;
         }
-        return 0xFF;
+        return gch;
     }
 
     uint8_t allocCh(IMidiCh* owner, const HwPatch* patch) override {
+        // CSpanDevice::allocCh と同じ段階的リトライパターン。
+        // デバイス制約 (例: ノイズ→ch7固定) を可能な限り尊重した上で
+        // 空きチャンネルを探し、本当にどこも空いていない場合のみ
+        // 強制奪取 (グループ0) にフォールバックする。
         uint8_t gch = queryCh(owner, patch, 1);
-        if (gch == 0xFF) {
-            // 強制奪取: 最も古いグループ
-            gch = 0; // 単純化: 常にグループ0から奪う
-        }
+        if (gch == 0xFF) gch = queryCh(nullptr, patch, 1);
+        if (gch == 0xFF) gch = queryCh(nullptr, nullptr, 1);
+        if (gch == 0xFF) gch = 0; // 最終手段: 強制奪取
         assignCh(gch, owner, patch);
         return gch;
     }
