@@ -27,7 +27,6 @@ protected:
 	double GetTP(double rate, int note);
 	double GetDeltaN(double rate, int note);
 	double GetOPL4Fnum(double rate, int note);
-	double GetSAATP(double rate, int note);
 public:
 	CFnumTable();
 	~CFnumTable();

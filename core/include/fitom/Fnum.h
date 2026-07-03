@@ -14,6 +14,11 @@ namespace fitom {
         DeltaN     = 3,   // ADPCM Delta-N テーブル
         OPL4       = 4,
         SSG        = 5,
+        // 6 (旧 SAA) は廃止。SAA1099は「周波数レジスタが逆数的かつ
+        // オクターブが別レジスタで2^octave倍する」という構造を持ち、
+        // getFnumber()の標準的なオクターブ折り畳みロジック(fnum>>=1方式)
+        // とは根本的に噛み合わない。CSAA1099はFnumTableType::Noneを使い、
+        // updateFreq()内で実機式を直接計算する。
     };
 } // namespace fitom
 

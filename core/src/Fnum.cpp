@@ -60,9 +60,6 @@ CFnumTable::FREQFUNC CFnumTable::GetFreqFunc(FnumTableType type)
 	case FnumTableType::OPL4:
 		pfunc = &CFnumTable::GetOPL4Fnum;
 		break;
-	case FnumTableType::SAA:
-		pfunc = &CFnumTable::GetSAATP;
-		break;
 	default:
 		return 0;
 	}
@@ -110,13 +107,6 @@ double CFnumTable::GetOPL4Fnum(double rate, int note)
 	double tuningoffset = 768.0 * log2(TuningFrequency / 440.0);
 	double freq = pow(2.0, (double(note) + tuningoffset) / 768.0);
 	double sig = round(1024 * log2(freq));
-	return sig;
-}
-
-double CFnumTable::GetSAATP(double rate, int note)
-{
-	double freq = TuningFrequency * pow(2.0, (double)(note) / 768.0);
-	double sig = round(256.0 * log2(freq / rate));
 	return sig;
 }
 

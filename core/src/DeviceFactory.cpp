@@ -32,6 +32,7 @@ std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
 
 // ================================================================
@@ -101,6 +102,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_DCSG:      return createCDCSG(port, sampleRate);
     case DEVICE_SCC:
     case DEVICE_SCCP:      return createCSCC(port, sampleRate);
+    case DEVICE_SAA:       return createCSAA1099(port, sampleRate);
 
     case DEVICE_ADPCM:
     case DEVICE_ADPCMA:
@@ -135,6 +137,7 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_SSG: case DEVICE_PSG:                    return 3;
     case DEVICE_DCSG:                                     return 4;
     case DEVICE_SCC: case DEVICE_SCCP:                   return 5;
+    case DEVICE_SAA:                                     return 6;
     case DEVICE_ADPCM: case DEVICE_PCMD8: case DEVICE_MA2: return 8;
     case DEVICE_ADPCMA:                                    return 6;
     case DEVICE_OPNA_RHY:                                  return 6;

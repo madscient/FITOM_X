@@ -501,7 +501,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
         return VOICE_PATCH_SSG;
     case DEVICE_EPSG:  return VOICE_PATCH_AY8930;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
-    case DEVICE_SAA:   return VOICE_PATCH_SAA1099;   // 未実装 (値のみ予約)
+    case DEVICE_SAA:   return VOICE_PATCH_SAA1099;   // CSAA1099 実装済み
 
     case DEVICE_SCC: case DEVICE_SCCP: return VOICE_PATCH_SCC;
 
@@ -858,6 +858,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"SSG",   DEVICE_SSG},   {"PSG",   DEVICE_PSG},
         {"EPSG",  DEVICE_EPSG},  {"DCSG",  DEVICE_DCSG},
         {"SCC",   DEVICE_SCC},   {"SCCP",  DEVICE_SCCP},
+        {"SAA",   DEVICE_SAA},   {"SAA1099", DEVICE_SAA},
         {"ADPCM", DEVICE_ADPCM}, {"PCMD8", DEVICE_PCMD8},
     };
     for (const auto& [name, id] : kChipMap) {
