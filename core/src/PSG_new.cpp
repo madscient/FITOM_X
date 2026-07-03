@@ -587,7 +587,168 @@ protected:
 //    0x18/0x19: エンベロープ0/1パラメータ (ch0-2/ch3-5共有、8波形)
 //    0x1C: 全チャンネル有効(bit0)
 //
-//  波形はデューティ50%固定の矩形波のみ (SCC相当の波形メモリ機能は無い)。
+// ================================================================
+//  CEPSG (AY8930) — AY-3-8910上位互換、Expand Mode常時有効
+//
+//  旧FITOM CEPSG (EPSG.cpp) 完全移植。AY8930はAY-3-8910/YM2149(CSSG)の
+//  上位互換チップで、Expand Mode有効時に以下の拡張機能を持つ:
+//    - レジスタ0xd の bit4-5 で Bank A(0xa0)/Bank B(0xb0) を切り替える
+//      マルチプレクス方式 (同じレジスタアドレスでもバンクにより意味が変わる)
+//    - 5bit音量 (通常のAY-3-8910/YM2149は4bit)
+//    - 各chが独立したHWエンベロープを持てる (無印AY-3-8910は全ch共有)
+//      ch0はBank A(reg 0xb/0xc)、ch1/ch2はBank B(reg 0x0-0x3)に配置される
+//      非対称な構造 (旧FITOM完全準拠)
+//    - デューティ比制御 (reg 0x6-0x8、Bank B。無印AY-3-8910にはない機能)
+//
+//  hwOp[0].WS (4bit) をデューティ比として転用する (SCCの波形番号とは
+//  無関係、チップ依存の意味の転用パターン)。
+// ================================================================
+class CEPSG : public CPSGBase {
+public:
+    CEPSG(IPort* port, int sampleRate)
+        : CPSGBase(DEVICE_EPSG, port, 0x20, 3, sampleRate)
+    {
+        opCount_ = 2;
+    }
+
+    std::string getDescriptor() const override { return "AY8930 (EPSG) 3ch"; }
+
+    void init() override {
+        setReg(0xd, 0xb0, true); // Expand Mode有効化 + Bank B選択
+        setReg(0x9, 0xff, true); // Noise AND mask
+        setReg(0xa, 0x00, true); // Noise OR mask
+        setReg(0x04, 0, true);
+        setReg(0x05, 0, true);
+        setReg(0xd, 0xa0, true); // Bank A選択
+        setReg(0x07, 0x3f, true);
+        setReg(0x08, 0, true);
+        setReg(0x09, 0, true);
+        setReg(0x0a, 0, true);
+    }
+
+protected:
+    uint8_t prevMix_ = 0x3f;
+
+    // 実機式 (旧FITOM完全準拠): fnum.fnum >> (block+2) で周期値を算出。
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        uint16_t etp = static_cast<uint16_t>(fnum.fnum >> (fnum.block + 2));
+        setReg(static_cast<uint16_t>(ch * 2 + 0), static_cast<uint8_t>(etp & 0xFF), false);
+        setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8), false);
+    }
+
+    // HWエンベロープ未使用時のみ5bit音量を計算 (旧FITOM完全準拠、
+    // Linear2dBの結果を31から引く反転極性)。
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        if (s.hwPatch.hwOp[0].EGT & 0x08) return; // HW EG使用時はチップが自動制御
+        uint8_t loudness = computeFinalLoudness(ch);
+        uint8_t vol = static_cast<uint8_t>(
+            31 - fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 5));
+        setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(vol & 0x1F), false);
+    }
+
+    // トーン/ノイズ有効ビット・HWエンベロープパラメータ・デューティ比を設定。
+    // Bank A/Bを行き来しながら書き込むため、末尾で必ずBank Aに戻す
+    // (updateFreq/updateVolExp等、他のフックはBank A前提で動作するため)。
+    void updateVoice(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        resetLfoBaseline(ch);
+
+        // ミックス値計算 (CSSGのALG意味論と同じ: 0=トーン/1=ノイズ/2=両方/3=両方)
+        uint8_t mix = 0x8;
+        switch (p.hw.ALG & 3) {
+        case 0: mix = 0x8; break;
+        case 1: mix = 0x1; break;
+        case 2: mix = 0x0; break;
+        case 3: mix = 0x9; break;
+        }
+        prevMix_ = static_cast<uint8_t>((prevMix_ & ~(0x9u << ch)) | (mix << ch));
+        setReg(0x7, prevMix_, true);
+        if (mix == 1 || mix == 0) {
+            setReg(0x6, static_cast<uint8_t>((p.hw.NFQ & 0x1F) | ((p.hw.FB & 7) << 5)), true);
+        }
+
+        bool hwEnv23 = false;
+        if (p.hwOp[0].EGT & 0x08) { // HWエンベロープ使用
+            setReg(static_cast<uint16_t>(0x8 + ch), 0x20, true);
+            if (ch == 0) {
+                // ch0はBank A内のreg 0xb/0xcを直接使う
+                setReg(0xd, static_cast<uint8_t>(0xa0 | (p.hwOp[0].EGT & 0xF)), true);
+                setReg(0xb, static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
+                setReg(0xc, static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
+            } else {
+                hwEnv23 = true; // ch1/ch2はBank B側で設定する
+            }
+        }
+
+        // デューティ比 (Bank B、hwOp[0].WSを流用)
+        setReg(0xd, static_cast<uint8_t>(0xb0 | (getReg(0xd) & 0xF)), true); // Bank B選択
+        setReg(static_cast<uint16_t>(0x6 + ch), static_cast<uint8_t>(p.hwOp[0].WS & 0xF), true);
+        if (hwEnv23) {
+            setReg(static_cast<uint16_t>(0x0 + (ch - 1) * 2),
+                   static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
+            setReg(static_cast<uint16_t>(0x1 + (ch - 1) * 2),
+                   static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
+            setReg(static_cast<uint16_t>(0x3 + ch), static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);
+        }
+        setReg(0xd, static_cast<uint8_t>(0xa0 | (getReg(0xd) & 0xF)), true); // Bank Aに戻す
+
+        updateVolExp(ch);
+    }
+
+    // HWエンベロープ使用時: キーオンでupdateVoice再実行 (エンベロープを
+    // リスタートさせる)、キーオフで音量レジスタを0クリア。
+    // 非使用時は基底CPSGBase::updateKey (ソフトウェアエンベロープ) に委譲。
+    void updateKey(uint8_t ch, bool keyOn) override {
+        const auto& s = chState_[ch];
+        if (s.hwPatch.hwOp[0].EGT & 0x08) {
+            if (keyOn) {
+                updateVoice(ch);
+            } else {
+                setReg(static_cast<uint16_t>(0x8 + ch),
+                       static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x8 + ch)) & 0xC0), true);
+            }
+        } else {
+            CPSGBase::updateKey(ch, keyOn);
+        }
+    }
+
+    // op=0: 振幅LFO (基底のupdateTLに委譲)
+    // op=1: ノイズ周波数LFO (ミックスがノイズ関連の場合のみ、旧FITOM完全準拠)
+    void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
+        if (op == 0) {
+            CPSGBase::updateTL(ch, op, lev);
+            return;
+        }
+        if (op == 1) {
+            const auto& p = chState_[ch].hwPatch;
+            if ((p.hw.ALG & 3) == 1 || (p.hw.ALG & 3) == 2) {
+                int16_t frq = static_cast<int16_t>(lev) - 64
+                             + static_cast<int16_t>(((p.hw.NFQ << 2) | (p.hw.FB >> 1)) & 0x7F);
+                frq = std::clamp<int16_t>(frq, 0, 255);
+                setReg(0x6, static_cast<uint8_t>(frq), true);
+            }
+        }
+    }
+};
+
+// ================================================================
+//  CSAA1099 (Philips SAA1099) — 6ch、矩形波+2系統ノイズ+2系統HWエンベロープ
+//
+//  実機データシート確認済み。旧FITOM(SAA.cpp)はSCCWAVE波形テーブルを
+//  誤って流用しており、実機とは異なる不完全な実装だったため全面新規実装する。
+//
+//  レジスタマップ (実機確定):
+//    0x00-0x05: 振幅 (ch0-5)。bit0-3=左音量(4bit)、bit4-7=右音量(4bit)
+//    0x08-0x0D: 周波数 (ch0-5)、8bit (値が大きいほど低音)
+//    0x10-0x12: オクターブ (3bit×2ch/レジスタ、ch0-5)
+//    0x14: トーン有効ビット (bit0-5)
+//    0x15: ノイズ有効ビット (bit0-5)
+//    0x16: ノイズパラメータ (bit0-1=ノイズ0[ch0-2共有], bit4-5=ノイズ1[ch3-5共有])
+//    0x18/0x19: エンベロープ0/1パラメータ (ch0-2/ch3-5共有、8波形)
+//    0x1C: 全チャンネル有効(bit0)
 //
 //  HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェア制約があるため、
 //  「音色データがデバイスを選択する」原則に従い、queryChが該当グループの
@@ -691,8 +852,11 @@ protected:
         if (chState_[ch].hwPatch.hwOp[0].EGT & 0x08) return;
         const auto& s = chState_[ch];
         int p = std::clamp(static_cast<int>(s.panpot) + 64 - 1, 0, 126);
-        double lgain = std::cos(M_PI_2 * p / 126.0);
-        double rgain = std::sin(M_PI_2 * p / 126.0);
+        // M_PI_2 は POSIX/GNU拡張でありMSVC標準では未定義のため、
+        // 移植性のためリテラル値 (π/2) を直接使う。
+        constexpr double kHalfPi = 1.5707963267948966;
+        double lgain = std::cos(kHalfPi * p / 126.0);
+        double rgain = std::sin(kHalfPi * p / 126.0);
         uint8_t loudness = computeFinalLoudness(ch); // 0-127
         uint8_t lvol4 = static_cast<uint8_t>(std::lround(lgain * loudness * 15.0 / 127.0));
         uint8_t rvol4 = static_cast<uint8_t>(std::lround(rgain * loudness * 15.0 / 127.0));
@@ -739,6 +903,7 @@ protected:
 
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr)  { return std::make_unique<CSSG>(p, sr); }
+std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr) { return std::make_unique<CEPSG>(p, sr); }
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr) { return std::make_unique<CDCSG>(p, sr); }
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr, uint32_t deviceType) {
     return std::make_unique<CSCC>(p, sr, static_cast<uint8_t>(deviceType));
