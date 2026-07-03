@@ -34,6 +34,7 @@ set(FITOM_CORE_SOURCES
     src/PSG_new.cpp
     src/MultiDev_new.cpp
     src/ADPCM_new.cpp
+    src/OPL4.cpp
 
     # MIDI 処理
     src/MidiCh.cpp
