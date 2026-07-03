@@ -37,14 +37,14 @@
 | ファイル | 状態 | 内容 |
 |---|---|---|
 | `include/fitom/ISoundDevice.h` / `SoundDevImpl.cpp` | ✅ | CSoundDevice 共通実装 |
-| `OPN_new.cpp` | ✅ | OPN / OPNA / OPN2 (factory 付き) |
-| `OPM_new.cpp` | ✅ | OPM / OPP / OPZ |
-| `OPN2_new.cpp` | ✅ | OPN2 / COPNA 6ch |
-| `OPL_new.cpp` | ✅ | OPL / OPL2 / OPL3 |
-| `OPLL_new.cpp` | ✅ | OPLL / OPLL2 / VRC7 |
-| `PSG_new.cpp` | ✅ | SSG / DCSG / SCC |
-| `MultiDev_new.cpp` | ✅ | CSpanDevice / CUnison |
-| `ADPCM_new.cpp` | ✅ | CYmDelta / CAdPcmZ280 |
+| `OPN_new.cpp` | ✅ | COPN (YM2203, FXモード対応) |
+| `OPM_new.cpp` | ✅ | OPM / OPP / OPZ (REV/EGS対応) |
+| `OPN2_new.cpp` | ✅ | COPNA/COPN2 (CSpanDevice、6ch) / COPNARhythm |
+| `OPL_new.cpp` | ✅ | OPL/OPL2/COPL3(4OPモード)/COPL3_2(2OP、CSpanDevice) |
+| `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm |
+| `PSG_new.cpp` | ✅ | SSG/DCSG/SCC (CPSGBaseはSW-EG/SW-LFO共通化のみ) |
+| `MultiDev_new.cpp` / `include/fitom/MultiDevice.h` | ✅ | CMultiDevice/CSpanDevice/CUnison (ヘッダー化済み) |
+| `ADPCM_new.cpp` | ✅ | CYmDelta(Y8950/OPNA/OPNB)/CAdPcm2610A/CAdPcmZ280 |
 | `include/fitom/DeviceFactory.h` / `.cpp` | ✅ | IPort → ISoundDevice ファクトリ |
 
 #### MIDI 処理
@@ -85,8 +85,13 @@
 | `patchbank.schema.json` | ✅ |
 | `docs/DESIGN.md` | ✅ |
 | `docs/chip-driver-migration.md` | ✅ |
+| `docs/chip-driver-architecture.md` | ✅ |
 | `docs/patch-structure-design.md` | ✅ |
 | `docs/voice-data-design.md` | ✅ |
+| `docs/config-design.md` | ✅ |
+| `docs/plugin-hwif.md` | ✅ |
+| `docs/plugin-midi.md` | ✅ |
+| `docs/midi-implementation-status.md` | ✅ |
 
 ---
 
@@ -113,6 +118,15 @@
 | リズムモード汎用フィールド (`rhythm_mode`) | ✅ | `config-design.md` |
 | RtAudio削除 (fitom_fmhwif DLLへ移管) | ✅ | `plugin-hwif.md` |
 | HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `plugin-hwif.md` |
+| Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `chip-driver-architecture.md` |
+| 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準) | ✅ | `chip-driver-architecture.md` |
+| OPL3 4OPモード (COPL3) + 疑似デチューン(DT2転用) | ✅ | `chip-driver-architecture.md` |
+| OPN FXモード (3rd channel special mode、疑似デチューン/非整数倍率/固定周波数) | ✅ | `chip-driver-architecture.md`, `voice-data-design.md` |
+| COPNARhythm / COPLLRhythm (内蔵リズム音源、独立レジスタ体系) | ✅ | `chip-driver-architecture.md` |
+| CPSGBase 責務整理 (SW-EG/SW-LFO共通化のみに純化、SSG固有コードをCSSGへ移動) | ✅ | `chip-driver-architecture.md` |
+| リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `chip-driver-architecture.md` |
+| ADPCM RegMap 全面修正 (Y8950/OPNA/OPNB個別マップ、memory/panmaskフィールド追加) | ✅ | `chip-driver-architecture.md` |
+| OPLL Fnumberビットシフト修正・EGT/RR技法適用 | ✅ | `chip-driver-architecture.md` |
 
 ---
 
@@ -123,9 +137,11 @@
 - RPN 0x0002 Coarse Tuning、RPN 0x7F7F Null
 - CC#2/CC#4 の変数分離
 - VoicePatchType 未実装チップ (MA3系列, SAA1099, AWM) のドライバ実装
-- OPL系のリズムモード対応（現状OPLL系のみ対応）
+- OPL/OPL2/OPL3自体のリズムモード対応（現状OPLL系のみ対応。COPL_new.cppにリズム関連コードなし）
 - VoicePatchType 完全一致以外へのフォールバック（旧FITOMの互換リスト相当、将来実装予定）
 - GUI (Qt6) 実装
+- OPZ の2系統LFOリソース対応（旧FITOMも未完成のため現状維持）
+- CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ未完了
 
 ### FitomIFTest 側の追加作業
 
