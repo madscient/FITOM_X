@@ -51,6 +51,12 @@ void COPN::UpdateVoice(uint8_t ch)
 }
 ```
 
+**`DT2`のチップ依存の意味の転用**：`DT2`はOPM/OPZ(HW)では2bitのDetune値だが、
+OPN/OPL3(4OPモード)では未使用のため「疑似デチューン値」（符号付き8bit、
+`static_cast<int8_t>(DT2)`、単位=100/64セント）として転用している。フィールド
+幅・型は変更せず解釈のみで対応する。OPL3(`COPL3`)は`hwOp[0]`/`hwOp[2]`
+（前半/後半2opペアの先頭オペレータ）の値を使う。
+
 ### FmSwOp (ベロシティ感度 + ソフトLFO) — VoiceProcessor が処理
 
 ```
@@ -83,7 +89,10 @@ TimerCallBack (1ms) 時:
 OPZ ドライバは `FmVoice::ext` の `REV/EGS/DM0/DT3` を参照する。
 PSG系ドライバ (CPSGBase) は `ext.HWEP` (HW Envelope Period, 16bit) を参照する
 （AY-3-8910/YM2149 のレジスタ0x0B+0x0C、HW EG使用時のみ）。
-OPN/OPM/OPL 等は `ext` を参照しない。
+OPN の `COPN` (ch2のみ) は `ext.DM0` を「FXモード選択」(0=通常/1=疑似デチューン/
+2=非整数倍率/3=固定周波数) として流用する（OPZの用途とは無関係、`DM0`の
+フィールド幅8bitの範囲で自由に解釈してよいという合意による）。
+OPN/OPM/OPL 等、上記以外の組み合わせでは `ext` を参照しない。
 
 ---
 
@@ -237,6 +246,48 @@ setReg(0x0B, ext.HWEP & 0xFF);        // Fine
 setReg(0x0C, (ext.HWEP >> 8) & 0xFF); // Coarse
 setReg(0x0D, hwOp[0].EGT & 0xF);      // Shape (CONT/ATT/ALT/HOLDのビット組み合わせ)
 ```
+
+---
+
+## OPN FXモード (3rd channel special mode)
+
+`COPN`のch2専用機能。実機OPNの「4オペレータそれぞれに独立したF-numberを
+指定できるモード」（3rd channel special mode）を実装している。
+
+### 新規フィールド: `FmHwOp::FXV` (int16_t、オペレータ単位)
+
+```cpp
+int16_t FXV;
+```
+
+`ext.DM0`（チャンネル単位、ch2全体で1モードを共有）で選択したモードに応じて
+解釈が変わる：
+
+| `ext.DM0` | モード | `FXV`の意味 |
+|---|---|---|
+| 0 | 通常 (FXモード無効) | 未使用 |
+| 1 | 疑似デチューン | 100/64セント単位の符号付きオフセット (`getFnumber(ch, FXV)`) |
+| 2 | 非整数倍率 | 100/64セント単位オフセット (倍率→セント換算。`1200×log2(倍率)`) |
+| 3 | 固定周波数 | 0.1Hz単位の絶対周波数 (`getFnumberFromHz(FXV/10.0)`) |
+
+対数周波数空間では「セント単位の加算」＝「周波数の倍率」と等価なため、
+疑似デチューン・非整数倍率は同じ`FXV`型・同じ`getFnumber(ch,offset)`計算経路で
+統一的に扱える。固定周波数モードのみ、ノート番号を無視して直接Hz値を指定する
+別経路 (`getFnumberFromHz`、新設) を使う。
+
+### `getFnumberFromHz()` — 直接Hz指定のFnum/Block変換
+
+`CSoundDevice`に新設。`FnumUtils.h`のテーブル生成式（`val = freq×(2^17/master)×divide`）
+をそのまま任意のHz値に適用し、11bit(0-2047)に収まるまでオクターブ正規化する。
+
+### `fxCapable_`フラグ（旧FITOM`fxena`相当）
+
+実機OPNのFXモードは「チップのch2」にのみ存在する物理的制約があるため、
+`COPN`コンストラクタに`fxCapable`パラメータを追加した。単体`COPN`(YM2203)は
+`true`固定。`COPNA`/`COPN2`（内部に`COPN`を2つ保持するCSpanDevice構成）は
+前半サブチップ(port1、ch0-2)のみ`true`、後半サブチップ(port2、ch3-5)は
+`false`（実機に該当レジスタが存在しないため）。`queryCh`もFXモード要求時に
+ch2固定を強制する（`fxCapable_`なチップのみ、`updateVoice`/`updateFreq`と統一）。
 
 ---
 
