@@ -34,6 +34,7 @@ std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
+std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
 
 // ================================================================
 //  DeviceFactory::create
@@ -111,6 +112,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_PCMD8:
     case DEVICE_MA1:
     case DEVICE_MA2:       return createCAdPcm(port, sampleRate, deviceType);
+    case DEVICE_OPL4AWM:   return createCOPL4AWM(port, sampleRate);
 
     default:
         FITOM_LOG_WARN("DeviceFactory: unsupported device type 0x"
@@ -140,6 +142,7 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_SAA:                                     return 6;
     case DEVICE_ADPCM: case DEVICE_PCMD8: case DEVICE_MA2: return 8;
     case DEVICE_ADPCMA:                                    return 6;
+    case DEVICE_OPL4AWM:                                   return 24;
     case DEVICE_OPNA_RHY:                                  return 6;
     case DEVICE_MA1:                                      return 1;
     default:                                              return 1;
