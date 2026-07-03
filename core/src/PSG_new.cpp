@@ -531,17 +531,175 @@ protected:
     }
 };
 
+// ================================================================
+//  CSAA1099 (Philips SAA1099) — 6ch、矩形波+2系統ノイズ+2系統HWエンベロープ
+//
+//  実機データシート確認済み。旧FITOM(SAA.cpp)はSCCWAVE波形テーブルを
+//  誤って流用しており、実機とは異なる不完全な実装だったため全面新規実装する。
+//
+//  レジスタマップ (実機確定):
+//    0x00-0x05: 振幅 (ch0-5)。bit0-3=左音量(4bit)、bit4-7=右音量(4bit)
+//    0x08-0x0D: 周波数 (ch0-5)、8bit (値が大きいほど低音)
+//    0x10-0x12: オクターブ (3bit×2ch/レジスタ、ch0-5)
+//    0x14: トーン有効ビット (bit0-5)
+//    0x15: ノイズ有効ビット (bit0-5)
+//    0x16: ノイズパラメータ (bit0-1=ノイズ0[ch0-2共有], bit4-5=ノイズ1[ch3-5共有])
+//    0x18/0x19: エンベロープ0/1パラメータ (ch0-2/ch3-5共有、8波形)
+//    0x1C: 全チャンネル有効(bit0)
+//
+//  波形はデューティ50%固定の矩形波のみ (SCC相当の波形メモリ機能は無い)。
+//
+//  HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェア制約があるため、
+//  「音色データがデバイスを選択する」原則に従い、queryChが該当グループの
+//  空きchを返すのみでモデル化する (専用フィールド不要)。既に同一エンベロープ
+//  設定で発音中のchがあるグループを優先することで、レジスタ競合を避ける。
+// ================================================================
+class CSAA1099 : public CPSGBase {
+public:
+    // masterClock: 実機は7.15909MHz(GameBlaster)〜8MHz程度が一般的
+    CSAA1099(IPort* port, int sampleRate, int masterClock = 8000000)
+        : CPSGBase(DEVICE_SAA, port, 0x20, 6, masterClock, 1, 0, FnumTableType::None)
+    {}
+
+    std::string getDescriptor() const override { return "SAA1099 6ch"; }
+
+    void init() override {
+        setReg(0x1C, 0x01, true); // 全チャンネル有効 (Sync&Resetは立てない)
+    }
+
+    // HWエンベロープ使用時、既に同一設定(ext.HWEP下位6bit)で発音中のchが
+    // あるグループ(0-2 or 3-5)を優先する。レジスタ0x18/0x19は3ch単位で
+    // 共有されるため、異なる設定が同じグループに混在すると後勝ちで
+    // 上書きされてしまう問題を、可能な限り同一設定のchをまとめることで回避する。
+    uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
+        if (!patch || !(patch->hwOp[0].EGT & 0x08)) {
+            return CSoundDevice::queryCh(owner, patch, mode);
+        }
+        uint8_t requestedEnv = patch->ext.HWEP & 0x3F;
+
+        // 同一エンベロープ設定で既に発音中のchを含むグループを優先
+        int preferredBase = -1;
+        for (uint8_t base : {uint8_t{0}, uint8_t{3}}) {
+            for (uint8_t ch = base; ch < base + 3; ++ch) {
+                const auto& s = chState_[ch];
+                if (s.isActive() && (s.hwPatch.hwOp[0].EGT & 0x08)
+                    && (s.hwPatch.ext.HWEP & 0x3F) == requestedEnv) {
+                    preferredBase = base;
+                    break;
+                }
+            }
+            if (preferredBase >= 0) break;
+        }
+
+        auto findInGroup = [&](uint8_t base) -> uint8_t {
+            for (uint8_t ch = base; ch < base + 3; ++ch) {
+                bool avail = mode ? chState_[ch].isEmpty() : chState_[ch].isEnabled();
+                if (avail) return ch;
+            }
+            return 0xFF;
+        };
+
+        if (preferredBase >= 0) {
+            uint8_t r = findInGroup(static_cast<uint8_t>(preferredBase));
+            if (r != 0xFF) return r;
+        }
+        // フォールバック: 任意の空きグループ (0-2優先)
+        uint8_t r = findInGroup(0);
+        if (r != 0xFF) return r;
+        return findInGroup(3);
+    }
+
+protected:
+    void updateVoice(uint8_t ch) override {
+        const HwPatch& p = chState_[ch].hwPatch;
+
+        // トーン/ノイズ有効ビット (CSSGのALG意味論を流用: 0=トーン/1=ノイズ/2=両方)
+        bool toneOn  = (p.hw.ALG & 3) != 1;
+        bool noiseOn = (p.hw.ALG & 3) != 0;
+        uint8_t toneCur  = getReg(0x14) & static_cast<uint8_t>(~(1u << ch));
+        uint8_t noiseCur = getReg(0x15) & static_cast<uint8_t>(~(1u << ch));
+        setReg(0x14, static_cast<uint8_t>(toneCur  | (toneOn  ? (1u << ch) : 0)));
+        setReg(0x15, static_cast<uint8_t>(noiseCur | (noiseOn ? (1u << ch) : 0)));
+
+        // ノイズパラメータ (2系統: ch0-2→bit0-1、ch3-5→bit4-5)
+        if (noiseOn) {
+            uint8_t nfq = p.hw.NFQ & 0x3;
+            bool isGroup1 = (ch >= 3);
+            uint8_t cur = getReg(0x16) & static_cast<uint8_t>(isGroup1 ? 0x0F : 0xF0);
+            setReg(0x16, static_cast<uint8_t>(cur | (isGroup1 ? (nfq << 4) : nfq)));
+        }
+
+        // HWエンベロープ (EGT bit3 = 使用フラグ、ext.HWEP下位6bitにパラメータ)
+        // bit0-2:mode(波形0-7), bit3:resolution, bit4:clockSrc, bit5:rightInvert
+        if (p.hwOp[0].EGT & 0x08) {
+            uint16_t envReg = (ch < 3) ? 0x18 : 0x19;
+            uint8_t hwep = p.ext.HWEP & 0x3F;
+            uint8_t mode         = hwep & 0x7;
+            uint8_t resolution   = (hwep >> 3) & 1;
+            uint8_t clockSrc     = (hwep >> 4) & 1;
+            uint8_t rightInvert  = (hwep >> 5) & 1;
+            setReg(envReg, static_cast<uint8_t>(0x80 | rightInvert | (mode << 1)
+                                                 | (resolution << 4) | (clockSrc << 5)));
+        }
+
+        updateVolExp(ch);
+    }
+
+    // ステレオ音量: 等パワーパンニング (CLinearPanDeviceと同じ式)。
+    // HWエンベロープ使用時は振幅レジスタをエンベロープが制御するため書かない。
+    void updateVolExp(uint8_t ch) override {
+        if (chState_[ch].hwPatch.hwOp[0].EGT & 0x08) return;
+        const auto& s = chState_[ch];
+        int p = std::clamp(static_cast<int>(s.panpot) + 64 - 1, 0, 126);
+        double lgain = std::cos(M_PI_2 * p / 126.0);
+        double rgain = std::sin(M_PI_2 * p / 126.0);
+        uint8_t loudness = computeFinalLoudness(ch); // 0-127
+        uint8_t lvol4 = static_cast<uint8_t>(std::lround(lgain * loudness * 15.0 / 127.0));
+        uint8_t rvol4 = static_cast<uint8_t>(std::lround(rgain * loudness * 15.0 / 127.0));
+        setReg(static_cast<uint16_t>(0x00 + ch),
+               static_cast<uint8_t>(((rvol4 & 0xF) << 4) | (lvol4 & 0xF)), false);
+    }
+
+    // 周波数: 実機式 freq = (2×masterClock/512) × 2^octave / (511 - freqReg) を
+    // freqReg について解き、0-255に収まるoctaveを探索する。
+    // (Fnum.cpp の GetSAATP は本チップの実機式と一致しない可能性があるため、
+    //  ここで直接計算する)
+    void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
+        const auto& s = chState_[ch];
+        if (s.lastNote >= 128) return;
+
+        double semitone = static_cast<double>(s.lastNote) - 69.0
+                         + static_cast<double>(s.fineFreq) / 64.0 / 100.0 * 1.0;
+        double hz = 440.0 * std::pow(2.0, semitone / 12.0);
+        if (hz <= 0.0) return;
+
+        double base = 2.0 * fnumMaster_ / 512.0;
+        int oct = 0;
+        double freqRegF = 0.0;
+        for (oct = 0; oct <= 7; ++oct) {
+            freqRegF = 511.0 - (base * std::pow(2.0, oct)) / hz;
+            if (freqRegF >= 0.0 && freqRegF <= 255.0) break;
+        }
+        freqRegF = std::clamp(freqRegF, 0.0, 255.0);
+        uint8_t freqReg = static_cast<uint8_t>(std::lround(freqRegF));
+
+        setReg(static_cast<uint16_t>(0x08 + ch), freqReg, false);
+
+        uint16_t octReg = static_cast<uint16_t>(0x10 + ch / 2);
+        bool highNibble = (ch % 2) == 1;
+        uint8_t cur = getReg(octReg) & static_cast<uint8_t>(highNibble ? 0x0F : 0xF0);
+        uint8_t shifted = static_cast<uint8_t>(highNibble ? (oct << 4) : oct);
+        setReg(octReg, static_cast<uint8_t>(cur | shifted), false);
+    }
+
+    void updatePanpot(uint8_t ch) override { updateVolExp(ch); }
+};
+
 } // namespace fitom
 
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr)  { return std::make_unique<CSSG>(p, sr); }
-
-// SAA1099 は旧実装 (SAA.cpp) のみ。新実装 (SAA_new.cpp) 未作成。
-// SAA1099 の HW EG 使用時の仕様:
-//   - 音量制御 (effectiveTL→VTL) のみ有効
-//   - EG レートのベロシティ感度 (VAR〜VRR) は無効 (SAA はソフトEGなし)
-// → 新実装時には SAA::updateVolExp で EGT フラグを確認し、
-//   EGT 有効時は effectiveTL のみ参照してレジスタへ書くこと。
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr) { return std::make_unique<CDCSG>(p, sr); }
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr)  { return std::make_unique<CSCC>(p, sr); }
+std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr) { return std::make_unique<CSAA1099>(p, sr); }
 } // namespace fitom
