@@ -196,8 +196,12 @@ bool FITOMConfig::buildFromProfile(const json& j)
         }
     }
 
+    // --- リニアステレオ化 (CLinearPanDevice、明示指定のみ) ---
+    // 同種デバイス自動束ねより前に評価する。
+    mergeStereoPairDevices();
+
     // --- 同種デバイス自動束ね (CSpanDevice) ---
-    // sub-device 展開が完了した devices_ 全体を対象に、
+    // sub-device 展開・ステレオ化が完了した devices_ 全体を対象に、
     // 同一 VoicePatchType・同一物理接続種別のエントリを検出して統合する。
     mergeSpannableDevices();
 
@@ -248,7 +252,8 @@ void FITOMConfig::buildDevice(const json& dev)
             uint32_t deviceType = resolveChipDeviceId(chipName);
             int sr = static_cast<int>(engineInst->vtable().GetSampleRate(engineInst->handle()));
             bool rhythmMode = dev.value("rhythm_mode", false);
-            pushDeviceEntries(label, deviceType, port, nullptr, sr, -1, rhythmMode);
+            bool stereoPair = dev.value("stereo_pair", false);
+            pushDeviceEntries(label, deviceType, port, nullptr, sr, -1, rhythmMode, stereoPair);
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create FmEnginePort for '" << label << "': " << ex.what());
         }
@@ -290,7 +295,8 @@ void FITOMConfig::buildDevice(const json& dev)
             }
             uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
             bool rhythmMode = dev.value("rhythm_mode", false);
-            pushDeviceEntries(label, deviceType, port, port2, 44100, extraSlot, rhythmMode);
+            bool stereoPair = dev.value("stereo_pair", false);
+            pushDeviceEntries(label, deviceType, port, port2, 44100, extraSlot, rhythmMode, stereoPair);
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
         }
@@ -582,10 +588,17 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
 // ================================================================
 void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
                                      std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
-                                     int sampleRate, int extraSlot, bool rhythmModeFromProfile)
+                                     int sampleRate, int extraSlot, bool rhythmModeFromProfile,
+                                     bool stereoPairRequested)
 {
     std::vector<SubDeviceSpec> spec;
     if (resolveCompositeSpec(baseDeviceType, spec)) {
+        // composite展開されたサブデバイス群へのstereo_pair適用は複雑になるため
+        // 現時点では非対応 (将来課題)。単独チップのみサポートする。
+        if (stereoPairRequested) {
+            FITOM_LOG_WARN("stereo_pair: '" << baseLabel
+                << "' はcomposite展開対象のため無視されます (単独チップのみ対応)");
+        }
         int group = nextCompositeGroupId_++;
         for (const auto& s : spec) {
             DeviceEntry e;
@@ -611,6 +624,7 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
         e.port       = port;
         e.port2      = port2;
         e.rhythmMode = rhythmModeFromProfile;
+        e.stereoPairRequested = stereoPairRequested;
         FITOM_LOG_INFO("Device added: " << e.label);
         devices_.push_back(std::move(e));
     }
@@ -619,11 +633,61 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
 // ================================================================
 //  同種デバイス自動束ね (CSpanDevice)
 // ================================================================
+// ================================================================
+//  リニアステレオ化 (CLinearPanDevice、明示指定のみ)
+// ================================================================
+void FITOMConfig::mergeStereoPairDevices()
+{
+    struct Key {
+        uint8_t     voicePatchType;
+        std::string interfaceDesc;
+        bool operator==(const Key& o) const {
+            return voicePatchType == o.voicePatchType && interfaceDesc == o.interfaceDesc;
+        }
+    };
+
+    std::vector<bool> removed(devices_.size(), false);
+
+    for (size_t i = 0; i < devices_.size(); ++i) {
+        if (removed[i] || !devices_[i].stereoPairRequested || !devices_[i].port) continue;
+        if (devices_[i].port->getPanpot() != 1) continue; // L側のみを起点に探す (pan=1)
+
+        uint8_t vptI = deviceTypeToVoicePatchType(devices_[i].deviceType);
+        if (vptI == VOICE_PATCH_NONE) continue;
+        Key keyI{vptI, devices_[i].port->getInterfaceDesc()};
+
+        for (size_t j = 0; j < devices_.size(); ++j) {
+            if (i == j || removed[j] || !devices_[j].stereoPairRequested || !devices_[j].port) continue;
+            if (devices_[j].port->getPanpot() != 2) continue; // R側 (pan=2)
+            uint8_t vptJ = deviceTypeToVoicePatchType(devices_[j].deviceType);
+            if (vptJ == VOICE_PATCH_NONE) continue;
+            Key keyJ{vptJ, devices_[j].port->getInterfaceDesc()};
+            if (!(keyI == keyJ)) continue;
+
+            // devices_[i] (L) に devices_[j] (R) を統合する
+            devices_[i].stereoPairPort = devices_[j].port;
+            removed[j] = true;
+            FITOM_LOG_INFO("mergeStereoPairDevices: '" << devices_[j].label
+                << "' (R) merged into '" << devices_[i].label
+                << "' (L) as CLinearPanDevice pair");
+            break; // 1つのL側につきR側は1つだけ対応
+        }
+    }
+
+    std::vector<DeviceEntry> result;
+    result.reserve(devices_.size());
+    for (size_t i = 0; i < devices_.size(); ++i) {
+        if (!removed[i]) result.push_back(std::move(devices_[i]));
+    }
+    devices_ = std::move(result);
+}
+
 void FITOMConfig::mergeSpannableDevices()
 {
-    // グループ化キー: (voicePatchType, interfaceDesc, panpot)
-    // 同じキーを持つ複数エントリ (かつ port が物理的に別インスタンス) を
-    // 1つの代表エントリに統合する。
+    // グループ化キー: (voicePatchType, interfaceDesc, panpot)。
+    // ただし stereoPairPort 設定済み (Step1でステレオ化済み) のエントリは
+    // もはや単一のL/Rパンという概念を持たないため、panpot をキーから除外する
+    // (panpot=-1 の特別値で表現し、常に一致させる)。
     struct Key {
         uint8_t     voicePatchType;
         std::string interfaceDesc;
@@ -634,6 +698,11 @@ void FITOMConfig::mergeSpannableDevices()
                 && panpot         == o.panpot;
         }
     };
+    auto makeKey = [this](const DeviceEntry& e) -> Key {
+        uint8_t vpt = deviceTypeToVoicePatchType(e.deviceType);
+        int pan = e.stereoPairPort ? -1 : e.port->getPanpot();
+        return Key{vpt, e.port->getInterfaceDesc(), pan};
+    };
 
     std::vector<bool> merged(devices_.size(), false);
 
@@ -642,7 +711,7 @@ void FITOMConfig::mergeSpannableDevices()
         uint8_t vptI = deviceTypeToVoicePatchType(devices_[i].deviceType);
         if (vptI == VOICE_PATCH_NONE) continue; // 未分類デバイスは束ね対象外
 
-        Key keyI{vptI, devices_[i].port->getInterfaceDesc(), devices_[i].port->getPanpot()};
+        Key keyI = makeKey(devices_[i]);
 
         for (size_t j = i + 1; j < devices_.size(); ++j) {
             if (merged[j] || !devices_[j].port) continue;
@@ -650,12 +719,12 @@ void FITOMConfig::mergeSpannableDevices()
             uint8_t vptJ = deviceTypeToVoicePatchType(devices_[j].deviceType);
             if (vptJ == VOICE_PATCH_NONE) continue;
 
-            Key keyJ{vptJ, devices_[j].port->getInterfaceDesc(), devices_[j].port->getPanpot()};
+            Key keyJ = makeKey(devices_[j]);
             if (!(keyI == keyJ)) continue;
 
-            // devices_[j] を devices_[i] に統合する
-            devices_[i].spanPorts.push_back(devices_[j].port);
-            for (auto& sp : devices_[j].spanPorts) devices_[i].spanPorts.push_back(sp);
+            // devices_[j] (モノラルまたはステレオペア済み) を devices_[i] に統合する
+            devices_[i].spanGroups.push_back({devices_[j].port, devices_[j].stereoPairPort});
+            for (auto& g : devices_[j].spanGroups) devices_[i].spanGroups.push_back(g);
             merged[j] = true;
             FITOM_LOG_INFO("mergeSpannableDevices: '" << devices_[j].label
                 << "' merged into '" << devices_[i].label
@@ -672,16 +741,28 @@ void FITOMConfig::mergeSpannableDevices()
     devices_ = std::move(result);
 }
 
-int FITOMConfig::getDeviceSpanPortCount(int index) const {
+int FITOMConfig::getDeviceSpanGroupCount(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return 0;
-    return static_cast<int>(devices_[index].spanPorts.size());
+    return static_cast<int>(devices_[index].spanGroups.size());
 }
 
-IPort* FITOMConfig::getDeviceSpanPort(int index, int k) const {
+IPort* FITOMConfig::getDeviceSpanGroupPrimary(int index, int k) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return nullptr;
-    const auto& sp = devices_[index].spanPorts;
-    if (k < 0 || k >= static_cast<int>(sp.size())) return nullptr;
-    return sp[k].get();
+    const auto& sg = devices_[index].spanGroups;
+    if (k < 0 || k >= static_cast<int>(sg.size())) return nullptr;
+    return sg[k].primary.get();
+}
+
+IPort* FITOMConfig::getDeviceSpanGroupStereoPair(int index, int k) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return nullptr;
+    const auto& sg = devices_[index].spanGroups;
+    if (k < 0 || k >= static_cast<int>(sg.size())) return nullptr;
+    return sg[k].stereoPair.get();
+}
+
+IPort* FITOMConfig::getDeviceStereoPairPort(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return nullptr;
+    return devices_[index].stereoPairPort.get();
 }
 
 bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,

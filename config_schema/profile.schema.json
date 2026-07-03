@@ -232,6 +232,16 @@
               44100,
               48000
             ]
+          },
+          "rhythm_mode": {
+            "type": "boolean",
+            "default": false,
+            "description": "OPLL/OPL/OPL2/OPL3/OPNA等、チップ内蔵リズム音源の有効/無効。有効時はsub-device自動生成によりリズム専用デバイスが追加生成される。"
+          },
+          "stereo_pair": {
+            "type": "boolean",
+            "default": false,
+            "description": "リニアステレオ化 (CLinearPanDevice) の対象として明示指定する。同一VoicePatchType・同一I/F・pan(1=L)とpan(2=R)の組み合わせを持つ2エントリのみ、自動的にステレオデバイスとして統合される。自動検出はせず、両エントリともこのフラグが必要。"
           }
         },
         "if": {

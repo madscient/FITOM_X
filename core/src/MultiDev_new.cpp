@@ -17,5 +17,8 @@ std::unique_ptr<ISoundDevice> createCSpanDevice(ISoundDevice* c1, ISoundDevice* 
 std::unique_ptr<ISoundDevice> createCUnison(ISoundDevice* c1, ISoundDevice* c2) {
     return std::make_unique<CUnison>(c1, c2);
 }
+std::unique_ptr<ISoundDevice> createCLinearPanDevice(ISoundDevice* left, ISoundDevice* right) {
+    return std::make_unique<CLinearPanDevice>(left, right);
+}
 
 } // namespace fitom

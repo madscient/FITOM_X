@@ -22,6 +22,13 @@ class PatchManager; // 前方宣言 (loadDrumBanks の引数用)
 
 class ISoundDevice;
 
+// 「モノラル1ポート」または「ステレオペア2ポート」のどちらかを表す単位。
+// 同種デバイス自動束ね (spanGroups) の各要素として使う。
+struct PortGroup {
+    std::shared_ptr<IPort> primary;
+    std::shared_ptr<IPort> stereoPair;  // nullptr = モノラル単体
+};
+
 struct DeviceEntry {
     std::string                    label;
     // shared_ptr: sub-device 自動生成 (例: OPNA→FM+SSG+ADPCMB) で
@@ -40,6 +47,24 @@ struct DeviceEntry {
     // 識別するためのグループID (-1 = 単独デバイス)。同じ物理ポートを
     // 共有するデバイス群は同じ compositeGroup を持つ。
     int                            compositeGroup = -1;
+
+    // ─── リニアステレオ化 (CLinearPanDevice) ────────────────────────────
+    // プロファイルで stereo_pair:true が明示指定されたエントリ同士のうち、
+    // 同一VoicePatchType・同一InterfaceDesc・Panpot(L=1,R=2)の組み合わせを
+    // mergeStereoPairDevices() が検出し、代表エントリの stereoPairPort に
+    // 相手側(R側)のポートを設定する。自動検出はせず、明示指定が無ければ
+    // 発動しない。non-null なら「port(L) + stereoPairPort(R)」で
+    // CLinearPanDevice を構成する。
+    bool                            stereoPairRequested = false; // プロファイル指定
+    std::shared_ptr<IPort>          stereoPairPort;               // 統合後に設定
+
+    // 同種デバイス自動束ね (CSpanDevice) 用の追加ポートグループ群。
+    // 各要素は「モノラル1ポート」または「ステレオペア2ポート
+    // (CLinearPanDeviceとして束ねられたユニット)」のいずれか。
+    // 空なら単独デバイス。CFITOM::initDevices() がこの一覧を見て、
+    // port(+stereoPairPort) と spanGroups それぞれに ISoundDevice を
+    // 生成し CSpanDevice で束ねる。
+    std::vector<PortGroup>          spanGroups;
 };
 
 struct ChannelMapEntry {
@@ -75,6 +100,16 @@ public:
     // リズムモード (OPLL/OPL系等、チップ内蔵リズム音源の有効/無効)
     bool             getDeviceRhythmMode(int index) const;
     std::string      getDeviceLabel(int index)     const;
+
+    // 同種デバイス自動束ね: このデバイスと束ねる追加ポートグループ数、
+    // および k番目 (0-indexed) の追加ポートグループの主/ステレオペアポートを返す。
+    int              getDeviceSpanGroupCount(int index) const;
+    IPort*           getDeviceSpanGroupPrimary(int index, int k) const;
+    IPort*           getDeviceSpanGroupStereoPair(int index, int k) const; // nullptr=モノラル
+
+    // リニアステレオ化 (CLinearPanDevice): このデバイス自身がステレオペア化
+    // されている場合、相手(R側)のポートを返す。nullptr = モノラル単体。
+    IPort*           getDeviceStereoPairPort(int index) const;
 
     // ─── VoicePatchType (音色パッチ互換性分類) ──────────────────────────────
     // devices_[index] の deviceType (DEVICE_*) から対応する VoicePatchType
@@ -144,8 +179,28 @@ protected:
     // 複数の DeviceEntry を、そうでなければ単独の DeviceEntry を devices_ に追加する。
     void pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
                             std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
-                            int sampleRate, int extraSlot, bool rhythmModeFromProfile);
+                            int sampleRate, int extraSlot, bool rhythmModeFromProfile,
+                            bool stereoPairRequested = false);
     int nextCompositeGroupId_ = 0;
+
+    // 全 buildDevice() 完了後に1回呼ぶ。同一 VoicePatchType・同一
+    // IPort::getInterfaceDesc()・同一 IPort::getPanpot() を持つ
+    // (かつ compositeGroup が異なる = 別の物理ポートに由来する) エントリ群を
+    // 【Step1: 最初に実行】プロファイルで stereo_pair:true が明示指定された
+    // エントリ同士のうち、同一VoicePatchType・同一InterfaceDesc・
+    // Panpot(L=1,R=2)の組み合わせを検出し、L側エントリの stereoPairPort に
+    // R側のポートを設定した上で R側エントリを devices_ から削除する。
+    // 自動検出はせず、両エントリとも明示指定が無ければ発動しない。
+    void mergeStereoPairDevices();
+
+    // 【Step2: Step1の後に実行】全 buildDevice() 完了後に1回呼ぶ。同一
+    // VoicePatchType・同一 IPort::getInterfaceDesc() を持つ
+    // (かつ compositeGroup が異なる = 別の物理ポートに由来する) エントリ群を
+    // 検出し、代表エントリ1つに統合する (他は devices_ から削除し、
+    // 代表エントリの spanGroups に追加する)。stereoPairPort が設定済みの
+    // エントリ (Step1でステレオ化済み) は Panpot をグループ化キーから除外する
+    // (ステレオユニットはもはや単一のL/Rパンという概念を持たないため)。
+    void mergeSpannableDevices();
     // profile の banks.drum_banks[] を PatchManager に登録する
     void loadDrumBanks(const nlohmann::json& j, PatchManager& pm,
                         const std::filesystem::path& baseDir);
