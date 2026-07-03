@@ -17,6 +17,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <cmath>
 
 namespace fitom {
 
@@ -343,6 +344,61 @@ public:
     }
     uint8_t getCurrentNote(uint8_t gch) const override {
         return chips_.empty() ? 0xFF : chips_[0]->getCurrentNote(gch);
+    }
+};
+
+// ================================================================
+//  CLinearPanDevice: 物理的にL/Rに固定配線された同一チップ2台を
+//  1つのステレオデバイスとして束ねる (旧FITOM CLinearPan 完全移植)。
+//
+//  CUnison (両チップに同一chを同時発音) をベースに、setVolume/setPanpot を
+//  オーバーライドし、パンポットに応じて等パワーパンニング(cos/sin)で
+//  左右チップの音量をクロスフェードする。両チップは常に同時に鳴り続け、
+//  「左右どちらか一方だけを鳴らす」という切り替えは行わない。
+//
+//  ChState (volume/panpot) を保持する仕組みが CMultiDevice 側にないため、
+//  本クラス自身が「本来の (計算前の) 音量・パン値」を保持する。
+// ================================================================
+class CLinearPanDevice : public CUnison {
+public:
+    // leftChip: Panpot=1(L)側の物理チップ、rightChip: Panpot=2(R)側
+    CLinearPanDevice(ISoundDevice* leftChip, ISoundDevice* rightChip)
+        : CUnison(leftChip, rightChip)
+    {
+        std::fill(std::begin(masterVolume_), std::end(masterVolume_), uint8_t{127});
+        std::fill(std::begin(masterPan_), std::end(masterPan_), int8_t{0});
+    }
+
+    void setVolume(uint8_t ch, uint8_t vol, bool update) override {
+        if (ch >= kMaxChs_ || chips_.size() < 2) return;
+        masterVolume_[ch] = vol;
+        applyLinearPan(ch, update);
+    }
+
+    void setPanpot(uint8_t ch, int8_t pan, bool update) override {
+        if (ch >= kMaxChs_ || chips_.size() < 2) return;
+        masterPan_[ch] = pan;
+        applyLinearPan(ch, update);
+    }
+
+private:
+    // CSoundDevice::MAX_CHS はスコープが異なるため、ここで独自に定義する。
+    static constexpr int kMaxChs_ = 16;
+    uint8_t masterVolume_[kMaxChs_];
+    int8_t  masterPan_[kMaxChs_];
+
+    // 旧FITOM CLinearPan::UpdatePanpot 完全移植。
+    // panpot(int8_t, -64..63) を旧FITOMの0-127生値スケールに変換した上で、
+    // 等パワーパンニングの式 (lgain=cos, rgain=sin) を適用する。
+    void applyLinearPan(uint8_t ch, bool update) {
+        int p = static_cast<int>(masterPan_[ch]) + 64 - 1; // -64..63 → -1..126
+        p = std::clamp(p, 0, 126);
+        double lgain = std::cos(M_PI_2 * p / 126.0);
+        double rgain = std::sin(M_PI_2 * p / 126.0);
+        uint8_t lvol = static_cast<uint8_t>(std::lround(lgain * masterVolume_[ch]));
+        uint8_t rvol = static_cast<uint8_t>(std::lround(rgain * masterVolume_[ch]));
+        chips_[0]->setVolume(ch, lvol, update); // L
+        chips_[1]->setVolume(ch, rvol, update); // R
     }
 };
 

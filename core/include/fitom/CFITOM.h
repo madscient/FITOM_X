@@ -176,6 +176,19 @@ private:
     // OPNA/OPN2 等の HW 2 ポート構成時に生成する SplitPort。
     // IPort* として CSoundDevice に渡すが、所有権はここで管理する。
     std::vector<std::unique_ptr<SplitPort>> splitPorts_;
+    // 同種デバイス自動束ね (CSpanDevice) で生成される個々のサブチップ。
+    // devices_[i] が CSpanDevice の場合、その内部で束ねられる実体
+    // (unique_ptr<ISoundDevice>) をここで保持し続ける必要がある
+    // (CSpanDevice/CMultiDevice は生ポインタしか持たないため)。
+    std::vector<std::unique_ptr<ISoundDevice>> spanSubChips_;
+
+    // 1つの物理ポート(+extraPort)から ISoundDevice を生成する。
+    // stereoPairPort が指定されていれば、そのポート用にもう1つ生成し、
+    // CLinearPanDevice でラップしてステレオデバイスとして返す
+    // (旧FITOM CLinearPan 相当)。生成した中間チップの寿命は spanSubChips_ で管理する。
+    std::unique_ptr<ISoundDevice> createLeveledDevice(
+        uint32_t deviceType, IPort* port, IPort* stereoPairPort,
+        int sampleRate, IPort* extraPort, bool rhythmMode);
 
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;

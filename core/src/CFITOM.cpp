@@ -11,6 +11,7 @@
 #include "fitom/FnumUtils.h"
 #include "fitom/IPort.h"
 #include "fitom/DeviceFactory.h"
+#include "fitom/MultiDevice.h"
 #include "fitom/SccWaveData.h"
 #include "fitom/PcmBankData.h"
 #include "fitom/DrumData.h"
@@ -229,6 +230,35 @@ void CFITOM::syncDeviceLatency()
     }
 }
 
+// MultiDev_new.cpp で定義される CLinearPanDevice 生成関数
+extern std::unique_ptr<ISoundDevice> createCLinearPanDevice(ISoundDevice* left, ISoundDevice* right);
+
+std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
+    uint32_t deviceType, IPort* port, IPort* stereoPairPort,
+    int sampleRate, IPort* extraPort, bool rhythmMode)
+{
+    auto dev = DeviceFactory::create(deviceType, port, sampleRate, extraPort, rhythmMode);
+    if (!dev) return nullptr;
+    dev->init();
+
+    if (!stereoPairPort) return dev;
+
+    // リニアステレオ化 (CLinearPanDevice): R側チップも生成してラップする。
+    auto rdev = DeviceFactory::create(deviceType, stereoPairPort, sampleRate, nullptr, rhythmMode);
+    if (!rdev) {
+        FITOM_LOG_WARN("createLeveledDevice: stereo pair (R) creation failed, "
+            "falling back to mono (L only)");
+        return dev;
+    }
+    rdev->init();
+
+    ISoundDevice* lRaw = dev.get();
+    ISoundDevice* rRaw = rdev.get();
+    spanSubChips_.push_back(std::move(dev));
+    spanSubChips_.push_back(std::move(rdev));
+    return fitom::createCLinearPanDevice(lRaw, rRaw);
+}
+
 void CFITOM::initDevices()
 {
     // DeviceFactory を使って IPort → ISoundDevice を生成する。
@@ -270,9 +300,10 @@ void CFITOM::initDevices()
 
         // エミュレーター (FmEnginePort): port == extraPort → SplitPort 不要
         // HW 2ポート: extraPort が別 IPort → createCOPNA 内で SplitPort を利用
-        auto dev = DeviceFactory::create(deviceType, port, sampleRate,
-                                         (extraPort != port) ? extraPort : nullptr,
-                                         config_->getDeviceRhythmMode(i));
+        IPort* stereoPairPort = config_->getDeviceStereoPairPort(i);
+        auto dev = createLeveledDevice(deviceType, port, stereoPairPort, sampleRate,
+                                       (extraPort != port) ? extraPort : nullptr,
+                                       config_->getDeviceRhythmMode(i));
         if (!dev) {
             FITOM_LOG_ERR("Device[" << i << "] '"
                 << config_->getDeviceLabel(i)
@@ -281,7 +312,33 @@ void CFITOM::initDevices()
             continue;
         }
 
-        dev->init();
+        // 同種デバイス自動束ね: spanGroups があれば追加のチップ(モノラルまたは
+        // ステレオペア)を生成し CSpanDevice で束ねる (旧FITOMの isSpannable 相当)。
+        int spanCount = config_->getDeviceSpanGroupCount(i);
+        if (spanCount > 0) {
+            auto spanDev = std::make_unique<CSpanDevice>();
+            spanDev->addDevice(dev.get());
+            spanSubChips_.push_back(std::move(dev));
+
+            for (int k = 0; k < spanCount; ++k) {
+                IPort* sp       = config_->getDeviceSpanGroupPrimary(i, k);
+                IPort* spStereo = config_->getDeviceSpanGroupStereoPair(i, k);
+                if (!sp) continue;
+                auto subDev = createLeveledDevice(deviceType, sp, spStereo, sampleRate,
+                                                   nullptr, config_->getDeviceRhythmMode(i));
+                if (!subDev) {
+                    FITOM_LOG_WARN("Device[" << i << "]: span sub-chip[" << k
+                        << "] creation failed, skipped");
+                    continue;
+                }
+                spanDev->addDevice(subDev.get());
+                spanSubChips_.push_back(std::move(subDev));
+            }
+            FITOM_LOG_INFO("Device[" << i << "]: " << config_->getDeviceLabel(i)
+                << " spanned across " << (spanCount + 1) << " physical chips ("
+                << (int)spanDev->getChCount() << "ch total)");
+            dev = std::move(spanDev);
+        }
 
         // SCC デバイスには SccWaveRegistry を注入する (非対応チップは空実装で無視される)
         if (deviceType == DEVICE_SCC || deviceType == DEVICE_SCCP) {
