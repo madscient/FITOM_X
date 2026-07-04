@@ -388,4 +388,43 @@ namespace fitom {
 std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr) { return std::make_unique<COPM>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr) { return std::make_unique<COPP>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr) { return std::make_unique<COPZ>(p, sr); }
+
+// ================================================================
+//  フォールバック受け入れ判定
+// ================================================================
+namespace {
+// OPZ/OPZ2専用の拡張パラメータ (REV/EGS/DT3/WS) が実際に使用されて
+// いないかを判定する。全て未使用(デフォルト値)ならOPM等価として
+//安全に再生できる。
+bool usesOpzExtensions(const HwPatch& patch) {
+    if (patch.ext.REV != 0 || patch.ext.EGS != 0 || patch.ext.DT3 != 0) return true;
+    for (int i = 0; i < 4; ++i) {
+        if (patch.hwOp[i].WS != 0) return true;
+    }
+    return false;
+}
+} // namespace
+
+// COPM (VOICE_PATCH_OPM): OPZ/OPZ2形式の音色データを再生できるか。
+// OPZ拡張パラメータ(REV/EGS/DT3/WS)が未使用の場合のみ安全
+// (使用中の場合、それらのパラメータが表現する音の違いが失われるため
+//  フォールバックを許可しない)。
+bool copmAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch) {
+    if (sourceVoicePatchType != VOICE_PATCH_OPZ && sourceVoicePatchType != VOICE_PATCH_OPZ2)
+        return false;
+    return !usesOpzExtensions(patch);
+}
+
+// COPZ (VOICE_PATCH_OPZ): OPM形式は常に安全に再生できる (OPM由来の音色
+// データはOPZ拡張フィールドを一切使わないため、単なる上位互換として動作)。
+// OPZ2形式は同一の拡張フィールド構成のため常に安全。
+bool copzAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
+    return sourceVoicePatchType == VOICE_PATCH_OPM || sourceVoicePatchType == VOICE_PATCH_OPZ2;
+}
+
+// COPZ2相当も同様 (現状OPZと同一クラスのため同じ判定)。
+bool copz2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
+    return sourceVoicePatchType == VOICE_PATCH_OPM || sourceVoicePatchType == VOICE_PATCH_OPZ;
+}
+
 } // namespace fitom

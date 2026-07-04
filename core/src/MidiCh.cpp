@@ -41,11 +41,12 @@ CInstCh::CInstCh(uint8_t ch, CFITOM* parent)
 
 CInstCh::~CInstCh() { allNoteOff(); }
 
-void CInstCh::setup(PatchManager* pm, CFITOM* fitom, uint8_t poly)
+void CInstCh::setup(PatchManager* pm, CFITOM* fitom)
 {
     patchMgr_ = pm;
     fitom_    = fitom;
-    poly_     = (poly == 0) ? 1 : poly;
+    // poly_ はデフォルト値のまま。progChange() 実行時に、解決された
+    // パッチが使うデバイスのチャンネル数から動的に決定される。
 }
 
 // ----------------------------------------------------------------
@@ -79,10 +80,25 @@ void CInstCh::progChange(uint8_t prog)
 
     resolver_.apply(resolved);
 
+    // ポリフォニー数はデバイス依存: このパッチが使う全レイヤーのうち、
+    // 最小のチャンネル数を持つデバイスが上限になる (どのレイヤーも
+    // 同時に鳴らす必要があるため、一番小さいデバイスがボトルネックになる)。
+    // channel_map等の固定設定は使わず、ProgChangeのたびに動的に決定する。
+    uint8_t newPoly = MAX_NOTES;
+    for (int li = 0; li < resolved.layerCount; ++li) {
+        const auto& rl = resolved.layers[li];
+        ISoundDevice* dev = fitom_->getDevice(rl.deviceIndex);
+        if (!dev) continue;
+        uint8_t chCount = dev->getChCount();
+        if (chCount > 0 && chCount < newPoly) newPoly = chCount;
+    }
+    poly_ = (newPoly > 0) ? std::min<uint8_t>(newPoly, MAX_NOTES) : 1;
+
     FITOM_LOG_DEBUG("CInstCh ch=" << static_cast<int>(ch_)
         << ": ProgChange " << static_cast<int>(prog)
         << " '" << resolved.patch->name << "'"
-        << " layers=" << resolved.layerCount);
+        << " layers=" << resolved.layerCount
+        << " poly=" << static_cast<int>(poly_));
 
     // Program Change は発音中のノートに一切作用しない (全モード共通の仕様)。
     // 新しいパッチは次の NoteOn から適用される。

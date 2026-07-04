@@ -2,6 +2,7 @@
 // IPort → ISoundDevice ファクトリ実装
 
 #include "fitom/DeviceFactory.h"
+#include "fitom/Config.h"
 #include "fitom/Log.h"
 #include <memory>
 
@@ -36,6 +37,19 @@ std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr, uint32_t deviceType);
 std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
+
+// フォールバック受け入れ判定関数 (各チップドライバファイルで定義)
+bool copnAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool copn2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool copmAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool copzAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool copz2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool coplAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool copl2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool cssgAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool cepsgAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch);
+bool opllFamilyAcceptsFallback(uint8_t sourceVoicePatchType, uint8_t selfVoicePatchType,
+                                const HwPatch& patch);
 
 // ================================================================
 //  DeviceFactory::create
@@ -148,6 +162,50 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_OPNA_RHY:                                  return 6;
     case DEVICE_MA1:                                      return 1;
     default:                                              return 1;
+    }
+}
+
+bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatchType,
+                                     const HwPatch& patch)
+{
+    switch (deviceType) {
+    case DEVICE_OPN:
+    case DEVICE_OPNB:
+    case DEVICE_OPNC:
+        return copnAcceptsFallback(sourceVoicePatchType, patch);
+
+    case DEVICE_OPN2: case DEVICE_OPN2C: case DEVICE_OPN2L:
+    case DEVICE_OPNA: case DEVICE_OPN3L: case DEVICE_2610B:
+    case DEVICE_F286: case DEVICE_OPN3:
+        return copn2AcceptsFallback(sourceVoicePatchType, patch);
+
+    case DEVICE_OPM: case DEVICE_OPP:
+        return copmAcceptsFallback(sourceVoicePatchType, patch);
+
+    case DEVICE_OPZ:
+        return copzAcceptsFallback(sourceVoicePatchType, patch);
+    case DEVICE_OPZ2:
+        return copz2AcceptsFallback(sourceVoicePatchType, patch);
+
+    case DEVICE_OPL: case DEVICE_Y8950:
+        return coplAcceptsFallback(sourceVoicePatchType, patch);
+    case DEVICE_OPL2:
+        return copl2AcceptsFallback(sourceVoicePatchType, patch);
+
+    case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL:
+    case DEVICE_SSGLP: case DEVICE_SSGS: case DEVICE_DSG:
+        return cssgAcceptsFallback(sourceVoicePatchType, patch);
+    case DEVICE_EPSG:
+        return cepsgAcceptsFallback(sourceVoicePatchType, patch);
+
+    case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP:
+    case DEVICE_OPLLX: case DEVICE_VRC7: {
+        uint8_t selfVpt = FITOMConfig::deviceTypeToVoicePatchType(deviceType);
+        return opllFamilyAcceptsFallback(sourceVoicePatchType, selfVpt, patch);
+    }
+
+    default:
+        return false; // フォールバック非対応チップ
     }
 }
 

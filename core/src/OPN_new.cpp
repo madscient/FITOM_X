@@ -312,4 +312,21 @@ std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster, bo
 std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr) {
     return std::make_unique<COPN>(p);
 }
+
+// ================================================================
+//  フォールバック受け入れ判定 (DeviceFactory::acceptsFallback から呼ばれる)
+// ================================================================
+// COPN (VOICE_PATCH_OPN): OPN2形式の音色データをそのまま再生できるか。
+// 同一FMコアのためレジスタレベルで完全互換 (ch4-6/FXモード等の拡張は
+// 単にOPN(3ch)側では使われないだけで、データの解釈自体は変わらない)。
+bool copnAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
+    return sourceVoicePatchType == VOICE_PATCH_OPN2;
+}
+
+// COPNA/COPN2 (VOICE_PATCH_OPN2): OPN形式の音色データを再生できるか。
+// 同様に完全互換。
+bool copn2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
+    return sourceVoicePatchType == VOICE_PATCH_OPN;
+}
+
 } // namespace fitom

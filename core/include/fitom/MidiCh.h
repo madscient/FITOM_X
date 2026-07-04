@@ -132,9 +132,10 @@ public:
     ~CInstCh() override;
 
     // ─── チャンネル割り当て ─────────────────────────────────────────
-    // 旧 Assign(CSoundDevice*, poly) の後継
-    // profile の channel_map から PatchManager・devices を設定する
-    void setup(PatchManager* pm, CFITOM* fitom, uint8_t poly);
+    // 旧 Assign(CSoundDevice*, poly) の後継。
+    // ポリフォニー数(poly_)はここでは設定せず、progChange()実行時に
+    // 解決されたパッチのデバイスチャンネル数から動的に決定される。
+    void setup(PatchManager* pm, CFITOM* fitom);
 
     // ─── MIDI メッセージ ───────────────────────────────────────────
     void progChange(uint8_t prog) override;

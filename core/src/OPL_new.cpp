@@ -587,4 +587,26 @@ std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr)  { return std::make_u
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr) { return std::make_unique<COPL2>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_unique<COPL3>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr) { return std::make_unique<COPL3_2>(p, sr); }
+
+// ================================================================
+//  フォールバック受け入れ判定
+// ================================================================
+// COPL (VOICE_PATCH_OPL, YM3526): OPL2形式の音色データを再生できるか。
+// 実機OPLは波形選択ハードウェア自体を持たないため、OPL2音色が
+// hwOp[].WS!=0 (非サイン波) を使っている場合、その波形情報が失われ
+// 音が変わってしまう。WSが全オペレータで0(サイン波)の場合のみ許可する。
+bool coplAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch) {
+    if (sourceVoicePatchType != VOICE_PATCH_OPL2) return false;
+    for (int i = 0; i < 2; ++i) {
+        if (patch.hwOp[i].WS != 0) return false;
+    }
+    return true;
+}
+
+// COPL2 (VOICE_PATCH_OPL2): OPL形式は常に安全に再生できる (OPL由来の
+// 音色データはWSフィールドを使わない=0のままのため、単なる上位互換)。
+bool copl2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
+    return sourceVoicePatchType == VOICE_PATCH_OPL;
+}
+
 } // namespace fitom
