@@ -233,7 +233,9 @@
 // 0x20: VoiceGroup=OPL2
 #define VOICE_PATCH_OPL      0x20  // YM3526, YM3801
 #define VOICE_PATCH_OPL2     0x21  // YM3812
-#define VOICE_PATCH_OPL3_2   0x22  // YMF264/289/278-4OP
+// OPL3(YMF262)の2opモード。WSが3bit(8波形)まで使えるためOPL2(2bit,4波形)
+// とは別分類とする。OPL2側へのフォールバックはWS<4の場合のみ許可する。
+#define VOICE_PATCH_OPL3_2   0x22  // YMF264/289/278-2OP
 
 // 0x28: VoiceGroup=OPLL
 #define VOICE_PATCH_OPLL     0x28  // YM2413, YM2420

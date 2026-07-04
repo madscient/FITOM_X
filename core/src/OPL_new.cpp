@@ -605,8 +605,18 @@ bool coplAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch) {
 
 // COPL2 (VOICE_PATCH_OPL2): OPL形式は常に安全に再生できる (OPL由来の
 // 音色データはWSフィールドを使わない=0のままのため、単なる上位互換)。
-bool copl2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
-    return sourceVoicePatchType == VOICE_PATCH_OPL;
+// OPL3(2OP)形式(VOICE_PATCH_OPL3_2)は、WSが3bit(8波形)まで使える
+// 実機OPL3と異なりOPL2は2bit(4波形)までしか対応しないため、
+// 全オペレータでWS<4の場合のみ許可する。
+bool copl2AcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch) {
+    if (sourceVoicePatchType == VOICE_PATCH_OPL) return true;
+    if (sourceVoicePatchType == VOICE_PATCH_OPL3_2) {
+        for (int i = 0; i < 2; ++i) {
+            if (patch.hwOp[i].WS >= 4) return false;
+        }
+        return true;
+    }
+    return false;
 }
 
 } // namespace fitom
