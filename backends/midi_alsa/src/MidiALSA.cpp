@@ -242,7 +242,7 @@ FITOM_MIDIP_API void FITOM_MIDIP_CALL MidiPlugin_CloseOut(MidiOutHandle handle) 
 FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_Send(
     MidiOutHandle handle, const uint8_t* data, size_t len, uint64_t /*ts*/)
 {
-    if (!handle || !data || len == 0) return MIDI_ERR_INVALID_ARG;
+    if (!handle || !data || len == 0) return MIDI_ERR_IO;
     auto* dev = reinterpret_cast<MidiInDevice*>(handle);
 
     snd_seq_event_t ev;
@@ -265,7 +265,7 @@ FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_Send(
             snd_seq_ev_set_pitchbend(&ev, ch, pb - 8192);
         }
         break;
-    default: return MIDI_ERR_INVALID_ARG;
+    default: return MIDI_ERR_IO;
     }
 
     return (snd_seq_event_output_direct(dev->seq, &ev) >= 0) ? MIDI_OK : MIDI_ERR_IO;

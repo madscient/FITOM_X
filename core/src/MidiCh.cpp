@@ -561,6 +561,24 @@ uint8_t CInstCh::getLastNote() const
     return 0xFF;
 }
 
+uint8_t CInstCh::getLastDeviceIndex() const
+{
+    for (int hi = MAX_NOTES - 1; hi >= 0; --hi) {
+        if (!notes_[hi].isValid()) continue;
+        const auto* layer = resolver_.layer(notes_[hi].layerIdx);
+        if (layer) return static_cast<uint8_t>(layer->deviceIndex);
+    }
+    return 0xFF;
+}
+
+uint8_t CInstCh::getLastDevCh() const
+{
+    for (int hi = MAX_NOTES - 1; hi >= 0; --hi) {
+        if (notes_[hi].isValid()) return notes_[hi].devCh;
+    }
+    return 0xFF;
+}
+
 // ----------------------------------------------------------------
 //  内部ヘルパー
 // ----------------------------------------------------------------
@@ -865,6 +883,27 @@ int CRhythmCh::activeNoteCount() const
     int n = 0;
     for (const auto& s : noteSlots_) if (s.anyActive()) ++n;
     return n;
+}
+
+uint8_t CRhythmCh::getLastDeviceIndex() const
+{
+    if (lastNote_ >= 128 || !fitom_) return 0xFF;
+    for (const auto& l : noteSlots_[lastNote_].layers) {
+        if (l.isActive()) {
+            int idx = fitom_->findDeviceIndex(l.dev);
+            if (idx >= 0) return static_cast<uint8_t>(idx);
+        }
+    }
+    return 0xFF;
+}
+
+uint8_t CRhythmCh::getLastDevCh() const
+{
+    if (lastNote_ >= 128) return 0xFF;
+    for (const auto& l : noteSlots_[lastNote_].layers) {
+        if (l.isActive()) return l.devCh;
+    }
+    return 0xFF;
 }
 
 // ----------------------------------------------------------------
