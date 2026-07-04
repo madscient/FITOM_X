@@ -79,7 +79,7 @@ public:
     virtual ~FITOMConfig();
 
     bool loadSystemConf(const std::filesystem::path& path);
-    bool loadProfile(const std::filesystem::path& path);
+    bool loadProfile(const std::filesystem::path& path, PatchManager* patchMgr = nullptr);
     bool loadLegacyIni(const std::filesystem::path& path);
 
     void setHWPlugin(std::shared_ptr<HWPluginInstance> plugin);
@@ -162,7 +162,8 @@ public:
     void setProgressCallback(ProgressCb cb) { progressCb_ = std::move(cb); }
 
 protected:
-    virtual bool buildFromProfile(const nlohmann::json& j);
+    virtual bool buildFromProfile(const nlohmann::json& j, PatchManager* patchMgr = nullptr,
+                                   const std::filesystem::path& baseDir = {});
     virtual bool buildFromLegacyIni(const nlohmann::json& ini);
     virtual void buildDevice(const nlohmann::json& dev);
 

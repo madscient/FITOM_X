@@ -116,7 +116,7 @@ FITOMConfig::~FITOMConfig() = default;
 
 // --- JSON プロファイルのロード --------------------------------
 
-bool FITOMConfig::loadProfile(const fs::path& path)
+bool FITOMConfig::loadProfile(const fs::path& path, PatchManager* patchMgr)
 {
     std::ifstream f(path);
     if (!f) {
@@ -125,7 +125,7 @@ bool FITOMConfig::loadProfile(const fs::path& path)
     }
     try {
         json j = json::parse(f, nullptr, true, true); // allow comments
-        return buildFromProfile(j);
+        return buildFromProfile(j, patchMgr, path.parent_path());
     } catch (const json::exception& e) {
         FITOM_LOG_ERR("Profile parse error: " << e.what());
         return false;
@@ -165,7 +165,8 @@ bool FITOMConfig::loadLegacyIni(const fs::path& path)
 
 // --- プロファイル JSON から内部構造を構築 --------------------
 
-bool FITOMConfig::buildFromProfile(const json& j)
+bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
+                                    const std::filesystem::path& baseDir)
 {
     // --- FM エンジン登録 ---
     if (j.contains("fm_engines") && j["fm_engines"].is_array()) {
@@ -210,6 +211,16 @@ bool FITOMConfig::buildFromProfile(const json& j)
         for (const auto& name : j["midi_inputs"]) {
             midiInputNames_.push_back(name.get<std::string>());
         }
+    }
+
+    // --- 音色バンク一式のロード (hw/sw/patch/drum/scc_wave/pcm) ---
+    // patchMgr が渡された場合のみ実行する (省略時は従来通りデバイス構成
+    // のみを構築し、音色バンクロードはスキップする、後方互換動作)。
+    // (以前はここでbanksセクションが一切処理されておらず、プロファイルの
+    //  hw_banks/sw_banks/patch_banks/drum_banks等が実際には一度もロード
+    //  されないという重大な不具合があったため修正)
+    if (patchMgr) {
+        loadDrumBanks(j, *patchMgr, baseDir);
     }
 
     // --- バリデーション ---
