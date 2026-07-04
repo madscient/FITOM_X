@@ -33,7 +33,15 @@ option(FITOM_USE_VCPKG_JSON          "nlohmann-json を submodule でなく vcpk
 if(MSVC)
     add_compile_options(/utf-8 /W4 /wd4100 /wd4505)
     add_compile_definitions(
-        _WIN32_WINNT=0x0601
+        # 重要: vcpkgのboost-logバイナリはWindows 8以降を対象にビルドされて
+        # おり、Boost.Logは対象Windowsバージョンに応じて内部名前空間を
+        # 切り替える設計になっている (Windows7以下=v2_mt_nt6、
+        # Windows8以降=v2_mt_nt62)。_WIN32_WINNT=0x0601(Windows7)のまま
+        # だと、ヘッダー側がv2_mt_nt6名前空間でコンパイルされる一方、
+        # リンクされるバイナリはv2_mt_nt62名前空間のシンボルしか持たず、
+        # 全てのBoost.Logシンボルが未解決になる (LNK2001/LNK2019多発)。
+        # vcpkgのビルド環境に合わせて0x0602(Windows8)以上を指定する。
+        _WIN32_WINNT=0x0602
         NOMINMAX
         WIN32_LEAN_AND_MEAN
         _CRT_SECURE_NO_WARNINGS
