@@ -385,6 +385,15 @@ int CFITOM::getDeviceCount() const
     return config_ ? config_->getDeviceCount() : 0;
 }
 
+int CFITOM::findDeviceIndex(const ISoundDevice* dev) const
+{
+    if (!dev) return -1;
+    for (size_t i = 0; i < devices_.size(); ++i) {
+        if (devices_[i].get() == dev) return static_cast<int>(i);
+    }
+    return -1;
+}
+
 const DrumNote* CFITOM::getDrum(int bankNo, uint8_t prog, uint8_t midiNote) const
 {
     if (!patchMgr_) return nullptr;

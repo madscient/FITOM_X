@@ -83,6 +83,11 @@ public:
     virtual uint16_t getPitchBend()   const { return 8192; }
     virtual bool     getSustain()     const { return false; }
     virtual uint8_t  getPoly()        const { return 0; }
+    // 直近に発音したノートが使用した devices[] インデックス / デバイス側ch。
+    // 名前解決 (チップ名文字列・音色名) は行わない。呼び出し側が
+    // FITOMConfig/PatchManager (プロファイル情報を保持) を使って解決する。
+    virtual uint8_t  getLastDeviceIndex() const { return 0xFF; }
+    virtual uint8_t  getLastDevCh()       const { return 0xFF; }
 
     virtual bool isInst()   const { return false; }
     virtual bool isRhythm() const { return false; }
@@ -181,6 +186,8 @@ public:
     uint16_t getPitchBend()  const override { return pitchBend_; }
     bool     getSustain()    const override { return sustain_; }
     uint8_t  getPoly()       const override { return poly_; }
+    uint8_t  getLastDeviceIndex() const override;
+    uint8_t  getLastDevCh()       const override;
     bool     isInst()        const override { return true; }
 
     // 現在のレイヤー数 (GUI モニタリング用)
@@ -294,6 +301,12 @@ public:
     uint8_t  getProgramNo() const override { return programNo_; }
     uint8_t  getVolume()    const override { return volume_; }
     bool     isRhythm()     const override { return true; }
+    // 直近ノート(lastNote_)が使う全レイヤーのうち、最初にアクティブな
+    // ものを代表として返す (CRhythmChはISoundDevice*のみ保持するため、
+    // devices[]インデックスはfitom_->findDeviceIndex()で逆引きする)。
+    // CFITOMは前方宣言のみのためMidiCh.cppに実装する。
+    uint8_t  getLastDeviceIndex() const override;
+    uint8_t  getLastDevCh()       const override;
 
     int activeNoteCount() const;
 

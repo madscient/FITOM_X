@@ -106,6 +106,10 @@ public:
     // ─── デバイスアクセス ─────────────────────────────────────────
     ISoundDevice* getDevice(int index) const;
     int           getDeviceCount() const;
+    // dev の devices[] 内インデックスを逆引きする (モニタリング用、
+    // CRhythmChはISoundDevice*のみ保持しdeviceIndexを持たないため)。
+    // 見つからなければ -1。
+    int           findDeviceIndex(const ISoundDevice* dev) const;
 
     // CRhythmCh::NoteOn から呼ばれるドラムノート解決 (bankNo = CC#0 値)
     const DrumNote* getDrum(int bankNo, uint8_t prog, uint8_t midiNote) const;
