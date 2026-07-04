@@ -44,6 +44,15 @@ public:
 
     // デバイス ID → デフォルトチャンネル数
     static uint8_t defaultChCount(uint32_t deviceType);
+
+    // フォールバック受け入れ判定: deviceType のチップが、本来
+    // sourceVoicePatchType 向けに作られた patch を正しく再生できるか。
+    // 判定はチップドライバ自身の知識(HwPatchのどのフィールドを実際に
+    // 参照するか)に基づく。基底は false (フォールバック非対応)。
+    // create()と異なり ISoundDevice の生存インスタンスを必要としない
+    // 純粋関数として実装する (HwPatchの内容だけで判定できるため)。
+    static bool acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatchType,
+                                 const HwPatch& patch);
 };
 
 } // namespace fitom

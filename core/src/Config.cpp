@@ -212,17 +212,6 @@ bool FITOMConfig::buildFromProfile(const json& j)
         }
     }
 
-    // --- チャンネルマップ ---
-    if (j.contains("channel_map") && j["channel_map"].is_array()) {
-        for (const auto& cm : j["channel_map"]) {
-            ChannelMapEntry e;
-            e.midiCh      = cm.value("midi_ch", 1) - 1; // 0-indexed
-            e.deviceIndex = cm.value("device_index", 0);
-            e.poly        = cm.value("poly", 1);
-            channelMap_.push_back(e);
-        }
-    }
-
     // --- バリデーション ---
     validateProfile();
 
@@ -355,33 +344,10 @@ bool FITOMConfig::buildFromLegacyIni(const json& ini)
         FITOM_LOG_INFO("Device.mode != MANUAL: auto device config (legacy SCCI) skipped in cross-platform build");
     }
 
-    // チャンネルマップ（Channel.ch1 〜 ch16）
-    for (int ch = 0; ch < 16; ch++) {
-        std::string key   = (boost::format("ch%1%") % (ch + 1)).str();
-        std::string param = ini::get(ini, "Channel", key, "**NONE**");
-        if (param == "**NONE**") continue;
-
-        // "DEVNAME:poly" または "RHYTHM"
-        ChannelMapEntry e;
-        e.midiCh = ch;
-        if (param == "RHYTHM") {
-            e.deviceIndex = -1; // RHYTHM は特殊扱い
-            e.poly = 0;
-        } else {
-            auto colon = param.find(':');
-            std::string devname = (colon != std::string::npos) ? param.substr(0, colon) : param;
-            e.poly = (colon != std::string::npos) ? std::stoi(param.substr(colon + 1)) : 1;
-            // devname をデバイスリストのラベルと照合して deviceIndex を解決
-            e.deviceIndex = 0; // デフォルト
-            for (int di = 0; di < static_cast<int>(devices_.size()); ++di) {
-                if (devices_[di].label == devname) {
-                    e.deviceIndex = di;
-                    break;
-                }
-            }
-        }
-        channelMap_.push_back(e);
-    }
+    // チャンネルマップ (Channel.ch1〜ch16) は廃止。
+    // MIDI ch10(0-indexed:ch9)は固定でリズムチャンネル(GM準拠)、
+    // ポリフォニー数はProgChange時に解決されたデバイスのチャンネル数から
+    // 動的に決定されるため、レガシーINIのこのセクションは読み捨てる。
 
     return true;
 }

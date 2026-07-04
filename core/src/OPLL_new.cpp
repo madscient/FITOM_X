@@ -369,4 +369,25 @@ std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t m) { return
 std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLX>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr)  { return std::make_unique<CVRC7>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr) { return std::make_unique<COPLLRhythm>(p, sr); }
+
+// ================================================================
+//  フォールバック受け入れ判定
+// ================================================================
+// OPLLファミリー (COPLL/COPLLP/COPLLX/CVRC7、VOICE_PATCH_OPLL/OPLLP/
+// OPLLX/VRC7) はユーザー音色 (ext.ALG_EXT&1==0) の場合のみ相互
+// フォールバック可能。プリセット音色 (ALG_EXT&1==1) はROMデータが
+// チップごとに全く異なる別音色のため不可。
+// (COPLL2はVOICE_PATCH_OPLLをCOPLLと共有しているため対象外)
+bool opllFamilyAcceptsFallback(uint8_t sourceVoicePatchType, uint8_t selfVoicePatchType,
+                                const HwPatch& patch) {
+    auto isOpllFamily = [](uint8_t v) {
+        return v == VOICE_PATCH_OPLL || v == VOICE_PATCH_OPLLP
+            || v == VOICE_PATCH_OPLLX || v == VOICE_PATCH_VRC7;
+    };
+    if (sourceVoicePatchType == selfVoicePatchType) return false; // 自分自身は対象外
+    if (!isOpllFamily(sourceVoicePatchType)) return false;
+    bool isPreset = (patch.ext.ALG_EXT & 1) != 0;
+    return !isPreset;
+}
+
 } // namespace fitom

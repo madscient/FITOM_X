@@ -300,38 +300,6 @@
         ]
       ]
     },
-    "channel_map": {
-      "type": "array",
-      "description": "MIDI チャンネル → デバイス割り当て設定。省略時はデフォルトの割り当てを使用する。",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "midi_ch",
-          "device_index"
-        ],
-        "properties": {
-          "midi_ch": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 16,
-            "description": "MIDI チャンネル番号（1〜16）。"
-          },
-          "device_index": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "devices[] の配列インデックス。"
-          },
-          "poly": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 8,
-            "default": 1,
-            "description": "このチャンネルに割り当てるポリフォニー数。"
-          }
-        }
-      }
-    },
     "banks": {
       "type": "object",
       "description": "バンクファイルの読み込み設定。",

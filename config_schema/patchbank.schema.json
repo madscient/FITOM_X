@@ -50,7 +50,7 @@
             "minimum": 0,
             "maximum": 16,
             "default": 0,
-            "description": "ポリフォニー数 (0=channel_mapのデフォルト)"
+            "description": "ポリフォニー数 (0=デバイス依存のデフォルト。実際の上限はProgChange時に解決されたデバイスのチャンネル数から動的に決定される)"
           },
           "layers": {
             "type": "array",

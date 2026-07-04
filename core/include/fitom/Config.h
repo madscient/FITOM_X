@@ -67,12 +67,6 @@ struct DeviceEntry {
     std::vector<PortGroup>          spanGroups;
 };
 
-struct ChannelMapEntry {
-    int midiCh      = 0;
-    int deviceIndex = 0;
-    int poly        = 1;
-};
-
 class IPortFactory {
 public:
     virtual ~IPortFactory() = default;
@@ -154,8 +148,6 @@ public:
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;
 
-    const std::vector<ChannelMapEntry>& getChannelMap() const { return channelMap_; }
-
     const std::string& getAudioDevice()     const;
     uint32_t           getAudioSampleRate() const;
 
@@ -212,7 +204,6 @@ protected:
 
     std::vector<DeviceEntry>     devices_;
     std::vector<std::string>     midiInputNames_;
-    std::vector<ChannelMapEntry> channelMap_;
 
     std::string audioDevice_;
     uint32_t    audioSampleRate_ = 48000;

@@ -232,7 +232,8 @@
 
 // 0x20: VoiceGroup=OPL2
 #define VOICE_PATCH_OPL      0x20  // YM3526, YM3801
-#define VOICE_PATCH_OPL2     0x21  // YM3812, YMF264/289/278-2OP
+#define VOICE_PATCH_OPL2     0x21  // YM3812
+#define VOICE_PATCH_OPL3_2   0x22  // YMF264/289/278-4OP
 
 // 0x28: VoiceGroup=OPLL
 #define VOICE_PATCH_OPLL     0x28  // YM2413, YM2420

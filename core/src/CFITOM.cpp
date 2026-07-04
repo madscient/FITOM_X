@@ -125,26 +125,19 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
 
     // 各 MIDI 入力ポートに対して MidiProcessor を生成
     for (int p = 0; p < MAX_MPUS && p < midiInputCount; ++p) {
-        // channel_map からチャンネルを構築
         for (int ch = 0; ch < 16; ++ch) {
-            bool isRhythm = false;
-            for (const auto& cm : config_->getChannelMap()) {
-                if (cm.midiCh == ch && cm.deviceIndex < 0) {
-                    isRhythm = true; break;
-                }
-            }
+            // GM規格準拠: MIDI ch10 (0-indexed: ch9) は固定でリズムチャンネル。
+            // (channel_mapは廃止。ポリフォニー数もデバイス依存のため
+            //  固定設定ではなく、CInstCh::progChange()実行時に解決された
+            //  パッチのデバイスチャンネル数から動的に決定される)
+            bool isRhythm = (ch == 9);
             if (isRhythm) {
                 channels_[p][ch] = std::make_unique<CRhythmCh>(
                     static_cast<uint8_t>(ch), this);
             } else {
                 auto instCh = std::make_unique<CInstCh>(
                     static_cast<uint8_t>(ch), this);
-                // ポリフォニーを channel_map から設定
-                uint8_t poly = 1;
-                for (const auto& cm : config_->getChannelMap()) {
-                    if (cm.midiCh == ch) { poly = static_cast<uint8_t>(cm.poly); break; }
-                }
-                instCh->setup(patchMgr_.get(), this, poly);
+                instCh->setup(patchMgr_.get(), this);
                 channels_[p][ch] = std::move(instCh);
             }
         }
@@ -153,13 +146,17 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
             channels_[p], this, /*clockEnabled=*/(p == 0));
     }
 
-    // 各チャンネルのデフォルト音色をロード
+    // 各チャンネルのデフォルト音色をロード (GM準拠: bank0:0/prog0)。
+    // CInstCh/CRhythmCh 両方に適用する。Program Changeを一度も受信せず
+    // Note Onが来た場合でも即座に発音できるようにするため
+    // (progChangeが未実行だとresolver_/currentPatch_が未設定のままとなり、
+    //  該当チャンネルが永久に無音になってしまう)。
     for (int p = 0; p < MAX_MPUS; ++p) {
         if (!processors_[p]) continue;
         for (int ch = 0; ch < 16; ++ch) {
             auto* midicch = channels_[p][ch].get();
-            if (midicch && midicch->isInst()) {
-                midicch->progChange(0); // デフォルト音色
+            if (midicch) {
+                midicch->progChange(0); // デフォルト音色 (リズムCHはデフォルトドラムキット)
             }
         }
     }
