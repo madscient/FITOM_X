@@ -452,7 +452,9 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 
     case DEVICE_OPL:    case DEVICE_Y8950: return VOICE_PATCH_OPL;
     case DEVICE_OPL2:                      return VOICE_PATCH_OPL2;
-    case DEVICE_OPL3_2:                    return VOICE_PATCH_OPL2; // COPL3_2は実質OPL2
+    // COPL3_2はOPL2よりWSが広い(3bit/8波形 vs 2bit/4波形)ため別分類。
+    // OPL2へのフォールバックはWS<4の場合のみ許可 (DeviceFactory::acceptsFallback)。
+    case DEVICE_OPL3_2:                    return VOICE_PATCH_OPL3_2;
 
     case DEVICE_OPLL:   return VOICE_PATCH_OPLL;
     case DEVICE_OPLLP:  return VOICE_PATCH_OPLLP;
@@ -489,7 +491,7 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
         return VOICE_GROUP_OPNA;
     case VOICE_PATCH_OPM:  case VOICE_PATCH_OPZ:  case VOICE_PATCH_OPZ2:
         return VOICE_GROUP_OPM;
-    case VOICE_PATCH_OPL:  case VOICE_PATCH_OPL2:
+    case VOICE_PATCH_OPL:  case VOICE_PATCH_OPL2: case VOICE_PATCH_OPL3_2:
         return VOICE_GROUP_OPL2;
     case VOICE_PATCH_OPLL: case VOICE_PATCH_OPLLP:
     case VOICE_PATCH_OPLLX: case VOICE_PATCH_VRC7:
@@ -522,6 +524,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "OPZ2")      return VOICE_PATCH_OPZ2;
     if (s == "OPL")       return VOICE_PATCH_OPL;
     if (s == "OPL2")      return VOICE_PATCH_OPL2;
+    if (s == "OPL3_2")    return VOICE_PATCH_OPL3_2;
     if (s == "OPLL")      return VOICE_PATCH_OPLL;
     if (s == "OPLLP")     return VOICE_PATCH_OPLLP;
     if (s == "OPLLX")     return VOICE_PATCH_OPLLX;

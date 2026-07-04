@@ -142,7 +142,11 @@ COPL3_2 : CSpanDevice                  (内部にCOPL2×2、2OP残余6ch)
   オフセットとして使用。単位変換は不要（`getFnumber`のoffset単位＝100/64セントと
   DT2の単位が一致するため）。
 - **`VOICE_PATCH_OPL3`(0x30)は`COPL3`(4OP)専用**。`COPL3_2`(2OP)は
-  `VOICE_PATCH_OPL2`(0x21)を共有する（合意事項）。
+  独立した`VOICE_PATCH_OPL3_2`(0x22)を持つ（**訂正**：以前`VOICE_PATCH_OPL2`
+  と共有する設計にしていたが誤りだった。実機OPL3の2opモードはWSが3bit
+  (8波形)まで使えるのに対し実機OPL2はWSが2bit(4波形)までしか対応せず、
+  データフォーマットが異なるため独立分類が必要。OPL2へのフォールバックは
+  WS<4の場合のみ許可する、`DeviceFactory::acceptsFallback`参照）。
 
 ### 4.4 OPLL系
 
@@ -237,7 +241,8 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_OPZ`(0x1a) | OPZ | `COPZ` |
 | `VOICE_PATCH_OPZ2`(0x1b) | OPZ2 | `COPZ`（共用） |
 | `VOICE_PATCH_OPL`(0x20) | OPL, Y8950 | `COPL` |
-| `VOICE_PATCH_OPL2`(0x21) | OPL2, **OPL3_2** | `COPL2` / `COPL3_2` |
+| `VOICE_PATCH_OPL2`(0x21) | OPL2 | `COPL2` |
+| `VOICE_PATCH_OPL3_2`(0x22) | OPL3_2（OPL3の2opモード） | `COPL3_2` |
 | `VOICE_PATCH_OPLL`(0x28) | OPLL, OPLL2 | `COPLL` / `COPLL2` |
 | `VOICE_PATCH_OPLLP`(0x29) | OPLLP | `COPLLP` |
 | `VOICE_PATCH_OPLLX`(0x2a) | OPLLX | `COPLLX` |
