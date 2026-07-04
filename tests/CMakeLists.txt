@@ -28,6 +28,14 @@ target_link_libraries(fitom_tests
     PRIVATE
         fitom_core
         Catch2::Catch2WithMain
+        # fitom_core は Boost::log を PUBLIC でリンクしているため理論上は
+        # 推移的に解決されるはずだが、Visual Studioジェネレーター使用時、
+        # 静的ライブラリ経由の推移的リンク解決が正しく行われず
+        # (boost::log::v2_mt_nt6::* の LNK2001/LNK2019 多発)、実行ファイル
+        # リンク時に boost_log の import libraryが見つからない不整合が
+        #発生することがあるため、ここでも明示的にリンクする。
+        Boost::log
+        Boost::log_setup
 )
 
 catch_discover_tests(fitom_tests)

@@ -62,6 +62,9 @@ public:
     void setMasterVolume(uint8_t vol) override {
         for (auto* c : chips_) c->setMasterVolume(vol);
     }
+    void onMasterPitchChanged(double pitchHz) override {
+        for (auto* c : chips_) c->onMasterPitchChanged(pitchHz);
+    }
     void pollingCallback() override {
         for (auto* c : chips_) c->pollingCallback();
     }
