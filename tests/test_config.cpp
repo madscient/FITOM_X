@@ -53,8 +53,13 @@ TEST_CASE("FITOMConfig: audio_output parsed correctly", "[config]")
     CHECK(cfg.getAudioSampleRate() == 48000u);
 }
 
-TEST_CASE("FITOMConfig: channel_map parsed correctly", "[config]")
+TEST_CASE("FITOMConfig: channel_map field is ignored (obsolete, removed feature)", "[config]")
 {
+    // channel_map は廃止済み。既存プロファイルにこのフィールドが残っていても
+    // 単純に無視され、エラーにはならないことを確認する (後方互換性)。
+    // GM準拠の既定動作 (MIDI ch10固定リズム、ポリフォニーはデバイス依存で
+    // 動的決定) は CFITOM/CInstCh 側の責務であり、Config自体はこの
+    // フィールドを一切パースしない。
     json profile = {
         {"profile_name", "test"},
         {"devices", json::array()},
@@ -67,12 +72,7 @@ TEST_CASE("FITOMConfig: channel_map parsed correctly", "[config]")
 
     fitom::FITOMConfig cfg;
     REQUIRE(cfg.loadProfile(p));
-    const auto& cm = cfg.getChannelMap();
-    REQUIRE(cm.size() == 2);
-    CHECK(cm[0].midiCh      == 0);   // 1-indexed → 0-indexed
-    CHECK(cm[0].deviceIndex == 0);
-    CHECK(cm[0].poly        == 4);
-    CHECK(cm[1].midiCh      == 9);   // ch10 → index 9
+    CHECK(cfg.getDeviceCount() == 0); // channel_mapの内容に関わらず正常に読み込める
 }
 
 TEST_CASE("FITOMConfig: missing profile file returns false", "[config]")

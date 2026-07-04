@@ -161,8 +161,11 @@ public:
     // noteOff() を呼ぶことで通常のリリースより速く消音する。
     virtual void forceDamp(uint8_t ch) { noteOff(ch); }
 
-    // マスターピッチ変更通知 (デフォルト実装: FnumTable キャッシュ破棄 + 再計算)
-    virtual void onMasterPitchChanged(double pitchHz);
+    // マスターピッチ変更通知。基底のデフォルトは何もしない。
+    // CMultiDevice(CSpanDevice/CUnison)は束ねている各chipへ伝播させるよう
+    // オーバーライドする。CSoundDeviceはFnumTableキャッシュ破棄+再計算のため
+    // 独自にoverrideする。
+    virtual void onMasterPitchChanged(double /*pitchHz*/) {}
 
     // ─── パラメータ設定 ─────────────────────────────────────────────────
     virtual void setVoice(uint8_t ch, const HwPatch& patch, bool update = true)  = 0;

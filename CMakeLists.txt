@@ -5,6 +5,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# MSVC: 複数ソースファイルの並列コンパイル時、複数のcl.exeプロセスが
+# 同一の.pdbファイルへ同時書き込みしようとして衝突する
+# (C1041: プログラム データベースを開けません) ことがあるため、
+# mspdbsrv.exe経由でPDB書き込みを直列化する /FS を全ターゲットに適用する。
+# (FetchContentで取得するCatch2等、サブディレクトリ側のプロジェクトにも
+#  確実に適用されるよう、トップレベルでグローバルに設定する)
+if(MSVC)
+    add_compile_options(/FS)
+endif()
+
 # -------------------------------------------------------
 #  ビルドオプション
 # -------------------------------------------------------
