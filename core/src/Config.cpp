@@ -184,7 +184,54 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                 FITOM_LOG_WARN("hw_plugins: 'name' or 'dll' missing, skipping");
                 continue;
             }
-            hwPluginRegistry_.registerPlugin(name, dll);
+            // profile/profile_env: FitomEmuIF等、DLLロード時点で自身の設定
+            // ファイルを読み込むプラグイン向け。指定された場合、ロード前に
+            // 環境変数 profile_env=profile をセットする。FITOM_X自身は
+            // このプロファイルの内容を一切解釈しない
+            // (エミュレータか実機かを区別しないという設計原則を保つ)。
+            std::string profile    = p.value("profile", "");
+            std::string profileEnv = p.value("profile_env", "");
+            hwPluginRegistry_.registerPlugin(name, dll, profileEnv, profile);
+
+            // auto_devices: HWPlugin_Enumerate() が返すJSON配列を、そのまま
+            // devices[] エントリとして使う (params_jsonとして直接転送可能な
+            // 形式である前提)。FitomEmuIF等、自身のプロファイルで既に
+            // chip構成が確定しているプラグイン向け。
+            // 注意: 実機ハードウェアの列挙は通常 type/serial/port/index
+            // のみで chip 情報を含まない(挿入チップは自動検出できない)ため、
+            // この機能は主にエミュレーター統合プラグイン向け。
+            if (p.value("auto_devices", false)) {
+                auto plugin = hwPluginRegistry_.get(name);
+                if (plugin) {
+                    try {
+                        json arr = json::parse(plugin->enumerate());
+                        if (arr.is_array()) {
+                            int autoIdx = 0;
+                            for (const auto& entry : arr) {
+                                json devJson = entry;
+                                devJson["if"]     = "HW";
+                                devJson["plugin"] = name;
+                                if (!devJson.contains("label")) {
+                                    std::string base = devJson.value("chip",
+                                        devJson.value("type", name));
+                                    devJson["label"] = base + "#" + std::to_string(autoIdx);
+                                }
+                                buildDevice(devJson);
+                                ++autoIdx;
+                            }
+                            FITOM_LOG_INFO("HWPlugin '" << name << "': auto-discovered "
+                                << arr.size() << " device(s) via HWPlugin_Enumerate()");
+                        } else {
+                            FITOM_LOG_WARN("HWPlugin '" << name
+                                << "': auto_devices requested but Enumerate() did not "
+                                   "return a JSON array, skipping");
+                        }
+                    } catch (const std::exception& ex) {
+                        FITOM_LOG_WARN("HWPlugin '" << name
+                            << "': auto_devices enumerate parse failed: " << ex.what());
+                    }
+                }
+            }
         }
     }
 
@@ -258,7 +305,10 @@ void FITOMConfig::buildDevice(const json& dev)
         params.erase("stereo_pair");
 
         // B-2: extra_slot → 2ポート目の HWPort を生成 (2ポート目は
-        // 元のparamsの"index"等をextra_slotの値で上書きして開く)
+        // 元のparamsの"slot"(チップスロット番号)をextra_slotの値で
+        // 上書きして開く。FitomHwIFのparams_json仕様上、"slot"がチップの
+        // スロット番号("index"はRE1/RE4のUSB接続順という別の意味なので
+        // 混同しないよう注意)。
         int extraSlot = dev.value("extra_slot", -1);
 
         try {
@@ -266,7 +316,7 @@ void FITOMConfig::buildDevice(const json& dev)
             std::shared_ptr<IPort> port2;
             if (extraSlot >= 0) {
                 json params2 = params;
-                params2["index"] = extraSlot;
+                params2["slot"] = extraSlot;
                 try {
                     port2 = std::make_shared<HWPort>(plugin, params2.dump());
                     FITOM_LOG_INFO("Device[" << label << "]: extra_slot=" << extraSlot

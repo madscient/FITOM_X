@@ -35,8 +35,13 @@ TEST_CASE("FITOMConfig: load minimal profile", "[config]")
     CHECK(cfg.getDeviceCount() == 0);
 }
 
-TEST_CASE("FITOMConfig: audio_output parsed correctly", "[config]")
+TEST_CASE("FITOMConfig: audio_output field is ignored (obsolete, removed feature)", "[config]")
 {
+    // audio_output は廃止済み (FmEngine直接制御パス自体が廃止されたため)。
+    // 既存プロファイルにこのフィールドが残っていても単純に無視され、
+    // エラーにはならないことを確認する (後方互換性)。
+    // 音声出力は HW プラグイン (FitomEmuIF/FitomHwIF 等) 自身の責務であり、
+    // FITOM_X本体は一切関与しない。
     json profile = {
         {"profile_name", "test"},
         {"audio_output", {
@@ -49,8 +54,7 @@ TEST_CASE("FITOMConfig: audio_output parsed correctly", "[config]")
 
     fitom::FITOMConfig cfg;
     REQUIRE(cfg.loadProfile(p));
-    CHECK(cfg.getAudioDevice()     == "Focusrite");
-    CHECK(cfg.getAudioSampleRate() == 48000u);
+    CHECK(cfg.getDeviceCount() == 0); // audio_outputの内容に関わらず正常に読み込める
 }
 
 TEST_CASE("FITOMConfig: channel_map field is ignored (obsolete, removed feature)", "[config]")
@@ -86,5 +90,4 @@ TEST_CASE("FITOMConfig: system config defaults", "[config]")
     fitom::FITOMConfig cfg;
     CHECK(cfg.getMasterVolume() == 100);
     CHECK(cfg.getMasterPitch()  == 440.0);
-    CHECK(cfg.getAudioSampleRate() == 48000u);
 }

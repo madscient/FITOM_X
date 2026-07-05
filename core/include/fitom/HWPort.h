@@ -72,7 +72,14 @@ private:
 // -------------------------------------------------------
 class HWPluginRegistry {
 public:
-    void registerPlugin(const std::string& name, const std::filesystem::path& dllPath);
+    // profileEnvVar/profilePath: 指定された場合、DLLロード前に
+    // setenv(profileEnvVar, profilePath) を行う。FitomEmuIF等、DLLロード
+    // 時点(静的シングルトン初期化)で自身の設定ファイルを読み込むプラグイン
+    // 向け。FITOM_X自身はプロファイルの内容を一切解釈しない
+    // (エミュレータか実機かを区別しないという設計原則を保つ)。
+    void registerPlugin(const std::string& name, const std::filesystem::path& dllPath,
+                         const std::string& profileEnvVar = "",
+                         const std::filesystem::path& profilePath = {});
 
     std::shared_ptr<HWPluginInstance> get(const std::string& name);
 

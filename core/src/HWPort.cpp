@@ -4,6 +4,7 @@
 #include "fitom/HWPort.h"
 #include "fitom/Log.h"
 #include <stdexcept>
+#include <cstdlib>
 
 namespace fitom {
 
@@ -55,10 +56,36 @@ std::string HWPluginInstance::enumerate() const
 //  HWPluginRegistry
 // -------------------------------------------------------
 
+namespace {
+// クロスプラットフォームな環境変数設定ヘルパー。
+// FitomEmuIF等、DLLロード時点(静的シングルトン初期化)で自身の設定ファイルを
+// 読み込むプラグイン向けに、ロード前に環境変数をセットする必要があるため。
+void setEnvVar(const std::string& name, const std::string& value)
+{
+#if defined(_WIN32)
+    _putenv_s(name.c_str(), value.c_str());
+#else
+    setenv(name.c_str(), value.c_str(), 1);
+#endif
+}
+} // namespace
+
 void HWPluginRegistry::registerPlugin(const std::string& name,
-                                       const std::filesystem::path& dllPath)
+                                       const std::filesystem::path& dllPath,
+                                       const std::string& profileEnvVar,
+                                       const std::filesystem::path& profilePath)
 {
     std::lock_guard<std::mutex> lk(mutex_);
+
+    // DLLロード前に環境変数をセットする (FitomEmuIF等、ロード時点で
+    // static シングルトンが即座に自身のプロファイルを読み込む設計の
+    // プラグイン向け。ロード後にセットしても遅い)。
+    if (!profileEnvVar.empty() && !profilePath.empty()) {
+        setEnvVar(profileEnvVar, profilePath.string());
+        FITOM_LOG_INFO("HWPlugin '" << name << "': " << profileEnvVar
+            << "=" << profilePath.string());
+    }
+
     try {
         auto plugin = HWPluginInstance::load(dllPath);
         entries_[name] = plugin;

@@ -84,18 +84,8 @@
             "type": "integer",
             "default": 0,
             "minimum": 0,
-            "maximum": 15,
-            "description": "[if=HW のみ] SPFM スロット番号。RE1/RE4 は常に 0。"
-          },
-          "hw_clock": {
-            "type": "integer",
-            "default": 0,
-            "description": "[if=HW のみ] チップのマスタークロック [Hz]。0 は呼び出し元が管理しない（チップドライバが固定値を持つ場合）。",
-            "examples": [
-              3993600,
-              3579545,
-              8000000
-            ]
+            "maximum": 3,
+            "description": "[if=HW のみ] チップのスロット番号。SPFM系はCS番号(0-2)、RE1/RE4は/EXSEL0-3(0-3)に対応。プラグイン依存の値であり、FITOM_X本体はこの範囲を検証しない(プラグインドキュメントに従うこと)。"
           },
           "pan": {
             "type": "integer",
@@ -111,17 +101,8 @@
           "extra_slot": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 15,
-            "description": "[if=HW, type=SPFM_* のみ] 2 ポートチップ (OPNA/OPN2/OPL3 等) の 2 ポート目に使う SPFM スロット番号。省略時は 1 ポートとして動作 (エミュレーター時は不要)。SplitPort が port1(slot) と port2(extra_slot) を統合し、チップドライバは addr >= 0x100 を port2 向けとして透過的に書くだけでよい。"
-          },
-          "dll": {
-            "type": "string",
-            "description": "[if=HW のみ] 使用する HW プラグイン DLL のパス（またはファイル名）。省略時は setHWPlugin() で登録した既定の DLL を使用する。同一パスが複数のデバイスから参照された場合、DLL インスタンスは共有される。",
-            "examples": [
-              "fitom_hw.dll",
-              "fitom_fmhwif.dll",
-              "../build/Release/fitom_hw.dll"
-            ]
+            "maximum": 3,
+            "description": "[if=HW のみ] 2 ポートチップ (OPNA/OPN2/OPL3 等) の 2 ポート目に使うチップスロット番号(\"slot\"と同じ意味・同じ範囲)。省略時は 1 ポートとして動作 (エミュレーター時は通常不要)。SplitPort が port1(slot) と port2(extra_slot) を統合し、チップドライバは addr >= 0x100 を port2 向けとして透過的に書くだけでよい。"
           },
           "sample_rate": {
             "type": "integer",
@@ -147,7 +128,7 @@
             "description": "if=\"HW\"の場合に使うHWプラグイン名。hw_plugins[].nameから参照する。実機・エミュレータ問わず同じフィールドで指定する。",
             "examples": [
               "FitomEmuIF",
-              "SpfmDriver"
+              "FitomHwIF"
             ]
           },
           "index": {
@@ -164,6 +145,16 @@
             "examples": [
               "YMEngine",
               "AYEngine"
+            ]
+          },
+          "clock": {
+            "type": "integer",
+            "default": 0,
+            "description": "[if=HW のみ] チップのマスタークロック [Hz]。HWプラグインのparams_jsonフィールド名(FitomHwIF等)。0は呼び出し元が管理しない（チップドライバが固定値を持つ場合）。",
+            "examples": [
+              3993600,
+              3579545,
+              8000000
             ]
           }
         }
@@ -375,12 +366,32 @@
             "description": "プラグイン識別名。devices[]のpluginフィールドから参照される。",
             "examples": [
               "FitomEmuIF",
-              "SpfmDriver"
+              "FitomHwIF"
             ]
           },
           "dll": {
             "type": "string",
             "description": "IHWPlugin実装DLLのファイル名またはパス。"
+          },
+          "profile": {
+            "type": "string",
+            "description": "プラグイン自身の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。指定された場合、DLLロード前にprofile_envで指定した環境変数にこのパスをセットする。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。",
+            "examples": [
+              "fmhwif_profile.json",
+              "profiles/fmhwif_studio.json"
+            ]
+          },
+          "profile_env": {
+            "type": "string",
+            "description": "profileで指定したパスを渡す環境変数名。プラグインのドキュメントに従うこと(FitomEmuIFの場合はFMHWIF_PROFILE)。profileを指定する場合は必須。",
+            "examples": [
+              "FMHWIF_PROFILE"
+            ]
+          },
+          "auto_devices": {
+            "type": "boolean",
+            "default": false,
+            "description": "推奨: trueの場合、HWPlugin_Enumerate()が返すJSON配列の各要素をそのままdevices[]エントリとして自動生成する。チップ接続情報の管理は実機・エミュレータ問わずHWプラグイン側に委譲する設計方針のため、実機用プラグインもエミュレーター統合プラグイン(FitomEmuIF等)と同様、自身の設定ファイルでチップ構成を管理し、Enumerate()はその内容を返す想定。実際に動作するかはHWPlugin_Enumerate()の実装に依存する。devices[]側で同じpluginを指定した追加エントリと併用も可能。"
           }
         }
       }
@@ -432,47 +443,21 @@
       ]
     },
     {
-      "profile_name": "自宅スタジオ (SPFM + OPN2エミュ)",
+      "profile_name": "自宅スタジオ (SPFM/RE1/RE4 実機 + OPN2エミュ)",
       "hw_plugins": [
         {
           "name": "FitomEmuIF",
-          "dll": "FitomEmuIF.dll"
+          "dll": "FitomEmuIF.dll",
+          "profile": "fmhwif_profile.json",
+          "profile_env": "FMHWIF_PROFILE",
+          "auto_devices": true
         },
         {
-          "name": "SpfmDriver",
-          "dll": "fitom_hw_spfm.dll"
-        }
-      ],
-      "devices": [
-        {
-          "if": "HW",
-          "label": "OPNA (SPFM slot0)",
-          "plugin": "SpfmDriver",
-          "type": "SPFM_TOWER",
-          "port": "COM3",
-          "slot": 0,
-          "hw_clock": 3993600,
-          "pan": 0
-        },
-        {
-          "if": "HW",
-          "label": "OPM (SPFM slot1)",
-          "plugin": "SpfmDriver",
-          "type": "SPFM_TOWER",
-          "port": "COM3",
-          "slot": 1,
-          "hw_clock": 3579545,
-          "pan": 0
-        },
-        {
-          "if": "HW",
-          "label": "OPN2 (エミュ)",
-          "plugin": "FitomEmuIF",
-          "type": "FMHWIF",
-          "engine": "YMEngine",
-          "chip": "OPN2",
-          "index": 0,
-          "pan": 0
+          "name": "FitomHwIF",
+          "dll": "fitom_hw.dll",
+          "profile": "fitom_hw_profile.json",
+          "profile_env": "FITOM_HW_PROFILE",
+          "auto_devices": true
         }
       ],
       "midi_inputs": [

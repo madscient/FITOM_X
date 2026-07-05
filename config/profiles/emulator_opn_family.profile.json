@@ -3,62 +3,16 @@
   "hw_plugins": [
     {
       "name": "FitomEmuIF",
-      "dll": "FitomEmuIF.dll"
+      "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json",
+      "profile_env": "FMHWIF_PROFILE",
+      "auto_devices": true
     }
   ],
-  "devices": [
-    {
-      "if": "HW",
-      "label": "OPN",
-      "plugin": "FitomEmuIF",
-      "type": "FMHWIF",
-      "engine": "YMEngine",
-      "chip": "OPN",
-      "index": 0,
-      "pan": 0
-    },
-    {
-      "if": "HW",
-      "label": "OPN2",
-      "plugin": "FitomEmuIF",
-      "type": "FMHWIF",
-      "engine": "YMEngine",
-      "chip": "OPN2",
-      "index": 0,
-      "pan": 0
-    },
-    {
-      "if": "HW",
-      "label": "OPNA",
-      "plugin": "FitomEmuIF",
-      "type": "FMHWIF",
-      "engine": "YMEngine",
-      "chip": "OPNA",
-      "index": 0,
-      "pan": 0
-    },
-    {
-      "if": "HW",
-      "label": "OPNB",
-      "plugin": "FitomEmuIF",
-      "type": "FMHWIF",
-      "engine": "YMEngine",
-      "chip": "OPNB",
-      "index": 0,
-      "pan": 0
-    },
-    {
-      "if": "HW",
-      "label": "OPNBB",
-      "plugin": "FitomEmuIF",
-      "type": "FMHWIF",
-      "engine": "YMEngine",
-      "chip": "OPNBB",
-      "index": 0,
-      "pan": 0
-    }
+  "midi_inputs": [
+    "microKEY-25",
+    "loopMIDI Port 1"
   ],
-  "midi_inputs": ["microKEY-25", "loopMIDI Port 1"],
   "banks": {
     "hw_banks": [
       {
