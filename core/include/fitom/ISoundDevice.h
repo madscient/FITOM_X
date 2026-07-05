@@ -40,6 +40,12 @@ struct ChState {
     IMidiCh* owner     = nullptr;
 
     HwPatch  hwPatch;             // 現在割り当てられた HW パッチ
+    // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ非nullptr。
+    // hwPatchとは排他。HwPatchと違い値コピーではなくポインタ参照とする
+    // (zonesが可変長のため、noteOnのたびにコピーするコストを避ける。
+    //  PatchManagerが所有するSampleZoneBank内の記憶域を指すため、
+    //  バンクロード中は寿命が安定している)。
+    const SampleZonePatch* samplePatch = nullptr;
     VoiceProcessor proc;          // SW パラメータ処理エンジン
 
     uint8_t  lastNote  = 0xFF;
@@ -135,8 +141,12 @@ public:
     virtual std::string getDescriptor() const = 0;
 
     // ─── チャンネル割り当て ─────────────────────────────────────────────
-    virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch)              = 0;
-    virtual uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch) = 0;
+    // samplePatch: サンプルベース音源系 (VOICE_PATCH_AWM等) 用。
+    // hwPatchとは排他 (通常のFMオペレータ系チップはnullptrのまま呼ぶ)。
+    virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch,
+                             const SampleZonePatch* samplePatch = nullptr) = 0;
+    virtual uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
+                              const SampleZonePatch* samplePatch = nullptr) = 0;
     // queryCh は findBestCh に統合 (後方互換のため残す)
     virtual uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode)    = 0;
     // releaseCh は noteOff に内包 (後方互換のため残す)
@@ -247,8 +257,10 @@ public:
     IPort*      getPort()             override { return port_; }
     std::string getDescriptor() const override;
 
-    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch) override;
-    uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch) override;
+    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch,
+                     const SampleZonePatch* samplePatch = nullptr) override;
+    uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
+                      const SampleZonePatch* samplePatch = nullptr) override;
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override;
     void    releaseCh(uint8_t ch) override;
 

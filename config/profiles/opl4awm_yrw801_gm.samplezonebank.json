@@ -1,0 +1,3538 @@
+{
+  "name": "YRW801 GM (melodic)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "Acoustic Grand Piano",
+      "zones": [
+        {
+          "key_min": 20,
+          "key_max": 39,
+          "wave_index": 300
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 301
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 302
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 303
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 304
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 305
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 306
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 307
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 308
+        },
+        {
+          "key_min": 89,
+          "key_max": 109,
+          "wave_index": 309
+        }
+      ]
+    },
+    {
+      "prog": 1,
+      "name": "Bright Acoustic Piano",
+      "zones": [
+        {
+          "key_min": 20,
+          "key_max": 45,
+          "wave_index": 300
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 301
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 302
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 303
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 304
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 305
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 306
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 307
+        },
+        {
+          "key_min": 89,
+          "key_max": 94,
+          "wave_index": 308
+        },
+        {
+          "key_min": 95,
+          "key_max": 109,
+          "wave_index": 309
+        }
+      ]
+    },
+    {
+      "prog": 2,
+      "name": "Electric Grand Piano",
+      "zones": [
+        {
+          "key_min": 20,
+          "key_max": 45,
+          "wave_index": 300
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 301
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 302
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 303
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 304
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 305
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 306
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 307
+        },
+        {
+          "key_min": 89,
+          "key_max": 94,
+          "wave_index": 308
+        },
+        {
+          "key_min": 95,
+          "key_max": 109,
+          "wave_index": 309
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 108
+        }
+      ]
+    },
+    {
+      "prog": 3,
+      "name": "Honky-tonk Piano",
+      "zones": [
+        {
+          "key_min": 20,
+          "key_max": 39,
+          "wave_index": 300
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 301
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 302
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 303
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 304
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 305
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 306
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 307
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 308
+        },
+        {
+          "key_min": 89,
+          "key_max": 109,
+          "wave_index": 309
+        },
+        {
+          "key_min": 20,
+          "key_max": 39,
+          "wave_index": 300
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 301
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 302
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 303
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 304
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 305
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 306
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 307
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 308
+        },
+        {
+          "key_min": 89,
+          "key_max": 109,
+          "wave_index": 309
+        }
+      ]
+    },
+    {
+      "prog": 4,
+      "name": "Electric Piano 1",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 11
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 108
+        }
+      ]
+    },
+    {
+      "prog": 5,
+      "name": "Electric Piano 2",
+      "zones": [
+        {
+          "key_min": 20,
+          "key_max": 39,
+          "wave_index": 300
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 301
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 302
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 303
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 304
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 305
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 306
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 307
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 308
+        },
+        {
+          "key_min": 89,
+          "key_max": 109,
+          "wave_index": 309
+        },
+        {
+          "key_min": 20,
+          "key_max": 45,
+          "wave_index": 300
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 301
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 302
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 303
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 304
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 305
+        },
+        {
+          "key_min": 76,
+          "key_max": 82,
+          "wave_index": 306
+        },
+        {
+          "key_min": 83,
+          "key_max": 88,
+          "wave_index": 307
+        },
+        {
+          "key_min": 89,
+          "key_max": 94,
+          "wave_index": 308
+        },
+        {
+          "key_min": 95,
+          "key_max": 109,
+          "wave_index": 309
+        }
+      ]
+    },
+    {
+      "prog": 6,
+      "name": "Harpsichord",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 57,
+          "wave_index": 128
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 129
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 130
+        },
+        {
+          "key_min": 70,
+          "key_max": 77,
+          "wave_index": 131
+        },
+        {
+          "key_min": 78,
+          "key_max": 108,
+          "wave_index": 132
+        }
+      ]
+    },
+    {
+      "prog": 7,
+      "name": "Clavinet",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 81,
+          "wave_index": 39
+        },
+        {
+          "key_min": 82,
+          "key_max": 108,
+          "wave_index": 40
+        }
+      ]
+    },
+    {
+      "prog": 8,
+      "name": "Celesta",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 43
+        }
+      ]
+    },
+    {
+      "prog": 9,
+      "name": "Glockenspiel",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 120,
+          "wave_index": 243
+        }
+      ]
+    },
+    {
+      "prog": 10,
+      "name": "Music Box",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 243
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 257
+        }
+      ]
+    },
+    {
+      "prog": 11,
+      "name": "Vibraphone",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 257
+        }
+      ]
+    },
+    {
+      "prog": 12,
+      "name": "Marimba",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 63,
+          "wave_index": 244
+        },
+        {
+          "key_min": 64,
+          "key_max": 76,
+          "wave_index": 245
+        },
+        {
+          "key_min": 77,
+          "key_max": 90,
+          "wave_index": 245
+        },
+        {
+          "key_min": 91,
+          "key_max": 127,
+          "wave_index": 245
+        }
+      ]
+    },
+    {
+      "prog": 13,
+      "name": "Xylophone",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 310
+        }
+      ]
+    },
+    {
+      "prog": 14,
+      "name": "Tubular Bells",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 255
+        }
+      ]
+    },
+    {
+      "prog": 15,
+      "name": "Dulcimer",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 63
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 64
+        }
+      ]
+    },
+    {
+      "prog": 16,
+      "name": "Drawbar Organ",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 142
+        }
+      ]
+    },
+    {
+      "prog": 17,
+      "name": "Percussive Organ",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 59,
+          "wave_index": 140
+        },
+        {
+          "key_min": 60,
+          "key_max": 108,
+          "wave_index": 141
+        }
+      ]
+    },
+    {
+      "prog": 18,
+      "name": "Rock Organ",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 48,
+          "wave_index": 296
+        },
+        {
+          "key_min": 49,
+          "key_max": 60,
+          "wave_index": 297
+        },
+        {
+          "key_min": 61,
+          "key_max": 72,
+          "wave_index": 298
+        },
+        {
+          "key_min": 73,
+          "key_max": 84,
+          "wave_index": 299
+        },
+        {
+          "key_min": 85,
+          "key_max": 108,
+          "wave_index": 295
+        }
+      ]
+    },
+    {
+      "prog": 19,
+      "name": "Church Organ",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 41,
+          "wave_index": 135
+        },
+        {
+          "key_min": 42,
+          "key_max": 48,
+          "wave_index": 136
+        },
+        {
+          "key_min": 49,
+          "key_max": 56,
+          "wave_index": 137
+        },
+        {
+          "key_min": 57,
+          "key_max": 65,
+          "wave_index": 138
+        },
+        {
+          "key_min": 66,
+          "key_max": 108,
+          "wave_index": 139
+        }
+      ]
+    },
+    {
+      "prog": 20,
+      "name": "Reed Organ",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 83,
+          "wave_index": 172
+        },
+        {
+          "key_min": 84,
+          "key_max": 127,
+          "wave_index": 173
+        }
+      ]
+    },
+    {
+      "prog": 21,
+      "name": "Accordion",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 76,
+          "wave_index": 6
+        },
+        {
+          "key_min": 77,
+          "key_max": 108,
+          "wave_index": 7
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 112
+        }
+      ]
+    },
+    {
+      "prog": 22,
+      "name": "Harmonica",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 112
+        }
+      ]
+    },
+    {
+      "prog": 23,
+      "name": "Tango Accordion",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 83,
+          "wave_index": 172
+        },
+        {
+          "key_min": 84,
+          "key_max": 127,
+          "wave_index": 173
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 65
+        }
+      ]
+    },
+    {
+      "prog": 24,
+      "name": "Acoustic Guitar (nylon)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 47,
+          "wave_index": 179
+        },
+        {
+          "key_min": 48,
+          "key_max": 54,
+          "wave_index": 183
+        },
+        {
+          "key_min": 55,
+          "key_max": 60,
+          "wave_index": 181
+        },
+        {
+          "key_min": 61,
+          "key_max": 67,
+          "wave_index": 180
+        },
+        {
+          "key_min": 68,
+          "key_max": 96,
+          "wave_index": 182
+        }
+      ]
+    },
+    {
+      "prog": 25,
+      "name": "Acoustic Guitar (steel)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 49,
+          "wave_index": 12
+        },
+        {
+          "key_min": 50,
+          "key_max": 56,
+          "wave_index": 13
+        },
+        {
+          "key_min": 57,
+          "key_max": 71,
+          "wave_index": 14
+        },
+        {
+          "key_min": 72,
+          "key_max": 108,
+          "wave_index": 15
+        }
+      ]
+    },
+    {
+      "prog": 26,
+      "name": "Electric Guitar (jazz)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 49,
+          "wave_index": 90
+        },
+        {
+          "key_min": 50,
+          "key_max": 63,
+          "wave_index": 91
+        },
+        {
+          "key_min": 64,
+          "key_max": 108,
+          "wave_index": 92
+        }
+      ]
+    },
+    {
+      "prog": 27,
+      "name": "Electric Guitar (clean)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 44,
+          "wave_index": 97
+        },
+        {
+          "key_min": 45,
+          "key_max": 49,
+          "wave_index": 96
+        },
+        {
+          "key_min": 50,
+          "key_max": 56,
+          "wave_index": 99
+        },
+        {
+          "key_min": 57,
+          "key_max": 63,
+          "wave_index": 98
+        },
+        {
+          "key_min": 64,
+          "key_max": 68,
+          "wave_index": 101
+        },
+        {
+          "key_min": 69,
+          "key_max": 75,
+          "wave_index": 100
+        },
+        {
+          "key_min": 76,
+          "key_max": 84,
+          "wave_index": 102
+        },
+        {
+          "key_min": 85,
+          "key_max": 108,
+          "wave_index": 103
+        }
+      ]
+    },
+    {
+      "prog": 28,
+      "name": "Electric Guitar (muted)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 104
+        }
+      ]
+    },
+    {
+      "prog": 29,
+      "name": "Overdriven Guitar",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 64,
+          "wave_index": 165
+        },
+        {
+          "key_min": 65,
+          "key_max": 127,
+          "wave_index": 166
+        }
+      ]
+    },
+    {
+      "prog": 30,
+      "name": "Distortion Guitar",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 42,
+          "wave_index": 81
+        },
+        {
+          "key_min": 43,
+          "key_max": 46,
+          "wave_index": 82
+        },
+        {
+          "key_min": 47,
+          "key_max": 50,
+          "wave_index": 83
+        },
+        {
+          "key_min": 51,
+          "key_max": 54,
+          "wave_index": 84
+        },
+        {
+          "key_min": 55,
+          "key_max": 58,
+          "wave_index": 85
+        },
+        {
+          "key_min": 59,
+          "key_max": 62,
+          "wave_index": 86
+        },
+        {
+          "key_min": 63,
+          "key_max": 66,
+          "wave_index": 87
+        },
+        {
+          "key_min": 67,
+          "key_max": 70,
+          "wave_index": 88
+        },
+        {
+          "key_min": 71,
+          "key_max": 108,
+          "wave_index": 89
+        }
+      ]
+    },
+    {
+      "prog": 31,
+      "name": "Guitar Harmonics",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 68,
+          "wave_index": 94
+        },
+        {
+          "key_min": 69,
+          "key_max": 73,
+          "wave_index": 93
+        },
+        {
+          "key_min": 74,
+          "key_max": 108,
+          "wave_index": 95
+        }
+      ]
+    },
+    {
+      "prog": 32,
+      "name": "Acoustic Bass",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 48,
+          "wave_index": 4
+        },
+        {
+          "key_min": 49,
+          "key_max": 108,
+          "wave_index": 5
+        }
+      ]
+    },
+    {
+      "prog": 33,
+      "name": "Electric Bass (finger)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 32,
+          "wave_index": 74
+        },
+        {
+          "key_min": 33,
+          "key_max": 37,
+          "wave_index": 75
+        },
+        {
+          "key_min": 38,
+          "key_max": 42,
+          "wave_index": 76
+        },
+        {
+          "key_min": 43,
+          "key_max": 127,
+          "wave_index": 77
+        }
+      ]
+    },
+    {
+      "prog": 34,
+      "name": "Electric Bass (pick)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 35,
+          "wave_index": 79
+        },
+        {
+          "key_min": 36,
+          "key_max": 42,
+          "wave_index": 80
+        },
+        {
+          "key_min": 43,
+          "key_max": 47,
+          "wave_index": 107
+        },
+        {
+          "key_min": 48,
+          "key_max": 71,
+          "wave_index": 105
+        },
+        {
+          "key_min": 72,
+          "key_max": 108,
+          "wave_index": 106
+        }
+      ]
+    },
+    {
+      "prog": 35,
+      "name": "Fretless Bass",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 78
+        }
+      ]
+    },
+    {
+      "prog": 36,
+      "name": "Slap Bass 1",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 163
+        }
+      ]
+    },
+    {
+      "prog": 37,
+      "name": "Slap Bass 2",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 162
+        }
+      ]
+    },
+    {
+      "prog": 38,
+      "name": "Synth Bass 1",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 190
+        }
+      ]
+    },
+    {
+      "prog": 39,
+      "name": "Synth Bass 2",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 279
+        }
+      ]
+    },
+    {
+      "prog": 40,
+      "name": "Violin",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 58,
+          "wave_index": 261
+        },
+        {
+          "key_min": 59,
+          "key_max": 63,
+          "wave_index": 258
+        },
+        {
+          "key_min": 64,
+          "key_max": 65,
+          "wave_index": 262
+        },
+        {
+          "key_min": 66,
+          "key_max": 68,
+          "wave_index": 263
+        },
+        {
+          "key_min": 69,
+          "key_max": 71,
+          "wave_index": 264
+        },
+        {
+          "key_min": 72,
+          "key_max": 74,
+          "wave_index": 266
+        },
+        {
+          "key_min": 75,
+          "key_max": 76,
+          "wave_index": 267
+        },
+        {
+          "key_min": 77,
+          "key_max": 78,
+          "wave_index": 268
+        },
+        {
+          "key_min": 79,
+          "key_max": 81,
+          "wave_index": 269
+        },
+        {
+          "key_min": 82,
+          "key_max": 108,
+          "wave_index": 265
+        }
+      ]
+    },
+    {
+      "prog": 41,
+      "name": "Viola",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 50,
+          "wave_index": 259
+        },
+        {
+          "key_min": 51,
+          "key_max": 53,
+          "wave_index": 260
+        },
+        {
+          "key_min": 54,
+          "key_max": 56,
+          "wave_index": 261
+        },
+        {
+          "key_min": 57,
+          "key_max": 61,
+          "wave_index": 258
+        },
+        {
+          "key_min": 62,
+          "key_max": 63,
+          "wave_index": 262
+        },
+        {
+          "key_min": 64,
+          "key_max": 66,
+          "wave_index": 263
+        },
+        {
+          "key_min": 67,
+          "key_max": 69,
+          "wave_index": 264
+        },
+        {
+          "key_min": 70,
+          "key_max": 72,
+          "wave_index": 266
+        },
+        {
+          "key_min": 73,
+          "key_max": 74,
+          "wave_index": 267
+        },
+        {
+          "key_min": 75,
+          "key_max": 76,
+          "wave_index": 268
+        },
+        {
+          "key_min": 77,
+          "key_max": 79,
+          "wave_index": 269
+        },
+        {
+          "key_min": 80,
+          "key_max": 108,
+          "wave_index": 265
+        }
+      ]
+    },
+    {
+      "prog": 42,
+      "name": "Cello",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 45,
+          "wave_index": 274
+        },
+        {
+          "key_min": 46,
+          "key_max": 55,
+          "wave_index": 275
+        },
+        {
+          "key_min": 56,
+          "key_max": 62,
+          "wave_index": 277
+        },
+        {
+          "key_min": 63,
+          "key_max": 68,
+          "wave_index": 278
+        },
+        {
+          "key_min": 69,
+          "key_max": 108,
+          "wave_index": 276
+        }
+      ]
+    },
+    {
+      "prog": 43,
+      "name": "Contrabass",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 41,
+          "wave_index": 272
+        },
+        {
+          "key_min": 42,
+          "key_max": 108,
+          "wave_index": 273
+        }
+      ]
+    },
+    {
+      "prog": 44,
+      "name": "Tremolo Strings",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 59,
+          "wave_index": 176
+        },
+        {
+          "key_min": 60,
+          "key_max": 65,
+          "wave_index": 53
+        },
+        {
+          "key_min": 66,
+          "key_max": 71,
+          "wave_index": 51
+        },
+        {
+          "key_min": 72,
+          "key_max": 82,
+          "wave_index": 52
+        },
+        {
+          "key_min": 83,
+          "key_max": 108,
+          "wave_index": 175
+        }
+      ]
+    },
+    {
+      "prog": 45,
+      "name": "Pizzicato Strings",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 50,
+          "wave_index": 184
+        },
+        {
+          "key_min": 51,
+          "key_max": 59,
+          "wave_index": 185
+        },
+        {
+          "key_min": 60,
+          "key_max": 66,
+          "wave_index": 187
+        },
+        {
+          "key_min": 67,
+          "key_max": 72,
+          "wave_index": 186
+        },
+        {
+          "key_min": 73,
+          "key_max": 108,
+          "wave_index": 188
+        }
+      ]
+    },
+    {
+      "prog": 46,
+      "name": "Orchestral Harp",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 70,
+          "wave_index": 126
+        },
+        {
+          "key_min": 71,
+          "key_max": 108,
+          "wave_index": 127
+        }
+      ]
+    },
+    {
+      "prog": 47,
+      "name": "Timpani",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 256
+        }
+      ]
+    },
+    {
+      "prog": 48,
+      "name": "String Ensemble 1",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 59,
+          "wave_index": 316
+        },
+        {
+          "key_min": 60,
+          "key_max": 65,
+          "wave_index": 318
+        },
+        {
+          "key_min": 66,
+          "key_max": 71,
+          "wave_index": 317
+        },
+        {
+          "key_min": 72,
+          "key_max": 82,
+          "wave_index": 319
+        },
+        {
+          "key_min": 83,
+          "key_max": 108,
+          "wave_index": 320
+        }
+      ]
+    },
+    {
+      "prog": 49,
+      "name": "String Ensemble 2",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 59,
+          "wave_index": 176
+        },
+        {
+          "key_min": 60,
+          "key_max": 65,
+          "wave_index": 53
+        },
+        {
+          "key_min": 66,
+          "key_max": 71,
+          "wave_index": 51
+        },
+        {
+          "key_min": 72,
+          "key_max": 82,
+          "wave_index": 52
+        },
+        {
+          "key_min": 83,
+          "key_max": 108,
+          "wave_index": 175
+        }
+      ]
+    },
+    {
+      "prog": 50,
+      "name": "Synth Strings 1",
+      "zones": [
+        {
+          "key_min": 5,
+          "key_max": 113,
+          "wave_index": 2
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 174
+        }
+      ]
+    },
+    {
+      "prog": 51,
+      "name": "Synth Strings 2",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 2
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 2
+        }
+      ]
+    },
+    {
+      "prog": 52,
+      "name": "Choir Aahs",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 58,
+          "wave_index": 24
+        },
+        {
+          "key_min": 59,
+          "key_max": 64,
+          "wave_index": 25
+        },
+        {
+          "key_min": 65,
+          "key_max": 71,
+          "wave_index": 26
+        },
+        {
+          "key_min": 72,
+          "key_max": 108,
+          "wave_index": 27
+        }
+      ]
+    },
+    {
+      "prog": 53,
+      "name": "Voice Oohs",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 41
+        }
+      ]
+    },
+    {
+      "prog": 54,
+      "name": "Synth Voice",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 42
+        }
+      ]
+    },
+    {
+      "prog": 55,
+      "name": "Orchestra Hit",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 73
+        }
+      ]
+    },
+    {
+      "prog": 56,
+      "name": "Trumpet",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 60,
+          "wave_index": 246
+        },
+        {
+          "key_min": 61,
+          "key_max": 67,
+          "wave_index": 248
+        },
+        {
+          "key_min": 68,
+          "key_max": 72,
+          "wave_index": 247
+        },
+        {
+          "key_min": 73,
+          "key_max": 78,
+          "wave_index": 250
+        },
+        {
+          "key_min": 79,
+          "key_max": 85,
+          "wave_index": 249
+        },
+        {
+          "key_min": 86,
+          "key_max": 108,
+          "wave_index": 251
+        }
+      ]
+    },
+    {
+      "prog": 57,
+      "name": "Trombone",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 58,
+          "wave_index": 240
+        },
+        {
+          "key_min": 59,
+          "key_max": 63,
+          "wave_index": 241
+        },
+        {
+          "key_min": 64,
+          "key_max": 108,
+          "wave_index": 242
+        }
+      ]
+    },
+    {
+      "prog": 58,
+      "name": "Tuba",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 45,
+          "wave_index": 133
+        },
+        {
+          "key_min": 46,
+          "key_max": 108,
+          "wave_index": 134
+        }
+      ]
+    },
+    {
+      "prog": 59,
+      "name": "Muted Trumpet",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 69,
+          "wave_index": 177
+        },
+        {
+          "key_min": 70,
+          "key_max": 108,
+          "wave_index": 178
+        }
+      ]
+    },
+    {
+      "prog": 60,
+      "name": "French Horn",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 73,
+          "wave_index": 124
+        },
+        {
+          "key_min": 74,
+          "key_max": 108,
+          "wave_index": 125
+        }
+      ]
+    },
+    {
+      "prog": 61,
+      "name": "Brass Section",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 66,
+          "wave_index": 252
+        },
+        {
+          "key_min": 67,
+          "key_max": 108,
+          "wave_index": 253
+        }
+      ]
+    },
+    {
+      "prog": 62,
+      "name": "Synth Brass 1",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 211
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 218
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 212
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 219
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 213
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 220
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 214
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 221
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 215
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 222
+        },
+        {
+          "key_min": 94,
+          "key_max": 99,
+          "wave_index": 216
+        },
+        {
+          "key_min": 100,
+          "key_max": 127,
+          "wave_index": 217
+        },
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 100,
+          "wave_index": 290
+        },
+        {
+          "key_min": 101,
+          "key_max": 127,
+          "wave_index": 291
+        }
+      ]
+    },
+    {
+      "prog": 63,
+      "name": "Synth Brass 2",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 100,
+          "wave_index": 290
+        },
+        {
+          "key_min": 101,
+          "key_max": 127,
+          "wave_index": 291
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 292
+        }
+      ]
+    },
+    {
+      "prog": 64,
+      "name": "Soprano Sax",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 63,
+          "wave_index": 227
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 228
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 229
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 230
+        },
+        {
+          "key_min": 82,
+          "key_max": 89,
+          "wave_index": 231
+        },
+        {
+          "key_min": 89,
+          "key_max": 108,
+          "wave_index": 232
+        }
+      ]
+    },
+    {
+      "prog": 65,
+      "name": "Alto Sax",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 50,
+          "wave_index": 146
+        },
+        {
+          "key_min": 51,
+          "key_max": 53,
+          "wave_index": 150
+        },
+        {
+          "key_min": 54,
+          "key_max": 58,
+          "wave_index": 153
+        },
+        {
+          "key_min": 59,
+          "key_max": 59,
+          "wave_index": 143
+        },
+        {
+          "key_min": 60,
+          "key_max": 62,
+          "wave_index": 147
+        },
+        {
+          "key_min": 63,
+          "key_max": 65,
+          "wave_index": 151
+        },
+        {
+          "key_min": 66,
+          "key_max": 68,
+          "wave_index": 154
+        },
+        {
+          "key_min": 69,
+          "key_max": 71,
+          "wave_index": 144
+        },
+        {
+          "key_min": 72,
+          "key_max": 74,
+          "wave_index": 148
+        },
+        {
+          "key_min": 75,
+          "key_max": 77,
+          "wave_index": 152
+        },
+        {
+          "key_min": 78,
+          "key_max": 80,
+          "wave_index": 155
+        },
+        {
+          "key_min": 81,
+          "key_max": 83,
+          "wave_index": 145
+        },
+        {
+          "key_min": 84,
+          "key_max": 108,
+          "wave_index": 149
+        }
+      ]
+    },
+    {
+      "prog": 66,
+      "name": "Tenor Sax",
+      "zones": [
+        {
+          "key_min": 36,
+          "key_max": 48,
+          "wave_index": 233
+        },
+        {
+          "key_min": 49,
+          "key_max": 52,
+          "wave_index": 234
+        },
+        {
+          "key_min": 53,
+          "key_max": 58,
+          "wave_index": 235
+        },
+        {
+          "key_min": 59,
+          "key_max": 65,
+          "wave_index": 237
+        },
+        {
+          "key_min": 66,
+          "key_max": 71,
+          "wave_index": 236
+        },
+        {
+          "key_min": 72,
+          "key_max": 81,
+          "wave_index": 238
+        },
+        {
+          "key_min": 82,
+          "key_max": 108,
+          "wave_index": 239
+        }
+      ]
+    },
+    {
+      "prog": 67,
+      "name": "Baritone Sax",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 45,
+          "wave_index": 223
+        },
+        {
+          "key_min": 46,
+          "key_max": 52,
+          "wave_index": 225
+        },
+        {
+          "key_min": 53,
+          "key_max": 57,
+          "wave_index": 226
+        },
+        {
+          "key_min": 58,
+          "key_max": 108,
+          "wave_index": 224
+        }
+      ]
+    },
+    {
+      "prog": 68,
+      "name": "Oboe",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 60,
+          "wave_index": 66
+        },
+        {
+          "key_min": 61,
+          "key_max": 67,
+          "wave_index": 68
+        },
+        {
+          "key_min": 68,
+          "key_max": 73,
+          "wave_index": 67
+        },
+        {
+          "key_min": 74,
+          "key_max": 79,
+          "wave_index": 70
+        },
+        {
+          "key_min": 80,
+          "key_max": 85,
+          "wave_index": 69
+        },
+        {
+          "key_min": 86,
+          "key_max": 108,
+          "wave_index": 71
+        }
+      ]
+    },
+    {
+      "prog": 69,
+      "name": "English Horn",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 56,
+          "wave_index": 60
+        },
+        {
+          "key_min": 57,
+          "key_max": 62,
+          "wave_index": 59
+        },
+        {
+          "key_min": 63,
+          "key_max": 108,
+          "wave_index": 61
+        }
+      ]
+    },
+    {
+      "prog": 70,
+      "name": "Bassoon",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 34,
+          "wave_index": 56
+        },
+        {
+          "key_min": 35,
+          "key_max": 46,
+          "wave_index": 58
+        },
+        {
+          "key_min": 47,
+          "key_max": 108,
+          "wave_index": 57
+        }
+      ]
+    },
+    {
+      "prog": 71,
+      "name": "Clarinet",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 59,
+          "wave_index": 158
+        },
+        {
+          "key_min": 60,
+          "key_max": 65,
+          "wave_index": 160
+        },
+        {
+          "key_min": 66,
+          "key_max": 74,
+          "wave_index": 159
+        },
+        {
+          "key_min": 75,
+          "key_max": 108,
+          "wave_index": 161
+        }
+      ]
+    },
+    {
+      "prog": 72,
+      "name": "Piccolo",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 64,
+          "wave_index": 113
+        },
+        {
+          "key_min": 65,
+          "key_max": 77,
+          "wave_index": 114
+        },
+        {
+          "key_min": 78,
+          "key_max": 83,
+          "wave_index": 115
+        },
+        {
+          "key_min": 84,
+          "key_max": 95,
+          "wave_index": 116
+        },
+        {
+          "key_min": 96,
+          "key_max": 108,
+          "wave_index": 117
+        }
+      ]
+    },
+    {
+      "prog": 73,
+      "name": "Flute",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 64,
+          "wave_index": 113
+        },
+        {
+          "key_min": 65,
+          "key_max": 77,
+          "wave_index": 114
+        },
+        {
+          "key_min": 78,
+          "key_max": 108,
+          "wave_index": 115
+        }
+      ]
+    },
+    {
+      "prog": 74,
+      "name": "Recorder",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 111,
+          "wave_index": 189
+        }
+      ]
+    },
+    {
+      "prog": 75,
+      "name": "Pan Flute",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 119
+        }
+      ]
+    },
+    {
+      "prog": 76,
+      "name": "Blown Bottle",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 119
+        },
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 293
+        }
+      ]
+    },
+    {
+      "prog": 77,
+      "name": "Shakuhachi",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 171
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 118
+        }
+      ]
+    },
+    {
+      "prog": 78,
+      "name": "Whistle",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 170
+        }
+      ]
+    },
+    {
+      "prog": 79,
+      "name": "Ocarina",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 170
+        }
+      ]
+    },
+    {
+      "prog": 80,
+      "name": "Lead 1 (square)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 42,
+          "wave_index": 204
+        },
+        {
+          "key_min": 43,
+          "key_max": 54,
+          "wave_index": 205
+        },
+        {
+          "key_min": 55,
+          "key_max": 66,
+          "wave_index": 202
+        },
+        {
+          "key_min": 67,
+          "key_max": 78,
+          "wave_index": 207
+        },
+        {
+          "key_min": 79,
+          "key_max": 90,
+          "wave_index": 206
+        },
+        {
+          "key_min": 91,
+          "key_max": 127,
+          "wave_index": 203
+        },
+        {
+          "key_min": 1,
+          "key_max": 42,
+          "wave_index": 204
+        },
+        {
+          "key_min": 43,
+          "key_max": 54,
+          "wave_index": 205
+        },
+        {
+          "key_min": 55,
+          "key_max": 66,
+          "wave_index": 202
+        },
+        {
+          "key_min": 67,
+          "key_max": 78,
+          "wave_index": 207
+        },
+        {
+          "key_min": 79,
+          "key_max": 90,
+          "wave_index": 206
+        },
+        {
+          "key_min": 91,
+          "key_max": 127,
+          "wave_index": 203
+        }
+      ]
+    },
+    {
+      "prog": 81,
+      "name": "Lead 2 (sawtooth)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 102,
+          "wave_index": 290
+        },
+        {
+          "key_min": 103,
+          "key_max": 127,
+          "wave_index": 291
+        },
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 102,
+          "wave_index": 290
+        },
+        {
+          "key_min": 103,
+          "key_max": 127,
+          "wave_index": 291
+        }
+      ]
+    },
+    {
+      "prog": 82,
+      "name": "Lead 3 (calliope)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 170
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 118
+        }
+      ]
+    },
+    {
+      "prog": 83,
+      "name": "Lead 4 (chiff)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 314
+        },
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 254
+        }
+      ]
+    },
+    {
+      "prog": 84,
+      "name": "Lead 5 (charang)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 64,
+          "wave_index": 165
+        },
+        {
+          "key_min": 65,
+          "key_max": 127,
+          "wave_index": 166
+        },
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 102,
+          "wave_index": 290
+        },
+        {
+          "key_min": 103,
+          "key_max": 127,
+          "wave_index": 291
+        }
+      ]
+    },
+    {
+      "prog": 85,
+      "name": "Lead 6 (voice)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 170
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 42
+        }
+      ]
+    },
+    {
+      "prog": 86,
+      "name": "Lead 7 (fifths)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 100,
+          "wave_index": 290
+        },
+        {
+          "key_min": 101,
+          "key_max": 127,
+          "wave_index": 291
+        },
+        {
+          "key_min": 5,
+          "key_max": 113,
+          "wave_index": 2
+        }
+      ]
+    },
+    {
+      "prog": 87,
+      "name": "Lead 8 (bass + lead)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 279
+        },
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 102,
+          "wave_index": 290
+        },
+        {
+          "key_min": 103,
+          "key_max": 127,
+          "wave_index": 291
+        }
+      ]
+    },
+    {
+      "prog": 88,
+      "name": "Pad 1 (new age)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 2
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 243
+        }
+      ]
+    },
+    {
+      "prog": 89,
+      "name": "Pad 2 (warm)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 78
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 41
+        }
+      ]
+    },
+    {
+      "prog": 90,
+      "name": "Pad 3 (polysynth)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 280
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 281
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 282
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 283
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 284
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 285
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 286
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 287
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 288
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 289
+        },
+        {
+          "key_min": 94,
+          "key_max": 102,
+          "wave_index": 290
+        },
+        {
+          "key_min": 103,
+          "key_max": 127,
+          "wave_index": 291
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 292
+        }
+      ]
+    },
+    {
+      "prog": 91,
+      "name": "Pad 4 (choir)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 58,
+          "wave_index": 24
+        },
+        {
+          "key_min": 59,
+          "key_max": 64,
+          "wave_index": 25
+        },
+        {
+          "key_min": 65,
+          "key_max": 71,
+          "wave_index": 26
+        },
+        {
+          "key_min": 72,
+          "key_max": 108,
+          "wave_index": 27
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 42
+        }
+      ]
+    },
+    {
+      "prog": 92,
+      "name": "Pad 5 (bowed)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 257
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 170
+        }
+      ]
+    },
+    {
+      "prog": 93,
+      "name": "Pad 6 (metallic)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 49,
+          "wave_index": 12
+        },
+        {
+          "key_min": 50,
+          "key_max": 56,
+          "wave_index": 13
+        },
+        {
+          "key_min": 57,
+          "key_max": 71,
+          "wave_index": 14
+        },
+        {
+          "key_min": 72,
+          "key_max": 108,
+          "wave_index": 15
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 63
+        }
+      ]
+    },
+    {
+      "prog": 94,
+      "name": "Pad 7 (halo)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 292
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 42
+        }
+      ]
+    },
+    {
+      "prog": 95,
+      "name": "Pad 8 (sweep)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 211
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 218
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 212
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 219
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 213
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 220
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 214
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 221
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 215
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 222
+        },
+        {
+          "key_min": 94,
+          "key_max": 99,
+          "wave_index": 216
+        },
+        {
+          "key_min": 100,
+          "key_max": 127,
+          "wave_index": 217
+        },
+        {
+          "key_min": 1,
+          "key_max": 39,
+          "wave_index": 211
+        },
+        {
+          "key_min": 40,
+          "key_max": 45,
+          "wave_index": 218
+        },
+        {
+          "key_min": 46,
+          "key_max": 51,
+          "wave_index": 212
+        },
+        {
+          "key_min": 52,
+          "key_max": 57,
+          "wave_index": 219
+        },
+        {
+          "key_min": 58,
+          "key_max": 63,
+          "wave_index": 213
+        },
+        {
+          "key_min": 64,
+          "key_max": 69,
+          "wave_index": 220
+        },
+        {
+          "key_min": 70,
+          "key_max": 75,
+          "wave_index": 214
+        },
+        {
+          "key_min": 76,
+          "key_max": 81,
+          "wave_index": 221
+        },
+        {
+          "key_min": 82,
+          "key_max": 87,
+          "wave_index": 215
+        },
+        {
+          "key_min": 88,
+          "key_max": 93,
+          "wave_index": 222
+        },
+        {
+          "key_min": 94,
+          "key_max": 99,
+          "wave_index": 216
+        },
+        {
+          "key_min": 100,
+          "key_max": 127,
+          "wave_index": 217
+        }
+      ]
+    },
+    {
+      "prog": 96,
+      "name": "FX 1 (rain)",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 78
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 323
+        }
+      ]
+    },
+    {
+      "prog": 97,
+      "name": "FX 2 (soundtrack)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 2
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 243
+        }
+      ]
+    },
+    {
+      "prog": 98,
+      "name": "FX 3 (crystal)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 243
+        },
+        {
+          "key_min": 21,
+          "key_max": 44,
+          "wave_index": 109
+        },
+        {
+          "key_min": 45,
+          "key_max": 54,
+          "wave_index": 110
+        },
+        {
+          "key_min": 55,
+          "key_max": 108,
+          "wave_index": 111
+        }
+      ]
+    },
+    {
+      "prog": 99,
+      "name": "FX 4 (atmosphere)",
+      "zones": [
+        {
+          "key_min": 5,
+          "key_max": 113,
+          "wave_index": 2
+        },
+        {
+          "key_min": 21,
+          "key_max": 47,
+          "wave_index": 179
+        },
+        {
+          "key_min": 48,
+          "key_max": 54,
+          "wave_index": 183
+        },
+        {
+          "key_min": 55,
+          "key_max": 60,
+          "wave_index": 181
+        },
+        {
+          "key_min": 61,
+          "key_max": 67,
+          "wave_index": 180
+        },
+        {
+          "key_min": 68,
+          "key_max": 96,
+          "wave_index": 182
+        }
+      ]
+    },
+    {
+      "prog": 100,
+      "name": "FX 5 (brightness)",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 311
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 42
+        }
+      ]
+    },
+    {
+      "prog": 101,
+      "name": "FX 6 (goblins)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 2
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 9
+        }
+      ]
+    },
+    {
+      "prog": 102,
+      "name": "FX 7 (echoes)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 42
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 292
+        }
+      ]
+    },
+    {
+      "prog": 103,
+      "name": "FX 8 (sci-fi)",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 49,
+          "wave_index": 12
+        },
+        {
+          "key_min": 50,
+          "key_max": 56,
+          "wave_index": 13
+        },
+        {
+          "key_min": 57,
+          "key_max": 71,
+          "wave_index": 14
+        },
+        {
+          "key_min": 72,
+          "key_max": 108,
+          "wave_index": 15
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 2
+        }
+      ]
+    },
+    {
+      "prog": 104,
+      "name": "Sitar",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 271
+        }
+      ]
+    },
+    {
+      "prog": 105,
+      "name": "Banjo",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 52,
+          "wave_index": 19
+        },
+        {
+          "key_min": 53,
+          "key_max": 56,
+          "wave_index": 20
+        },
+        {
+          "key_min": 57,
+          "key_max": 60,
+          "wave_index": 18
+        },
+        {
+          "key_min": 61,
+          "key_max": 68,
+          "wave_index": 21
+        },
+        {
+          "key_min": 69,
+          "key_max": 76,
+          "wave_index": 23
+        },
+        {
+          "key_min": 77,
+          "key_max": 109,
+          "wave_index": 22
+        }
+      ]
+    },
+    {
+      "prog": 106,
+      "name": "Shamisen",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 270
+        }
+      ]
+    },
+    {
+      "prog": 107,
+      "name": "Koto",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 169
+        }
+      ]
+    },
+    {
+      "prog": 108,
+      "name": "Kalimba",
+      "zones": [
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 311
+        }
+      ]
+    },
+    {
+      "prog": 109,
+      "name": "Bag pipe",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 57,
+          "wave_index": 164
+        },
+        {
+          "key_min": 21,
+          "key_max": 57,
+          "wave_index": 167
+        },
+        {
+          "key_min": 58,
+          "key_max": 108,
+          "wave_index": 168
+        }
+      ]
+    },
+    {
+      "prog": 110,
+      "name": "Fiddle",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 58,
+          "wave_index": 261
+        },
+        {
+          "key_min": 59,
+          "key_max": 63,
+          "wave_index": 258
+        },
+        {
+          "key_min": 64,
+          "key_max": 65,
+          "wave_index": 262
+        },
+        {
+          "key_min": 66,
+          "key_max": 68,
+          "wave_index": 263
+        },
+        {
+          "key_min": 69,
+          "key_max": 71,
+          "wave_index": 264
+        },
+        {
+          "key_min": 72,
+          "key_max": 74,
+          "wave_index": 266
+        },
+        {
+          "key_min": 75,
+          "key_max": 76,
+          "wave_index": 267
+        },
+        {
+          "key_min": 77,
+          "key_max": 78,
+          "wave_index": 268
+        },
+        {
+          "key_min": 79,
+          "key_max": 81,
+          "wave_index": 269
+        },
+        {
+          "key_min": 82,
+          "key_max": 108,
+          "wave_index": 265
+        }
+      ]
+    },
+    {
+      "prog": 111,
+      "name": "Shanai",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 65
+        }
+      ]
+    },
+    {
+      "prog": 112,
+      "name": "Tinkle Bell",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 115,
+          "wave_index": 243
+        },
+        {
+          "key_min": 0,
+          "key_max": 127,
+          "wave_index": 311
+        }
+      ]
+    },
+    {
+      "prog": 113,
+      "name": "Agogo",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 116,
+          "wave_index": 11
+        }
+      ]
+    },
+    {
+      "prog": 114,
+      "name": "Steel Drums",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 254
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 256
+        }
+      ]
+    },
+    {
+      "prog": 115,
+      "name": "Woodblock",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 44
+        }
+      ]
+    },
+    {
+      "prog": 116,
+      "name": "Taiko Drum",
+      "zones": [
+        {
+          "key_min": 19,
+          "key_max": 108,
+          "wave_index": 62
+        }
+      ]
+    },
+    {
+      "prog": 117,
+      "name": "Melodic Tom",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 199
+        }
+      ]
+    },
+    {
+      "prog": 118,
+      "name": "Synth Drum",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 38
+        }
+      ]
+    },
+    {
+      "prog": 119,
+      "name": "Reverse Cymbal",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 49
+        }
+      ]
+    },
+    {
+      "prog": 120,
+      "name": "Guitar Fret Noise",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 312
+        }
+      ]
+    },
+    {
+      "prog": 121,
+      "name": "Breath Noise",
+      "zones": [
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 293
+        }
+      ]
+    },
+    {
+      "prog": 122,
+      "name": "Seashore",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 8
+        },
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 55
+        }
+      ]
+    },
+    {
+      "prog": 123,
+      "name": "Bird Tweet",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 9
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 9
+        }
+      ]
+    },
+    {
+      "prog": 124,
+      "name": "Telephone Ring",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 3
+        }
+      ]
+    },
+    {
+      "prog": 125,
+      "name": "Helicopter",
+      "zones": [
+        {
+          "key_min": 12,
+          "key_max": 127,
+          "wave_index": 1
+        },
+        {
+          "key_min": 1,
+          "key_max": 127,
+          "wave_index": 55
+        }
+      ]
+    },
+    {
+      "prog": 126,
+      "name": "Applause",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 54
+        },
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 54
+        }
+      ]
+    },
+    {
+      "prog": 127,
+      "name": "Gunshot",
+      "zones": [
+        {
+          "key_min": 21,
+          "key_max": 108,
+          "wave_index": 313
+        }
+      ]
+    }
+  ]
+}

@@ -209,8 +209,10 @@
                   "OPL3",
                   "OPLL",
                   "PSG",
-                  "PCM"
-                ]
+                  "PCM",
+                  "AWM"
+                ],
+                "description": "チップ族を表す文字列。VOICE_PATCH_*にマッピングされる (FITOMConfig::stringToVoicePatchType参照)。AWMはVOICE_PATCH_AWM (OPL4 AWM部+YRW801等、サンプルベース音源系) を指し、このバンクは HwBank形式ではなくSampleZoneBank形式 (別スキーマ、prog単位でkey_min/key_max+wave_indexのゾーン配列を持つ) でパースされる。"
               },
               "bank": {
                 "type": "integer",

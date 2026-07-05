@@ -42,6 +42,9 @@ public:
     // ─── バンク管理 ───────────────────────────────────────────────
 
     HwBankRegistry&  hwRegistry() { return hwReg_; }
+    // サンプルベース音源系 (VOICE_PATCH_AWM等) 専用。hwRegistry()とは
+    // 完全に独立したレジストリ (HwPatch/HwBankには一切影響しない)。
+    SampleZoneBankRegistry& sampleRegistry() { return sampleReg_; }
     SwBankRegistry&  swRegistry() { return swReg_; }
 
     // パッチバンクの取得・登録
@@ -78,6 +81,11 @@ public:
     bool loadSwBankJson(const std::filesystem::path& path, int bankNo);
     bool loadPatchBankJson(const std::filesystem::path& path, int bankNo);
 
+    // サンプルベース音源系 (VOICE_PATCH_AWM等) 専用。HwBankRegistryとは
+    // 完全に独立したロード経路 (hwRegistry()には一切影響しない)。
+    bool loadSampleZoneBankJson(const std::filesystem::path& path,
+                                 int bankNo, uint8_t voicePatchType = 0);
+
     // 旧 FITOM INI 形式 (レガシー互換)
     bool loadHwBankLegacy(const std::filesystem::path& path,
                           HwBankRegistry::VoiceGroup group, int bankNo);
@@ -85,6 +93,7 @@ public:
     // JSON 形式でバンクを書き出す
     bool saveHwBankJson(const std::filesystem::path& path,
                         HwBankRegistry::VoiceGroup group, int bankNo) const;
+    bool saveSampleZoneBankJson(const std::filesystem::path& path, int bankNo) const;
     bool saveSwBankJson(const std::filesystem::path& path, int bankNo) const;
     bool savePatchBankJson(const std::filesystem::path& path, int bankNo) const;
 
@@ -121,6 +130,7 @@ public:
 
 private:
     HwBankRegistry hwReg_;
+    SampleZoneBankRegistry sampleReg_;
     SwBankRegistry swReg_;
     DrumBankRegistry drumReg_;
     SccWaveRegistry  sccWaveReg_;

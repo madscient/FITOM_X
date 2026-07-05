@@ -920,12 +920,18 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
             // (旧実装は "OPZ" 等の細分類文字列を判定できず VOICE_GROUP_OPNA に
             //  誤って落ちるバグがあったため、ここで併せて修正する)
             uint8_t  voicePatchType = FITOMConfig::stringToVoicePatchType(groupStr);
-            uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
             if (voicePatchType == VOICE_PATCH_NONE) {
                 FITOM_LOG_WARN("hw_banks: unknown group \"" << groupStr
                     << "\" in " << file << " — skipped");
                 continue;
             }
+            // サンプルベース音源系 (VOICE_PATCH_AWM等) はHwBankRegistryでは
+            // なくSampleZoneBankRegistry (専用スキーマ) に読み込む。
+            if (voicePatchType == VOICE_PATCH_AWM) {
+                pm.loadSampleZoneBankJson(path, bankNo, voicePatchType);
+                continue;
+            }
+            uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
             pm.loadHwBankJson(path, group, bankNo, voicePatchType);
         }
     }

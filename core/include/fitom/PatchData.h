@@ -211,6 +211,127 @@ private:
 };
 
 // ================================================================
+//  サンプルベース音源 (波形メモリ/PCM) 系共通ボイスパッチ
+//  VOICE_PATCH_AWM (YMF278 AWM部+YRW801 ROM等) で使用。
+//  ADPCM系 (ADPCM-A/ADPCM-B/PCMD8等) も将来的にこのスキーマを転用する
+//  ことを想定した、チップ非依存の汎用設計としている。
+//
+//  設計意図: サンプルベース音源は「1プログラム = 複数キーゾーン
+//  (+ベロシティレイヤー) への波形/サンプルマッピング」という、
+//  FMオペレータ型のHwPatch(AR/DR/SL/RR等を持つ)とは本質的に異なる
+//  形状のデータを持つ。無理にHwPatch/FmChipExtへ押し込めると
+//  (a) FmChipExtが想定する「少数の追加スカラー値」という設計から外れる
+//  (b) 使われないAR/DR/SL/RR等のフィールドが無意味に残る
+//  ため、HwPatch/HwBank/HwBankRegistryとは完全に独立した専用の型を
+//  新設する。既存チップ(OPN/OPM/OPL3等)のHwPatch関連コードには
+//  一切影響を与えない。
+//
+//  上位層 (Patch/ToneLayer が hw_bank/hw_prog をインデックスとして
+//  参照する構造) は変更不要。voicePatchType がサンプルベース系
+//  (VOICE_PATCH_AWM等) の場合のみ、PatchManager::resolve() が
+//  HwBankRegistryではなくこちらを検索し、
+//  ResolvedLayer::samplePatch に結果を格納する。
+//
+//  waveIndex の意味はチップ依存の「生値」であり、このスキーマ自体は
+//  解釈しない (OPL4AWMなら内蔵ROMの波形番号、ADPCM系ならPcmBankの
+//  エントリ番号(WS値)、というように、各チップドライバのresolveXxx()が
+//  解釈する)。
+// ================================================================
+
+// 1ゾーン: このノート範囲・ベロシティ範囲では指定の波形/サンプルを使う。
+// (現状のOPL4AWM実装のkAllRegions[]相当の1エントリに対応)
+struct SampleZone {
+    uint8_t  keyMin = 0;
+    uint8_t  keyMax = 127;
+    // ベロシティレイヤー (ベロシティスイッチ)。0-127/0-127 (無制限) が既定値
+    // のため、ベロシティレイヤーを使わないパッチ(OPL4AWM現行実装等)は
+    // このフィールドを省略しても後方互換に動作する。
+    uint8_t  velMin = 0;
+    uint8_t  velMax = 127;
+    uint16_t waveIndex = 0;   // チップ側のROM/PCM波形番号 (チップ依存の生値)
+    // 録音時の基準ノート (MIDI note番号)。ピッチ可変のPCM系チップ
+    // (ADPCM-B/PCMD8等)がノートからの相対ピッチシフト量を計算するのに
+    // 使う。ピッチ固定チップ(OPL4AWM等、Fnumber計算がチップ側で完結する
+    // 場合)は未使用 (0のままでよい)。将来のADPCM系転用に備えた予約。
+    //
+    // 【重要・ADPCM拡張時の必須知識】旧FITOMでは、ADPCM-Bのサンプルは
+    // 「A4=440Hz(MIDI note 69)でサンプリングされている」という暗黙の
+    // 制約でコーディングされている。ADPCM-B/PCMD8等にこのスキーマを
+    // 転用する際、既存のサンプル資産と後方互換を保つには、rootNoteの
+    // 既定値は69(A4)にすべきであり、60(C4)にしてはならない。
+    // (このコメントは会話の文脈が失われても参照できるよう、意図的に
+    //  ここに残している)
+    uint8_t  rootNote = 69;  // 既定: A4 (MIDI note 69)。旧FITOM ADPCM-B
+                              // の暗黙の基準ピッチ規約に合わせている。
+};
+
+// 1プログラムぶんのゾーン列。ノート・ベロシティに応じて↑を線形探索し、
+// 該当するSampleZone::waveIndexを使う (現状のresolveWaveNumber()相当)。
+// zonesは可変長 (プログラムによってゾーン数が異なるため、HwPatchのような
+// 固定長オペレータ配列では表現できない)。
+struct SampleZonePatch {
+    uint32_t id;              // バンク内 ID (bank_no << 16 | prog_no)、HwPatchと同じ規約
+    char     name[32];        // パッチ名 (UTF-8)
+    std::vector<SampleZone> zones;
+
+    SampleZonePatch() noexcept : id(0xFFFFFFFFu) { name[0] = '\0'; }
+
+    bool isValid() const noexcept { return id != 0xFFFFFFFFu; }
+};
+
+// ================================================================
+//  SampleZoneBank: SampleZonePatch のバンク (HwBankと対になる構造)
+// ================================================================
+struct SampleZoneBank {
+    std::string name;
+    std::string filename;
+    std::array<SampleZonePatch, BANK_PROG_SIZE> patches;
+
+    // HwBank::voicePatchType と同じ意図。このバンクを使うチップの
+    // VoicePatchType (VOICE_PATCH_AWM、将来的にADPCM系の値等) を保持する。
+    uint8_t voicePatchType = 0;
+
+    SampleZoneBank() { for (auto& p : patches) p = SampleZonePatch{}; }
+
+    const SampleZonePatch& get(int prog) const noexcept {
+        static const SampleZonePatch null;
+        if (prog < 0 || prog >= BANK_PROG_SIZE) return null;
+        return patches[prog];
+    }
+    void set(int prog, const SampleZonePatch& p) {
+        if (prog >= 0 && prog < BANK_PROG_SIZE) patches[prog] = p;
+    }
+};
+
+// ================================================================
+//  SampleZoneBankRegistry: バンク番号 → SampleZoneBank のマッピング
+//  HwBankRegistryと同じ役割だが、VoiceGroupによる多重化は行わない
+//  (現状はチップ族ごとに別バンク番号空間を使う運用を想定。複数チップ族が
+//   同じバンク番号を共有する必要が生じた場合はHwBankRegistry同様
+//   VoiceGroupキーを追加する)。
+// ================================================================
+class SampleZoneBankRegistry {
+public:
+    SampleZoneBank& getOrCreate(int bankNo) { return banks_[bankNo]; }
+
+    const SampleZoneBank* find(int bankNo) const {
+        auto it = banks_.find(bankNo);
+        return (it != banks_.end()) ? &it->second : nullptr;
+    }
+    bool hasBank(int bankNo) const { return banks_.count(bankNo) > 0; }
+
+    const SampleZonePatch* resolve(int bankNo, int prog) const {
+        const SampleZoneBank* b = find(bankNo);
+        if (!b) return nullptr;
+        const auto& p = b->get(prog);
+        return p.isValid() ? &p : nullptr;
+    }
+
+private:
+    std::unordered_map<int, SampleZoneBank> banks_;
+};
+
+// ================================================================
 //  SwBankRegistry: バンク番号 → SwBank のマッピング
 // ================================================================
 class SwBankRegistry {
@@ -334,6 +455,22 @@ struct Patch {
         p.layers[0].enabled     = true;
         return p;
     }
+
+    // サンプルベース音源系 (VOICE_PATCH_AWM等) 向けオーバーロード。
+    // ToneLayerが持つのは voicePatchType/hwBank/hwProg というインデックス
+    // 参照のみであり、実際のデータ形状(HwPatchかSampleZonePatchか)には
+    // 依存しないため、パッチ名のコピー元が違うだけで構造は全く同じ。
+    static Patch fromSingleLayer(const SampleZonePatch& szp, uint8_t voicePatchType,
+                                  uint32_t bank, uint32_t prog) noexcept {
+        Patch p;
+        p.id = (bank << 16) | prog;
+        std::strncpy(p.name, szp.name, sizeof(p.name) - 1);
+        p.layers[0].voicePatchType = voicePatchType;
+        p.layers[0].hwBank      = static_cast<uint8_t>(bank & 0xFF);
+        p.layers[0].hwProg      = static_cast<uint8_t>(prog & 0x7F);
+        p.layers[0].enabled     = true;
+        return p;
+    }
 };
 
 // ================================================================
@@ -361,8 +498,12 @@ struct PatchBank {
 //  CInstCh::ProgChange が呼ばれるたびに構築する。
 // ================================================================
 struct ResolvedLayer {
-    const ToneLayer* layer    = nullptr;  // ToneLayer の参照
-    const HwPatch*   hwPatch  = nullptr;  // 解決済み HwPatch
+    const ToneLayer*    layer    = nullptr;  // ToneLayer の参照
+    const HwPatch*      hwPatch  = nullptr;  // 解決済み HwPatch (通常のFMオペレータ系チップ)
+    // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ設定される。
+    // hwPatchとは排他 (どちらか一方のみ非nullptr)。既存チップドライバは
+    // hwPatchのみを参照するため、このフィールド追加による影響はない。
+    const SampleZonePatch* samplePatch = nullptr;
     int              deviceIndex = -1;    // devices[] インデックス
 };
 

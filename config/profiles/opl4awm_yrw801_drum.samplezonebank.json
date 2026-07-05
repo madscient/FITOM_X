@@ -1,0 +1,296 @@
+{
+  "name": "YRW801 GM (drum, ws>=128 fixed table)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "GM Drum Kit (ws>=128)",
+      "zones": [
+        {
+          "key_min": 24,
+          "key_max": 24,
+          "wave_index": 203
+        },
+        {
+          "key_min": 25,
+          "key_max": 25,
+          "wave_index": 196
+        },
+        {
+          "key_min": 26,
+          "key_max": 26,
+          "wave_index": 196
+        },
+        {
+          "key_min": 27,
+          "key_max": 27,
+          "wave_index": 196
+        },
+        {
+          "key_min": 28,
+          "key_max": 28,
+          "wave_index": 196
+        },
+        {
+          "key_min": 30,
+          "key_max": 30,
+          "wave_index": 195
+        },
+        {
+          "key_min": 31,
+          "key_max": 31,
+          "wave_index": 209
+        },
+        {
+          "key_min": 32,
+          "key_max": 32,
+          "wave_index": 210
+        },
+        {
+          "key_min": 33,
+          "key_max": 33,
+          "wave_index": 17
+        },
+        {
+          "key_min": 35,
+          "key_max": 35,
+          "wave_index": 17
+        },
+        {
+          "key_min": 36,
+          "key_max": 36,
+          "wave_index": 17
+        },
+        {
+          "key_min": 37,
+          "key_max": 37,
+          "wave_index": 210
+        },
+        {
+          "key_min": 38,
+          "key_max": 38,
+          "wave_index": 209
+        },
+        {
+          "key_min": 39,
+          "key_max": 39,
+          "wave_index": 10
+        },
+        {
+          "key_min": 40,
+          "key_max": 40,
+          "wave_index": 209
+        },
+        {
+          "key_min": 41,
+          "key_max": 41,
+          "wave_index": 200
+        },
+        {
+          "key_min": 42,
+          "key_max": 42,
+          "wave_index": 121
+        },
+        {
+          "key_min": 43,
+          "key_max": 43,
+          "wave_index": 200
+        },
+        {
+          "key_min": 44,
+          "key_max": 44,
+          "wave_index": 123
+        },
+        {
+          "key_min": 45,
+          "key_max": 45,
+          "wave_index": 200
+        },
+        {
+          "key_min": 46,
+          "key_max": 46,
+          "wave_index": 122
+        },
+        {
+          "key_min": 47,
+          "key_max": 47,
+          "wave_index": 199
+        },
+        {
+          "key_min": 48,
+          "key_max": 48,
+          "wave_index": 199
+        },
+        {
+          "key_min": 49,
+          "key_max": 49,
+          "wave_index": 49
+        },
+        {
+          "key_min": 50,
+          "key_max": 50,
+          "wave_index": 199
+        },
+        {
+          "key_min": 51,
+          "key_max": 51,
+          "wave_index": 46
+        },
+        {
+          "key_min": 52,
+          "key_max": 52,
+          "wave_index": 122
+        },
+        {
+          "key_min": 53,
+          "key_max": 53,
+          "wave_index": 33
+        },
+        {
+          "key_min": 54,
+          "key_max": 54,
+          "wave_index": 37
+        },
+        {
+          "key_min": 55,
+          "key_max": 55,
+          "wave_index": 49
+        },
+        {
+          "key_min": 56,
+          "key_max": 56,
+          "wave_index": 29
+        },
+        {
+          "key_min": 57,
+          "key_max": 57,
+          "wave_index": 49
+        },
+        {
+          "key_min": 58,
+          "key_max": 58,
+          "wave_index": 157
+        },
+        {
+          "key_min": 59,
+          "key_max": 59,
+          "wave_index": 46
+        },
+        {
+          "key_min": 60,
+          "key_max": 60,
+          "wave_index": 28
+        },
+        {
+          "key_min": 61,
+          "key_max": 61,
+          "wave_index": 28
+        },
+        {
+          "key_min": 62,
+          "key_max": 62,
+          "wave_index": 30
+        },
+        {
+          "key_min": 63,
+          "key_max": 63,
+          "wave_index": 31
+        },
+        {
+          "key_min": 64,
+          "key_max": 64,
+          "wave_index": 31
+        },
+        {
+          "key_min": 65,
+          "key_max": 65,
+          "wave_index": 156
+        },
+        {
+          "key_min": 66,
+          "key_max": 66,
+          "wave_index": 156
+        },
+        {
+          "key_min": 67,
+          "key_max": 67,
+          "wave_index": 11
+        },
+        {
+          "key_min": 68,
+          "key_max": 68,
+          "wave_index": 11
+        },
+        {
+          "key_min": 69,
+          "key_max": 69,
+          "wave_index": 47
+        },
+        {
+          "key_min": 70,
+          "key_max": 70,
+          "wave_index": 48
+        },
+        {
+          "key_min": 71,
+          "key_max": 71,
+          "wave_index": 324
+        },
+        {
+          "key_min": 72,
+          "key_max": 72,
+          "wave_index": 324
+        },
+        {
+          "key_min": 73,
+          "key_max": 73,
+          "wave_index": 36
+        },
+        {
+          "key_min": 74,
+          "key_max": 74,
+          "wave_index": 36
+        },
+        {
+          "key_min": 75,
+          "key_max": 75,
+          "wave_index": 32
+        },
+        {
+          "key_min": 76,
+          "key_max": 76,
+          "wave_index": 44
+        },
+        {
+          "key_min": 77,
+          "key_max": 77,
+          "wave_index": 44
+        },
+        {
+          "key_min": 78,
+          "key_max": 78,
+          "wave_index": 34
+        },
+        {
+          "key_min": 79,
+          "key_max": 79,
+          "wave_index": 35
+        },
+        {
+          "key_min": 80,
+          "key_max": 80,
+          "wave_index": 50
+        },
+        {
+          "key_min": 81,
+          "key_max": 81,
+          "wave_index": 50
+        },
+        {
+          "key_min": 82,
+          "key_max": 82,
+          "wave_index": 47
+        }
+      ]
+    }
+  ]
+}
