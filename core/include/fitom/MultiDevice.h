@@ -73,8 +73,10 @@ public:
     }
 
     // チャンネル管理・発音制御はサブクラスに委ねる
-    uint8_t allocCh(IMidiCh* o, const HwPatch* p) override  = 0;
-    uint8_t assignCh(uint8_t ch, IMidiCh* o, const HwPatch* p) override = 0;
+    uint8_t allocCh(IMidiCh* o, const HwPatch* p,
+                     const SampleZonePatch* sp = nullptr) override  = 0;
+    uint8_t assignCh(uint8_t ch, IMidiCh* o, const HwPatch* p,
+                      const SampleZonePatch* sp = nullptr) override = 0;
     uint8_t queryCh(IMidiCh* o, const HwPatch* p, int m) override = 0;
     void    releaseCh(uint8_t ch) override = 0;
     void    enableCh(uint8_t ch, bool e) override = 0;
@@ -152,13 +154,14 @@ public:
     //  3回ともmode=1のままで強制奪取が機能せず、かつ最終段でpatch=nullptr
     //  になることでデバイス制約(例: ノイズ→ch7固定)を最も必要な場面
     //  (強制奪取判断時)で失うという重大な欠陥があった)
-    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch) override {
+    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch,
+                     const SampleZonePatch* samplePatch = nullptr) override {
         for (int mode : {1, 0}) {
             for (auto* c : chips_) {
                 uint8_t lch = c->queryCh(owner, patch, mode);
                 if (lch != 0xFF) {
                     uint8_t gch = toGlobalCh(c, lch);
-                    assignCh(gch, owner, patch);
+                    assignCh(gch, owner, patch, samplePatch);
                     return gch;
                 }
             }
@@ -166,10 +169,11 @@ public:
         return 0xFF;
     }
 
-    uint8_t assignCh(uint8_t gch, IMidiCh* owner, const HwPatch* patch) override {
+    uint8_t assignCh(uint8_t gch, IMidiCh* owner, const HwPatch* patch,
+                      const SampleZonePatch* samplePatch = nullptr) override {
         auto [dev, lch] = resolveGlobalCh(gch);
         if (!dev) return 0xFF;
-        return (dev->assignCh(lch, owner, patch) != 0xFF) ? gch : 0xFF;
+        return (dev->assignCh(lch, owner, patch, samplePatch) != 0xFF) ? gch : 0xFF;
     }
 
     void releaseCh(uint8_t gch) override {
@@ -284,19 +288,21 @@ public:
     // デバイス制約を正しく反映するため、その戻り値をそのまま使う。
     // 旧実装の「見つからなければ強制的にグループ0」というフォールバックは、
     // mode=0 (強制奪取許可) まで正しく試行すればほぼ起こり得ないため削除した。
-    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch) override {
+    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch,
+                     const SampleZonePatch* samplePatch = nullptr) override {
         for (int mode : {1, 0}) {
             uint8_t gch = queryCh(owner, patch, mode);
             if (gch != 0xFF) {
-                assignCh(gch, owner, patch);
+                assignCh(gch, owner, patch, samplePatch);
                 return gch;
             }
         }
         return 0xFF;
     }
 
-    uint8_t assignCh(uint8_t gch, IMidiCh* owner, const HwPatch* patch) override {
-        for (auto* c : chips_) c->assignCh(gch, owner, patch);
+    uint8_t assignCh(uint8_t gch, IMidiCh* owner, const HwPatch* patch,
+                      const SampleZonePatch* samplePatch = nullptr) override {
+        for (auto* c : chips_) c->assignCh(gch, owner, patch, samplePatch);
         return gch;
     }
 

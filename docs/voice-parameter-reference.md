@@ -225,11 +225,50 @@ AY8930のExpand Mode（Bank A/B切り替え、5bit音量）は常時有効。旧
 
 ## OPL4 AWM (YMF278+YRW801) — `COPL4AWM`
 
-| フィールド | 意味 |
-|---|---|
-| `ops[0].WS` (uint8_t、フルレンジ0-255、他ADPCM系と異なり7bitマスクしない) | 0-127: GM Program Number（YRW801内蔵ROM、キーレンジ別複数波形に対応）。128-255: ドラム音色（128+GM標準ドラムノート番号）。専用のリズムデバイスは無く、ドラムマッププロファイル側でノートに応じた音色パッチを割り当てる |
+**専用スキーマ (`SampleZonePatch`)。他チップの`HwPatch`/`hwOp[]`とは完全に独立した
+別の型を使う。** AWM音源は「1プログラム = 複数キーゾーンへの波形マッピング」
+という、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状の
+データを持つため、`ops[]`のフィールドは一切使わない。
 
-OPL4指定時は`resolveCompositeSpec`により`COPL3`(4OP)+`COPL3_2`(2OP)+`COPL4AWM`の3サブデバイスに自動展開される。ベロシティ/CC#11による波形切り替えは実機データに存在しないため非対応（ADSR側のベロシティ感度で近似）。
+| フィールド (`SampleZone`、`zones[]`配列の各要素) | 意味 |
+|---|---|
+| `key_min`/`key_max` | このゾーンが適用されるMIDIノート範囲 |
+| `vel_min`/`vel_max` | ベロシティレイヤー範囲 (省略時0-127=無制限) |
+| `wave_index` | YRW801内蔵ROMの波形番号 (チップ側の生値) |
+| `root_note` | 録音時の基準ノート (OPL4AWMはFnumber計算がチップ側で完結するため未使用。将来のADPCM系転用に備えた予約フィールド) |
+
+ノートオン時、`zones[]`を先頭から線形探索し、`key_min <= note <= key_max` かつ
+`vel_min <= velocity <= vel_max` を満たす最初のゾーンの`wave_index`を使う。
+該当ゾーンが無ければ`zones[0]`にフォールバックする。
+
+バンクファイルは`hw_banks[].group: "AWM"`で指定し、通常の`.hwbank.json`とは
+異なる専用スキーマ (`prog`ごとに`zones[]`を持つ、`*.samplezonebank.json`) で
+記述する。YRW801内蔵GM ROMの標準マッピングは
+`config/profiles/opl4awm_yrw801_gm.samplezonebank.json`
+(メロディ128プログラム分) および
+`config/profiles/opl4awm_yrw801_drum.samplezonebank.json`
+(ドラム、`ws>=128`固定テーブル相当) として提供済み
+(Linuxカーネルドライバ`sound/drivers/opl4/yrw801.c`から機械的に抽出し、
+元のハードコードロジックとの完全一致を32768通り全組み合わせで検証済み)。
+
+例:
+```json
+{
+  "name": "YRW801 GM (melodic)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "Acoustic Grand Piano",
+      "zones": [
+        { "key_min": 20, "key_max": 39, "wave_index": 300 },
+        { "key_min": 40, "key_max": 45, "wave_index": 301 }
+      ]
+    }
+  ]
+}
+```
+
+OPL4指定時は`resolveCompositeSpec`により`COPL3`(4OP)+`COPL3_2`(2OP)+`COPL4AWM`の3サブデバイスに自動展開される。
 
 ---
 

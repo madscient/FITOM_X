@@ -162,7 +162,8 @@ uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
     return ret;
 }
 
-uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch)
+uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch,
+                               const SampleZonePatch* samplePatch)
 {
     // 仮想関数 queryCh() 経由でチャンネルを選択する。
     // (修正前は findBestCh() を直接呼んでいたため、派生クラスが queryCh()
@@ -196,11 +197,12 @@ uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch)
             << " age=" << chState_[ret].noteOnAge);
     }
 
-    assignCh(ret, owner, patch);
+    assignCh(ret, owner, patch, samplePatch);
     return ret;
 }
 
-uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch)
+uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
+                                const SampleZonePatch* samplePatch)
 {
     if (ch >= maxChs_) return 0xFF;
     auto& s = chState_[ch];
@@ -211,8 +213,14 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch)
         noteOff(ch);
 
     s.assign(owner);
+    // patch/samplePatchは排他 (呼び出し側であるCInstCh::noteOnが
+    // layer.voicePatchType == VOICE_PATCH_AWM かどうかで使い分ける)。
     if (patch) {
         s.hwPatch = *patch;
+        s.samplePatch = nullptr;
+        updateVoice(ch);
+    } else if (samplePatch) {
+        s.samplePatch = samplePatch;
         updateVoice(ch);
     }
     return ch;

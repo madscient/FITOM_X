@@ -130,6 +130,34 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
         const auto& layer = patch.layers[i];
         if (!layer.isActive()) continue;
 
+        if (layer.voicePatchType == VOICE_PATCH_AWM) {
+            // サンプルベース音源系: HwBankRegistryではなくSampleZoneBankRegistry
+            // を検索する。HwPatchが存在しないため、フォールバック機構
+            // (findFallbackDeviceIndex、HwPatchの内容を要求する) は使わず、
+            // 厳密一致のみを試す。VOICE_PATCH_AWM系は現状フォールバック
+            // 元/先になる想定がないため実用上の制約は小さい。
+            const SampleZonePatch* samplePatch = sampleReg_.resolve(layer.hwBank, layer.hwProg);
+            if (!samplePatch) {
+                FITOM_LOG_WARN("resolve: layer=" << i
+                    << " bank=" << (int)layer.hwBank << " prog=" << (int)layer.hwProg
+                    << " SampleZonePatch not found — layer skipped");
+                continue;
+            }
+            int deviceIndex = config.findDeviceIndexByVoicePatchType(layer.voicePatchType);
+            if (deviceIndex < 0) {
+                FITOM_LOG_WARN("resolve: layer=" << i << " voicePatchType=0x"
+                    << std::hex << (int)layer.voicePatchType
+                    << " — no matching device (AWM系はフォールバック非対応), layer skipped");
+                continue;
+            }
+            ResolvedLayer rl;
+            rl.layer       = &layer;
+            rl.deviceIndex = deviceIndex;
+            rl.samplePatch = samplePatch;
+            result.layers[result.layerCount++] = rl;
+            continue;
+        }
+
         // データ (HwBank/HwPatch) は常に layer 本来の voicePatchType 基準で
         // 検索する。フォールバック可否の判定 (OPLLファミリーのプリセット/
         // ユーザー判定等) にHwPatchの内容が必要なため、デバイス検索より先に
@@ -188,6 +216,34 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
 ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
                                           const FITOMConfig& config, Patch& storage) const
 {
+    if (voicePatchType == VOICE_PATCH_AWM) {
+        const SampleZonePatch* samplePatch = sampleReg_.resolve(hwBank, hwProg);
+        if (!samplePatch) {
+            FITOM_LOG_WARN("resolveDirect: bank=" << (int)hwBank << " prog=" << (int)hwProg
+                << " SampleZonePatch not found");
+            return {};
+        }
+        int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
+        if (deviceIndex < 0) {
+            FITOM_LOG_WARN("resolveDirect: voicePatchType=0x" << std::hex << (int)voicePatchType
+                << " — no matching device (AWM系はフォールバック非対応)");
+            return {};
+        }
+
+        storage = Patch::fromSingleLayer(*samplePatch, voicePatchType, hwBank, hwProg);
+
+        ResolvedPatch result;
+        result.patch  = &storage;
+        result.swPatch = nullptr;
+        ResolvedLayer rl;
+        rl.layer       = &storage.layers[0];
+        rl.samplePatch = samplePatch;
+        rl.deviceIndex = deviceIndex;
+        result.layers[0]  = rl;
+        result.layerCount = 1;
+        return result;
+    }
+
     auto group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
     const HwBank* bank = hwReg_.find(group, hwBank);
     if (!bank || bank->voicePatchType != voicePatchType) {
@@ -351,6 +407,47 @@ ToneLayer jsonToToneLayer(const json& j) {
     return l;
 }
 
+// ────────────────────────────────────────────────────────────────
+//  SampleZonePatch JSON変換 (VOICE_PATCH_AWM等、サンプルベース音源系)
+//  HwPatchとは完全に独立したスキーマ。vel_min/vel_max/root_noteは
+//  省略可能 (省略時はSampleZoneのデフォルト値=ベロシティレイヤー無し・
+//  A4=440Hz基準を使うため、ベロシティレイヤーを使わないシンプルな
+//  キーゾーンのみのバンクは最小限の記述で書ける)。
+json sampleZoneToJson(const SampleZone& z) {
+    return json{
+        {"key_min", z.keyMin}, {"key_max", z.keyMax},
+        {"vel_min", z.velMin}, {"vel_max", z.velMax},
+        {"wave_index", z.waveIndex}, {"root_note", z.rootNote}
+    };
+}
+SampleZone jsonToSampleZone(const json& j) {
+    SampleZone z;
+    if (j.contains("key_min"))    z.keyMin    = j["key_min"].get<uint8_t>();
+    if (j.contains("key_max"))    z.keyMax    = j["key_max"].get<uint8_t>();
+    if (j.contains("vel_min"))    z.velMin    = j["vel_min"].get<uint8_t>();
+    if (j.contains("vel_max"))    z.velMax    = j["vel_max"].get<uint8_t>();
+    if (j.contains("wave_index")) z.waveIndex = j["wave_index"].get<uint16_t>();
+    if (j.contains("root_note"))  z.rootNote  = j["root_note"].get<uint8_t>();
+    return z;
+}
+json sampleZonePatchToJson(const SampleZonePatch& p) {
+    json zones = json::array();
+    for (const auto& z : p.zones) zones.push_back(sampleZoneToJson(z));
+    return json{{"id", p.id}, {"name", p.name}, {"zones", zones}};
+}
+SampleZonePatch jsonToSampleZonePatch(const json& j, uint32_t bank, uint32_t prog) {
+    SampleZonePatch p;
+    p.id = (bank << 16) | prog;
+    if (j.contains("name")) {
+        std::string n = j["name"].get<std::string>();
+        std::strncpy(p.name, n.c_str(), sizeof(p.name) - 1);
+    }
+    if (j.contains("zones") && j["zones"].is_array()) {
+        for (const auto& zj : j["zones"]) p.zones.push_back(jsonToSampleZone(zj));
+    }
+    return p;
+}
+
 } // anonymous namespace
 
 // ================================================================
@@ -397,6 +494,59 @@ bool PatchManager::saveHwBankJson(const std::filesystem::path& path,
         const auto& p = bank->get(i);
         if (!p.isValid()) continue;
         auto pj = hwPatchToJson(p);
+        pj["prog"] = i;
+        patches.push_back(pj);
+    }
+    json out = {{"name", bank->name}, {"patches", patches}};
+    std::ofstream f(path);
+    if (!f) return false;
+    f << out.dump(2);
+    return true;
+}
+
+// ================================================================
+//  SampleZoneBank JSON I/O (VOICE_PATCH_AWM等、サンプルベース音源系)
+//  HwBankRegistryとは完全に独立したロード/セーブ経路。
+// ================================================================
+
+bool PatchManager::loadSampleZoneBankJson(const std::filesystem::path& path,
+                                           int bankNo, uint8_t voicePatchType)
+{
+    reportProgress("Loading SampleZoneBank: " + path.string());
+    std::ifstream f(path);
+    if (!f) { FITOM_LOG_ERR("Cannot open: " << path.string()); return false; }
+    try {
+        json j = json::parse(f, nullptr, true, true);
+        auto& bank = sampleReg_.getOrCreate(bankNo);
+        if (j.contains("name")) bank.name = j["name"].get<std::string>();
+        bank.filename = path.string();
+        bank.voicePatchType = voicePatchType;
+        if (j.contains("patches") && j["patches"].is_array()) {
+            for (auto& entry : j["patches"]) {
+                int prog = entry.value("prog", -1);
+                if (prog < 0 || prog >= BANK_PROG_SIZE) continue;
+                bank.set(prog, jsonToSampleZonePatch(entry, bankNo, prog));
+            }
+        }
+        FITOM_LOG_INFO("SampleZoneBank loaded: " << bank.name
+            << " (" << path.filename().string() << ")"
+            << " voicePatchType=0x" << std::hex << (int)voicePatchType);
+        return true;
+    } catch (const std::exception& e) {
+        FITOM_LOG_ERR("SampleZoneBank parse error: " << e.what());
+        return false;
+    }
+}
+
+bool PatchManager::saveSampleZoneBankJson(const std::filesystem::path& path, int bankNo) const
+{
+    const SampleZoneBank* bank = sampleReg_.find(bankNo);
+    if (!bank) return false;
+    json patches = json::array();
+    for (int i = 0; i < BANK_PROG_SIZE; ++i) {
+        const auto& p = bank->get(i);
+        if (!p.isValid()) continue;
+        auto pj = sampleZonePatchToJson(p);
         pj["prog"] = i;
         patches.push_back(pj);
     }

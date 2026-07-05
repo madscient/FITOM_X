@@ -123,6 +123,9 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         if (!dev) continue;
 
         const HwPatch* patch = rl->hwPatch;
+        // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ非nullptr。
+        // patchとは排他 (PatchManager::resolve()が保証する)。
+        const SampleZonePatch* samplePatch = rl->samplePatch;
 
         // ────────────────────────────────────────────────────────
         // ハードチャンネル割り当て
@@ -133,7 +136,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
 
         uint8_t devCh = 0xFF;
         if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
-            devCh = dev->assignCh(phyCh_, this, patch);
+            devCh = dev->assignCh(phyCh_, this, patch, samplePatch);
         } else if (mono_ && timbres_ > 0) {
             // モノ: 同一レイヤーの最初のノートを奪う
             for (int hi = 0; hi < MAX_NOTES; ++hi) {
@@ -145,9 +148,9 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
                     break;
                 }
             }
-            if (devCh == 0xFF) devCh = dev->allocCh(this, patch);
+            if (devCh == 0xFF) devCh = dev->allocCh(this, patch, samplePatch);
         } else {
-            devCh = dev->allocCh(this, patch);
+            devCh = dev->allocCh(this, patch, samplePatch);
         }
 
         if (devCh == 0xFF) {
