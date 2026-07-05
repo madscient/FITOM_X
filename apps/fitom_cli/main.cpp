@@ -1,14 +1,17 @@
 // apps/fitom_cli/main.cpp
 //
 // GUI実装前にコア機能を評価するためのテキストコンソール版CLIツール。
-// 実MIDIデバイスからの入力を受け取り、16 MIDIチャンネルの発音状況を
-// topコマンド風に定期再描画するモニター画面を表示する。
+// プロファイルに指定された実MIDIデバイスからの入力を受け取り、
+// 各MIDI入力ポートごとに16チャンネルの発音状況をtopコマンド風に
+// 定期再描画するモニター画面を表示する。
 //
 // 使い方:
-//   fitom_cli <profile.json> [midi_backend.so/dll] [midi_in_device_name]
+//   fitom_cli <profile.json>
 //
-// MIDIバックエンドを省略した場合、MIDI入力なしでコア機能の初期化のみ
-// 確認する (音色バンクロード・デバイス構成の妥当性確認用)。
+// MIDIバックエンドDLLのパスは profile の "midi_backend.dll" で指定する。
+// 省略時はプラットフォーム既定 (Windows: fitom_midi_winmm、
+// Linux: fitom_midi_alsa) を実行ファイルと同じディレクトリから探索する。
+// 接続する MIDI 入力デバイス名一覧は profile の "midi_inputs" 配列を使う。
 //
 // Prog名・Device名の解決はこのCLI側 (プロファイル/PatchManagerを保持する
 // 側) が行う。MIDIレシーバー(IMidiCh)やチップドライバ(ISoundDevice)は
@@ -16,6 +19,7 @@
 // 名前解決の責務は持たない。
 
 #include "fitom/CFITOM.h"
+#include "fitom/Log.h"
 #include "fitom/Config.h"
 #include "fitom/PatchManager.h"
 #include "fitom/MidiManager.h"
@@ -30,13 +34,59 @@
 #include <thread>
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
+#include <vector>
+#include <memory>
+
+#if defined(_WIN32)
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#elif defined(__linux__)
+#  include <unistd.h>
+#  include <climits>
+#endif
 
 using namespace fitom;
+namespace fs = std::filesystem;
 
 namespace {
 
 std::atomic<bool> g_running{true};
 void onSigInt(int) { g_running = false; }
+
+// 実行ファイル自身のディレクトリを取得する (相対パス解決・プラット
+// フォーム既定MIDIバックエンドの探索基点に使う)。取得できなければ
+// カレントディレクトリを返す。
+fs::path exeDir() {
+#if defined(_WIN32)
+    char buf[MAX_PATH] = {};
+    DWORD n = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    if (n > 0 && n < MAX_PATH) return fs::path(buf).parent_path();
+#elif defined(__linux__)
+    char buf[PATH_MAX] = {};
+    ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (n > 0) { buf[n] = '\0'; return fs::path(buf).parent_path(); }
+#endif
+    return fs::current_path();
+}
+
+// MIDIバックエンドDLLの実際のパスを解決する。
+// profile の midi_backend.dll が指定されていればそれを使う (相対パスは
+// 実行ファイルのディレクトリを基点とする)。未指定ならプラットフォーム
+// 既定のファイル名を実行ファイルと同じディレクトリから探す。
+fs::path resolveMidiBackendPath(const std::string& configured) {
+    if (!configured.empty()) {
+        fs::path p = configured;
+        return p.is_relative() ? (exeDir() / p) : p;
+    }
+#if defined(_WIN32)
+    return exeDir() / "fitom_midi_winmm.dll";
+#elif defined(__linux__)
+    return exeDir() / "fitom_midi_alsa.so";
+#else
+    return exeDir() / "fitom_midi_backend";
+#endif
+}
 
 // MIDIノート番号 → "C4"のような音名表記 (MIDI note 60 = C4)。
 std::string noteToName(uint8_t note) {
@@ -52,8 +102,6 @@ std::string noteToName(uint8_t note) {
 }
 
 // デバイス種別名[インデックス] 表記 ("OPN[0]" 等)。
-// チップ名文字列の解決には CFITOM::getDeviceNameFromId (プロファイル/
-// デバイス定義に基づく静的マップ) を使う。
 std::string deviceLabel(CFITOM& fitom, uint8_t deviceIndex) {
     if (deviceIndex == 0xFF) return "-";
     ISoundDevice* dev = fitom.getDevice(deviceIndex);
@@ -74,7 +122,6 @@ std::string patchLabel(PatchManager& pm, uint16_t bankNo, uint8_t progNo) {
 }
 
 // 指定チャンネルの現在のfnumを16進4桁で取得する ("025A" 等)。
-// 発音中でなければ空文字。
 std::string fnumLabel(CFITOM& fitom, uint8_t deviceIndex, uint8_t devCh) {
     if (deviceIndex == 0xFF || devCh == 0xFF) return "";
     ISoundDevice* dev = fitom.getDevice(deviceIndex);
@@ -87,14 +134,16 @@ std::string fnumLabel(CFITOM& fitom, uint8_t deviceIndex, uint8_t devCh) {
     return oss.str();
 }
 
-// 画面全体を再描画する (topコマンド風、ANSIエスケープでカーソルホーム+クリア)。
-void renderMonitor(CFITOM& fitom, PatchManager& pm, const std::string& midiInName) {
-    std::ostringstream out;
-    out << "\x1b[H\x1b[2J"; // カーソルホーム + 画面クリア
-    out << "MIDI IN[0]: " << midiInName << "\n";
+// 1つのMIDI入力ポート分 (16チャンネル) のテーブルを描画する。
+// headerSuffix: ヘッダー行に付加する診断情報 (受信バイト数・オープン状態等)。
+void renderPort(std::ostringstream& out, CFITOM& fitom, PatchManager& pm,
+                 uint8_t portIndex, const std::string& midiInName,
+                 const std::string& headerSuffix) {
+    out << "MIDI IN[" << static_cast<int>(portIndex) << "]: " << midiInName
+        << headerSuffix << "\n";
     out << "CH  Bank   Prog                        Note Vol  Device   ch  fnum\n";
 
-    MidiProcessor* proc = fitom.getMidiProcessor(0);
+    MidiProcessor* proc = fitom.getMidiProcessor(portIndex);
     for (int ch = 0; ch < 16; ++ch) {
         IMidiCh* c = proc ? proc->getChannel(static_cast<uint8_t>(ch)) : nullptr;
 
@@ -102,17 +151,14 @@ void renderMonitor(CFITOM& fitom, PatchManager& pm, const std::string& midiInNam
                                   : static_cast<char>('A' + (ch - 10));
         out << chLabel << "   ";
 
-        if (!c) {
-            out << "\n";
-            continue;
-        }
+        if (!c) { out << "\n"; continue; }
 
-        uint16_t bankNo = c->getBankNo();
-        uint8_t  progNo = c->getProgramNo();
+        uint16_t bankNo   = c->getBankNo();
+        uint8_t  progNo   = c->getProgramNo();
         uint8_t  lastNote = c->getLastNote();
-        uint8_t  vol = c->getVolume();
-        uint8_t  devIdx = c->getLastDeviceIndex();
-        uint8_t  devCh  = c->getLastDevCh();
+        uint8_t  vol      = c->getVolume();
+        uint8_t  devIdx   = c->getLastDeviceIndex();
+        uint8_t  devCh    = c->getLastDevCh();
 
         std::string progName = patchLabel(pm, bankNo, progNo);
         std::ostringstream progCol;
@@ -123,7 +169,7 @@ void renderMonitor(CFITOM& fitom, PatchManager& pm, const std::string& midiInNam
             << ":" << std::setw(2) << (bankNo & 0xFF) << "  "
             << std::left << std::setw(28) << std::setfill(' ') << progCol.str()
             << std::right
-            << std::setw(4)  << noteToName(lastNote) << " "
+            << std::setw(4) << noteToName(lastNote) << " "
             << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
             << static_cast<int>(vol) << "  "
             << std::dec << std::left << std::setw(8) << std::setfill(' ')
@@ -132,6 +178,35 @@ void renderMonitor(CFITOM& fitom, PatchManager& pm, const std::string& midiInNam
             << std::setw(3) << (devCh == 0xFF ? std::string("-") : std::to_string(devCh)) << "  "
             << fnumLabel(fitom, devIdx, devCh)
             << "\n";
+    }
+}
+
+// 画面全体を再描画する (topコマンド風、ANSIエスケープでカーソルホーム+クリア)。
+// MIDI入力ポートが複数ある場合は縦に並べて全て表示する。
+// byteCounts: ポートごとの累計受信バイト数 (診断用、バックエンドが実際に
+// データを受信できているかを一目で確認するため)。openFailed: オープンに
+// 失敗したポートかどうか (失敗時はヘッダーにその旨を表示し続ける、
+// 従来はエラーメッセージが次の再描画で即座に消えてしまい気づけなかった)。
+void renderMonitor(CFITOM& fitom, PatchManager& pm,
+                    const std::vector<std::string>& midiInNames,
+                    const std::vector<std::shared_ptr<std::atomic<uint64_t>>>& byteCounts,
+                    const std::vector<bool>& openFailed) {
+    std::ostringstream out;
+    out << "\x1b[H\x1b[2J"; // カーソルホーム + 画面クリア
+
+    if (midiInNames.empty()) {
+        renderPort(out, fitom, pm, 0, "(no MIDI input)", "");
+    } else {
+        for (size_t i = 0; i < midiInNames.size(); ++i) {
+            if (i > 0) out << "\n";
+            std::ostringstream suffix;
+            if (openFailed[i]) {
+                suffix << "  [オープン失敗]";
+            } else {
+                suffix << "  (受信バイト数: " << byteCounts[i]->load() << ")";
+            }
+            renderPort(out, fitom, pm, static_cast<uint8_t>(i), midiInNames[i], suffix.str());
+        }
     }
 
     out << std::flush;
@@ -144,11 +219,15 @@ void renderMonitor(CFITOM& fitom, PatchManager& pm, const std::string& midiInNam
 int main(int argc, char** argv)
 {
     if (argc < 2) {
-        std::cerr << "使い方: " << argv[0]
-                  << " <profile.json> [midi_backend.so/dll] [midi_in_device_name]\n";
+        std::cerr << "使い方: " << argv[0] << " <profile.json>\n";
         return 1;
     }
     const std::string profilePath = argv[1];
+
+    // ログをファイルに出力する (画面は100ms間隔で全消去されるため、
+    // コンソールへの警告ログはすぐに消えて見えなくなってしまう。
+    // ファイルに残しておけば、原因調査時に後から確認できる)。
+    Log::init("debug", "fitom_cli.log");
 
     auto config   = std::make_unique<FITOMConfig>();
     auto patchMgr = std::make_unique<PatchManager>();
@@ -159,36 +238,63 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // MIDI接続に必要な情報は、所有権が CFITOM::init() に移る前に控えておく。
+    std::vector<std::string> midiInNames;
+    for (int i = 0; i < config->getMidiInputCount(); ++i) {
+        midiInNames.push_back(config->getMidiInputName(i));
+    }
+    fs::path midiBackendPath = resolveMidiBackendPath(config->getMidiBackendDll());
+
     CFITOM& fitomInst = CFITOM::instance();
     if (fitomInst.init(std::move(config), std::move(patchMgr)) != 0) {
         std::cerr << "FITOM初期化失敗\n";
         return 1;
     }
     fitomInst.startTimerThread();
+    // 音声出力は HW プラグイン (FitomEmuIF.dll 等、IHWPlugin実装DLL) が
+    // 内部で担う。CLIツールはレジスタ書き込みまでを担い、実際の音声
+    // ストリーミング(RtAudio等)には関与しない。
 
-    // MIDI入力接続 (実デバイス)。バックエンドDLLパスが指定された場合のみ。
+    // MIDI入力接続 (実デバイス)。profile の midi_inputs[] の数だけ、
+    // 対応する MidiProcessor(0..N-1) にそれぞれ接続する。
+    // byteCounts/openFailed は診断表示用 (バックエンドが実際にデータを
+    // 受信できているか、オープン自体に失敗していないかを画面上で
+    // 常に確認できるようにするため)。
     std::shared_ptr<MidiPluginInstance> midiPlugin;
-    std::unique_ptr<MidiInPort> midiPort;
-    std::string midiInName = "(no MIDI input)";
+    std::vector<std::unique_ptr<MidiInPort>> midiPorts;
+    std::vector<std::shared_ptr<std::atomic<uint64_t>>> byteCounts;
+    std::vector<bool> openFailed;
 
-    if (argc >= 3) {
+    for (size_t i = 0; i < midiInNames.size(); ++i) {
+        byteCounts.push_back(std::make_shared<std::atomic<uint64_t>>(0));
+        openFailed.push_back(false);
+    }
+
+    if (!midiInNames.empty()) {
         try {
-            midiPlugin = MidiPluginInstance::load(argv[2]);
-            auto ins = midiPlugin->enumerateIn();
-            std::string target = (argc >= 4) ? argv[3] : (ins.empty() ? "" : ins[0]);
-            if (!target.empty()) {
-                MidiProcessor* proc = fitomInst.getMidiProcessor(0);
-                midiPort = std::make_unique<MidiInPort>(
-                    midiPlugin, target,
-                    [proc](const uint8_t* data, size_t len, uint64_t ts) {
-                        if (proc) proc->receiveByte(data, len, ts);
-                    });
-                midiInName = target;
-            } else {
-                std::cerr << "警告: 利用可能なMIDI入力デバイスがありません\n";
+            midiPlugin = MidiPluginInstance::load(midiBackendPath);
+            for (size_t i = 0; i < midiInNames.size(); ++i) {
+                MidiProcessor* proc = fitomInst.getMidiProcessor(static_cast<uint8_t>(i));
+                if (!proc) { openFailed[i] = true; continue; }
+                auto counter = byteCounts[i];
+                try {
+                    midiPorts.push_back(std::make_unique<MidiInPort>(
+                        midiPlugin, midiInNames[i],
+                        [proc, counter](const uint8_t* data, size_t len, uint64_t ts) {
+                            counter->fetch_add(len, std::memory_order_relaxed);
+                            proc->receiveByte(data, len, ts);
+                        }));
+                } catch (const std::exception& e) {
+                    std::cerr << "MIDI入力 \"" << midiInNames[i]
+                              << "\" のオープンに失敗: " << e.what() << "\n";
+                    midiPorts.push_back(nullptr);
+                    openFailed[i] = true;
+                }
             }
         } catch (const std::exception& e) {
-            std::cerr << "MIDIバックエンド読み込み失敗: " << e.what() << "\n";
+            std::cerr << "MIDIバックエンド読み込み失敗 (" << midiBackendPath.string()
+                      << "): " << e.what() << "\n";
+            for (size_t i = 0; i < midiInNames.size(); ++i) openFailed[i] = true;
         }
     }
 
@@ -196,11 +302,11 @@ int main(int argc, char** argv)
 
     // メインループ: topコマンド風に画面全体を定期再描画する。
     while (g_running) {
-        renderMonitor(fitomInst, *pmPtr, midiInName);
+        renderMonitor(fitomInst, *pmPtr, midiInNames, byteCounts, openFailed);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    midiPort.reset();
+    midiPorts.clear();
     fitomInst.stopTimerThread();
     fitomInst.exit();
 

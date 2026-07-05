@@ -52,6 +52,35 @@ std::string HWPluginInstance::enumerate() const
 }
 
 // -------------------------------------------------------
+//  HWPluginRegistry
+// -------------------------------------------------------
+
+void HWPluginRegistry::registerPlugin(const std::string& name,
+                                       const std::filesystem::path& dllPath)
+{
+    std::lock_guard<std::mutex> lk(mutex_);
+    try {
+        auto plugin = HWPluginInstance::load(dllPath);
+        entries_[name] = plugin;
+        FITOM_LOG_INFO("HWPlugin registered: " << name << " (" << dllPath.string() << ")");
+    } catch (const std::exception& ex) {
+        FITOM_LOG_ERR("Failed to load HW plugin '" << name << "' from "
+            << dllPath.string() << ": " << ex.what());
+    }
+}
+
+std::shared_ptr<HWPluginInstance> HWPluginRegistry::get(const std::string& name)
+{
+    std::lock_guard<std::mutex> lk(mutex_);
+    auto it = entries_.find(name);
+    if (it == entries_.end()) {
+        FITOM_LOG_ERR("HWPluginRegistry: plugin '" << name << "' not registered");
+        return nullptr;
+    }
+    return it->second;
+}
+
+// -------------------------------------------------------
 //  HWPort
 // -------------------------------------------------------
 

@@ -1,17 +1,12 @@
 {
   "profile_name": "エミュレーターのみ (OPM + OPL3 + SSG)",
-  "fm_engines": [
-    { "name": "YMEngine", "dll": "YMEngine.dll", "sample_rate": 48000 },
-    { "name": "AYEngine", "dll": "AYEngine.dll", "sample_rate": 48000 }
+  "hw_plugins": [
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
   ],
-  "audio_output": {
-    "device":      "",
-    "sample_rate": 48000
-  },
   "devices": [
-    { "if": "FMENGINE", "label": "OPM",  "engine": "YMEngine", "chip": "OPM",  "clock": 0 },
-    { "if": "FMENGINE", "label": "OPL3", "engine": "YMEngine", "chip": "OPL3", "clock": 0 },
-    { "if": "FMENGINE", "label": "SSG",  "engine": "AYEngine", "chip": "SSG",  "clock": 0 }
+    { "if": "HW", "label": "OPM",  "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPM",  "index": 0, "pan": 0 },
+    { "if": "HW", "label": "OPL3", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPL3", "index": 0, "pan": 0 },
+    { "if": "HW", "label": "SSG",  "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "AYEngine", "chip": "SSG",  "index": 0, "pan": 0 }
   ],
   "midi_inputs": ["MIDI キーボード"],
   "channel_map": [

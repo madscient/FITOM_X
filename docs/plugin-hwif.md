@@ -17,7 +17,7 @@ FITOM core
   └── HWPort (IPort アダプター)
         └── IHWPlugin C API
               ├── fitom_hw.dll       ← 物理チップ (FitomIFTest)
-              └── fitom_fmhwif.dll   ← FMエンジン内蔵 + RtAudio (将来実装)
+              └── fitom_fmhwif.dll   ← FMエンジン内蔵 + RtAudio (実装: FitomEmuIF)
 ```
 
 ### fitom_fmhwif について
@@ -26,7 +26,10 @@ FITOM core
 PCM ミックスと RtAudio によるオーディオ出力まで完結させる hwif 互換 DLL。
 FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよい。
 
-**注**: fitom_fmhwif は現在設計段階。旧来の `FmEnginePort` + `AudioEngine` は廃止。
+**注**: 旧来の `FmEnginePort` + `AudioEngine` (FITOM_X本体側の直接制御)は廃止済み。
+実際の実装は [FitomEmuIF](https://github.com/madscient/FitomEmuIF) を参照。
+自身の設定 (使用するチップ一覧・サンプルレート等) は `fmhwif_profile.json`
+(FITOM_X本体のプロファイルとは独立したファイル) で管理する。
 
 ---
 

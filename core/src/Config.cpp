@@ -14,7 +14,6 @@
 #include "fitom/Log.h"
 #include "fitom/FITOMdefine.h"
 #include "fitom/PluginLoader.h"
-#include "fitom/FmEnginePort.h"
 #include "fitom/HWPort.h"
 
 #include <nlohmann/json.hpp>
@@ -125,7 +124,14 @@ bool FITOMConfig::loadProfile(const fs::path& path, PatchManager* patchMgr)
     }
     try {
         json j = json::parse(f, nullptr, true, true); // allow comments
-        return buildFromProfile(j, patchMgr, path.parent_path());
+        // バンクファイルパスの解決基点は「プロファイルファイル自身の
+        // 親ディレクトリ」ではなく、カレントワーキングディレクトリとする。
+        // プロファイル内の "file" (例: "banks/OPN/gm/xxx.hwbank.json") は
+        // banks/ が config/ の兄弟ディレクトリ (= プロジェクトルート直下)
+        // にある前提で書かれており、config/profiles/ を基点にすると
+        // 誤ったパスになってしまう。空パスを渡すことで
+        // baseDir/file が実質 file (CWD相対) のまま解決されるようにする。
+        return buildFromProfile(j, patchMgr, std::filesystem::path{});
     } catch (const json::exception& e) {
         FITOM_LOG_ERR("Profile parse error: " << e.what());
         return false;
@@ -168,26 +174,18 @@ bool FITOMConfig::loadLegacyIni(const fs::path& path)
 bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                                     const std::filesystem::path& baseDir)
 {
-    // --- FM エンジン登録 ---
-    if (j.contains("fm_engines") && j["fm_engines"].is_array()) {
-        for (const auto& eng : j["fm_engines"]) {
-            std::string name       = eng.value("name", "");
-            std::string dll        = eng.value("dll", "");
-            uint32_t    sampleRate = eng.value("sample_rate", 48000u);
+    // --- HW プラグイン登録 (実機/エミュレータ問わず、IHWPluginを実装する
+    //     DLLを複数登録できる。devices[]側で名前を指定して使い分ける) ---
+    if (j.contains("hw_plugins") && j["hw_plugins"].is_array()) {
+        for (const auto& p : j["hw_plugins"]) {
+            std::string name = p.value("name", "");
+            std::string dll  = p.value("dll", "");
             if (name.empty() || dll.empty()) {
-                FITOM_LOG_WARN("fm_engines: 'name' or 'dll' missing, skipping");
+                FITOM_LOG_WARN("hw_plugins: 'name' or 'dll' missing, skipping");
                 continue;
             }
-            fmRegistry_.registerEngine(name, dll, sampleRate);
-            FITOM_LOG_INFO("FmEngine registered: " << name << " (" << dll << ")");
+            hwPluginRegistry_.registerPlugin(name, dll);
         }
-    }
-
-    // --- オーディオ出力設定 ---
-    if (j.contains("audio_output")) {
-        const auto& ao = j["audio_output"];
-        audioDevice_     = ao.value("device", "");
-        audioSampleRate_ = ao.value("sample_rate", 48000u);
     }
 
     // --- デバイス構築 ---
@@ -212,6 +210,9 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
             midiInputNames_.push_back(name.get<std::string>());
         }
     }
+    if (j.contains("midi_backend") && j["midi_backend"].is_object()) {
+        midiBackendDll_ = j["midi_backend"].value("dll", "");
+    }
 
     // --- 音色バンク一式のロード (hw/sw/patch/drum/scc_wave/pcm) ---
     // patchMgr が渡された場合のみ実行する (省略時は従来通りデバイス構成
@@ -234,58 +235,40 @@ void FITOMConfig::buildDevice(const json& dev)
     std::string ifType = dev.value("if", "");
     std::string label  = dev.value("label", "");
 
-    if (ifType == "FMENGINE") {
-        std::string engineName = dev.value("engine", "");
-        std::string chipName   = dev.value("chip", "");
-        uint32_t    clock      = dev.value("clock", 0u);
-        float       gainL      = dev.value("gain_l", 1.0f);
-        float       gainR      = dev.value("gain_r", 1.0f);
-
-        auto engineInst = fmRegistry_.get(engineName);
-        if (!engineInst) {
-            FITOM_LOG_ERR("FmEngine '" << engineName << "' not found for device '" << label << "'");
+    if (ifType == "HW") {
+        std::string pluginName = dev.value("plugin", "");
+        auto plugin = hwPluginRegistry_.get(pluginName);
+        if (!plugin) {
+            FITOM_LOG_ERR("HW device '" << label << "' requested but plugin '"
+                << pluginName << "' not registered/loaded");
             return;
         }
-        try {
-            auto port = std::make_shared<FmEnginePort>(engineInst, chipName, clock);
-            port->setGain(gainL, gainR);
-            uint32_t deviceType = resolveChipDeviceId(chipName);
-            int sr = static_cast<int>(engineInst->vtable().GetSampleRate(engineInst->handle()));
-            bool rhythmMode = dev.value("rhythm_mode", false);
-            bool stereoPair = dev.value("stereo_pair", false);
-            pushDeviceEntries(label, deviceType, port, nullptr, sr, -1, rhythmMode, stereoPair);
-        } catch (const std::exception& ex) {
-            FITOM_LOG_ERR("Failed to create FmEnginePort for '" << label << "': " << ex.what());
-        }
+        // params_json はプラグインごとに異なる (FitomEmuIFなら
+        // {type,engine,chip,index,pan}、物理HWなら{type,serial,port,slot,...}
+        // 等)。FITOM本体はエミュレータか実機かを一切区別しないため、
+        // deviceエントリのJSONから制御用フィールド(if/label/plugin/
+        // extra_slot/rhythm_mode/stereo_pair)を除いた残り全てを、
+        // そのままプラグインに転送する。
+        json params = dev;
+        params.erase("if");
+        params.erase("label");
+        params.erase("plugin");
+        params.erase("extra_slot");
+        params.erase("rhythm_mode");
+        params.erase("stereo_pair");
 
-    } else if (ifType == "HW") {
-        if (!hwPlugin_) {
-            FITOM_LOG_ERR("HW device '" << label << "' requested but hw_plugin not loaded");
-            return;
-        }
-        // params_json を組み立てて HWPort を生成
-        json params;
-        params["type"] = dev.value("type", "");
-        if (dev.contains("serial")) params["serial"] = dev["serial"];
-        if (dev.contains("port"))   params["port"]   = dev["port"];
-        params["slot"]        = dev.value("slot", 0);
-        params["clock"]       = dev.value("hw_clock", 0);
-        params["pan"]         = dev.value("pan", 0);
-        // fitom_hw.dll / fitom_fmhwif.dll のキューイング遅延計算に使用
-        // (IHWPlugin.h HWPlugin_SetDelaySamples のレイテンシ同期機構)
-        params["sample_rate"] = dev.value("sample_rate", 44100u);
-
-        // B-2: extra_slot → 2ポート目の HWPort を生成
+        // B-2: extra_slot → 2ポート目の HWPort を生成 (2ポート目は
+        // 元のparamsの"index"等をextra_slotの値で上書きして開く)
         int extraSlot = dev.value("extra_slot", -1);
 
         try {
-            auto port = std::make_shared<HWPort>(hwPlugin_, params.dump());
+            auto port = std::make_shared<HWPort>(plugin, params.dump());
             std::shared_ptr<IPort> port2;
             if (extraSlot >= 0) {
                 json params2 = params;
-                params2["slot"] = extraSlot;
+                params2["index"] = extraSlot;
                 try {
-                    port2 = std::make_shared<HWPort>(hwPlugin_, params2.dump());
+                    port2 = std::make_shared<HWPort>(plugin, params2.dump());
                     FITOM_LOG_INFO("Device[" << label << "]: extra_slot=" << extraSlot
                         << " port2 created");
                 } catch (const std::exception& ex) {
@@ -307,15 +290,6 @@ void FITOMConfig::buildDevice(const json& dev)
 
 void FITOMConfig::validateProfile()
 {
-    // audio sample_rate の一致チェック
-    // fm_engines の sample_rate を収集
-    // (fmRegistry_ の内部を直接見るのではなく、プロファイルの値で確認)
-    if (audioSampleRate_ > 0) {
-        FITOM_LOG_DEBUG("Audio output: device='"
-            << (audioDevice_.empty() ? "(default)" : audioDevice_)
-            << "' sample_rate=" << audioSampleRate_);
-    }
-
     if (devices_.empty()) {
         FITOM_LOG_WARN("No devices configured");
     }
@@ -406,14 +380,7 @@ const std::string& FITOMConfig::getMidiInputName(int index) const {
 void FITOMConfig::setMasterVolume(uint8_t vol) { masterVolume_ = vol; }
 uint8_t FITOMConfig::getMasterVolume() const    { return masterVolume_; }
 
-const std::string& FITOMConfig::getAudioDevice() const     { return audioDevice_; }
-uint32_t           FITOMConfig::getAudioSampleRate() const  { return audioSampleRate_; }
-
-FmEngineRegistry& FITOMConfig::getFmEngineRegistry() { return fmRegistry_; }
-
-void FITOMConfig::setHWPlugin(std::shared_ptr<HWPluginInstance> plugin) {
-    hwPlugin_ = std::move(plugin);
-}
+HWPluginRegistry& FITOMConfig::getHWPluginRegistry() { return hwPluginRegistry_; }
 
 // ================================================================
 //  ISoundDevice アクセサ (DeviceFactory 経由で生成された device を返す)
@@ -432,6 +399,11 @@ IPort* FITOMConfig::getDevicePort2(int index) const {
 uint32_t FITOMConfig::getDeviceType(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return 0;
     return devices_[index].deviceType;
+}
+
+int FITOMConfig::getDeviceSampleRate(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return 44100;
+    return devices_[index].sampleRate;
 }
 
 bool FITOMConfig::getDeviceRhythmMode(int index) const {
@@ -833,7 +805,7 @@ int FITOMConfig::findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const
 // ================================================================
 static uint32_t resolveChipDeviceId(const std::string& chipName)
 {
-    // FmEngineApi の chip 名と DEVICE_* の対応
+    // プロファイルのchip名文字列とDEVICE_*の対応
     static const std::pair<const char*, uint32_t> kChipMap[] = {
         {"OPN",   DEVICE_OPN},   {"OPNA",  DEVICE_OPNA},
         {"OPN2",  DEVICE_OPN2},  {"OPN2C", DEVICE_OPN2C},

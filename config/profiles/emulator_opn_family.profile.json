@@ -1,0 +1,84 @@
+{
+  "profile_name": "エミュレーター OPN ファミリー (OPN/OPN2/OPNA/OPNB/OPNBB) - FitomEmuIF経由",
+  "hw_plugins": [
+    {
+      "name": "FitomEmuIF",
+      "dll": "FitomEmuIF.dll"
+    }
+  ],
+  "devices": [
+    {
+      "if": "HW",
+      "label": "OPN",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
+      "engine": "YMEngine",
+      "chip": "OPN",
+      "index": 0,
+      "pan": 0
+    },
+    {
+      "if": "HW",
+      "label": "OPN2",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
+      "engine": "YMEngine",
+      "chip": "OPN2",
+      "index": 0,
+      "pan": 0
+    },
+    {
+      "if": "HW",
+      "label": "OPNA",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
+      "engine": "YMEngine",
+      "chip": "OPNA",
+      "index": 0,
+      "pan": 0
+    },
+    {
+      "if": "HW",
+      "label": "OPNB",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
+      "engine": "YMEngine",
+      "chip": "OPNB",
+      "index": 0,
+      "pan": 0
+    },
+    {
+      "if": "HW",
+      "label": "OPNBB",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
+      "engine": "YMEngine",
+      "chip": "OPNBB",
+      "index": 0,
+      "pan": 0
+    }
+  ],
+  "midi_inputs": ["microKEY-25", "loopMIDI Port 1"],
+  "banks": {
+    "hw_banks": [
+      {
+        "group": "OPN",
+        "bank": 0,
+        "file": "banks/OPN/gm/necopn_gm.hwbank.json"
+      }
+    ],
+    "sw_banks": [
+      {
+        "bank": 0,
+        "file": "banks/sw/necopn_gm.swbank.json"
+      }
+    ],
+    "patch_banks": [
+      {
+        "bank": 0,
+        "file": "banks/patches/necopn_gm.patchbank.json"
+      }
+    ],
+    "drum_banks": []
+  }
+}

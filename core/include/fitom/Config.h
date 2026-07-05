@@ -3,7 +3,6 @@
 // FITOMConfig — ISoundDevice を直接保持するよう拡張
 
 #include "fitom/IPort.h"
-#include "fitom/FmEnginePort.h"
 #include "fitom/HWPort.h"
 #include "fitom/PatchData.h"
 #include "fitom/ISoundDevice.h"
@@ -82,7 +81,9 @@ public:
     bool loadProfile(const std::filesystem::path& path, PatchManager* patchMgr = nullptr);
     bool loadLegacyIni(const std::filesystem::path& path);
 
-    void setHWPlugin(std::shared_ptr<HWPluginInstance> plugin);
+    // HWプラグイン(実機/エミュレータ問わず、IHWPluginを実装するDLL)を
+    // 複数登録できる。実機かエミュレータかはFITOM本体では区別しない。
+    HWPluginRegistry& getHWPluginRegistry();
 
     int              getDeviceCount()              const;
     IPort*           getDevicePort(int index)      const;
@@ -91,6 +92,11 @@ public:
     IPort*           getDevicePort2(int index)     const;
     ISoundDevice*    getDevice(int index)          const;
     uint32_t         getDeviceType(int index)      const;
+    // devices[i] のサンプルレート (旧audio_output.sample_rate相当。
+    // 廃止に伴い、デバイスごとに保持していた値をそのまま使う。
+    // HW経由の場合、実際の値はHWプラグイン側が管理するため、この値は
+    // Fnumber計算等の目安として使われる)。
+    int              getDeviceSampleRate(int index) const;
     // リズムモード (OPLL/OPL系等、チップ内蔵リズム音源の有効/無効)
     bool             getDeviceRhythmMode(int index) const;
     std::string      getDeviceLabel(int index)     const;
@@ -147,16 +153,14 @@ public:
 
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;
-
-    const std::string& getAudioDevice()     const;
-    uint32_t           getAudioSampleRate() const;
+    // MIDIバックエンドDLLのパス (profile の midi_backend.dll)。
+    // 未指定なら空文字列 (呼び出し側がプラットフォーム既定を使う)。
+    const std::string& getMidiBackendDll()          const { return midiBackendDll_; }
 
     void    setMasterVolume(uint8_t vol);
     uint8_t getMasterVolume()   const;
     double  getMasterPitch()    const { return masterPitch_; }
     void    setMasterPitch(double p)  { masterPitch_ = p; }
-
-    FmEngineRegistry& getFmEngineRegistry();
 
     using ProgressCb = std::function<void(const std::string&)>;
     void setProgressCallback(ProgressCb cb) { progressCb_ = std::move(cb); }
@@ -200,14 +204,12 @@ protected:
     virtual void validateProfile();
     virtual void loadLegacyManualDevices(const nlohmann::json& ini);
 
-    FmEngineRegistry fmRegistry_;
-    std::shared_ptr<HWPluginInstance> hwPlugin_;
+    HWPluginRegistry hwPluginRegistry_;
 
     std::vector<DeviceEntry>     devices_;
     std::vector<std::string>     midiInputNames_;
+    std::string                  midiBackendDll_;
 
-    std::string audioDevice_;
-    uint32_t    audioSampleRate_ = 48000;
     uint8_t     masterVolume_    = 100;
     double      masterPitch_     = 440.0;
 

@@ -19,4 +19,10 @@ target_link_libraries(fitom_midi_winmm PRIVATE
 set_target_properties(fitom_midi_winmm PROPERTIES
     OUTPUT_NAME "fitom_midi_winmm"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    # Windows: .dll本体はRUNTIME_OUTPUT_DIRECTORYで制御されるが、
+    # インポートライブラリ(.lib/.exp)はARCHIVE_OUTPUT_DIRECTORYで
+    # 別途制御される。指定しないと build/backends/midi_winmm/<Config>/ 
+    # のようなデフォルト位置に残ってしまい紛らわしいため、
+    # 実行ファイルと同じ build/bin に揃える。
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

@@ -268,7 +268,7 @@ void CFITOM::initDevices()
     for (int i = 0; i < n; ++i) {
         IPort*   port       = config_->getDevicePort(i);
         uint32_t deviceType = config_->getDeviceType(i);
-        int      sampleRate = config_->getAudioSampleRate();
+        int      sampleRate = config_->getDeviceSampleRate(i);
 
         if (!port) {
             FITOM_LOG_WARN("Device[" << i << "] '"
@@ -284,7 +284,7 @@ void CFITOM::initDevices()
         // B-2: 2 ポートチップ (OPNA/OPN2/OPL3) の処理
         // プロファイルに extra_port が指定されていれば SplitPort を生成する。
         // 未指定 (= エミュレーター or 1ポートHW) なら port をそのまま渡す。
-        IPort* extraPort = port;  // デフォルト: 1ポート (FmEnginePort はこれで動く)
+        IPort* extraPort = port;  // デフォルト: 1ポート
 
         // B-2: DeviceEntry の port2 が設定されていれば SplitPort を生成
         IPort* port2 = config_->getDevicePort2(i);
@@ -295,7 +295,7 @@ void CFITOM::initDevices()
             FITOM_LOG_INFO("Device[" << i << "]: SplitPort created (extra_slot)");
         }
 
-        // エミュレーター (FmEnginePort): port == extraPort → SplitPort 不要
+        // 1ポートのみ使うデバイス: port == extraPort → SplitPort 不要
         // HW 2ポート: extraPort が別 IPort → createCOPNA 内で SplitPort を利用
         IPort* stereoPairPort = config_->getDeviceStereoPairPort(i);
         auto dev = createLeveledDevice(deviceType, port, stereoPairPort, sampleRate,

@@ -17,77 +17,6 @@
         "エミュレーター (OPM + OPL3)"
       ]
     },
-    "fm_engines": {
-      "type": "array",
-      "description": "使用する FM エンジン DLL の一覧。エミュレーターバックエンド使用時のみ必要。各エンジンは独立した DLL として実行時ロードされる。",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "dll"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "エンジン識別名。devices[] の engine フィールドから参照される。FmEngine_GetEngineName() の戻り値と一致すること。",
-            "examples": [
-              "YMEngine",
-              "AYEngine"
-            ]
-          },
-          "dll": {
-            "type": "string",
-            "description": "FM エンジン DLL のファイル名またはパス。相対パスの場合は fitom.conf.json の plugins.fm_engine_dir を基点とする。",
-            "examples": [
-              "YMEngine.dll",
-              "libYMEngine.so"
-            ]
-          },
-          "sample_rate": {
-            "type": "integer",
-            "default": 48000,
-            "enum": [
-              22050,
-              44100,
-              48000,
-              88200,
-              96000
-            ],
-            "description": "エミュレーターのサンプルレート [Hz]。オーディオ出力デバイスのサンプルレートと一致させること。"
-          }
-        }
-      }
-    },
-    "audio_output": {
-      "type": "object",
-      "description": "オーディオ出力デバイス設定。エミュレーターバックエンド使用時のみ有効。",
-      "additionalProperties": false,
-      "properties": {
-        "device": {
-          "type": "string",
-          "default": "",
-          "description": "出力デバイス名（部分一致）。空文字列でシステムデフォルトデバイスを使用する。RtAudio が返すデバイス名と照合する。",
-          "examples": [
-            "Realtek",
-            "ASIO4ALL",
-            "Focusrite USB"
-          ]
-        },
-        "sample_rate": {
-          "type": "integer",
-          "default": 48000,
-          "enum": [
-            22050,
-            44100,
-            48000,
-            88200,
-            96000
-          ],
-          "description": "出力サンプルレート [Hz]。fm_engines[] の sample_rate と一致させること。不一致の場合は起動時に警告を出す。"
-        }
-      }
-    },
     "devices": {
       "type": "array",
       "description": "論理デバイス定義。FITOM の MIDIチャンネル割り当てに使用される。エミュレーターとハードウェアを混在させることができる。",
@@ -95,16 +24,16 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "if"
+          "if",
+          "plugin"
         ],
         "properties": {
           "if": {
             "type": "string",
             "enum": [
-              "FMENGINE",
               "HW"
             ],
-            "description": "バックエンド種別。FMENGINE: FmEngine DLL、HW: HW I/F DLL。"
+            "description": "バックエンド種別。実機/エミュレータ問わず全て\"HW\"を使う (FITOM本体は両者を区別しない、hw_plugins[]で使うプラグインを指定する)。"
           },
           "label": {
             "type": "string",
@@ -114,16 +43,9 @@
               "OPL3 (エミュ)"
             ]
           },
-          "engine": {
-            "type": "string",
-            "description": "[if=FMENGINE のみ] fm_engines[] の name を指定する。",
-            "examples": [
-              "YMEngine"
-            ]
-          },
           "chip": {
             "type": "string",
-            "description": "[if=FMENGINE のみ] チップ種別文字列。FmEngine_AddChip() に渡される。",
+            "description": "チップ種別文字列。resolveChipDeviceId()でDEVICE_*に変換される。HWプラグイン(FitomEmuIF等)のparams_jsonの一部として転送される場合もある。",
             "examples": [
               "OPNA",
               "OPM",
@@ -132,39 +54,16 @@
               "DCSG"
             ]
           },
-          "clock": {
-            "type": "integer",
-            "default": 0,
-            "description": "[if=FMENGINE のみ] マスタークロック [Hz]。0 でチップ標準クロックを使用する。",
-            "examples": [
-              3993600,
-              7987200,
-              3579545
-            ]
-          },
-          "gain_l": {
-            "type": "number",
-            "default": 1.0,
-            "minimum": 0.0,
-            "maximum": 4.0,
-            "description": "[if=FMENGINE のみ] 左チャンネルゲイン。1.0 = 0dB。"
-          },
-          "gain_r": {
-            "type": "number",
-            "default": 1.0,
-            "minimum": 0.0,
-            "maximum": 4.0,
-            "description": "[if=FMENGINE のみ] 右チャンネルゲイン。1.0 = 0dB。"
-          },
           "type": {
             "type": "string",
             "enum": [
               "RE1",
               "RE4",
               "SPFM_TOWER",
-              "SPFM_LIGHT"
+              "SPFM_LIGHT",
+              "FMHWIF"
             ],
-            "description": "[if=HW のみ] ハードウェアインターフェース種別。"
+            "description": "[if=HW のみ] ハードウェアインターフェース種別。RE1/RE4/SPFM_TOWER/SPFM_LIGHTは物理ハードウェア、FMHWIFはFmEngineベースのエミュレータ統合プラグイン(FitomEmuIF等)を指す。FITOM本体はこの値を各プラグインへの不透明なパラメータとしてのみ扱い、実機かエミュレータかで処理を分岐させることはない。"
           },
           "serial": {
             "type": "string",
@@ -242,35 +141,30 @@
             "type": "boolean",
             "default": false,
             "description": "リニアステレオ化 (CLinearPanDevice) の対象として明示指定する。同一VoicePatchType・同一I/F・pan(1=L)とpan(2=R)の組み合わせを持つ2エントリのみ、自動的にステレオデバイスとして統合される。自動検出はせず、両エントリともこのフラグが必要。"
-          }
-        },
-        "if": {
-          "if": {
-            "properties": {
-              "if": {
-                "const": "FMENGINE"
-              }
-            }
           },
-          "then": {
-            "required": [
-              "engine",
-              "chip"
+          "plugin": {
+            "type": "string",
+            "description": "if=\"HW\"の場合に使うHWプラグイン名。hw_plugins[].nameから参照する。実機・エミュレータ問わず同じフィールドで指定する。",
+            "examples": [
+              "FitomEmuIF",
+              "SpfmDriver"
             ]
           },
-          "else": {
-            "if": {
-              "properties": {
-                "if": {
-                  "const": "HW"
-                }
-              }
-            },
-            "then": {
-              "required": [
-                "type"
-              ]
-            }
+          "index": {
+            "type": "integer",
+            "description": "if=\"HW\"かつFitomEmuIF等のエミュレータプラグインを使う場合のチップインスタンス番号。プラグインのfmhwif_profile.json等、プラグイン自身の設定で複数チップインスタンスを持つ場合にどれを使うかを指定する。",
+            "examples": [
+              0,
+              1
+            ]
+          },
+          "engine": {
+            "type": "string",
+            "description": "[if=HW かつ FitomEmuIF等のFmEngineベースのプラグインを使う場合] そのHWプラグイン自身の設定(例: FitomEmuIFのfmhwif_profile.json)に登録されたFmEngine名。FITOM_X本体はこの値を単にparams_jsonの一部としてプラグインに転送するのみで、自身でFmEngineをロードすることはない。",
+            "examples": [
+              "YMEngine",
+              "AYEngine"
+            ]
           }
         }
       }
@@ -448,49 +342,89 @@
           }
         }
       }
+    },
+    "midi_backend": {
+      "type": "object",
+      "description": "MIDI入力バックエンドDLL(WinMM/ALSA等)の指定。省略時はプラットフォーム既定(Windows: fitom_midi_winmm、Linux: fitom_midi_alsa)を実行ファイルと同じディレクトリから探索する。",
+      "additionalProperties": false,
+      "properties": {
+        "dll": {
+          "type": "string",
+          "description": "MIDIバックエンドDLLのファイル名またはパス。相対パスの場合は実行ファイルのディレクトリを基点とする。",
+          "examples": [
+            "fitom_midi_winmm.dll",
+            "fitom_midi_alsa.so",
+            "fitom_midi_wms.dll"
+          ]
+        }
+      }
+    },
+    "hw_plugins": {
+      "type": "array",
+      "description": "使用するHWプラグインDLL(IHWPlugin実装)の一覧。実機ハードウェア用プラグインとエミュレーター統合プラグイン(FitomEmuIF等)を問わず、同じ形式で複数登録できる。FITOM本体はエミュレータか実機かを一切区別しない。devices[]側のpluginフィールドから名前で参照する。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "dll"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "プラグイン識別名。devices[]のpluginフィールドから参照される。",
+            "examples": [
+              "FitomEmuIF",
+              "SpfmDriver"
+            ]
+          },
+          "dll": {
+            "type": "string",
+            "description": "IHWPlugin実装DLLのファイル名またはパス。"
+          }
+        }
+      }
     }
   },
   "examples": [
     {
-      "$comment": "エミュレーターのみ構成",
       "profile_name": "エミュレーター (OPM + OPL3 + SSG)",
-      "fm_engines": [
+      "hw_plugins": [
         {
-          "name": "YMEngine",
-          "dll": "YMEngine.dll",
-          "sample_rate": 48000
-        },
-        {
-          "name": "AYEngine",
-          "dll": "AYEngine.dll",
-          "sample_rate": 48000
+          "name": "FitomEmuIF",
+          "dll": "FitomEmuIF.dll"
         }
       ],
-      "audio_output": {
-        "device": "Realtek",
-        "sample_rate": 48000
-      },
       "devices": [
         {
-          "if": "FMENGINE",
+          "if": "HW",
           "label": "OPM",
+          "plugin": "FitomEmuIF",
+          "type": "FMHWIF",
           "engine": "YMEngine",
           "chip": "OPM",
-          "clock": 0
+          "index": 0,
+          "pan": 0
         },
         {
-          "if": "FMENGINE",
+          "if": "HW",
           "label": "OPL3",
+          "plugin": "FitomEmuIF",
+          "type": "FMHWIF",
           "engine": "YMEngine",
           "chip": "OPL3",
-          "clock": 0
+          "index": 0,
+          "pan": 0
         },
         {
-          "if": "FMENGINE",
+          "if": "HW",
           "label": "SSG",
+          "plugin": "FitomEmuIF",
+          "type": "FMHWIF",
           "engine": "AYEngine",
           "chip": "SSG",
-          "clock": 0
+          "index": 0,
+          "pan": 0
         }
       ],
       "midi_inputs": [
@@ -498,23 +432,22 @@
       ]
     },
     {
-      "$comment": "SPFM HW + エミュレーター混在構成",
       "profile_name": "自宅スタジオ (SPFM + OPN2エミュ)",
-      "fm_engines": [
+      "hw_plugins": [
         {
-          "name": "YMEngine",
-          "dll": "YMEngine.dll",
-          "sample_rate": 48000
+          "name": "FitomEmuIF",
+          "dll": "FitomEmuIF.dll"
+        },
+        {
+          "name": "SpfmDriver",
+          "dll": "fitom_hw_spfm.dll"
         }
       ],
-      "audio_output": {
-        "device": "Focusrite USB",
-        "sample_rate": 48000
-      },
       "devices": [
         {
           "if": "HW",
           "label": "OPNA (SPFM slot0)",
+          "plugin": "SpfmDriver",
           "type": "SPFM_TOWER",
           "port": "COM3",
           "slot": 0,
@@ -524,6 +457,7 @@
         {
           "if": "HW",
           "label": "OPM (SPFM slot1)",
+          "plugin": "SpfmDriver",
           "type": "SPFM_TOWER",
           "port": "COM3",
           "slot": 1,
@@ -531,13 +465,14 @@
           "pan": 0
         },
         {
-          "if": "FMENGINE",
+          "if": "HW",
           "label": "OPN2 (エミュ)",
+          "plugin": "FitomEmuIF",
+          "type": "FMHWIF",
           "engine": "YMEngine",
           "chip": "OPN2",
-          "clock": 7670454,
-          "gain_l": 0.8,
-          "gain_r": 0.8
+          "index": 0,
+          "pan": 0
         }
       ],
       "midi_inputs": [

@@ -1,10 +1,10 @@
 #pragma once
 // fitom/PluginLoader.h
-// FmEngine / HW / MIDI 各バックエンド DLL の動的ロード共通ユーティリティ
+// HW / MIDI 各バックエンド DLL の動的ロード共通ユーティリティ
 //
 // ─── 使用例 ──────────────────────────────────────────────────────────────────
 //   auto loader = PluginLoader::load("YMEngine.dll");
-//   auto fn = loader.sym<PFN_FmEngine_Create>("FmEngine_Create");
+//   auto fn = loader.sym<PFN_HWPlugin_Open>("HWPlugin_Open");
 //
 // ─── RAII ────────────────────────────────────────────────────────────────────
 //   PluginLoader はムーブ可能、コピー不可。

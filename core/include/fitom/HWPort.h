@@ -12,6 +12,9 @@
 #include <fitom/IHWPlugin.h>
 #include <memory>
 #include <string>
+#include <mutex>
+#include <unordered_map>
+#include <filesystem>
 
 namespace fitom {
 
@@ -56,6 +59,26 @@ private:
     PluginLoader   loader_;
     PFN_GetName    GetName_   = nullptr;
     PFN_Enumerate  Enumerate_ = nullptr;
+};
+
+// -------------------------------------------------------
+//  HWPluginRegistry: 複数の名前付き HWPluginInstance を管理する
+//  (FmEngine直接ロード経路は廃止済み。HWPluginRegistryのみ残す)。
+//
+//  FitomEmuIF.dll (エミュレーター) も、SPFM等の物理ハードウェア用
+//  プラグインも、同じ IHWPlugin C API を実装しているため、FITOM本体は
+//  「エミュレータか実機か」を一切区別しない。プロファイルに複数の
+//  hw_plugins[] を定義し、devices[] 側で名前を指定して使い分ける。
+// -------------------------------------------------------
+class HWPluginRegistry {
+public:
+    void registerPlugin(const std::string& name, const std::filesystem::path& dllPath);
+
+    std::shared_ptr<HWPluginInstance> get(const std::string& name);
+
+private:
+    std::mutex mutex_;
+    std::unordered_map<std::string, std::shared_ptr<HWPluginInstance>> entries_;
 };
 
 // -------------------------------------------------------
