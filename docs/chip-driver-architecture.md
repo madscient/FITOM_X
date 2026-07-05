@@ -253,9 +253,9 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` |
 | `VOICE_PATCH_SAA1099`(0x43) | SAA | 未実装（値のみ予約） |
 | `VOICE_PATCH_SCC`(0x48) | SCC, SCCP | `CSCC` |
-| `VOICE_PATCH_ADPCMB`(0x71) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` |
-| `VOICE_PATCH_ADPCMA`(0x72) | ADPCMA | `CAdPcm2610A` |
-| `VOICE_PATCH_PCMD8`(0x73) | PCMD8 | `CAdPcmZ280` |
+| `VOICE_PATCH_ADPCMB`(0x51) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` |
+| `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` |
+| `VOICE_PATCH_PCMD8`(0x53) | PCMD8 | `CAdPcmZ280` |
 | なし(`VOICE_PATCH_NONE`) | OPNA_RHY, OPLL_RHY 等リズムデバイス | `COPNARhythm` / `COPLLRhythm` |
 
 太字は複数の`deviceType`が同じ`VoicePatchType`に統合されている箇所（同種デバイス

@@ -261,12 +261,15 @@
 // 0x48: VoiceGroup=PSG (波形ROM)
 #define VOICE_PATCH_SCC      0x48  // SCC, SCCP
 
-// 0x70: VoiceGroup=PCM
-#define VOICE_PATCH_ADPCMB_Y8950 0x70  // Y8950
-#define VOICE_PATCH_ADPCMB       0x71  // YM2608
-#define VOICE_PATCH_ADPCMA       0x72  // YM2610
-#define VOICE_PATCH_PCMD8        0x73  // YMZ280
-#define VOICE_PATCH_AWM          0x74  // YMF278-AWM+YRW801, 未実装、値のみ予約
+// 0x50: VoiceGroup=PCM
+// (旧0x70-0x74から変更。BankSel.MSB(CC#0)による直接モードのチップ選択
+//  IDとして使うため、0x01-0x6Fの範囲に収める必要がある。0x70-0x7Fは
+//  将来の予約領域および GM2 リズム/メロディ切替 (0x78/0x79) 専用とする)
+#define VOICE_PATCH_ADPCMB_Y8950 0x50  // Y8950
+#define VOICE_PATCH_ADPCMB       0x51  // YM2608
+#define VOICE_PATCH_ADPCMA       0x52  // YM2610
+#define VOICE_PATCH_PCMD8        0x53  // YMZ280
+#define VOICE_PATCH_AWM          0x54  // YMF278-AWM+YRW801
 
 #define LOCATION_MONO	0
 #define LOCATION_LEFT	1

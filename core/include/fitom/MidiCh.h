@@ -231,10 +231,16 @@ private:
     // ─── MIDI チャンネル状態 ───────────────────────────────────────
     uint8_t  ch_;
     uint8_t  programNo_  = 0;
-    // CC#0: PatchManager::patchBanks_ の検索キー (PatchBank選択)。
-    // 旧FITOMのようなデバイス選択の意味は持たない。
+    // CC#0: モード選択子。
+    //   0        : 通常モード (bankSelL_ が PatchBank番号)
+    //   0x01-0x6F: 直接モード (この値自体が VoicePatchType、
+    //              bankSelL_ がそのVoicePatchType用のHwBankインデックス)
+    //   0x78/0x79: MidiProcessor層で消費済み。ここには現れない
+    //              (GM2リズム/メロディ切替)。
     uint8_t  bankSelM_   = 0;
-    // CC#32: 現状 PatchManager::resolve() では未使用 (将来の独自機能用に予約)。
+    // CC#32: bankSelM_の値によって意味が変わる (上記参照)。
+    //   通常モード時: PatchBank番号
+    //   直接モード時: HwBankインデックス
     uint8_t  bankSelL_   = 0;
     uint8_t  volume_     = 100;
     uint8_t  expression_ = 127;
@@ -367,9 +373,12 @@ private:
     uint8_t  lastNote_  = 0xFF;
     uint8_t  volume_    = 100;
     uint8_t  programNo_ = 0;
-    // CC#0: DrumBankRegistry の検索キー。CInstCh と同様の意味。
+    // bankSelM_/bankSelL_ は未使用 (CC#0/CC#32 はリズムチャンネルでは
+    // 完全に無視する仕様に変更済み。bankSelMSB()/bankSelLSB()は共に
+    // no-op。ドラムバンクは固定バンク番号(0)を使い、Prog Chg.のみで
+    // ドラムキット(DrumPatch)を選択する)。フィールド自体は将来の
+    // 拡張に備えて残す。
     uint8_t  bankSelM_  = 0;
-    // CC#32: 現状未使用 (将来の独自機能用に予約)。
     uint8_t  bankSelL_  = 0;
 
     const DrumPatch* currentPatch_ = nullptr;
