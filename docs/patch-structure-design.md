@@ -6,7 +6,7 @@
 PatchBank (*.patchbank.json)
   └── Patch [prog 0..127]
         ├── ToneLayer [0..3]          ← 発音レイヤー（最大4チップ）
-        │   ├── voicePatchType        → デバイスタイプID (VOICE_PATCH_*, 0x10-0x74)
+        │   ├── voicePatchType        → デバイスタイプID (VOICE_PATCH_*, 0x10-0x54)
         │   ├── hw_bank / hw_prog     → HwPatch への参照キー
         │   └── note_range / transpose / volume_offset / pan_offset
         ├── sw_bank / sw_prog         → SwPatch への参照キー（全レイヤー共通）
@@ -35,7 +35,7 @@ SwBank (*.swbank.json)  ← チップ族共通・1セット
 
 **DeviceFactory の `DEVICE_*`（チップドライバ生成用ID）とは独立した分類軸。**
 「ボイスパラメータ・ハードウェア機能が一致するチップ」だけをまとめたもので、
-`FITOMdefine.h` に `VOICE_PATCH_*` として定義されている（0x10〜0x74、詳細は後述）。
+`FITOMdefine.h` に `VOICE_PATCH_*` として定義されている（0x10〜0x54、詳細は後述。CC#0直接モードで使うため0x6F以下に収める）。
 
 1台の物理/エミュレーターデバイスは以下の2つの異なる分類軸を同時に持つ:
 
@@ -69,7 +69,7 @@ SwBank (*.swbank.json)  ← チップ族共通・1セット
 | 0x42 | DCSG | SN76489 | PSG(無波形) |
 | 0x43 | SAA1099 | — | PSG(無波形、未実装・値のみ予約) |
 | 0x48 | SCC | SCC, SCCP | PSG(波形ROM) |
-| 0x70-74 | ADPCMB/ADPCMA/PCMD8/AWM | Y8950/YM2608/YM2610/YMZ280 等 | PCM |
+| 0x50-54 | ADPCMB/ADPCMA/PCMD8/AWM | Y8950/YM2608/YM2610/YMZ280 等 | PCM |
 
 パン対応可否は VoicePatchType 単位でも一律ではない（例: 同じPSG無波形グループでも
 SAA1099は per-channel ステレオパン対応、SSG/AY8930/DCSGは非対応）。

@@ -615,6 +615,31 @@ void MidiProcessor::receiveByte(const uint8_t* data, size_t len,
     }
 }
 
+void MidiProcessor::switchChannelRole(uint8_t ch, bool toRhythm)
+{
+    if (ch >= 16) return;
+
+    // 既存の発音を全て停止する。オブジェクト差し替え(unique_ptr再代入)で
+    // 旧チャンネルオブジェクトが破棄される際、ChState::owner等が
+    // ダングリングポインタになることを防ぐため、差し替え前に必ず行う。
+    if (channels_[ch]) channels_[ch]->allNoteOff();
+
+    if (toRhythm) {
+        channels_[ch] = std::make_unique<CRhythmCh>(ch, parent_);
+        FITOM_LOG_INFO("MIDI ch=" << (int)(ch + 1)
+            << ": GM2 Bank Select MSB=0x78 — switched to rhythm channel");
+    } else {
+        auto instCh = std::make_unique<CInstCh>(ch, parent_);
+        instCh->setup(&parent_->getPatchManager(), parent_);
+        channels_[ch] = std::move(instCh);
+        FITOM_LOG_INFO("MIDI ch=" << (int)(ch + 1)
+            << ": GM2 Bank Select MSB — switched to melodic channel");
+    }
+    // GM2仕様: 役割切替後はデフォルト音色(bank0:0/prog0)から始まる
+    // (CFITOM::init時の全チャンネル初期化と同じ扱い)。
+    channels_[ch]->progChange(0);
+}
+
 void MidiProcessor::processMessage()
 {
     uint8_t status = msgBuf_[0];
@@ -655,6 +680,24 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
 {
     IMidiCh* midicch = channels_[ch].get();
     if (!midicch) return;
+
+    // GM2規格: Bank Select MSB(CC#0)の0x78(DEVICE_RHYTHM)/0x79は、
+    // チャンネルの役割(リズム/メロディ)自体を動的に切り替える特殊予約値。
+    // (旧FITOMのCMidiInst::Control()と同じロジック)。
+    // この2値は通常のバンク選択値としては一切使わせず、常にここで消費する
+    // (bankSelMSB()には転送しない)。これにより、CInstCh側の bankSelM_ に
+    // 0x78/0x79が入ることはなく、CC#0=0x01-0x6Fを「直接モードのVoicePatchType
+    // 指定」として一意に解釈できる(値空間の衝突を防ぐ設計)。
+    if (cc == 0) {
+        if (val == DEVICE_RHYTHM) {          // 0x78: リズムチャンネルへ切替
+            if (midicch->isInst()) switchChannelRole(ch, /*toRhythm=*/true);
+            return;
+        }
+        if (val == 0x79) {                   // 0x79: メロディチャンネルへ切替
+            if (midicch->isRhythm()) switchChannelRole(ch, /*toRhythm=*/false);
+            return;
+        }
+    }
 
     switch (cc) {
     case 0:   midicch->bankSelMSB(val); break;

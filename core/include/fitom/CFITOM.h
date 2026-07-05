@@ -58,6 +58,12 @@ public:
         return (ch < 16) ? channels_[ch].get() : nullptr;
     }
 
+    // GM2規格: Bank Select MSB(CC#0)=DEVICE_RHYTHM(0x78)受信でリズムチャンネルに、
+    // 0以外かつDEVICE_RHYTHM以外の値受信でメロディチャンネルに、そのチャンネルの
+    // 役割を動的に切り替える (旧FITOMのCMidiInst::Control()と同じロジック)。
+    // 既存の発音は全て停止してからチャンネルオブジェクト自体を差し替える。
+    void switchChannelRole(uint8_t ch, bool toRhythm);
+
 private:
     std::array<std::unique_ptr<IMidiCh>, 16>& channels_;
     CFITOM* parent_;

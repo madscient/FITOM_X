@@ -51,6 +51,14 @@ void CInstCh::setup(PatchManager* pm, CFITOM* fitom)
 
 // ----------------------------------------------------------------
 //  ProgChange
+//
+//  CC#0(MSB)がモードを決める:
+//    0        : 通常モード。CC#32(LSB)がPatchBank番号を選択する。
+//    0x01-0x6F: 直接モード。MSB自体がVoicePatchType、CC#32(LSB)が
+//               そのVoicePatchType用にプロファイル登録された
+//               HwBankのインデックスを選択する。
+//    0x78/0x79: MidiProcessor層で消費済み (リズム/メロディ切替)。
+//               このメソッドに渡るbankSelM_には決して現れない。
 // ----------------------------------------------------------------
 void CInstCh::progChange(uint8_t prog)
 {
@@ -58,12 +66,13 @@ void CInstCh::progChange(uint8_t prog)
     if (!patchMgr_ || !fitom_) return;
 
     ResolvedPatch resolved;
-    if (bankSelL_ > 0) {
-        // 直接モード: LSB=VoicePatchType, MSB=HwBank, prog=HwProg
-        resolved = patchMgr_->resolveDirect(bankSelL_, bankSelM_, prog,
-                                             fitom_->getConfig(), directPatch_);
+    if (bankSelM_ == 0) {
+        // 通常モード: LSBがPatchBank番号
+        resolved = patchMgr_->resolve(bankSelL_, prog, fitom_->getConfig());
     } else {
-        resolved = patchMgr_->resolve(bankSelM_, prog, fitom_->getConfig());
+        // 直接モード: MSB=VoicePatchType, LSB=HwBankインデックス
+        resolved = patchMgr_->resolveDirect(bankSelM_, bankSelL_, prog,
+                                             fitom_->getConfig(), directPatch_);
     }
 
     if (!resolved.isValid()) {
@@ -232,7 +241,12 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !portaActive);
 
         // VoiceProcessor に SW パッチを適用
-        if (resolver_.swPatch()) {
+        // (samplePatchのみ設定されている場合=AWM系レイヤーは、FmVoiceが
+        //  FMオペレータ専用の構造体でありサンプルベース音源には適用できない
+        //  ため、VoiceProcessorによるソフトLFO/ベロシティ感度処理自体を
+        //  スキップする。patch==nullptrのままpatch->hwにアクセスすると
+        //  クラッシュするため、必ずpatchの非nullptrチェックを先に行う)。
+        if (patch && resolver_.swPatch()) {
             const auto* sp = resolver_.swPatch();
             FmVoice fv;
             fv.hw = patch->hw;
@@ -704,6 +718,12 @@ CRhythmCh::~CRhythmCh() { allNoteOff(); }
 // ----------------------------------------------------------------
 //  ProgChange: DrumPatch を選択してキャッシュをクリア
 // ----------------------------------------------------------------
+// ----------------------------------------------------------------
+//  ProgChange: ドラムバンクは固定バンク番号(0)を使う。CC#0/CC#32は
+//  無視されるため、MIDI経由でのドラムバンク切替はできない仕様。
+//  Prog Chg. の値が、固定バンク内のドラムキット(DrumPatch)インデックスを
+//  選択する。
+// ----------------------------------------------------------------
 void CRhythmCh::progChange(uint8_t prog)
 {
     programNo_    = prog;
@@ -712,11 +732,12 @@ void CRhythmCh::progChange(uint8_t prog)
 
     if (!fitom_) return;
 
+    static constexpr int kFixedDrumBank = 0;
     auto& pm = fitom_->getPatchManager();
-    currentPatch_ = pm.resolveDrum(bankSelM_, prog);
+    currentPatch_ = pm.resolveDrum(kFixedDrumBank, prog);
     if (!currentPatch_) {
         FITOM_LOG_WARN("CRhythmCh ch=" << (int)ch_
-            << ": DrumPatch not found bank=" << (int)bankSelM_
+            << ": DrumPatch not found bank=" << kFixedDrumBank
             << " prog=" << (int)prog);
     } else {
         FITOM_LOG_DEBUG("CRhythmCh ch=" << (int)ch_
@@ -724,8 +745,12 @@ void CRhythmCh::progChange(uint8_t prog)
     }
 }
 
-void CRhythmCh::bankSelMSB(uint8_t msb) { bankSelM_ = msb; }
-void CRhythmCh::bankSelLSB(uint8_t lsb) { bankSelL_ = lsb; }
+// リズムチャンネルはCC#0/CC#32(バンクセレクト)を一切使わない。
+// (CC#0=0x79によるメロディチャンネルへの切替は、この関数に到達する前に
+//  MidiProcessor::processControl層で消費・処理される。それ以外の値
+//  (通常のバンクセレクト値)は単に無視する)。
+void CRhythmCh::bankSelMSB(uint8_t /*msb*/) {}
+void CRhythmCh::bankSelLSB(uint8_t /*lsb*/) {}
 void CRhythmCh::setVolume(uint8_t vol)   { volume_   = vol; }
 
 // ----------------------------------------------------------------
@@ -774,15 +799,20 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         if (!dev) continue;
 
         const HwPatch* patch = rl->hwPatch;
-        if (!patch) continue;
+        // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ非nullptr。
+        // patchとは排他 (PatchManager::resolve()が保証する)。
+        // 以前はpatch==nullptrで即座にレイヤーをスキップしていたため、
+        // AWM系のドラム音色が一切発音されなかった (未解決の欠陥)。
+        const SampleZonePatch* samplePatch = rl->samplePatch;
+        if (!patch && !samplePatch) continue;
 
         // ─── チャンネル割り当て ─────────────────────────────────────
         uint8_t devCh = 0xFF;
         if (li == 0 && dn.fixedCh >= 0) {
             // layer[0] のみ fixedCh を適用
-            devCh = dev->assignCh(static_cast<uint8_t>(dn.fixedCh), this, patch);
+            devCh = dev->assignCh(static_cast<uint8_t>(dn.fixedCh), this, patch, samplePatch);
         } else {
-            devCh = dev->allocCh(this, patch);
+            devCh = dev->allocCh(this, patch, samplePatch);
         }
         if (devCh == 0xFF) continue;
 
@@ -807,7 +837,12 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, false);
 
         // SwPatch を VoiceProcessor に適用
-        if (rp->swPatch) {
+        // (samplePatchのみ設定されている場合=AWM系レイヤーは、FmVoiceが
+        //  FMオペレータ専用の構造体でありサンプルベース音源には適用できない
+        //  ため、この処理自体をスキップする。patch==nullptrのまま
+        //  patch->hwにアクセスするとクラッシュするため、必ずpatchの
+        //  非nullptrチェックを先に行う)。
+        if (patch && rp->swPatch) {
             const auto* sp = rp->swPatch;
             FmVoice fv;
             fv.hw  = patch->hw;

@@ -70,7 +70,7 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 255,
-                  "description": "VoicePatchType (VOICE_PATCH_*, 0x10-0x74)。0は設定禁止(予約値)。バンクセレクトLSB直接指定モードと同じ方式でデバイスを解決する。"
+                  "description": "VoicePatchType (VOICE_PATCH_*, 0x01-0x6F)。0は通常モード用の予約値、0x70-0x7Fは将来予約(0x78/0x79はGM2リズム/メロディ切替専用のため使用不可)。バンクセレクトMSB直接指定モードと同じ方式でデバイスを解決する。"
                 },
                 "hw_bank": {
                   "type": "integer",
