@@ -18,7 +18,6 @@ endif()
 # -------------------------------------------------------
 #  ビルドオプション
 # -------------------------------------------------------
-option(FITOM_BUILD_BACKEND_FMENGINE  "FmEngine バックエンド DLL をビルド"         ON)
 option(FITOM_BUILD_BACKEND_HWIF      "HW I/F バックエンド DLL をビルド"           ON)
 option(FITOM_BUILD_BACKEND_MIDI_WMS  "Windows MIDI Services バックエンド DLL"     OFF)  # Win のみ・WMS SDK 要
 # クラシック WinMM API (ランタイム不要、Windows全バージョンで動作)。
@@ -101,7 +100,7 @@ add_compile_definitions(BOOST_LOG_DYN_LINK)
 #  サブプロジェクト
 # -------------------------------------------------------
 
-# プラグイン SDK (ヘッダのみ: IMidiPlugin.h / IHWPlugin.h / IFmEnginePlugin.h)
+# プラグイン SDK (ヘッダのみ: IMidiPlugin.h / IHWPlugin.h)
 add_subdirectory(plugin_sdk)
 
 # コアライブラリ (fitom_core static lib)
@@ -114,16 +113,6 @@ if(FITOM_BUILD_CLI)
 endif()
 
 # バックエンド DLL (各自が fitom_core に非依存の独立 DLL)
-if(FITOM_BUILD_BACKEND_FMENGINE)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/backends/fm_engine/CMakeLists.txt")
-        add_subdirectory(backends/fm_engine)
-    else()
-        message(WARNING
-            "FITOM_BUILD_BACKEND_FMENGINE=ON ですが backends/fm_engine/ が存在しません。"
-            " FmEngine バックエンド DLL のビルドをスキップします。"
-            " FmEngineApi 互換の DLL を別途ビルドして engines/ ディレクトリに配置してください。")
-    endif()
-endif()
 if(FITOM_BUILD_BACKEND_HWIF)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/backends/hw_if/CMakeLists.txt")
         add_subdirectory(backends/hw_if)

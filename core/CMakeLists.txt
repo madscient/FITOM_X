@@ -1,12 +1,9 @@
 # core/CMakeLists.txt
 
 # RtAudio は fitom_core から削除済み。
-# オーディオ出力は hwif 互換 DLL (fitom_fmhwif) が内部で管理する。
-# → AudioEngine.h / AudioEngine.cpp は廃止（削除対象）。
-
-# ─── FmEngineApi ヘッダ ────────────────────────────────────────────────────────
-set(FMENGINE_HEADER_DIR "${CMAKE_SOURCE_DIR}/backends/fm_engine/include"
-    CACHE PATH "FmEngineApi.h のディレクトリ")
+# FmEngineの直接制御 (FmEnginePort/FmEngineRegistry) も廃止済み。
+# HWPort (IHWPlugin) 経由に一元化した。実機/エミュレータ問わず、
+# 音声出力は HWプラグイン (FitomEmuIF等) が内部で管理する。
 
 # ─── ソースファイル ────────────────────────────────────────────────────────────
 set(FITOM_CORE_SOURCES
@@ -14,7 +11,6 @@ set(FITOM_CORE_SOURCES
     src/IPort.cpp
     src/Log.cpp
     src/VolumeUtils.cpp
-    src/FmEnginePort.cpp
     src/HWPort.cpp
     src/MidiManager.cpp
     src/Config.cpp
@@ -56,10 +52,6 @@ target_include_directories(fitom_core
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
-if(EXISTS "${FMENGINE_HEADER_DIR}/FmEngineApi.h")
-    target_include_directories(fitom_core PUBLIC ${FMENGINE_HEADER_DIR})
-endif()
 
 target_compile_definitions(fitom_core PUBLIC BOOST_LOG_DYN_LINK)
 

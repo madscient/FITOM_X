@@ -2,7 +2,7 @@
 // fitom/DeviceFactory.h
 // IPort → ISoundDevice の生成ファクトリ
 //
-// FITOMConfig が生成した IPort (FmEnginePort / HWPort) を
+// FITOMConfig が生成した IPort (HWPort) を
 // 対応するチップドライバ (COPN / COPM / COPLL 等) でラップして
 // ISoundDevice として返す。
 //
@@ -27,7 +27,7 @@ namespace fitom {
 class DeviceFactory {
 public:
     // deviceType: FITOMdefine.h の DEVICE_* 定数
-    // port: FmEnginePort または HWPort
+    // port: HWPort
     // sampleRate: エミュレーターバックエンド使用時のサンプルレート
     // extraPort: OPN2/OPNA のように 2 ポート必要なチップ用
     // rhythmMode: チップ内蔵リズム音源の有効/無効 (OPLL/OPL/OPL2/OPL3 等、

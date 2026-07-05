@@ -45,39 +45,35 @@ std で置き換える:
 │                                                                   │
 │  ┌──────────────┐  ┌─────────────────┐  ┌────────────────────┐  │
 │  │  IPort       │  │ IMidiPlugin C-API│  │  Boost.Log         │  │
-│  │  FmEnginePort│  │ (DLL 経由で呼ぶ) │  │  (fitom/Log.h)     │  │
-│  │  HWPort      │  └────────┬────────┘  └────────────────────┘  │
-│  └──────┬───────┘           │                                    │
+│  │  HWPort      │  │ (DLL 経由で呼ぶ) │  │  (fitom/Log.h)     │  │
+│  └──────┬───────┘  └────────┬────────┘  └────────────────────┘  │
 └─────────┼───────────────────┼────────────────────────────────────┘
           │ PluginLoader       │ PluginLoader
           │ (dlopen/LoadLibrary)│
-  ┌───────▼───────┐   ┌───────▼────────────────────────┐
-  │  HW バックエンド│   │  MIDI バックエンド               │
-  │  fitom_hw.dll │   │  fitom_midi_wms.dll (Win)       │
-  │  (IHWPlugin)  │   │  fitom_midi_alsa.so (Linux)     │
-  │               │   │  (IMidiPlugin)                  │
-  │  FitomIFTest  │   └─────────────────────────────────┘
-  │  を DLL 化    │
-  └───────────────┘
-          │
-  ┌───────▼──────────────────────────────────────────────┐
-  │  FM エンジンバックエンド (複数 DLL 同時ロード可)         │
-  │  YMEngine.dll  (OPN/OPM/OPL 等)  (IFmEnginePlugin)  │
-  │  AYEngine.dll  (PSG/SCC 等)      (IFmEnginePlugin)  │
-  └──────────────────────────────────────────────────────┘
+  ┌───────▼───────────────┐   ┌───────▼────────────────────────┐
+  │  HW バックエンド        │   │  MIDI バックエンド               │
+  │  (実機/エミュレータ共通、│   │  fitom_midi_wms.dll (Win)       │
+  │   FITOM本体は区別しない)│   │  fitom_midi_winmm.dll (Win)     │
+  │  (IHWPlugin)          │   │  fitom_midi_alsa.so (Linux)     │
+  │                       │   │  (IMidiPlugin)                  │
+  │  FitomIFTest を DLL化  │   └─────────────────────────────────┘
+  │  (実機)                │
+  │  FitomEmuIF            │
+  │  (FmEngine統合エミュレータ、│
+  │   RtAudio内蔵)          │
+  └───────────────────────┘
 ```
 
 ---
 
 ## プラグイン SDK (plugin_sdk/include/fitom/)
 
-### IFmEnginePlugin.h
-既存 `FmEngineApi.h` の関数群に `FmEngine_GetEngineName()` を 1 つ追加するだけ。
-FMEngineTest 側の変更は最小。
-
 ### IHWPlugin.h
 FitomIFTest の `hw::HWControllerBase` を C 関数にフラット化した API。
 FitomIFTest 側でこの API を実装した共有ライブラリを追加でビルドする。
+FmEngineベースのエミュレーター統合プラグイン (FitomEmuIF) もこの同じ
+API を実装しており、FITOM本体は実機かエミュレータかを一切区別しない。
+複数のHWプラグインを同時にロードでき、`HWPluginRegistry`で名前管理する。
 既存の `HWControllerBase` クラス階層はそのまま残し、エクスポート関数だけ追加。
 
 ### IMidiPlugin.h
@@ -109,17 +105,14 @@ MIDI メッセージは MIDI 1.0 バイト列で統一 (WMS の UMP 変換は DL
   "midi_plugin": {
     "dll": "fitom_midi_wms.dll"
   },
-  "fm_engines": [
-    { "name": "YMEngine", "dll": "YMEngine.dll",  "sample_rate": 48000 },
-    { "name": "AYEngine", "dll": "AYEngine.dll",  "sample_rate": 48000 }
+  "hw_plugins": [
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" },
+    { "name": "SpfmDriver", "dll": "fitom_hw_spfm.dll" }
   ],
-  "hw_plugin": {
-    "dll": "fitom_hw.dll"
-  },
   "devices": [
-    { "if": "FMENGINE", "engine": "YMEngine", "chip": "OPNA",  "clock": 0 },
-    { "if": "FMENGINE", "engine": "AYEngine", "chip": "PSG",   "clock": 0 },
-    { "if": "HW",       "type": "SPFM_TOWER", "port": "COM3",  "slot": 0, "clock": 3993600 }
+    { "if": "HW", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPNA", "index": 0, "pan": 0 },
+    { "if": "HW", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "AYEngine", "chip": "PSG",  "index": 0, "pan": 0 },
+    { "if": "HW", "plugin": "SpfmDriver", "type": "SPFM_TOWER", "port": "COM3",  "slot": 0, "hw_clock": 3993600 }
   ],
   "midi_inputs": [
     "MIDI キーボード"
@@ -227,7 +220,7 @@ FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Write(
 |---|---|
 | 1 | CMake 化・Boost 削減 (std 置き換え可能な部分のみ) |
 | 2 | `plugin_sdk/` 確立・`PluginLoader.h` 実装 |
-| 3 | `FmEnginePort` (複数 DLL 対応) / `HWPort` (IHWPlugin 経由) |
+| 3 | `HWPort` (IHWPlugin 経由、実機/エミュレータ問わず複数DLL対応) |
 | 4 | FitomIFTest 側に `fitom_hw.dll` ビルドターゲット追加 |
 | 5 | MIDI バックエンド DLL (ALSA → WMS の順) |
 | 6 | `fitom_core` 確立・既存チップドライバの型名移行 |

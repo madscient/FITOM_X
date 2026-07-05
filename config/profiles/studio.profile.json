@@ -1,27 +1,24 @@
 {
   "profile_name": "自宅スタジオ (SPFM Tower + OPN2エミュ)",
-  "fm_engines": [
-    { "name": "YMEngine", "dll": "YMEngine.dll", "sample_rate": 48000 }
+  "hw_plugins": [
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" },
+    { "name": "SpfmDriver", "dll": "fitom_hw_spfm.dll" }
   ],
-  "audio_output": {
-    "device":      "Focusrite USB",
-    "sample_rate": 48000
-  },
   "devices": [
     {
-      "if": "HW", "label": "OPNA #1 (SPFM slot0)",
+      "if": "HW", "label": "OPNA #1 (SPFM slot0)", "plugin": "SpfmDriver",
       "type": "SPFM_TOWER", "port": "COM3", "slot": 0,
       "hw_clock": 3993600, "pan": 0
     },
     {
-      "if": "HW", "label": "OPM (SPFM slot1)",
+      "if": "HW", "label": "OPM (SPFM slot1)", "plugin": "SpfmDriver",
       "type": "SPFM_TOWER", "port": "COM3", "slot": 1,
       "hw_clock": 3579545, "pan": 0
     },
     {
-      "if": "FMENGINE", "label": "OPN2 (エミュ)",
-      "engine": "YMEngine", "chip": "OPN2",
-      "clock": 7670454, "gain_l": 0.8, "gain_r": 0.8
+      "if": "HW", "label": "OPN2 (エミュ)", "plugin": "FitomEmuIF",
+      "type": "FMHWIF", "engine": "YMEngine", "chip": "OPN2",
+      "index": 0, "pan": 0
     }
   ],
   "midi_inputs": ["UM-ONE"],

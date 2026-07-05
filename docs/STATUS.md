@@ -5,7 +5,6 @@
 ### プラグイン SDK (`plugin_sdk/`)
 | ファイル | 状態 | 内容 |
 |---|---|---|
-| `IFmEnginePlugin.h` | ✅ | FmEngine DLL C API |
 | `IHWPlugin.h` | ✅ | HW I/F DLL C API |
 | `IMidiPlugin.h` | ✅ | MIDI バックエンド DLL C API |
 
@@ -17,8 +16,7 @@
 | `include/fitom/fitom_core.h` | ✅ | stdafx.h 代替・共通インクルード |
 | `include/fitom/IPort.h` / `IPort.cpp` | ✅ | ハードウェア I/O 抽象 |
 | `include/fitom/PluginLoader.h` | ✅ | DLL 動的ロード RAII |
-| `include/fitom/FmEnginePort.h` / `.cpp` | ✅ | FmEngine → IPort アダプター |
-| `include/fitom/HWPort.h` / `.cpp` | ✅ | HWPlugin → IPort アダプター |
+| `include/fitom/HWPort.h` / `.cpp` | ✅ | HWPlugin → IPort アダプター (実機/エミュレータ共通、HWPluginRegistryで複数管理) |
 | `include/fitom/MidiManager.h` / `.cpp` | ✅ | MIDI バックエンド DLL 管理 |
 | `include/fitom/Log.h` / `Log.cpp` | ✅ | Boost.Log ラッパー |
 | `include/fitom/VolumeUtils.h` / `.cpp` | ✅ | CalcLinearLevel / Linear2dB / ROM テーブル |
@@ -63,9 +61,9 @@
 | ファイル | 状態 | 内容 |
 |---|---|---|
 | `backends/midi_wms/` | ✅ | Windows MIDI Services (C++/WinRT) |
+| `backends/midi_winmm/` | ✅ | クラシック WinMM API (ランタイム不要) |
 | `backends/midi_alsa/` | ✅ | ALSA MIDI |
 | `backends/hw_if/CMakeLists.txt` | ✅ | FitomIFTest submodule 統合 |
-| `backends/fm_engine/CMakeLists.txt` | ✅ | FmEngineApi.h INTERFACE |
 
 ### GUI
 

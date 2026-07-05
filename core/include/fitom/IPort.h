@@ -10,8 +10,10 @@
 //   addr 15:8  … ポート番号 / a_high
 //
 //   ポート番号の意味はバックエンドによって異なる:
-//     FmEnginePort  → FmEngine_Write() の port 引数 (OPN port0/1 等)
 //     HWPort        → HWPlugin_Write() の addr 引数 上位バイト (a_high)
+//                      (実機・エミュレータ問わず、IHWPluginを実装する
+//                       DLLは全てこの経路を通る。FITOM本体は両者を
+//                       区別しない)
 //     SplitPort     → 0x000〜0x0FF は port1 へ / 0x100〜0x1FF は port2 へ振り分け
 //
 // ─── 2 ポートチップの扱い ─────────────────────────────────────────────────
@@ -20,16 +22,12 @@
 //   チップドライバは addr >= 0x100 のアドレスを「ポート2」として
 //   そのまま setReg(0x1XX, data) と書く。
 //
-//   SplitPort がその振り分けをバックエンド (HW / エミュレーター) に依存せず吸収する。
+//   SplitPort がその振り分けをバックエンド (実機 / エミュレーター問わず) に依存せず吸収する。
 //
-//   HW (SPFM 等):
+//   HWPort (実機SPFM等・エミュレータFitomEmuIF等、いずれも同じ経路):
 //     SplitPort → port1: HWPort(slot=N) → a_high=0 (通常アドレス)
 //     SplitPort → port2: HWPort(slot=N) → a_high=1 として振り分け
 //                        または HWPort(slot=N+1) に別スロットとして接続
-//
-//   エミュレーター (FmEngine):
-//     FmEnginePort が addr 上位バイトを port 引数に渡すため、
-//     SplitPort を経由せず 1 ポートで解決できる。
 
 #include <cstdint>
 #include <cstddef>

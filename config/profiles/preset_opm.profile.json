@@ -1,13 +1,18 @@
 {
   "_comment": "OPM系音色(DX27/DX100, FB-01, TX81Z)を使用するプロファイルサンプル",
+  "hw_plugins": [
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
+  ],
   "devices": [
     {
-      "if": "FMENGINE",
+      "if": "HW",
       "label": "OPM",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
       "engine": "YMEngine",
       "chip": "OPM",
-      "clock": 3579545,
-      "sample_rate": 44100
+      "index": 0,
+      "pan": 0
     }
   ],
   "midi_input": { "port": 0 },

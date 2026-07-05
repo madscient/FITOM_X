@@ -16,4 +16,5 @@ target_link_libraries(fitom_midi_alsa PRIVATE
 set_target_properties(fitom_midi_alsa PROPERTIES
     OUTPUT_NAME "fitom_midi_alsa"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

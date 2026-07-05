@@ -1,0 +1,18 @@
+{
+  "sample_rate": 44100,
+  "buffer_frames": 512,
+  "audio_api": "auto",
+  "audio_device": "",
+  "engines": [
+    {
+      "dll": "YMEngine",
+      "chips": [
+        { "chip": "OPN",   "clock": 3993600, "pan": 0 },
+        { "chip": "OPN2",  "clock": 7670454, "pan": 0 },
+        { "chip": "OPNA",  "clock": 7987200, "pan": 0 },
+        { "chip": "OPNB",  "clock": 8000000, "pan": 0 },
+        { "chip": "OPNBB", "clock": 8000000, "pan": 0 }
+      ]
+    }
+  ]
+}

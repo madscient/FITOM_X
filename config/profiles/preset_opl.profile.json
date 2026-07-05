@@ -1,13 +1,18 @@
 {
   "_comment": "OPL系音色(OPL2/OPL3, ALSAおよびMA-2バンク)を使用するプロファイルサンプル",
+  "hw_plugins": [
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
+  ],
   "devices": [
     {
-      "if": "FMENGINE",
+      "if": "HW",
       "label": "OPL3",
+      "plugin": "FitomEmuIF",
+      "type": "FMHWIF",
       "engine": "YMEngine",
       "chip": "OPL3",
-      "clock": 14318180,
-      "sample_rate": 44100
+      "index": 0,
+      "pan": 0
     }
   ],
   "midi_input": { "port": 0 },
