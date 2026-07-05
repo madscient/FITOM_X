@@ -1,12 +1,11 @@
 {
   "profile_name": "エミュレーターのみ (OPM + OPL3 + SSG)",
   "hw_plugins": [
-    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
-  ],
-  "devices": [
-    { "if": "HW", "label": "OPM",  "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPM",  "index": 0, "pan": 0 },
-    { "if": "HW", "label": "OPL3", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPL3", "index": 0, "pan": 0 },
-    { "if": "HW", "label": "SSG",  "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "AYEngine", "chip": "SSG",  "index": 0, "pan": 0 }
+    {
+      "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+      "auto_devices": true
+    }
   ],
   "midi_inputs": ["MIDI キーボード"],
   "channel_map": [

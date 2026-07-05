@@ -1,0 +1,80 @@
+{
+  "//": [
+    "FitomHwIF プロファイル設定ファイル。",
+    "このファイルを fitom_hw_profile.json という名前で",
+    "fitom_hw.dll と同じディレクトリに置くか、",
+    "環境変数 FITOM_HW_PROFILE にパスを指定してください。",
+    "",
+    "DLL ロード時に一度だけ読み込まれ、FITOM とのリンク中は不変です。"
+  ],
+
+  "//interfaces": [
+    "interfaces: 物理インターフェースの配列。",
+    "  type: RE1 / RE4 / SPFM_TOWER / SPFM_LIGHT",
+    "",
+    "  RE1 (FT245R):",
+    "    serial ... FT245R のシリアル番号 (EEPROM 設定済みの場合、推奨)",
+    "    index  ... シリアル番号未設定時の接続順インデックス (省略時 0)",
+    "",
+    "  RE4 (FT2232H):",
+    "    serial ... FT2232H のシリアル番号 (EEPROM 設定済みの場合、推奨)",
+    "    index  ... シリアル番号未設定時の接続順インデックス (省略時 0)",
+    "",
+    "  SPFM_TOWER / SPFM_LIGHT:",
+    "    port   ... COMポート名 (Windows: COM3、Linux: /dev/ttyUSB0 等)"
+  ],
+
+  "interfaces": [
+    {
+      "//": "RE1MB00GS に OPN と OPNA を搭載した例。スロット 0, 1 を使用。",
+      "type":   "RE1",
+      "serial": "ABCD1234",
+      "sample_rate": 44100,
+      "slots": [
+        { "slot": 0, "chip": "OPN",  "clock": 3993600,  "pan": 0 },
+        { "slot": 1, "chip": "OPNA", "clock": 7987200,  "pan": 0 }
+      ]
+    },
+    {
+      "//": "RE4 (FT2232H) に OPM を搭載した例。",
+      "type":   "RE4",
+      "serial": "EFGH5678",
+      "sample_rate": 44100,
+      "slots": [
+        { "slot": 0, "chip": "OPM", "clock": 3579545, "pan": 0 }
+      ]
+    },
+    {
+      "//": "SPFM FM の塔。デバイス1 (slot=0) に OPM、デバイス2 (slot=1) に OPNA。",
+      "//2": "SPFM の slot は DEVICE1=0 / DEVICE2=1 / DEVICE3=2 に対応する。",
+      "type": "SPFM_TOWER",
+      "port": "COM4",
+      "sample_rate": 44100,
+      "slots": [
+        { "slot": 0, "chip": "OPM",  "clock": 3579545, "pan": 0 },
+        { "slot": 1, "chip": "OPNA", "clock": 7987200, "pan": 0 }
+      ]
+    },
+    {
+      "//": "SPFM Light。スロット 0 に OPL2、スロット 1 に SCC。",
+      "type": "SPFM_LIGHT",
+      "port": "COM6",
+      "sample_rate": 44100,
+      "slots": [
+        { "slot": 0, "chip": "OPL2", "clock": 3579545, "pan": 1 },
+        { "slot": 1, "chip": "SCC",  "clock": 3579545, "pan": 2 }
+      ]
+    },
+    {
+      "//": "同一 type を複数持つ例 (index で区別)。",
+      "//2": "同じ COM ポートに 2 台目の SPFM Light がある場合など。",
+      "type":  "SPFM_LIGHT",
+      "port":  "COM7",
+      "index": 1,
+      "sample_rate": 44100,
+      "slots": [
+        { "slot": 0, "chip": "OPL3", "clock": 14318181, "pan": 0 }
+      ]
+    }
+  ]
+}

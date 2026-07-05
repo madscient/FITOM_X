@@ -91,22 +91,109 @@ C APIを実装するため、FITOM本体は両者を一切区別しない。**
 
 ```json
 "hw_plugins": [
-  { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" },
-  { "name": "SpfmDriver", "dll": "fitom_hw_spfm.dll" }
+  { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+    "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE" },
+  { "name": "FitomHwIF", "dll": "fitom_hw.dll",
+    "profile": "fitom_hw_profile.json", "profile_env": "FITOM_HW_PROFILE" }
 ]
 ```
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `name` | ○ | `devices[].plugin` から参照される識別名 |
+| `dll` | ○ | IHWPlugin実装DLLのパス |
+| `profile` | - | プラグイン自身の設定ファイルへのパス (下記参照) |
+| `profile_env` | `profile`指定時は必須 | `profile`の値を渡す環境変数名 |
+
+**`profile`/`profile_env` について**: FitomEmuIF等の一部プラグインは、
+DLLロード時点（静的シングルトン初期化）で自身の設定ファイル
+(FitomEmuIFの場合`fmhwif_profile.json`)を読み込み、その時点で使用可能な
+`(engine, chip, index)`の組み合わせが確定する。この設定ファイルの
+内容は`devices[]`側の記述と整合していなければならないが、
+**FITOM_X本体はこのファイルの内容を一切解釈・検証しない**
+(エミュレータか実機かを区別しない設計原則を保つため)。整合しない
+組み合わせを指定した場合、`HWPlugin_Open()`が`HW_ERR_NOT_FOUND`を
+返し、通常のHWデバイス生成失敗と同様にエラーログが出る。
+
+`profile`を指定した場合、FITOM_XはDLLロードの**直前**に
+`profile_env`で指定した環境変数へ`profile`のパスをセットする。
+これにより、FITOM_Xのプロファイルを切り替えると、対応する
+FitomEmuIF側の設定ファイルも連動して切り替わり、再現性が保たれる。
+(FitomEmuIFの場合、環境変数を指定しなければDLLと同じディレクトリ、
+またはカレントディレクトリの`fmhwif_profile.json`が使われる。)
 
 `devices[]` 側は `plugin` フィールドで名前を指定し、それ以外のフィールドは
 そのままプラグインの `HWPlugin_Open()` に渡す `params_json` として転送される。
 どんなフィールドが必要かはプラグインごとに異なる (下記例参照)。
 
-**FitomEmuIF (FmEngineベースのエミュレーター統合プラグイン) の例:**
+### `devices[]` の自動生成 (`hw_plugins[].auto_devices`) — 推奨・標準の使い方
 
+**チップ接続情報の管理は実機・エミュレータ問わずHWプラグイン側に
+完全に委譲する。** 実機であっても「どのスロットにどのチップが挿さって
+いるか」はハードウェア的に自動検出できないため、実機用プラグイン
+(FitomHwIF)もエミュレーター統合プラグイン(FitomEmuIF)と同様に、
+自分自身の設定ファイルでチップ構成を管理し、`HWPlugin_Enumerate()`
+はその設定内容をそのまま返す(ライブなハードウェア検出ではなく、
+設定の反映)。**この動作はFitomHwIF・FitomEmuIF両方の実装で確認済み。**
+
+`hw_plugins[]`側に`"auto_devices": true`を指定すると、
+`HWPlugin_Enumerate()` が返すJSON配列の各要素をそのまま`devices[]`
+エントリとして使う。これにより、FITOM_X側のプロファイルで
+チップ構成情報を重複して記述する必要がなくなり、一次情報は各プラグイン
+自身の設定ファイルに一元化される。
+
+```json
+"hw_plugins": [
+  {
+    "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+    "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+    "auto_devices": true
+  },
+  {
+    "name": "FitomHwIF", "dll": "fitom_hw.dll",
+    "profile": "fitom_hw_profile.json", "profile_env": "FITOM_HW_PROFILE",
+    "auto_devices": true
+  }
+]
+```
+`devices[]` セクション自体は省略できる（通常はこれが標準形）。
+
+**動作の仕組み**: `HWPlugin_Enumerate()`が返すエントリ(例:
+`{"type":"RE1","serial":"ABCD1234","index":0,"slot":0,"chip":"OPN","clock":3993600,"pan":0}`)
+には、FITOM_Xが`resolveChipDeviceId()`で使う`chip`情報と、
+`HWPlugin_Open()`がスロット特定に使う`type`/`serial`(または`port`)/
+`index`/`slot`の両方が含まれる。このエントリ全体をそのまま
+`params_json`として`HWPlugin_Open()`に渡すため、`chip`/`clock`のような
+プラグイン側は無視する余分な情報が含まれていても問題ない
+(各プラグインの`HWPlugin_Open`実装は必要なフィールドのみ読み、
+残りは単に無視する)。
+
+**前提**:
+- 実際に動作するかは、使用するHWプラグインが`HWPlugin_Enumerate()`を
+  正しく実装しているかどうかに依存する。未実装 (`nullptr`返却)の
+  古いプラグインの場合、この機能は使えず、従来通り明示的な
+  `devices[]`記述が必要 (下記参照)。
+- `devices[]`側に同じ`plugin`を指定した追加エントリを手動で書くことも
+  でき、自動生成分と併用できる。
+
+**明示的な`devices[]`記述が必要な場合の例 (auto_devices未対応の古い
+プラグイン、またはプロファイルに無いスロットを開く場合):**
+
+FitomEmuIF向け:
 ```json
 {
   "if": "HW", "label": "OPN", "plugin": "FitomEmuIF",
   "type": "FMHWIF", "engine": "YMEngine", "chip": "OPN",
   "index": 0, "pan": 0
+}
+```
+
+FitomHwIF向け (`chip`/`clock`はプロファイル`fitom_hw_profile.json`側で
+既に確定しているため`HWPlugin_Open`には不要。`type`+`slot`が必須):
+```json
+{
+  "if": "HW", "label": "OPNA (RE1)", "plugin": "FitomHwIF",
+  "type": "RE1", "serial": "ABCD1234", "slot": 0, "pan": 0
 }
 ```
 
@@ -118,19 +205,23 @@ C APIを実装するため、FITOM本体は両者を一切区別しない。**
 (別ファイル、FITOM_X本体のプロファイルとは独立) で管理する。
 詳細は [FitomEmuIF](https://github.com/madscient/FitomEmuIF) を参照。
 
-**実機ハードウェア (RE1/SPFM等) の例:**
+**実機ハードウェア (RE1/SPFM等、FitomHwIF) の例:**
 
 ```json
 {
-  "if": "HW", "label": "OPM", "plugin": "SpfmDriver",
-  "type": "SPFM_TOWER", "slot": 0, "hw_clock": 4000000, "pan": 0
+  "if": "HW", "label": "OPM", "plugin": "FitomHwIF",
+  "type": "SPFM_TOWER", "port": "COM4", "slot": 0, "pan": 0
 }
 ```
+(`chip`/`clock`は`fitom_hw_profile.json`側で確定済みのため`HWPlugin_Open`には
+不要。`type`+`port`(またはserial/index)+`slot`が必須)
 
 ### デバイス構成 (`devices`)
 
 音源デバイスの一覧。実機ハードウェアとエミュレーターを、同じ`if: "HW"`で混在できる
-(FITOM本体は両者を区別しない)。
+(FITOM本体は両者を区別しない)。**通常は`auto_devices`(前述)を使うため、
+`devices[]`を明示的に記述する機会は限定的**(auto_devices未対応の古い
+プラグインを使う場合、または特定スロットのみ追加で開きたい場合等)。
 
 ```json
 "devices": [
@@ -140,14 +231,13 @@ C APIを実装するため、FITOM本体は両者を一切区別しない。**
     "index": 0, "pan": 0
   },
   {
-    "if":      "HW",
-    "label":   "OPNA (SPFM)",
-    "plugin":  "SpfmDriver",
-    "type":    "SPFM_TOWER",
-    "port":    "COM3",
-    "slot":    0,
-    "hw_clock": 3993600,
-    "pan":     0
+    "if":     "HW",
+    "label":  "OPNA (SPFM)",
+    "plugin": "FitomHwIF",
+    "type":   "SPFM_TOWER",
+    "port":   "COM3",
+    "slot":   0,
+    "pan":    0
   }
 ]
 ```
@@ -157,6 +247,12 @@ C APIを実装するため、FITOM本体は両者を一切区別しない。**
 | フィールド | 必須 | 説明 |
 |---|---|---|
 | `plugin` | ○ | `hw_plugins[].name` への参照。実機・エミュレータ問わず同じフィールド |
+
+**`if` と `type` の役割の違いに注意**: `if`はFITOM_X内部の分岐キーであり
+(現在は`"HW"`のみ)、`params_json`には転送されない。一方`type`は
+**FITOM_X側では一切解釈されず**、`params_json`にそのまま転送される、
+完全にプラグイン依存の値である(例: FitomEmuIFは`"FMHWIF"`を要求する)。
+`type`の妥当な値・必要性はプラグインのドキュメントに従うこと。
 
 `plugin`以外のフィールド（`if`/`label`/`plugin`/`extra_slot`/
 `rhythm_mode`/`stereo_pair`を除く）は、**そのままJSON文字列化して
@@ -175,16 +271,22 @@ FITOM本体はこれらのフィールドの意味を解釈しない（実機か
 | `index` | チップインスタンス番号 |
 | `pan` | 0=Stereo / 1=L / 2=R / 3=Mono |
 
-**実機ハードウェア用プラグインが要求するフィールド例 (プラグイン依存):**
+**FitomHwIF (実機ハードウェア用プラグイン) が要求するフィールド例:**
 
-| フィールド | 説明 |
-|---|---|
-| `type` | `RE1` / `RE4` / `SPFM_TOWER` / `SPFM_LIGHT` 等 |
-| `serial` | FT245R/FT2232H のシリアル番号 |
-| `port` | COMポートまたは `/dev/ttyUSB*` |
-| `slot` | SPFM スロット番号 |
-| `hw_clock` | マスタークロック [Hz] |
-| `pan` | 0=Stereo / 1=L / 2=R / 3=Mono |
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `type` | ○ | `RE1` / `RE4` / `SPFM_TOWER` / `SPFM_LIGHT` |
+| `serial` | RE1/RE4: `index`未指定時に必須 | FT245R/FT2232H のシリアル番号 |
+| `port` | SPFM系: 必須 | COMポートまたは `/dev/ttyUSB*` |
+| `index` | `serial`/`port`未指定時 | 同種インターフェースの通し番号 |
+| `slot` | ○ | チップのスロット番号 |
+| `pan` | - | 上書き用。省略時はプロファイル(`fitom_hw_profile.json`)の値を使う |
+
+**注意**: `chip`/`clock`は`HWPlugin_Open()`には不要 (FitomHwIF自身の
+`fitom_hw_profile.json`側で確定済みのため)。`auto_devices`使用時は
+`HWPlugin_Enumerate()`の返り値に`chip`/`clock`も含まれるが、これは
+FITOM_X側が`resolveChipDeviceId()`に使うための情報であり、そのまま
+`params_json`として転送されても実機プラグイン側では単に無視される。
 
 `if` に関わらず共通のオプションフィールド:
 
@@ -283,46 +385,40 @@ MIDI入出力を実際に処理するバックエンドDLLを指定する。`hw_
 {
   "profile_name": "エミュレーターのみ (OPM + OPL3 + SSG)",
   "hw_plugins": [
-    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
-  ],
-  "devices": [
-    { "if": "HW", "label": "OPM",  "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPM",  "index": 0, "pan": 0 },
-    { "if": "HW", "label": "OPL3", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPL3", "index": 0, "pan": 0 },
-    { "if": "HW", "label": "SSG",  "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "AYEngine", "chip": "SSG",  "index": 0, "pan": 0 }
+    {
+      "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+      "auto_devices": true
+    }
   ],
   "midi_inputs": ["MIDI キーボード"]
 }
 ```
+(OPM/OPL3/SSGのチップ構成は`fmhwif_profile.json`側で定義する)
 
 ### profiles/studio.profile.json
 
 ```json
 {
-  "profile_name": "自宅スタジオ (SPFM Tower + OPN2エミュ)",
+  "profile_name": "自宅スタジオ (SPFM/RE1/RE4 実機 + OPN2エミュ)",
   "hw_plugins": [
-    { "name": "FitomEmuIF",  "dll": "FitomEmuIF.dll" },
-    { "name": "SpfmDriver",  "dll": "fitom_hw_spfm.dll" }
-  ],
-  "devices": [
     {
-      "if": "HW", "label": "OPNA #1", "plugin": "SpfmDriver",
-      "type": "SPFM_TOWER", "port": "COM3", "slot": 0,
-      "hw_clock": 3993600, "pan": 0
+      "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+      "auto_devices": true
     },
     {
-      "if": "HW", "label": "OPM", "plugin": "SpfmDriver",
-      "type": "SPFM_TOWER", "port": "COM3", "slot": 1,
-      "hw_clock": 3579545, "pan": 0
-    },
-    {
-      "if": "HW", "label": "OPN2 (エミュ)", "plugin": "FitomEmuIF",
-      "type": "FMHWIF", "engine": "YMEngine", "chip": "OPN2",
-      "index": 0, "pan": 0
+      "name": "FitomHwIF", "dll": "fitom_hw.dll",
+      "profile": "fitom_hw_profile.json", "profile_env": "FITOM_HW_PROFILE",
+      "auto_devices": true
     }
   ],
   "midi_inputs": ["UM-ONE"]
 }
 ```
+(実機のスロット構成・OPN2エミュのチップ構成は、それぞれ`fitom_hw_profile.json`・
+`fmhwif_profile.json`側で定義する。FITOM_X側のプロファイルは「どのプラグインを
+使うか」のみを記述し、実際のチップ接続情報は一切持たない)
 
 ---
 

@@ -106,13 +106,12 @@ MIDI メッセージは MIDI 1.0 バイト列で統一 (WMS の UMP 変換は DL
     "dll": "fitom_midi_wms.dll"
   },
   "hw_plugins": [
-    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" },
-    { "name": "SpfmDriver", "dll": "fitom_hw_spfm.dll" }
-  ],
-  "devices": [
-    { "if": "HW", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "YMEngine", "chip": "OPNA", "index": 0, "pan": 0 },
-    { "if": "HW", "plugin": "FitomEmuIF", "type": "FMHWIF", "engine": "AYEngine", "chip": "PSG",  "index": 0, "pan": 0 },
-    { "if": "HW", "plugin": "SpfmDriver", "type": "SPFM_TOWER", "port": "COM3",  "slot": 0, "hw_clock": 3993600 }
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+      "auto_devices": true },
+    { "name": "FitomHwIF", "dll": "fitom_hw.dll",
+      "profile": "fitom_hw_profile.json", "profile_env": "FITOM_HW_PROFILE",
+      "auto_devices": true }
   ],
   "midi_inputs": [
     "MIDI キーボード"
