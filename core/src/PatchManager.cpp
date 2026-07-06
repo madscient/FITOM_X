@@ -787,6 +787,110 @@ bool PatchManager::loadDrumBankJson(const std::filesystem::path& path, int bankN
     }
 }
 
+// ================================================================
+//  DrumKit JSON I/O (新方式: prog単位の独立ファイル)
+//
+//  "type"フィールドで2種類のキット定義を判別する:
+//    "routed" (省略時のデフォルト、後方互換): ノートごとに任意の
+//      Patch(bank/prog)へ個別にルーティングする、旧来のnotes[]配列形式。
+//      FM合成系チップのように、ドラム音1つ1つが別々のPatchとして
+//      定義されている場合に使う。
+//    "direct": チップ自身が内蔵のキーゾーン切り替えを持つ場合
+//      (OPL4 AWM等) の圧縮表現。単一のPatch(bank/prog)への
+//      パススルーを [note_min, note_max] の範囲に自動展開する
+//      (playNote = 受信ノート番号そのまま)。ノート数分の重複記述を
+//      書かずに済む。ロード時にDrumNote配列へ展開するため、
+//      CRhythmCh側のランタイムコードは一切変更不要。
+// ================================================================
+
+bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
+{
+    if (prog < 0 || prog >= BANK_PROG_SIZE) {
+        FITOM_LOG_ERR("loadDrumKitJson: invalid prog=" << prog);
+        return false;
+    }
+    reportProgress("Loading DrumKit: " + path.string());
+    std::ifstream f(path);
+    if (!f) { FITOM_LOG_ERR("Cannot open: " << path.string()); return false; }
+
+    try {
+        json j = json::parse(f, nullptr, true, true);
+        std::string type = j.value("type", "routed");
+
+        DrumPatch dp;
+        dp.id = (uint32_t(0) << 16) | prog; // ドラムバンクは常に固定バンク番号0
+        if (j.contains("name")) {
+            std::string n = j["name"].get<std::string>();
+            std::strncpy(dp.name, n.c_str(), sizeof(dp.name) - 1);
+        }
+
+        if (type == "direct") {
+            // 単一Patchへのパススルーを [note_min, note_max] に自動展開
+            uint8_t patchBank = j.value("patch_bank", static_cast<uint8_t>(0));
+            uint8_t patchProg = j.value("patch_prog", static_cast<uint8_t>(0));
+            int noteMin = j.value("note_min", 0);
+            int noteMax = j.value("note_max", 127);
+            int8_t  fixedCh  = static_cast<int8_t>(j.value("fixed_ch", -1));
+            int8_t  pan      = static_cast<int8_t>(j.value("pan", 0));
+            uint16_t gateTime = j.value("gate_time", static_cast<uint16_t>(0));
+            int16_t fineTune  = j.value("fine_tune", static_cast<int16_t>(0));
+
+            if (noteMin < 0 || noteMax > 127 || noteMin > noteMax) {
+                FITOM_LOG_ERR("DrumKit(direct) invalid note range ["
+                    << noteMin << "," << noteMax << "]: " << path.string());
+                return false;
+            }
+            for (int n = noteMin; n <= noteMax; ++n) {
+                DrumNote& dn = dp.notes[n];
+                dn.enabled   = true;
+                dn.patchBank = patchBank;
+                dn.patchProg = patchProg;
+                dn.playNote  = static_cast<uint8_t>(n); // 受信ノートをそのまま渡す
+                dn.fineTune  = fineTune;
+                dn.fixedCh   = fixedCh;
+                dn.pan       = pan;
+                dn.gateTime  = gateTime;
+            }
+        } else if (type == "routed") {
+            // 旧来のnotes[]配列形式 (ノートごとに個別のPatchへルーティング)
+            if (j.contains("notes") && j["notes"].is_array()) {
+                for (const auto& nj : j["notes"]) {
+                    int noteNo = nj.value("note", -1);
+                    if (noteNo < 0 || noteNo >= 128) continue;
+
+                    DrumNote& dn = dp.notes[noteNo];
+                    dn.enabled    = true;
+                    dn.patchBank  = nj.value("patch_bank", static_cast<uint8_t>(0));
+                    dn.patchProg  = nj.value("patch_prog", static_cast<uint8_t>(0));
+                    dn.playNote   = nj.value("play_note",  static_cast<uint8_t>(60));
+                    dn.fineTune   = nj.value("fine_tune",  static_cast<int16_t>(0));
+                    dn.fixedCh    = static_cast<int8_t>(nj.value("fixed_ch", -1));
+                    dn.pan        = static_cast<int8_t>(nj.value("pan", 0));
+                    dn.gateTime   = nj.value("gate_time",  static_cast<uint16_t>(0));
+                    if (nj.contains("name")) {
+                        std::string nn = nj["name"].get<std::string>();
+                        std::strncpy(dn.name, nn.c_str(), sizeof(dn.name) - 1);
+                    }
+                }
+            }
+        } else {
+            FITOM_LOG_ERR("DrumKit: unknown type '" << type << "': " << path.string());
+            return false;
+        }
+
+        auto& bank = drumReg_.getOrCreate(0); // ドラムバンクは常に固定バンク番号0
+        bank.filename = path.string();
+        bank.set(prog, dp);
+
+        FITOM_LOG_INFO("DrumKit loaded: prog=" << prog << " '" << dp.name
+            << "' type=" << type << " (" << path.filename().string() << ")");
+        return true;
+    } catch (const std::exception& e) {
+        FITOM_LOG_ERR("DrumKit parse error: " << e.what() << " (" << path.string() << ")");
+        return false;
+    }
+}
+
 bool PatchManager::saveDrumBankJson(const std::filesystem::path& path, int bankNo) const
 {
     const DrumPatchBank* bank = nullptr;

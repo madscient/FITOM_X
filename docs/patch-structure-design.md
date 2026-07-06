@@ -79,14 +79,18 @@ SAA1099は per-channel ステレオパン対応、SSG/AY8930/DCSGは非対応）
 
 ---
 
-## 2つの解決モード
+## 3つの解決モード（メロディチャンネル: 通常/直接、リズムチャンネル: ドラムマップ）
 
-### 通常モード（バンクセレクトLSB=0）: PatchBank/Patch/ToneLayer による多層解決
+CC#0(Bank Select MSB)の値が、通常モード/直接モード/GM2リズム切替という
+3種類の意味を排他的に切り替えるモード選択子になっている。詳細は
+`docs/midi-implementation-status.md`の「Bank Select 方式」を参照。
+
+### 通常モード（CC#0=0）: PatchBank/Patch/ToneLayer による多層解決
 
 ```
 Program Change 受信
-  → PatchManager::resolve(bankSelM_, prog, config)
-      → PatchBank[bankSelM_].patches[prog] を取得
+  → PatchManager::resolve(bankSelL_, prog, config)
+      → PatchBank[bankSelL_].patches[prog] を取得  (CC#32=PatchBank番号)
       → 各 ToneLayer について:
           Config::findDeviceIndexByVoicePatchType(layer.voicePatchType)
             → 一致するデバイスを devices[] から線形探索（完全一致のみ）
@@ -94,17 +98,21 @@ Program Change 受信
           見つかれば HwBank から layer.hwBank/hwProg で HwPatch を解決
             → バンクの voicePatchType タグと layer.voicePatchType が
               不一致なら同様にスキップ
+          layer.voicePatchType == VOICE_PATCH_AWM の場合のみ、HwBankでは
+          なくSampleZoneBankRegistryを検索し、ResolvedLayer::samplePatch
+          に結果を格納する（HwPatchとは別のスキーマ、詳細は後述）
 ```
 
 **Program Change は発音中のノートに一切作用しない。**
 新しいパッチは次の NoteOn から適用される（全モード共通の仕様）。
 
-### 直接モード（バンクセレクトLSB>0）: HwBank直接指定
+### 直接モード（CC#0=0x01-0x6F）: HwBank直接指定
 
 ```
-bankSelL_ (CC#32) > 0 のとき:
-  voicePatchType = bankSelL_        （CC#32の値そのものがVOICE_PATCH_*定数）
-  hwBank         = bankSelM_        （CC#0の値）
+bankSelM_ (CC#0) が 0x01-0x6F のとき:
+  voicePatchType = bankSelM_        （CC#0の値そのものがVOICE_PATCH_*定数）
+  hwBank         = bankSelL_        （CC#32の値、そのVoicePatchType用に
+                                       プロファイル登録されたHwBankのインデックス）
   hwProg         = prog             （Program Changeの値）
 
 PatchManager::resolveDirect(voicePatchType, hwBank, hwProg, config, storage)
@@ -113,8 +121,66 @@ PatchManager::resolveDirect(voicePatchType, hwBank, hwProg, config, storage)
   → Patch::fromSingleLayer() を使用（ノート範囲フル、transpose/offsetなし）
 ```
 
-`bankSelL_==0`は予約値で、直接モードのトリガーには使えない
-（`VOICE_PATCH_NONE=0`、`DEVICE_NONE=0`と対応）。
+`VOICE_PATCH_*`の値は全て`0x01`-`0x6F`の範囲に収まるよう採番されている
+(`0x70`-`0x7F`はGM2リズム/メロディ切替(`0x78`/`0x79`)専用および将来予約)。
+`bankSelM_==0`は通常モードのトリガーであり、直接モードには使えない。
+
+### リズムチャンネル: ドラムマップによる解決
+
+`CRhythmCh`はCC#0(`0x79`によるメロディ復帰を除く)/CC#32を一切使わない。
+ドラムバンクは常に固定バンク番号(`0`)を使い、Program Change の値だけが
+「どのドラムキットを使うか」を選択する。
+
+```
+Program Change 受信 (CRhythmCh::progChange)
+  → PatchManager::resolveDrum(0, prog)             // バンク番号は常に0固定
+      → DrumBankRegistry[0].patches[prog] (= DrumPatch) を取得
+      → NoteOn受信時、DrumPatch::getNote(note) で DrumNote を取得
+          → DrumNote.patchBank/patchProgが指す通常のPatchを
+            PatchManager::resolve(patchBank, patchProg, config) で解決
+            (＝通常モードと全く同じPatch解決経路をそのまま通る)
+          → DrumNote.playNoteを絶対ノート番号として発音
+```
+
+**プロファイル側の`drum_banks[]`は「プログラムチェンジ1つごとに独立した
+ファイル」を割り当てる方式。**1ファイルに全prog分を詰め込む方式は、
+ファイルが肥大化するため採用していない。
+
+```json
+"drum_banks": [
+  { "prog": 0, "name": "OPL4 AWM GM std kit", "file": "opl4awm.drumkit.json" },
+  { "prog": 1, "name": "OPNA/B GM std kit",    "file": "opnAdpcm.drumkit.json" }
+]
+```
+
+各`*.drumkit.json`ファイルは`"type"`フィールドで2種類の記述形式を持てる
+(詳細は`config_schema/drumkit.schema.json`参照):
+
+- **`"routed"`**: ノートごとに任意のPatch(bank/prog)へ個別にルーティングする、
+  従来型の`notes[]`配列形式。FM合成系チップのように、ドラム音1つ1つが
+  別々のPatchとして定義されている場合に使う。
+- **`"direct"`**: 単一のPatch(bank/prog)への圧縮パススルー形式。
+  OPL4 AWMのように、チップ自身が内蔵のキーゾーン切り替えを持つ場合
+  (`SampleZonePatch`が自身の`zones[]`でノートごとの波形選択を完結させる)
+  に使う。`[note_min, note_max]`の範囲に自動展開され、`play_note`は
+  受信ノート番号そのまま渡される。ノート数ぶんの重複記述を書かずに済む。
+  ロード時(`PatchManager::loadDrumKitJson`)に`DrumNote`配列へ展開する
+  ため、`CRhythmCh`側のランタイムコードは`"routed"`と全く同じ経路で動く。
+
+例 (`"direct"`型、OPL4 AWMの内蔵GM標準ドラムキットをそのまま使う場合):
+```json
+{
+  "type": "direct",
+  "name": "OPL4 AWM GM std kit",
+  "patch_bank": 10,
+  "patch_prog": 0,
+  "note_min": 27,
+  "note_max": 87
+}
+```
+(`patch_bank=10`は、`voice_patch_type: VOICE_PATCH_AWM`のToneLayerを持つ
+通常のPatchBankを指す。そのPatchのHwBank/HwProgが、OPL4 AWM用の
+`SampleZoneBankRegistry`に登録されたYRW801内蔵ドラムテーブルを参照する)
 
 ---
 

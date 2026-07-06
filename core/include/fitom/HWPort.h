@@ -36,11 +36,17 @@ public:
     using PFN_IsOpen            = bool     (FITOM_HWP_CALL*)(HWHandle);
     using PFN_GetLatencySamples = uint32_t (FITOM_HWP_CALL*)(HWHandle);
     using PFN_SetDelaySamples   = void     (FITOM_HWP_CALL*)(HWHandle, uint32_t);
+    using PFN_SetProfile        = HWResult (FITOM_HWP_CALL*)(const char*);
 
     static std::shared_ptr<HWPluginInstance> load(const std::filesystem::path& dllPath);
 
     std::string              name()       const;
     std::string              enumerate()  const;   // JSON 文字列
+    // アプリケーションが明示的にプロファイルパスを設定する (Optional機能)。
+    // プラグインがHWPlugin_SetProfileをエクスポートしていない場合は
+    // 何もせず false を返す (呼び出し側は環境変数方式へのフォールバックを
+    // 検討すること。HWPluginRegistry::registerPluginは両方を併用する)。
+    bool                      setProfile(const std::string& path) const;
 
     PFN_FreeString  FreeString = nullptr;
     PFN_Open        Open       = nullptr;
@@ -53,6 +59,7 @@ public:
     PFN_IsOpen            IsOpen            = nullptr;
     PFN_GetLatencySamples GetLatencySamples = nullptr;   // optional: 0 if absent
     PFN_SetDelaySamples   SetDelaySamples   = nullptr;   // optional: no-op if absent
+    PFN_SetProfile        SetProfile_       = nullptr;   // optional: no-op (false) if absent
 
 private:
     HWPluginInstance() = default;

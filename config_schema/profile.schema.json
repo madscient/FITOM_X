@@ -267,23 +267,28 @@
         },
         "drum_banks": {
           "type": "array",
-          "description": "ドラムバンクファイル一覧 (CRhythmCh 用)。MIDI CC#0 でバンクを切り替える。",
+          "description": "ドラムキット(プログラムチェンジ1つぶん)のファイル一覧 (CRhythmCh用)。1ファイル=1prog分の割り当てで、ファイル肥大化を避ける設計。ドラムバンクは常に固定バンク番号0を使う (MIDI CC#0/CC#32によるバンク切替はサポートしない。Prog Chg.のみでキットを選択する)。",
           "items": {
             "type": "object",
             "required": [
-              "bank",
+              "prog",
               "file"
             ],
+            "additionalProperties": false,
             "properties": {
-              "bank": {
+              "prog": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 127,
-                "description": "ドラムバンク番号 (MIDI CC#0)"
+                "description": "このキットを割り当てるプログラムチェンジ番号"
+              },
+              "name": {
+                "type": "string",
+                "description": "任意のラベル (人間可読用、実際のキット名はファイル内の\"name\"を使う)"
               },
               "file": {
                 "type": "string",
-                "description": "*.drumbank.json のファイルパス"
+                "description": "*.drumkit.json のファイルパス"
               }
             }
           }

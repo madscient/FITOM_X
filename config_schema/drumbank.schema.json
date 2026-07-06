@@ -2,60 +2,99 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fitom-drumbank",
   "title": "FITOM ドラムバンク (*.drumbank.json)",
-  "description": "ドラムチャンネルのプログラムチェンジ単位。ノート番号 0〜127 ごとに Patch 参照と発音定義を持つ。",
+  "description": "[非推奨・後方互換のみ] ドラムチャンネルの旧来のバンク形式。1ファイルに全prog分のドラムキットを詰め込むため肥大化しやすい。新規プロファイルでは config_schema/drumkit.schema.json (*.drumkit.json、プログラムチェンジ1つごとに独立したファイル) を使うこと。ドラムチャンネルのプログラムチェンジ単位。ノート番号 0〜127 ごとに Patch 参照と発音定義を持つ。",
   "type": "object",
-  "required": ["name", "patches"],
+  "required": [
+    "name",
+    "patches"
+  ],
   "properties": {
-    "name": { "type": "string" },
+    "name": {
+      "type": "string"
+    },
     "patches": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["prog", "name"],
+        "required": [
+          "prog",
+          "name"
+        ],
         "properties": {
-          "prog": { "type": "integer", "minimum": 0, "maximum": 127 },
-          "name": { "type": "string", "description": "ドラムキット名" },
+          "prog": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "name": {
+            "type": "string",
+            "description": "ドラムキット名"
+          },
           "notes": {
             "type": "array",
             "description": "ノート定義。記述のないノートは無音。",
             "items": {
               "type": "object",
-              "required": ["note", "patch_bank", "patch_prog", "play_note"],
+              "required": [
+                "note",
+                "patch_bank",
+                "patch_prog",
+                "play_note"
+              ],
               "properties": {
                 "note": {
-                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
                   "description": "受信する MIDI ノート番号"
                 },
-                "name": { "type": "string", "description": "楽器名" },
+                "name": {
+                  "type": "string",
+                  "description": "楽器名"
+                },
                 "patch_bank": {
-                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
                   "description": "PatchBank 番号。CInstCh と同じ体系 (MIDI CC#0)。"
                 },
                 "patch_prog": {
-                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
                   "description": "Patch プログラム番号。ToneLayer のマルチレイヤーが有効。SwPatch も Patch 経由で適用される。"
                 },
                 "play_note": {
-                  "type": "integer", "minimum": 0, "maximum": 127,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
                   "description": "実際に発音する MIDI ノート番号。Patch の transpose は無視してここで絶対指定する。"
                 },
                 "fine_tune": {
-                  "type": "integer", "minimum": -8192, "maximum": 8191,
+                  "type": "integer",
+                  "minimum": -8192,
+                  "maximum": 8191,
                   "default": 0,
                   "description": "ファインチューニング [cents]。"
                 },
                 "fixed_ch": {
-                  "type": "integer", "minimum": -1, "maximum": 15,
+                  "type": "integer",
+                  "minimum": -1,
+                  "maximum": 15,
                   "default": -1,
                   "description": "固定チャンネル番号。-1 = 自動割り当て。ToneLayer[0] のデバイスに適用。"
                 },
                 "pan": {
-                  "type": "integer", "minimum": -64, "maximum": 63,
+                  "type": "integer",
+                  "minimum": -64,
+                  "maximum": 63,
                   "default": 0,
                   "description": "パンオフセット。Patch の ToneLayer の pan_offset に加算される。"
                 },
                 "gate_time": {
-                  "type": "integer", "minimum": 0, "maximum": 65535,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
                   "default": 0,
                   "description": "ゲートタイム [タイマーティック]。0 = NoteOff で停止。fixed_ch と組み合わせてハイハット制御に使う。"
                 }
@@ -66,40 +105,64 @@
       }
     }
   },
-  "examples": [{
-    "name": "GM Standard Drums",
-    "patches": [{
-      "prog": 0,
-      "name": "Standard Kit",
-      "notes": [
+  "examples": [
+    {
+      "name": "GM Standard Drums",
+      "patches": [
         {
-          "note": 35, "name": "Acoustic Bass Drum",
-          "patch_bank": 0, "patch_prog": 0,
-          "play_note": 24, "fine_tune": 0, "fixed_ch": -1,
-          "pan": 0, "gate_time": 0,
-          "comment": "Patch 0:0 は OPN 用キックパッチ (ToneLayer[0]=OPN ch0)"
-        },
-        {
-          "note": 42, "name": "Closed Hi-Hat",
-          "patch_bank": 0, "patch_prog": 10,
-          "play_note": 72, "fine_tune": 0, "fixed_ch": 2,
-          "pan": -20, "gate_time": 8,
-          "comment": "fixed_ch=2 固定。Open Hi-Hat(46) も fixed_ch=2 なので上書きされる"
-        },
-        {
-          "note": 46, "name": "Open Hi-Hat",
-          "patch_bank": 0, "patch_prog": 11,
-          "play_note": 72, "fine_tune": 0, "fixed_ch": 2,
-          "pan": -20, "gate_time": 0
-        },
-        {
-          "note": 36, "name": "Bass Drum (OPN+SSG stack)",
-          "patch_bank": 1, "patch_prog": 0,
-          "play_note": 24, "fine_tune": 0, "fixed_ch": -1,
-          "pan": 0, "gate_time": 0,
-          "comment": "Patch 1:0 がマルチレイヤー(OPN layer0 + SSG layer1)ならキックが2チップ同時発音"
+          "prog": 0,
+          "name": "Standard Kit",
+          "notes": [
+            {
+              "note": 35,
+              "name": "Acoustic Bass Drum",
+              "patch_bank": 0,
+              "patch_prog": 0,
+              "play_note": 24,
+              "fine_tune": 0,
+              "fixed_ch": -1,
+              "pan": 0,
+              "gate_time": 0,
+              "comment": "Patch 0:0 は OPN 用キックパッチ (ToneLayer[0]=OPN ch0)"
+            },
+            {
+              "note": 42,
+              "name": "Closed Hi-Hat",
+              "patch_bank": 0,
+              "patch_prog": 10,
+              "play_note": 72,
+              "fine_tune": 0,
+              "fixed_ch": 2,
+              "pan": -20,
+              "gate_time": 8,
+              "comment": "fixed_ch=2 固定。Open Hi-Hat(46) も fixed_ch=2 なので上書きされる"
+            },
+            {
+              "note": 46,
+              "name": "Open Hi-Hat",
+              "patch_bank": 0,
+              "patch_prog": 11,
+              "play_note": 72,
+              "fine_tune": 0,
+              "fixed_ch": 2,
+              "pan": -20,
+              "gate_time": 0
+            },
+            {
+              "note": 36,
+              "name": "Bass Drum (OPN+SSG stack)",
+              "patch_bank": 1,
+              "patch_prog": 0,
+              "play_note": 24,
+              "fine_tune": 0,
+              "fixed_ch": -1,
+              "pan": 0,
+              "gate_time": 0,
+              "comment": "Patch 1:0 がマルチレイヤー(OPN layer0 + SSG layer1)ならキックが2チップ同時発音"
+            }
+          ]
         }
       ]
-    }]
-  }]
+    }
+  ]
 }

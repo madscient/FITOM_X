@@ -1,0 +1,26 @@
+{
+  "name": "OPL4 AWM Drum Passthrough Bank",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "AWM Drum Kit (YRW801 fixed table)",
+      "sw_bank": 0,
+      "sw_prog": 0,
+      "poly": 0,
+      "layers": [
+        {
+          "comment": "hw_bank=1はhw_banks[]でgroup:AWMとして登録したopl4awm_yrw801_drum.samplezonebank.jsonを指す",
+          "hw_bank": 1,
+          "hw_prog": 0,
+          "note_range_lo": 0,
+          "note_range_hi": 127,
+          "transpose": 0,
+          "volume_offset": 0,
+          "pan_offset": 0,
+          "enabled": true,
+          "voice_patch_type": 84
+        }
+      ]
+    }
+  ]
+}
