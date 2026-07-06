@@ -2,21 +2,41 @@
   "profile_name": "自宅スタジオ (SPFM/RE1/RE4 実機 + OPN2エミュ)",
   "hw_plugins": [
     {
-      "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
-      "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+      "name": "FitomEmuIF",
+      "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json",
       "auto_devices": true
     },
     {
-      "name": "FitomHwIF", "dll": "fitom_hw.dll",
-      "profile": "fitom_hw_profile.json", "profile_env": "FITOM_HW_PROFILE",
+      "name": "FitomHwIF",
+      "dll": "fitom_hw.dll",
+      "profile": "fitom_hw_profile.json",
       "auto_devices": true
     }
   ],
-  "midi_inputs": ["UM-ONE"],
+  "midi_inputs": [
+    "UM-ONE"
+  ],
   "channel_map": [
-    { "midi_ch": 1,  "device_index": 0, "poly": 6 },
-    { "midi_ch": 2,  "device_index": 1, "poly": 8 },
-    { "midi_ch": 3,  "device_index": 2, "poly": 6 },
-    { "midi_ch": 10, "device_index": 0, "poly": 1 }
+    {
+      "midi_ch": 1,
+      "device_index": 0,
+      "poly": 6
+    },
+    {
+      "midi_ch": 2,
+      "device_index": 1,
+      "poly": 8
+    },
+    {
+      "midi_ch": 3,
+      "device_index": 2,
+      "poly": 6
+    },
+    {
+      "midi_ch": 10,
+      "device_index": 0,
+      "poly": 1
+    }
   ]
 }

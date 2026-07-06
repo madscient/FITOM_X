@@ -382,17 +382,10 @@
           },
           "profile": {
             "type": "string",
-            "description": "プラグイン自身の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。指定された場合、DLLロード前にprofile_envで指定した環境変数にこのパスをセットする。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。",
+            "description": "HWPlugin_Init()に渡すプラグイン固有の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。DLLロード直後、他の全関数より前に自動的にHWPlugin_Init(path)として呼ばれる。省略時はnullptrが渡され、プラグイン自身のデフォルト探索ルールに従う。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。HWPlugin_Init()が失敗を返した場合、このプラグインは登録されない。",
             "examples": [
               "fmhwif_profile.json",
               "profiles/fmhwif_studio.json"
-            ]
-          },
-          "profile_env": {
-            "type": "string",
-            "description": "profileで指定したパスを渡す環境変数名。プラグインのドキュメントに従うこと(FitomEmuIFの場合はFMHWIF_PROFILE)。profileを指定する場合は必須。",
-            "examples": [
-              "FMHWIF_PROFILE"
             ]
           },
           "auto_devices": {
@@ -456,14 +449,12 @@
           "name": "FitomEmuIF",
           "dll": "FitomEmuIF.dll",
           "profile": "fmhwif_profile.json",
-          "profile_env": "FMHWIF_PROFILE",
           "auto_devices": true
         },
         {
           "name": "FitomHwIF",
           "dll": "fitom_hw.dll",
           "profile": "fitom_hw_profile.json",
-          "profile_env": "FITOM_HW_PROFILE",
           "auto_devices": true
         }
       ],

@@ -184,14 +184,12 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                 FITOM_LOG_WARN("hw_plugins: 'name' or 'dll' missing, skipping");
                 continue;
             }
-            // profile/profile_env: FitomEmuIF等、DLLロード時点で自身の設定
-            // ファイルを読み込むプラグイン向け。指定された場合、ロード前に
-            // 環境変数 profile_env=profile をセットする。FITOM_X自身は
-            // このプロファイルの内容を一切解釈しない
+            // profile: HWPlugin_Init()に渡すプラグイン固有の設定ファイル
+            // パス。省略時はプラグイン自身のデフォルト探索ルールに従う。
+            // FITOM_X自身はこのプロファイルの内容を一切解釈しない
             // (エミュレータか実機かを区別しないという設計原則を保つ)。
-            std::string profile    = p.value("profile", "");
-            std::string profileEnv = p.value("profile_env", "");
-            hwPluginRegistry_.registerPlugin(name, dll, profileEnv, profile);
+            std::string profile = p.value("profile", "");
+            hwPluginRegistry_.registerPlugin(name, dll, profile);
 
             // auto_devices: HWPlugin_Enumerate() が返すJSON配列を、そのまま
             // devices[] エントリとして使う (params_jsonとして直接転送可能な

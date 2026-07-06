@@ -5,7 +5,6 @@
       "name": "FitomEmuIF",
       "dll": "FitomEmuIF.dll",
       "profile": "fmhwif_profile.json",
-      "profile_env": "FMHWIF_PROFILE",
       "auto_devices": true
     }
   ],

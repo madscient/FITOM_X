@@ -24,6 +24,7 @@ namespace fitom {
 class HWPluginInstance {
 public:
     using PFN_GetName    = const char*  (FITOM_HWP_CALL*)();
+    using PFN_Init       = HWResult     (FITOM_HWP_CALL*)(const char*);
     using PFN_Enumerate  = const char*  (FITOM_HWP_CALL*)();
     using PFN_FreeString = void         (FITOM_HWP_CALL*)(const char*);
     using PFN_Open       = HWResult     (FITOM_HWP_CALL*)(const char*, HWHandle*);
@@ -36,17 +37,19 @@ public:
     using PFN_IsOpen            = bool     (FITOM_HWP_CALL*)(HWHandle);
     using PFN_GetLatencySamples = uint32_t (FITOM_HWP_CALL*)(HWHandle);
     using PFN_SetDelaySamples   = void     (FITOM_HWP_CALL*)(HWHandle, uint32_t);
-    using PFN_SetProfile        = HWResult (FITOM_HWP_CALL*)(const char*);
 
     static std::shared_ptr<HWPluginInstance> load(const std::filesystem::path& dllPath);
 
     std::string              name()       const;
     std::string              enumerate()  const;   // JSON 文字列
-    // アプリケーションが明示的にプロファイルパスを設定する (Optional機能)。
-    // プラグインがHWPlugin_SetProfileをエクスポートしていない場合は
-    // 何もせず false を返す (呼び出し側は環境変数方式へのフォールバックを
-    // 検討すること。HWPluginRegistry::registerPluginは両方を併用する)。
-    bool                      setProfile(const std::string& path) const;
+    // HWPlugin_Init() を呼ぶ。DLLロード後、Enumerate/Open等の他の関数を
+    // 呼ぶ前に必ず呼ぶこと (プラグイン側は初期化前の呼び出しに対し失敗を
+    // 返す契約になっている)。profile_pathが空文字の場合、プラグイン自身の
+    // デフォルト探索ルールに従う。
+    // 戻り値: HWPlugin_Init()の戻り値をそのまま返す
+    //   (HW_OK=成功、HW_ERR_INVALID_ARG=プロファイル解析失敗、
+    //    HW_ERR_OPEN_FAILED=デバイス/ストリーム起動失敗)。
+    HWResult                  init(const std::string& profilePath) const;
 
     PFN_FreeString  FreeString = nullptr;
     PFN_Open        Open       = nullptr;
@@ -59,12 +62,12 @@ public:
     PFN_IsOpen            IsOpen            = nullptr;
     PFN_GetLatencySamples GetLatencySamples = nullptr;   // optional: 0 if absent
     PFN_SetDelaySamples   SetDelaySamples   = nullptr;   // optional: no-op if absent
-    PFN_SetProfile        SetProfile_       = nullptr;   // optional: no-op (false) if absent
 
 private:
     HWPluginInstance() = default;
     PluginLoader   loader_;
     PFN_GetName    GetName_   = nullptr;
+    PFN_Init       Init_      = nullptr;
     PFN_Enumerate  Enumerate_ = nullptr;
 };
 
@@ -79,13 +82,12 @@ private:
 // -------------------------------------------------------
 class HWPluginRegistry {
 public:
-    // profileEnvVar/profilePath: 指定された場合、DLLロード前に
-    // setenv(profileEnvVar, profilePath) を行う。FitomEmuIF等、DLLロード
-    // 時点(静的シングルトン初期化)で自身の設定ファイルを読み込むプラグイン
-    // 向け。FITOM_X自身はプロファイルの内容を一切解釈しない
-    // (エミュレータか実機かを区別しないという設計原則を保つ)。
+    // DLLをロードした直後にHWPlugin_Init(profilePath)を呼ぶ。
+    // FITOM_X自身はプロファイルの内容を一切解釈しない (エミュレータか
+    // 実機かを区別しないという設計原則を保つ)。profilePathが空の場合は
+    // nullptrを渡し、プラグイン自身のデフォルト探索ルールに従わせる。
+    // Init失敗時はこのプラグインを登録しない (get()で取得できない)。
     void registerPlugin(const std::string& name, const std::filesystem::path& dllPath,
-                         const std::string& profileEnvVar = "",
                          const std::filesystem::path& profilePath = {});
 
     std::shared_ptr<HWPluginInstance> get(const std::string& name);
