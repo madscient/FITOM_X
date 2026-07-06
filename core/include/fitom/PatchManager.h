@@ -106,6 +106,14 @@ public:
 
     bool loadDrumBankJson(const std::filesystem::path& path, int bankNo);
     bool saveDrumBankJson(const std::filesystem::path& path, int bankNo) const;
+
+    // 新方式: プログラムチェンジ1つぶんのドラムキットを、独立した小さな
+    // ファイル (*.drumkit.json) から直接ロードする。旧方式(1ファイルに
+    // 全prog分のpatches[]を詰め込む loadDrumBankJson)は、ファイルが
+    // 肥大化する問題があったため、ファイル分割を前提とした設計に変更。
+    // ドラムバンクは常に固定バンク番号(0)を使う (CRhythmChはMIDI経由での
+    // バンク切替をサポートしないため)。
+    bool loadDrumKitJson(const std::filesystem::path& path, int prog);
     bool loadDrumBankLegacy(const std::filesystem::path& path, int bankNo);
 
     // ─── PCM バンク ──────────────────────────────────────────────

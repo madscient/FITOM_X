@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-drumkit",
+  "title": "FITOM ドラムキット (*.drumkit.json)",
+  "description": "プログラムチェンジ1つぶんのドラムキット定義。profileのbanks.drum_banks[]から1ファイル=1prog単位で参照される。ファイル肥大化を避けるため、旧来の1ファイルに全prog分を詰め込む*.drumbank.json形式から分離した。",
+  "type": "object",
+  "required": ["name", "type"],
+  "oneOf": [
+    { "$ref": "#/definitions/routedKit" },
+    { "$ref": "#/definitions/directKit" }
+  ],
+  "definitions": {
+    "routedKit": {
+      "description": "ノートごとに任意のPatch(bank/prog)へ個別にルーティングする形式。FM合成系チップのように、ドラム音1つ1つが別々のPatchとして定義されている場合に使う。",
+      "type": "object",
+      "required": ["name", "type", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "routed" },
+        "name": { "type": "string", "description": "ドラムキット名" },
+        "notes": {
+          "type": "array",
+          "description": "ノート定義。記述のないノートは無音。",
+          "items": {
+            "type": "object",
+            "required": ["note", "patch_bank", "patch_prog", "play_note"],
+            "additionalProperties": false,
+            "properties": {
+              "note": {
+                "type": "integer", "minimum": 0, "maximum": 127,
+                "description": "受信する MIDI ノート番号"
+              },
+              "name": { "type": "string", "description": "楽器名" },
+              "patch_bank": {
+                "type": "integer", "minimum": 0, "maximum": 127,
+                "description": "PatchBank 番号 (通常モードのCC#32相当)"
+              },
+              "patch_prog": {
+                "type": "integer", "minimum": 0, "maximum": 127,
+                "description": "Patch プログラム番号。ToneLayer のマルチレイヤーが有効。SwPatch も Patch 経由で適用される。"
+              },
+              "play_note": {
+                "type": "integer", "minimum": 0, "maximum": 127,
+                "description": "実際に発音する MIDI ノート番号。Patch の transpose は無視してここで絶対指定する。"
+              },
+              "fine_tune": {
+                "type": "integer", "minimum": -8192, "maximum": 8191,
+                "default": 0, "description": "ファインチューニング [cents]。"
+              },
+              "fixed_ch": {
+                "type": "integer", "minimum": -1, "maximum": 15,
+                "default": -1, "description": "固定チャンネル番号。-1 = 自動割り当て。ToneLayer[0] のデバイスに適用。"
+              },
+              "pan": {
+                "type": "integer", "minimum": -64, "maximum": 63,
+                "default": 0, "description": "パンオフセット。Patch の ToneLayer の pan_offset に加算される。"
+              },
+              "gate_time": {
+                "type": "integer", "minimum": 0, "maximum": 65535,
+                "default": 0, "description": "ゲートタイム [タイマーティック]。0 = NoteOff で停止。fixed_ch と組み合わせてハイハット制御に使う。"
+              }
+            }
+          }
+        }
+      }
+    },
+    "directKit": {
+      "description": "単一のPatch(bank/prog)への圧縮パススルー形式。チップ自身が内蔵のキーゾーン切り替えを持つ場合 (OPL4 AWM等、SampleZonePatchが自身のzones[]でノートごとの波形選択を完結させる) に使う。[note_min, note_max]の範囲に自動展開され、play_noteは受信ノート番号そのまま渡される。ノート数ぶんの重複記述を書かずに済む。",
+      "type": "object",
+      "required": ["name", "type", "patch_bank", "patch_prog"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "direct" },
+        "name": { "type": "string", "description": "ドラムキット名" },
+        "patch_bank": {
+          "type": "integer", "minimum": 0, "maximum": 127,
+          "description": "パススルー先のPatchBank番号"
+        },
+        "patch_prog": {
+          "type": "integer", "minimum": 0, "maximum": 127,
+          "description": "パススルー先のPatchプログラム番号 (AWM等、内蔵ゾーン切り替えを持つチップのパッチ)"
+        },
+        "note_min": {
+          "type": "integer", "minimum": 0, "maximum": 127, "default": 0,
+          "description": "パススルーするノート範囲の下限"
+        },
+        "note_max": {
+          "type": "integer", "minimum": 0, "maximum": 127, "default": 127,
+          "description": "パススルーするノート範囲の上限"
+        },
+        "fine_tune": {
+          "type": "integer", "minimum": -8192, "maximum": 8191,
+          "default": 0, "description": "ファインチューニング [cents]。全ノート共通。"
+        },
+        "fixed_ch": {
+          "type": "integer", "minimum": -1, "maximum": 15,
+          "default": -1, "description": "固定チャンネル番号。-1 = 自動割り当て。"
+        },
+        "pan": {
+          "type": "integer", "minimum": -64, "maximum": 63,
+          "default": 0, "description": "パンオフセット。全ノート共通。"
+        },
+        "gate_time": {
+          "type": "integer", "minimum": 0, "maximum": 65535,
+          "default": 0, "description": "ゲートタイム [タイマーティック]。全ノート共通。"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "type": "routed",
+      "name": "OPNA/B GM std kit",
+      "notes": [
+        {
+          "note": 35, "name": "Acoustic Bass Drum",
+          "patch_bank": 0, "patch_prog": 0,
+          "play_note": 24, "fine_tune": 0, "fixed_ch": -1,
+          "pan": 0, "gate_time": 0
+        },
+        {
+          "note": 42, "name": "Closed Hi-Hat",
+          "patch_bank": 0, "patch_prog": 1,
+          "play_note": 60, "fine_tune": 0, "fixed_ch": 9,
+          "pan": 20, "gate_time": 10
+        }
+      ]
+    },
+    {
+      "type": "direct",
+      "name": "OPL4 AWM GM std kit",
+      "patch_bank": 1,
+      "patch_prog": 0,
+      "note_min": 27,
+      "note_max": 87,
+      "pan": 0
+    }
+  ]
+}

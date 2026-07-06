@@ -893,18 +893,23 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
     const auto& banks = j["banks"];
     if (!banks.contains("drum_banks")) return;
 
+    // drum_banks[]: プログラムチェンジ1つぶんずつ、独立したファイル
+    // (*.drumkit.json) を割り当てる方式。1ファイルに全prog分を
+    // 詰め込む旧方式は、ファイル肥大化のため廃止。
+    // "bank"フィールドは持たない (ドラムバンクは常に固定バンク番号0。
+    // CRhythmChはMIDI経由でのバンク切替をサポートしないため)。
     for (const auto& entry : banks["drum_banks"]) {
-        int bank = entry.value("bank", 0);
+        int prog = entry.value("prog", -1);
         std::string file = entry.value("file", "");
-        if (file.empty()) continue;
+        if (prog < 0 || prog >= 128 || file.empty()) {
+            FITOM_LOG_WARN("drum_banks: invalid 'prog' or missing 'file', skipping");
+            continue;
+        }
 
         std::filesystem::path path = file;
         if (path.is_relative()) path = baseDir / path;
 
-        if (!pm.loadDrumBankJson(path, bank)) {
-            // JSON 失敗時は INI フォールバック
-            pm.loadDrumBankLegacy(path, bank);
-        }
+        pm.loadDrumKitJson(path, prog);
     }
 
     // HW / SW / Patch バンクも同様に処理

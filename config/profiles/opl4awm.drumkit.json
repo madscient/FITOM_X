@@ -1,0 +1,9 @@
+{
+  "type": "direct",
+  "name": "OPL4 AWM GM std kit",
+  "patch_bank": 10,
+  "patch_prog": 0,
+  "note_min": 27,
+  "note_max": 87,
+  "pan": 0
+}

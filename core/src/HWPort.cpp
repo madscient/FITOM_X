@@ -31,6 +31,11 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
     self->GetClock   = l.symRequired<PFN_GetClock    >("HWPlugin_GetClock");
     self->GetPanpot  = l.symRequired<PFN_GetPanpot   >("HWPlugin_GetPanpot");
     self->IsOpen     = l.symRequired<PFN_IsOpen      >("HWPlugin_IsOpen");
+    // オプション関数 (未実装のプラグインでは symOptional が nullptr を返す。
+    // 呼び出し側は必ずnullptrチェックすること)。
+    self->GetLatencySamples = l.symOptional<PFN_GetLatencySamples>("HWPlugin_GetLatencySamples");
+    self->SetDelaySamples   = l.symOptional<PFN_SetDelaySamples  >("HWPlugin_SetDelaySamples");
+    self->SetProfile_       = l.symOptional<PFN_SetProfile       >("HWPlugin_SetProfile");
 
     FITOM_LOG_INFO("HWPlugin loaded: " << self->name()
         << " from " << dllPath.string());
@@ -50,6 +55,13 @@ std::string HWPluginInstance::enumerate() const
     std::string result(s);
     if (FreeString) FreeString(s);
     return result;
+}
+
+bool HWPluginInstance::setProfile(const std::string& path) const
+{
+    if (!SetProfile_) return false; // このプラグインは未対応(オプション機能)
+    HWResult r = SetProfile_(path.c_str());
+    return r == HW_OK;
 }
 
 // -------------------------------------------------------
@@ -90,6 +102,22 @@ void HWPluginRegistry::registerPlugin(const std::string& name,
         auto plugin = HWPluginInstance::load(dllPath);
         entries_[name] = plugin;
         FITOM_LOG_INFO("HWPlugin registered: " << name << " (" << dllPath.string() << ")");
+
+        // DLLロード後、明示的なプロファイル設定API(オプション機能)が
+        // 使えるなら呼び出す。環境変数方式(ロード前に設定済み)と併用する:
+        // 新しいプラグイン(HWPlugin_SetProfile実装済み)ではこちらが確実に
+        // 効果を持ち、古いプラグイン(未実装)では単に無視される
+        // (環境変数方式のみが効く、後方互換)。
+        if (!profilePath.empty()) {
+            if (plugin->setProfile(profilePath.string())) {
+                FITOM_LOG_INFO("HWPlugin '" << name
+                    << "': profile set via HWPlugin_SetProfile() = " << profilePath.string());
+            } else {
+                FITOM_LOG_DEBUG("HWPlugin '" << name
+                    << "': HWPlugin_SetProfile() not supported or failed, "
+                       "relying on environment variable (if configured)");
+            }
+        }
     } catch (const std::exception& ex) {
         FITOM_LOG_ERR("Failed to load HW plugin '" << name << "' from "
             << dllPath.string() << ": " << ex.what());
