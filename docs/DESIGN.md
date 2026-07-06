@@ -107,10 +107,10 @@ MIDI メッセージは MIDI 1.0 バイト列で統一 (WMS の UMP 変換は DL
   },
   "hw_plugins": [
     { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
-      "profile": "fmhwif_profile.json", "profile_env": "FMHWIF_PROFILE",
+      "profile": "fmhwif_profile.json",
       "auto_devices": true },
     { "name": "FitomHwIF", "dll": "fitom_hw.dll",
-      "profile": "fitom_hw_profile.json", "profile_env": "FITOM_HW_PROFILE",
+      "profile": "fitom_hw_profile.json",
       "auto_devices": true }
   ],
   "midi_inputs": [

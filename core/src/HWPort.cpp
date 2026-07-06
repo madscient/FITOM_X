@@ -4,7 +4,6 @@
 #include "fitom/HWPort.h"
 #include "fitom/Log.h"
 #include <stdexcept>
-#include <cstdlib>
 
 namespace fitom {
 
@@ -21,6 +20,7 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
     auto& l = self->loader_;
 
     self->GetName_   = l.symRequired<PFN_GetName   >("HWPlugin_GetName");
+    self->Init_      = l.symRequired<PFN_Init      >("HWPlugin_Init");
     self->Enumerate_ = l.symRequired<PFN_Enumerate  >("HWPlugin_Enumerate");
     self->FreeString = l.symRequired<PFN_FreeString  >("HWPlugin_FreeString");
     self->Open       = l.symRequired<PFN_Open        >("HWPlugin_Open");
@@ -35,7 +35,6 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
     // 呼び出し側は必ずnullptrチェックすること)。
     self->GetLatencySamples = l.symOptional<PFN_GetLatencySamples>("HWPlugin_GetLatencySamples");
     self->SetDelaySamples   = l.symOptional<PFN_SetDelaySamples  >("HWPlugin_SetDelaySamples");
-    self->SetProfile_       = l.symOptional<PFN_SetProfile       >("HWPlugin_SetProfile");
 
     FITOM_LOG_INFO("HWPlugin loaded: " << self->name()
         << " from " << dllPath.string());
@@ -57,67 +56,43 @@ std::string HWPluginInstance::enumerate() const
     return result;
 }
 
-bool HWPluginInstance::setProfile(const std::string& path) const
+HWResult HWPluginInstance::init(const std::string& profilePath) const
 {
-    if (!SetProfile_) return false; // このプラグインは未対応(オプション機能)
-    HWResult r = SetProfile_(path.c_str());
-    return r == HW_OK;
+    // Init_はsymRequiredでロードされているため、load()が成功していれば
+    // 常に非nullptr (nullptrチェック不要)。
+    return Init_(profilePath.empty() ? nullptr : profilePath.c_str());
 }
 
 // -------------------------------------------------------
 //  HWPluginRegistry
 // -------------------------------------------------------
 
-namespace {
-// クロスプラットフォームな環境変数設定ヘルパー。
-// FitomEmuIF等、DLLロード時点(静的シングルトン初期化)で自身の設定ファイルを
-// 読み込むプラグイン向けに、ロード前に環境変数をセットする必要があるため。
-void setEnvVar(const std::string& name, const std::string& value)
-{
-#if defined(_WIN32)
-    _putenv_s(name.c_str(), value.c_str());
-#else
-    setenv(name.c_str(), value.c_str(), 1);
-#endif
-}
-} // namespace
-
 void HWPluginRegistry::registerPlugin(const std::string& name,
                                        const std::filesystem::path& dllPath,
-                                       const std::string& profileEnvVar,
                                        const std::filesystem::path& profilePath)
 {
     std::lock_guard<std::mutex> lk(mutex_);
 
-    // DLLロード前に環境変数をセットする (FitomEmuIF等、ロード時点で
-    // static シングルトンが即座に自身のプロファイルを読み込む設計の
-    // プラグイン向け。ロード後にセットしても遅い)。
-    if (!profileEnvVar.empty() && !profilePath.empty()) {
-        setEnvVar(profileEnvVar, profilePath.string());
-        FITOM_LOG_INFO("HWPlugin '" << name << "': " << profileEnvVar
-            << "=" << profilePath.string());
-    }
-
     try {
         auto plugin = HWPluginInstance::load(dllPath);
-        entries_[name] = plugin;
-        FITOM_LOG_INFO("HWPlugin registered: " << name << " (" << dllPath.string() << ")");
 
-        // DLLロード後、明示的なプロファイル設定API(オプション機能)が
-        // 使えるなら呼び出す。環境変数方式(ロード前に設定済み)と併用する:
-        // 新しいプラグイン(HWPlugin_SetProfile実装済み)ではこちらが確実に
-        // 効果を持ち、古いプラグイン(未実装)では単に無視される
-        // (環境変数方式のみが効く、後方互換)。
-        if (!profilePath.empty()) {
-            if (plugin->setProfile(profilePath.string())) {
-                FITOM_LOG_INFO("HWPlugin '" << name
-                    << "': profile set via HWPlugin_SetProfile() = " << profilePath.string());
-            } else {
-                FITOM_LOG_DEBUG("HWPlugin '" << name
-                    << "': HWPlugin_SetProfile() not supported or failed, "
-                       "relying on environment variable (if configured)");
-            }
+        // HWPlugin_Init() は他の全関数(Enumerate/Open等)より前に必ず呼ぶ
+        // (プラグイン側の契約: 初期化前の呼び出しは失敗を返す)。
+        // profilePathが空ならnullptrを渡し、プラグイン自身のデフォルト
+        // 探索ルール(DLLと同じディレクトリ等)に従わせる。
+        // Init失敗時はこのプラグイン自体を登録しない
+        // (Enumerate/Openを一切呼べない状態のプラグインを使い物として
+        //  entries_に残すのは危険なため)。
+        HWResult r = plugin->init(profilePath.string());
+        if (r != HW_OK) {
+            FITOM_LOG_ERR("HWPlugin '" << name << "': HWPlugin_Init failed (code="
+                << static_cast<int>(r) << ", profile=" << profilePath.string() << ")");
+            return;
         }
+
+        entries_[name] = plugin;
+        FITOM_LOG_INFO("HWPlugin registered: " << name << " (" << dllPath.string()
+            << ", profile=" << (profilePath.empty() ? "(default)" : profilePath.string()) << ")");
     } catch (const std::exception& ex) {
         FITOM_LOG_ERR("Failed to load HW plugin '" << name << "' from "
             << dllPath.string() << ": " << ex.what());
