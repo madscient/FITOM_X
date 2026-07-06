@@ -15,6 +15,7 @@
 #include "fitom/FITOMdefine.h"
 #include "fitom/PluginLoader.h"
 #include "fitom/HWPort.h"
+#include "fitom/DeviceFactory.h"
 
 #include <nlohmann/json.hpp>
 #include <boost/format.hpp>
@@ -843,6 +844,18 @@ int FITOMConfig::findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const
             return i;
     }
     return -1;
+}
+
+std::vector<int> FITOMConfig::findAllFallbackDeviceIndices(uint8_t sourceVoicePatchType,
+                                                             const HwPatch& patch) const
+{
+    std::vector<int> result;
+    for (int i = 0; i < static_cast<int>(devices_.size()); ++i) {
+        if (DeviceFactory::acceptsFallback(devices_[i].deviceType, sourceVoicePatchType, patch)) {
+            result.push_back(i);
+        }
+    }
+    return result;
 }
 
 // DeviceFactory を使ってポートからデバイスを生成する

@@ -121,6 +121,17 @@ public:
     // (完全一致のみ、互換フォールバックは将来実装)。
     int findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const;
 
+    // sourceVoicePatchType(+HwPatchの内容)をフォールバックとして受け入れ
+    // 可能な、接続済み全デバイスのインデックスをdevices[]の順序で列挙する。
+    // (DeviceFactory::acceptsFallback()参照)。Program Change時の
+    // findFallbackDeviceIndex()相当の判定を使うが、こちらは「最初の1件」
+    // ではなく全候補を返す。DVA (発音時のチャンネル動的割り当て) 中に、
+    // 一次候補デバイスの空きチャンネルが無い場合、他にハンドオフできる
+    // デバイスがあるかを探すために使う (CInstCh::noteOn参照)。
+    // AWM等HwPatchを持たないVoicePatchTypeでは使えない(空配列を返す)。
+    std::vector<int> findAllFallbackDeviceIndices(uint8_t sourceVoicePatchType,
+                                                    const HwPatch& patch) const;
+
     // deviceType (DEVICE_*) → VoicePatchType (VOICE_PATCH_*) の静的変換。
     // インスタンス状態に依存しないため static。
     static uint8_t deviceTypeToVoicePatchType(uint32_t deviceType) noexcept;
