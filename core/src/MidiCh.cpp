@@ -114,6 +114,63 @@ void CInstCh::progChange(uint8_t prog)
 }
 
 // ----------------------------------------------------------------
+//  DVA (発音時の動的チャンネル割り当て) 中のフォールバック・ハンドオフ
+//
+//  一次候補デバイス(resolve()で決定済み)に空きチャンネルが無い場合、
+//  そのデバイスで強制スティールする前に、フォールバック受け入れ可能な
+//  他のデバイス(例: OPN満杯時のOPN2)に空きがあればそちらへハンドオフする。
+//  Program Change時のフォールバック(voicePatchTypeに一致するデバイスが
+//  1台も接続されていない場合の代替先選択)とは異なる、独立した仕組み。
+//
+//  優先順位: ①一次候補デバイスの空き/Releasing ②フォールバック候補デバイス
+//  群の空き/Releasing(devices[]順) ③一次候補デバイスでの強制スティール
+//  (最終手段、フォールバック候補が全て埋まっている場合のみ)。
+//
+//  AWM等HwPatchを持たないVoicePatchType(patch==nullptr)はフォールバック
+//  非対応のため、一次候補デバイスでの通常のallocCh(スティール込み)のみ
+//  行う。
+// ----------------------------------------------------------------
+namespace {
+std::pair<ISoundDevice*, uint8_t> allocChWithFallback(
+    CFITOM* fitom, ISoundDevice* dev, const ResolvedLayer* rl,
+    IMidiCh* owner, const HwPatch* patch, const SampleZonePatch* samplePatch)
+{
+    // ① 一次候補デバイスに、スティール無しで空きがあるか確認
+    if (patch) {
+        uint8_t ch = dev->queryCh(owner, patch, /*mode=*/1);
+        if (ch != 0xFF) {
+            dev->assignCh(ch, owner, patch, samplePatch);
+            return {dev, ch};
+        }
+    } else {
+        // AWM等: フォールバック非対応、通常のallocCh(スティール込み)のみ
+        uint8_t ch = dev->allocCh(owner, patch, samplePatch);
+        return {dev, ch};
+    }
+
+    // ② 一次候補デバイスが満杯 → フォールバック候補デバイスを探す
+    auto candidates = fitom->getConfig().findAllFallbackDeviceIndices(
+        rl->layer->voicePatchType, *patch);
+    for (int idx : candidates) {
+        if (idx == rl->deviceIndex) continue; // 自分自身(一次候補)は除外済み
+        ISoundDevice* candDev = fitom->getDevice(idx);
+        if (!candDev) continue;
+        uint8_t ch = candDev->queryCh(owner, patch, /*mode=*/1);
+        if (ch != 0xFF) {
+            candDev->assignCh(ch, owner, patch, samplePatch);
+            FITOM_LOG_INFO("DVA fallback: device[" << rl->deviceIndex
+                << "] busy, handed off to device[" << idx << "]");
+            return {candDev, ch};
+        }
+    }
+
+    // ③ どの候補も空きが無い → 一次候補デバイスで強制スティール(最終手段)
+    uint8_t ch = dev->allocCh(owner, patch, samplePatch);
+    return {dev, ch};
+}
+} // namespace
+
+// ----------------------------------------------------------------
 //  NoteOn
 // ----------------------------------------------------------------
 void CInstCh::noteOn(uint8_t note, uint8_t vel)
@@ -157,9 +214,17 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
                     break;
                 }
             }
-            if (devCh == 0xFF) devCh = dev->allocCh(this, patch, samplePatch);
+            if (devCh == 0xFF) {
+                auto [handoffDev, handoffCh] = allocChWithFallback(
+                    fitom_, dev, rl, this, patch, samplePatch);
+                dev = handoffDev;
+                devCh = handoffCh;
+            }
         } else {
-            devCh = dev->allocCh(this, patch, samplePatch);
+            auto [handoffDev, handoffCh] = allocChWithFallback(
+                fitom_, dev, rl, this, patch, samplePatch);
+            dev = handoffDev;
+            devCh = handoffCh;
         }
 
         if (devCh == 0xFF) {
