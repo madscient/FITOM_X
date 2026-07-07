@@ -2,6 +2,8 @@
 #define __FITOM_DEFINE_H__
 #pragma once
 
+#include <cstdint>
+
 //Resource code
 #define	DEVICE_NONE	0
 #define	DEVICE_SSG	1	//YM2149
@@ -270,6 +272,16 @@
 #define VOICE_PATCH_ADPCMA       0x52  // YM2610
 #define VOICE_PATCH_PCMD8        0x53  // YMZ280
 #define VOICE_PATCH_AWM          0x54  // YMF278-AWM+YRW801
+
+// サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM) かどうかを判定する。
+// これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch
+// (キーゾーン+ベロシティレイヤー+波形/サンプル参照)を使う共通スキーマで
+// 扱われる (PatchManager::resolve()の分岐、PatchData.hのSampleZone*参照)。
+// 0x50-0x54 は連続した値として意図的に採番されているため、範囲チェックで
+// 判定できる。
+inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
+    return vpt >= VOICE_PATCH_ADPCMB_Y8950 && vpt <= VOICE_PATCH_AWM;
+}
 
 #define LOCATION_MONO	0
 #define LOCATION_LEFT	1

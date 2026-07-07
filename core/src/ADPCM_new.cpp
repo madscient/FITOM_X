@@ -85,6 +85,23 @@ public:
         return pcmReg_->resolve(pcmBankNo_, ws);
     }
 
+    // ────────────────────────────────────────────────────────────
+    // サンプルベース音源系 (VOICE_PATCH_ADPCMB/A/PCMD8) 共通ヘルパー。
+    // ChState::samplePatchのzones[]から、現在のノート・ベロシティに
+    // 一致するSampleZoneを検索する。OPL4AWMと同じ検索ロジック
+    // (該当なしなら最初のゾーンにフォールバック)。
+    // ────────────────────────────────────────────────────────────
+    const SampleZone* resolveSampleZone(const ChState& s) const {
+        if (!s.samplePatch || s.samplePatch->zones.empty()) return nullptr;
+        for (const auto& z : s.samplePatch->zones) {
+            if (s.lastNote >= z.keyMin && s.lastNote <= z.keyMax &&
+                s.velocity  >= z.velMin && s.velocity  <= z.velMax) {
+                return &z;
+            }
+        }
+        return &s.samplePatch->zones[0]; // フォールバック: 最初のゾーン
+    }
+
     // 後方互換: 直接データを転送する方式 (テスト用)
     virtual void loadVoice(int prog, const uint8_t* data, size_t length) = 0;
 
@@ -109,7 +126,9 @@ protected:
 
     AdpcmVoice voices_[128];  // 後方互換 (loadVoice で使用)
 
-    // DeltaN F-number 計算 (旧 CYmDelta::GetDeltaN 相当)
+    // DeltaN F-number 計算 (旧 CYmDelta::GetDeltaN 相当、完全に元の実装のまま)。
+    // root_note対応は、この関数の計算結果に対して後段でスケーリングする
+    // 方式にしたため(getFnumber参照)、この関数自体は一切変更していない。
     uint16_t getDeltaN(int offsetFromBase, int baseOffset) {
         int off = offsetFromBase;
         int oct = 0;
@@ -121,6 +140,19 @@ protected:
         off += 768 * oct;
         if (!fnumTable_ || (off - baseOffset) >= FNUM_TABLE_SIZE) return 0;
         return static_cast<uint16_t>(fnumTable_[off - baseOffset] >> oct);
+    }
+
+    // root_note(MIDIノート番号)が69(A4)と異なる場合、DeltaN計算結果に
+    // 直接、半音差の周波数比(2^(69-rootNote)/12)を掛けて補正する。
+    // getDeltaN()自体(oct探索を含む複雑な既存ロジック)には一切手を
+    // 加えず、後段でシンプルな比率補正を1回だけ適用することで、
+    // rootNote=69(デフォルト、既存動作)の場合は完全に無変更のまま
+    // 後方互換を保証しつつ、rootNoteが異なる場合のみ安全に対応する。
+    static uint16_t applyRootNoteScale(uint16_t deltaN, uint8_t rootNote) noexcept {
+        if (rootNote == 69 || deltaN == 0) return deltaN;
+        double scale = std::pow(2.0, (69.0 - static_cast<double>(rootNote)) / 12.0);
+        int scaled = static_cast<int>(std::round(deltaN * scale));
+        return static_cast<uint16_t>(std::clamp(scaled, 0, 65535));
     }
 };
 
@@ -240,11 +272,18 @@ protected:
         ChState::Fnum ret;
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;
+
+        // 既存ロジックと全く同じ計算 (root_note=69固定相当、無変更)。
         int idx = static_cast<int>(s.lastNote) * 64
                 + (noteOffset_ * 64 / 12)
                 + s.fineFreq + offset;
         ret.block = 0;
-        ret.fnum  = const_cast<CYmDelta*>(this)->getDeltaN(idx, kNoteOffset);
+        uint16_t deltaN = const_cast<CYmDelta*>(this)->getDeltaN(idx, kNoteOffset);
+
+        // root_noteが69と異なる場合のみ、後段で周波数比を適用する。
+        uint8_t rootNote = 69;
+        if (const SampleZone* zone = resolveSampleZone(s)) rootNote = zone->rootNote;
+        ret.fnum = applyRootNoteScale(deltaN, rootNote);
         return ret;
     }
 
@@ -256,10 +295,17 @@ protected:
     }
 
     // Start/Endアドレスのみを書く (旧FITOM CYmDelta::UpdateVoice 完全移植)。
-    // プログラム番号は hwOp[0].WS (7bit) を使う (B-3 resolvePcmEntry と統一)。
+    // プログラム番号は、samplePatchのゾーン検索結果のwaveIndexを使う
+    // (B-3 resolvePcmEntryのHwPatch版から、SampleZone版に置き換え)。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
-        int num = s.hwPatch.hwOp[0].WS & 0x7F;
+        const SampleZone* zone = resolveSampleZone(s);
+        if (!zone) {
+            FITOM_LOG_WARN("CYmDelta::updateVoice: ch=" << (int)ch
+                << " no SampleZone resolved (samplePatch not set?)");
+            return;
+        }
+        int num = zone->waveIndex & 0x7F;
         if (num >= 0 && num < 128 && voices_[num].length) {
             uint32_t st = voices_[num].startAddr;
             uint32_t ed = st + voices_[num].length - 1;
@@ -399,7 +445,15 @@ protected:
 
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
-        int num = s.hwPatch.hwOp[0].WS & 0x7F; // B-3 resolvePcmEntry と統一
+        const SampleZone* zone = resolveSampleZone(s);
+        if (!zone) {
+            FITOM_LOG_WARN("CAdPcm2610A::updateVoice: ch=" << (int)ch
+                << " no SampleZone resolved (samplePatch not set?)");
+            updateVolExp(ch);
+            updatePanpot(ch);
+            return;
+        }
+        int num = zone->waveIndex & 0x7F;
         if (num >= 0 && num < 128 && voices_[num].length) {
             uint32_t st = voices_[num].startAddr;
             uint32_t ed = st + voices_[num].length - 1;
@@ -495,11 +549,16 @@ protected:
         ChState::Fnum ret;
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;
+
         int idx = static_cast<int>(s.lastNote) * 64
                 + (noteOffset_ * 64 / 12)
                 + s.fineFreq + offset;
         ret.block = 0;
-        ret.fnum  = const_cast<CAdPcmZ280*>(this)->getDeltaN(idx, kNoteOffset) & 0x1FF; // 9bit
+        uint16_t deltaN = const_cast<CAdPcmZ280*>(this)->getDeltaN(idx, kNoteOffset);
+
+        uint8_t rootNote = 69;
+        if (const SampleZone* zone = resolveSampleZone(s)) rootNote = zone->rootNote;
+        ret.fnum = applyRootNoteScale(deltaN, rootNote) & 0x1FF; // 9bit
         return ret;
     }
 
@@ -507,7 +566,13 @@ protected:
     // ループ再生は使わないため Loop Start/End はゼロ固定 (旧FITOM準拠)。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
-        int prog = s.hwPatch.hwOp[0].WS & 0x7F; // B-3 resolvePcmEntry と統一
+        const SampleZone* zone = resolveSampleZone(s);
+        if (!zone) {
+            FITOM_LOG_WARN("CAdPcmZ280::updateVoice: ch=" << (int)ch
+                << " no SampleZone resolved (samplePatch not set?)");
+            return;
+        }
+        int prog = zone->waveIndex & 0x7F;
         if (prog < 0 || prog >= 128 || !voices_[prog].length) return;
 
         uint32_t st = voices_[prog].startAddr;
