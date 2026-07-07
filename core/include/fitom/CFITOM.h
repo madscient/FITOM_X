@@ -232,6 +232,7 @@ private:
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;
     std::atomic<bool>   timerRunning_{false};
+    bool                exited_ = false; // exit()の冪等性ガード(二重exit防止)
     uint32_t            timerTick_ = 0;
 
     // ─── 排他制御 ────────────────────────────────────────────────
