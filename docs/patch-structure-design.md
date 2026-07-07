@@ -58,6 +58,7 @@ SwBank (*.swbank.json)  ← チップ族共通・1セット
 | 0x1b | OPZ2 | YM2424 | OPM |
 | 0x20 | OPL | YM3526, YM3801 | OPL2 |
 | 0x21 | OPL2 | YM3812, YMF264/289/278-2OP | OPL2 |
+| 0x22 | OPL3_2 | YMF262(2OPモード)、YMF264/289/278-2OP | OPL3 |
 | 0x28 | OPLL | YM2413, YM2420 | OPLL |
 | 0x29 | OPLLP | YMF281 | OPLL |
 | 0x2a | OPLLX | YM2423 | OPLL |
@@ -65,14 +66,14 @@ SwBank (*.swbank.json)  ← チップ族共通・1セット
 | 0x30 | OPL3 | YMF264/289/278-4OP | OPL3 |
 | 0x38-3b | SD-1/MA-3/MA-5/MA-7 | YMF825 等 | MA3（未実装、値のみ予約） |
 | 0x40 | SSG | YM2149, AY-3-8910 | PSG(無波形) |
-| 0x41 | AY8930 | — | PSG(無波形) |
+| 0x41 | EPSG | AY8930 | PSG(無波形) |
 | 0x42 | DCSG | SN76489 | PSG(無波形) |
-| 0x43 | SAA1099 | — | PSG(無波形、未実装・値のみ予約) |
+| 0x43 | SAA | SAA1099 | PSG(無波形) |
 | 0x48 | SCC | SCC, SCCP | PSG(波形ROM) |
 | 0x50-54 | ADPCMB/ADPCMA/PCMD8/AWM | Y8950/YM2608/YM2610/YMZ280 等 | PCM |
 
 パン対応可否は VoicePatchType 単位でも一律ではない（例: 同じPSG無波形グループでも
-SAA1099は per-channel ステレオパン対応、SSG/AY8930/DCSGは非対応）。
+SAAは per-channel ステレオパン対応、SSG/EPSG/DCSGは非対応）。
 **このためFITOM_Xはパン対応可否を内部で判定・管理しない。**
 パンを使いたい場合はエンドユーザーが対応デバイスのVoicePatchTypeを
 自己責任で選択する（バンクセレクトLSB直接指定モード参照）。
@@ -88,7 +89,7 @@ SAA1099は per-channel ステレオパン対応、SSG/AY8930/DCSGは非対応）
 | OPN系 | `VOICE_PATCH_OPN2` |
 | OPL系 | `VOICE_PATCH_OPL3_2` |
 | OPM系 | `VOICE_PATCH_OPZ2` |
-| SSG系 | `VOICE_PATCH_AY8930` |
+| SSG系 | `VOICE_PATCH_EPSG` |
 
 理由: `DeviceFactory::acceptsFallback`(各チップの`*AcceptsFallback`関数)
 が、パッチの実際の内容(`hwOp[].WS`等、そのチップ固有の拡張機能を

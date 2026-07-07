@@ -500,9 +500,9 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
     case DEVICE_SSGS: case DEVICE_DSG:
         return VOICE_PATCH_SSG;
-    case DEVICE_EPSG:  return VOICE_PATCH_AY8930;
+    case DEVICE_EPSG:  return VOICE_PATCH_EPSG;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
-    case DEVICE_SAA:   return VOICE_PATCH_SAA1099;   // CSAA1099 実装済み
+    case DEVICE_SAA:   return VOICE_PATCH_SAA;    // CSAA1099 実装済み
 
     case DEVICE_SCC: case DEVICE_SCCP: return VOICE_PATCH_SCC;
 
@@ -533,8 +533,8 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
     case VOICE_PATCH_SD1: case VOICE_PATCH_MA3:
     case VOICE_PATCH_MA5: case VOICE_PATCH_MA7:
         return VOICE_GROUP_MA3;
-    case VOICE_PATCH_SSG: case VOICE_PATCH_AY8930:
-    case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA1099:
+    case VOICE_PATCH_SSG: case VOICE_PATCH_EPSG:
+    case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
     case VOICE_PATCH_SCC:
         return VOICE_GROUP_PSG;
     case VOICE_PATCH_ADPCMB_Y8950: case VOICE_PATCH_ADPCMB:
@@ -567,9 +567,9 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "MA5" || s == "MA-5") return VOICE_PATCH_MA5;
     if (s == "MA7" || s == "MA-7") return VOICE_PATCH_MA7;
     if (s == "SSG")       return VOICE_PATCH_SSG;
-    if (s == "AY8930")    return VOICE_PATCH_AY8930;
+    if (s == "AY8930")    return VOICE_PATCH_EPSG;
     if (s == "DCSG")      return VOICE_PATCH_DCSG;
-    if (s == "SAA1099" || s == "SAA") return VOICE_PATCH_SAA1099;
+    if (s == "SAA1099" || s == "SAA") return VOICE_PATCH_SAA;
     if (s == "SCC" || s == "SCCP")    return VOICE_PATCH_SCC;
     if (s == "ADPCMB_Y8950") return VOICE_PATCH_ADPCMB_Y8950;
     if (s == "ADPCMB")    return VOICE_PATCH_ADPCMB;
