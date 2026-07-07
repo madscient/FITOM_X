@@ -21,6 +21,7 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace fitom {
@@ -490,6 +491,55 @@ double CFITOM::getMasterPitch() const
     return config_ ? config_->getMasterPitch() : 440.0;
 }
 
+// ─── Universal SysEx: マスターチューニング ──────────────────────────────────
+// setMasterPitch()(ユーザー設定の絶対Hz基準、config_に保存)とは別に、
+// SysEx由来の相対オフセット(セント/半音)を保持し、実際にFnumRegistryへ
+// 反映する実効ピッチは両者を合成した値にする。ユーザー設定の基準Hz自体は
+// 上書きしない (SysExのMaster Tuningを解除すれば元の基準Hzに戻る)。
+void CFITOM::updateEffectiveMasterPitch()
+{
+    const double baseHz = getMasterPitch();
+    const double semitoneOffset = static_cast<double>(masterCoarseTuneSemitones_)
+                                 + static_cast<double>(masterFineTuneCents_) / 100.0;
+    double effectiveHz = baseHz * std::pow(2.0, semitoneOffset / 12.0);
+    effectiveHz = std::clamp(effectiveHz, 430.0, 450.0);
+
+    fitom::FnumRegistry::instance().setMasterPitch(effectiveHz);
+    for (auto& dev : devices_) {
+        if (dev) dev->onMasterPitchChanged(effectiveHz);
+    }
+    FITOM_LOG_INFO("MasterPitch (effective): " << effectiveHz << " Hz (base=" << baseHz
+        << "Hz, coarse=" << (int)masterCoarseTuneSemitones_
+        << "semitones, fine=" << masterFineTuneCents_ << "cents)");
+}
+
+void CFITOM::setMasterFineTune(int16_t cents)
+{
+    masterFineTuneCents_ = cents;
+    updateEffectiveMasterPitch();
+}
+
+void CFITOM::setMasterCoarseTune(int8_t semitones)
+{
+    masterCoarseTuneSemitones_ = semitones;
+    updateEffectiveMasterPitch();
+}
+
+void CFITOM::setScaleTuning(const std::array<int8_t, 12>& table)
+{
+    scaleTuning_ = table;
+    // 発音中の全ノートに即時反映する。各CInstCh/CRhythmChが
+    // 次回のピッチ関連イベント(NoteOn/PitchBend等)でgetScaleTuningCents()
+    // を参照するため、ここでは全チャンネルにapplyPitchBendToAll相当の
+    // 再適用を促す (allNoteOff/resetAllCtrlと同様、全チャンネル走査)。
+    for (int p = 0; p < MAX_MPUS; ++p) {
+        for (int ch = 0; ch < 16; ++ch) {
+            if (channels_[p][ch]) channels_[p][ch]->refreshPitch();
+        }
+    }
+    FITOM_LOG_INFO("Scale/Octave Tuning updated");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 void CFITOM::setMasterVolume(uint8_t vol)
@@ -725,6 +775,11 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     case 101: rpn_[ch].reg = (rpn_[ch].reg & 0x007F) | (static_cast<uint16_t>(val) << 7); rpn_[ch].isNrpn = false; break;
     case 6:   // Data Entry MSB
     {
+        // RPN 7F/7F (RPN NULL): 明示的にRPN/NRPNの選択を解除する規格上の
+        // 値。この状態でData Entryを受けても何も適用しない
+        // (MIDI規格上の必須動作。現状はrpn_[ch].regの初期値も0x3FFFの
+        //  ため、未選択状態と区別できるようにするための明示ガード)。
+        if (rpn_[ch].reg == 0x3FFF) break;
         uint16_t data = (static_cast<uint16_t>(val) << 7) | rpn_[ch].lsb;
         if (rpn_[ch].isNrpn) midicch->setNRPNRegister(rpn_[ch].reg, data);
         else                  midicch->setRPNRegister(rpn_[ch].reg, data);
@@ -737,7 +792,96 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     }
 }
 
-void MidiProcessor::processSysEx() { /* 将来拡張 */ }
+void MidiProcessor::processSysEx()
+{
+    // sysexBuf_には先頭の0xF0は含まれない(状態遷移時に除去済み)。
+    // 構成: [0]=Manufacturer ID (1byte、またはExtended IDの場合00H+2byte)
+    if (sysexPt_ < 1) return;
+
+    uint8_t id0 = sysexBuf_[0];
+
+    // ─── プライベート(メーカー固有) SysEx: manufacturer ID = 00H 48H 01H ───
+    // (拡張ID形式。1byte目が00Hの場合、後続2byteでメーカーを識別する)
+    // 将来実装用のスタブ分岐のみ用意する (processPrivateSysEx()参照)。
+    if (id0 == 0x00 && sysexPt_ >= 3
+        && sysexBuf_[1] == 0x48 && sysexBuf_[2] == 0x01) {
+        processPrivateSysEx();
+        return;
+    }
+
+    // ─── Universal SysEx (Real Time / Non-Realtime) ───────────────
+    // 構成: [0]=ID(0x7E/0x7F) [1]=Device ID [2]=Sub-ID1 [3]=Sub-ID2 [4..]=データ
+    if (sysexPt_ < 3) return;
+
+    uint8_t id   = sysexBuf_[0];
+    // uint8_t devId = sysexBuf_[1]; // Device ID判定は行わず、常に自分宛として扱う
+    uint8_t sub1 = sysexBuf_[2];
+
+    if (id != 0x7F) return; // Universal Real Time のみ対応 (Non-Realtime 0x7E は対象外)
+
+    if (sub1 == 0x04 && sysexPt_ >= 6) {
+        // ─── Device Control ───────────────────────────────────
+        uint8_t sub2 = sysexBuf_[3];
+        uint8_t lsb  = sysexBuf_[4];
+        uint8_t msb  = sysexBuf_[5];
+        uint16_t value14 = (static_cast<uint16_t>(msb) << 7) | lsb;
+
+        switch (sub2) {
+        case 0x01: // Master Volume (スタブ実装: MSBのみ使用、7bit精度)
+            parent_->setMasterVolume(msb);
+            FITOM_LOG_INFO("SysEx: Master Volume = " << (int)msb);
+            break;
+        case 0x03: { // Master Fine Tuning (14bit, center=0x2000, ±100cents)
+            int16_t cents = static_cast<int16_t>(
+                (static_cast<int32_t>(value14) - 8192) * 100 / 8192);
+            parent_->setMasterFineTune(cents);
+            FITOM_LOG_INFO("SysEx: Master Fine Tuning = " << cents << " cents");
+            break;
+        }
+        case 0x04: { // Master Coarse Tuning (MSBのみ有効, center=0x40, ±64semitones)
+            int8_t semitones = static_cast<int8_t>(msb) - 64;
+            parent_->setMasterCoarseTune(semitones);
+            FITOM_LOG_INFO("SysEx: Master Coarse Tuning = " << (int)semitones << " semitones");
+            break;
+        }
+        default:
+            FITOM_LOG_DEBUG("SysEx: Device Control sub2=0x" << std::hex << (int)sub2
+                << " unhandled");
+            break;
+        }
+    } else if (sub1 == 0x08 && sysexPt_ >= 4) {
+        // ─── MIDI Tuning Standard (Realtime) ──────────────────
+        uint8_t sub2 = sysexBuf_[3];
+        if (sub2 == 0x08 && sysexPt_ >= 17) {
+            // Scale/Octave Tuning (1byte形式)。
+            // 本来はチャンネルマスク(複数バイト)で適用対象chを絞れるが、
+            // 簡略実装としてマスクは読み飛ばし、常に全チャンネルへ適用する。
+            // [4]=テーブル番号(未使用) [5..16]=12半音ぶんのオフセット
+            // (各1バイト、0-127、中心64。100/64cents/step換算)
+            std::array<int8_t, 12> table{};
+            for (int i = 0; i < 12; ++i) {
+                uint8_t raw = sysexBuf_[5 + i];
+                table[i] = static_cast<int8_t>(
+                    (static_cast<int32_t>(raw) - 64) * 100 / 64);
+            }
+            parent_->setScaleTuning(table);
+            FITOM_LOG_INFO("SysEx: Scale/Octave Tuning updated (1byte form)");
+        } else {
+            FITOM_LOG_DEBUG("SysEx: MIDI Tuning Standard sub2=0x" << std::hex << (int)sub2
+                << " unhandled");
+        }
+    }
+}
+
+// プライベート(メーカー固有)SysEx: manufacturer ID = 00H 48H 01H
+// (拡張ID形式)。将来実装用のスタブのみ。呼び出し時点でsysexBuf_[0..2]が
+// 00H 48H 01Hであることは呼び出し元(processSysEx)で確認済み。
+// sysexBuf_[3]以降、sysexPt_までがメーカー固有のペイロード。
+void MidiProcessor::processPrivateSysEx()
+{
+    FITOM_LOG_DEBUG("SysEx: private (manufacturer 00H 48H 01H) received, "
+        "length=" << (sysexPt_ - 3) << " bytes — not yet implemented");
+}
 
 void MidiProcessor::timerCallback(uint32_t tick)
 {

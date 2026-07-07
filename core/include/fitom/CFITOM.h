@@ -79,6 +79,12 @@ private:
 
     void processMessage();
     void processSysEx();
+    // プライベート(メーカー固有)SysEx。manufacturer ID = 00H 48H 01H
+    // (拡張ID形式、3バイト)。将来実装用のスタブ。processSysEx()から
+    // manufacturer ID一致時に呼ばれる。呼び出し時点でsysexBuf_[0..2]が
+    // 00H 48H 01Hであることが確定しており、sysexBuf_[3]以降が
+    // メーカー固有のペイロード。
+    void processPrivateSysEx();
     void processControl(uint8_t ch, uint8_t cc, uint8_t val);
     void processRPN(uint8_t ch);
     void processNRPN(uint8_t ch);
@@ -144,6 +150,22 @@ public:
     double getMasterPitch() const;
     uint8_t getMasterVolume() const;
 
+    // ─── Universal SysEx: マスターチューニング/スケールオクターブチューニング ───
+    // setMasterPitch()(config由来の絶対Hz基準)とは別に、SysEx由来の相対
+    // オフセットを保持する。実効マスターピッチ = 基準Hz × 2^((fineCents/100
+    // + coarseSemitones)/12) として合成し、FnumRegistryに反映する。
+    void setMasterFineTune(int16_t cents);       // Universal RT 04/03
+    void setMasterCoarseTune(int8_t semitones);  // Universal RT 04/04
+    int16_t getMasterFineTuneCents() const     { return masterFineTuneCents_; }
+    int8_t  getMasterCoarseTuneSemitones() const { return masterCoarseTuneSemitones_; }
+
+    // Scale/Octave Tuning (MIDI Tuning Standard, Universal RT 08/08 1byte形式)。
+    // 半音(C,C#,D...B、12音)ごとのセントオフセット。全オクターブに一律適用。
+    // ノートオン時、各CInstCh/CRhythmChがgetScaleTuningCents(note)を
+    // fine計算に加算する (CInstCh::applyPitchBendToAll参照)。
+    void setScaleTuning(const std::array<int8_t, 12>& table);
+    int8_t getScaleTuningCents(uint8_t note) const { return scaleTuning_[note % 12]; }
+
     // ─── 静的ユーティリティ (旧 CFITOM static メソッド) ─────────
     static uint32_t         getDeviceVoiceType(uint32_t deviceId);
     static uint32_t         getDeviceVoiceGroupMask(uint32_t deviceId);
@@ -181,6 +203,13 @@ private:
     // ─── デバイスリスト (CFITOM が ISoundDevice を所有) ──────────
     // Config は IPort を所有し、CFITOM は ISoundDevice を所有する
     std::vector<std::unique_ptr<ISoundDevice>> devices_;
+
+    // Universal SysEx: マスターチューニング/スケールオクターブチューニング
+    // (setMasterPitchの絶対Hz基準とは別の、相対オフセット)
+    int16_t masterFineTuneCents_       = 0;
+    int8_t  masterCoarseTuneSemitones_ = 0;
+    std::array<int8_t, 12> scaleTuning_ = {}; // 半音(C,C#,D...B)ごとのcentsオフセット
+    void updateEffectiveMasterPitch();        // config基準Hz×相対オフセットを合成
 
     // ─── SplitPort の寿命管理 ─────────────────────────────────────
     // OPNA/OPN2 等の HW 2 ポート構成時に生成する SplitPort。

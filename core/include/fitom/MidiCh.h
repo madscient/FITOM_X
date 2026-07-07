@@ -41,6 +41,10 @@ public:
     // FM 系チャンネル (CInstCh) は forceDamp を使う独自実装でオーバーライドする。
     virtual void allSoundOff()                     { allNoteOff(); }
     virtual void resetAllCtrl()                    {}
+    // Scale/Octave Tuning (Universal SysEx) 変更時、CFITOMから全チャンネルに
+    // 呼ばれる。発音中の全ノートのピッチ計算をやり直す。
+    // デフォルトはno-op (CRhythmCh等、対応不要なチャンネル種別向け)。
+    virtual void refreshPitch()                    {}
 
     // コントロールチェンジ
     virtual void setVolume(uint8_t vol)            {}
@@ -65,6 +69,7 @@ public:
     // RPN / NRPN
     virtual void setBendRange(uint8_t range)       {}
     virtual void setFineTune(uint16_t tune)        {}
+    virtual void setCoarseTune(uint16_t tune)      {}
     virtual void setRPNRegister(uint16_t reg, uint16_t val)  {}
     virtual void setNRPNRegister(uint16_t reg, uint16_t val) {}
 
@@ -149,6 +154,7 @@ public:
     void allNoteOff() override;   // CC#123
     void allSoundOff() override;  // CC#120: forceDamp で即座に消音
     void resetAllCtrl() override;
+    void refreshPitch() override;
 
     // ─── コントロールチェンジ ──────────────────────────────────────
     void setVolume(uint8_t vol) override;
@@ -169,6 +175,7 @@ public:
     void bankSelLSB(uint8_t lsb) override;
     void setBendRange(uint8_t range) override;
     void setFineTune(uint16_t tune) override;
+    void setCoarseTune(uint16_t tune) override;
     void setRPNRegister(uint16_t reg, uint16_t val) override;
     void setNRPNRegister(uint16_t reg, uint16_t val) override;
 
@@ -247,7 +254,8 @@ private:
     uint8_t  panpot_     = 64;
     uint16_t pitchBend_  = 8192;
     uint8_t  bendRange_  = 2;
-    uint16_t tuning_     = 8192;
+    uint16_t tuning_     = 8192;      // RPN#1 Channel Fine Tuning (14bit, center=0x2000, ±100cents)
+    uint16_t coarseTune_ = 8192;      // RPN#2 Channel Coarse Tuning (MSBのみ有効, center=0x40, ±64semitones)
     bool     sustain_    = false;
     bool     legato_     = false;
     bool     sostenuto_  = false;
