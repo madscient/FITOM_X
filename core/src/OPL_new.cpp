@@ -595,8 +595,15 @@ std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr) { return std::make
 // 実機OPLは波形選択ハードウェア自体を持たないため、OPL2音色が
 // hwOp[].WS!=0 (非サイン波) を使っている場合、その波形情報が失われ
 // 音が変わってしまう。WSが全オペレータで0(サイン波)の場合のみ許可する。
+// COPL (VOICE_PATCH_OPL, YM3526): OPL2/OPL3(2op)形式の音色データを
+// 再生できるか。実機OPLは波形選択ハードウェア自体を持たないため、
+// hwOp[].WS!=0 (非サイン波) を使っている場合、その波形情報が失われ
+// 音が変わってしまう。WSが全オペレータで0(サイン波)の場合のみ許可する
+// (OPL3(2op)のWSは3bit(8波形)まで取りうるが、OPLにとってはOPL2の
+//  2bit(4波形)と同様、0以外は全て非サイン波なので同じ判定でよい)。
 bool coplAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch) {
-    if (sourceVoicePatchType != VOICE_PATCH_OPL2) return false;
+    if (sourceVoicePatchType != VOICE_PATCH_OPL2 && sourceVoicePatchType != VOICE_PATCH_OPL3_2)
+        return false;
     for (int i = 0; i < 2; ++i) {
         if (patch.hwOp[i].WS != 0) return false;
     }
