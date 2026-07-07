@@ -871,6 +871,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPN",   DEVICE_OPN},   {"OPNA",  DEVICE_OPNA},
         {"OPN2",  DEVICE_OPN2},  {"OPN2C", DEVICE_OPN2C},
         {"OPN2L", DEVICE_OPN2L}, {"OPN3",  DEVICE_OPN3},
+        {"OPNB",  DEVICE_OPNB},  {"OPNBB", DEVICE_2610B},
         {"OPM",   DEVICE_OPM},   {"OPP",   DEVICE_OPP},
         {"OPZ",   DEVICE_OPZ},
         {"OPL",   DEVICE_OPL},   {"OPL2",  DEVICE_OPL2},
