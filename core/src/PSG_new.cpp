@@ -913,11 +913,11 @@ std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr) { return std::make_u
 // 場合のみ安全 (無印SSGはデューティ比制御ハードウェアを持たないため、
 // 非デフォルト値を無視すると波形が変わってしまう)。
 bool cssgAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& patch) {
-    if (sourceVoicePatchType != VOICE_PATCH_AY8930) return false;
+    if (sourceVoicePatchType != VOICE_PATCH_EPSG) return false;
     return patch.hwOp[0].WS == 0;
 }
 
-// CEPSG (VOICE_PATCH_AY8930): SSG形式の音色データは常に安全に再生できる
+// CEPSG (VOICE_PATCH_EPSG): SSG形式の音色データは常に安全に再生できる
 // (SSG音色はデューティ比フィールド自体を使わない=0のままのため)。
 bool cepsgAcceptsFallback(uint8_t sourceVoicePatchType, const HwPatch& /*patch*/) {
     return sourceVoicePatchType == VOICE_PATCH_SSG;

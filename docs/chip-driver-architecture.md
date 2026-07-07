@@ -249,9 +249,9 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_VRC7`(0x2b) | VRC7 | `CVRC7` |
 | `VOICE_PATCH_OPL3`(0x30) | OPL3, OPN3_L3 | `COPL3`（4OPモード専用） |
 | `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, SSGS, DSG | `CSSG` |
-| `VOICE_PATCH_AY8930`(0x41) | EPSG | `CSSG`（共用） |
+| `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） |
 | `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` |
-| `VOICE_PATCH_SAA1099`(0x43) | SAA | 未実装（値のみ予約） |
+| `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` |
 | `VOICE_PATCH_SCC`(0x48) | SCC, SCCP | `CSCC` |
 | `VOICE_PATCH_ADPCMB`(0x51) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` |
 | `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` |
@@ -294,6 +294,6 @@ VoicePatchType完全一致以外へのフォールバックは実装済み
 
 2026年7月時点で全チップファミリーの`acceptsFallback`実装を監査し、
 OPL系(`coplAcceptsFallback`)が`VOICE_PATCH_OPL3_2`方向を扱っていない
-欠落を発見・修正済み。他のファミリー(OPN/OPN2、OPM/OPZ/OPZ2、SSG/AY8930、
+欠落を発見・修正済み。他のファミリー(OPN/OPN2、OPM/OPZ/OPZ2、SSG/EPSG、
 OPLLファミリー)は監査の結果、既に全方向を正しくカバーしていることを
 確認した。

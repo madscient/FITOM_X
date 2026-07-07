@@ -256,9 +256,9 @@
 
 // 0x40: VoiceGroup=PSG (無波形メモリ)
 #define VOICE_PATCH_SSG      0x40  // YM2149, AY-3-8910
-#define VOICE_PATCH_AY8930   0x41
+#define VOICE_PATCH_EPSG     0x41  // AY8930 (DEVICE_EPSGの命名規則に統一)
 #define VOICE_PATCH_DCSG     0x42  // SN76489
-#define VOICE_PATCH_SAA1099  0x43  // 未実装、値のみ予約
+#define VOICE_PATCH_SAA      0x43  // SAA1099
 
 // 0x48: VoiceGroup=PSG (波形ROM)
 #define VOICE_PATCH_SCC      0x48  // SCC, SCCP
