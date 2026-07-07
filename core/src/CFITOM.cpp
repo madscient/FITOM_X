@@ -173,6 +173,18 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
 
 void CFITOM::exit(bool /*save*/)
 {
+    // 冪等性ガード: 二重exit防止。
+    // ~CFITOM(){ exit(); } という設計のため、アプリ側が明示的に
+    // fitomInst.exit()を呼んだ後にプログラムが終了すると、
+    // CFITOM::instance()(関数ローカルstatic)のデストラクタが、
+    // プログラム終了時に自動的に2回目のexit()を呼んでしまう。
+    // この時点でBoost.Logの静的状態が(他の翻訳単位の静的破棄順序により)
+    // 既に破棄されている可能性があり、FITOM_LOG_INFO呼び出しが
+    // クラッシュを引き起こしていた(fitom_cliでCtrl+C終了時に顕在化)。
+    // このガードにより、2回目以降の呼び出しは何もせず安全に即return する。
+    if (exited_) return;
+    exited_ = true;
+
     stopTimerThread();
     allNoteOff();
     FITOM_LOG_INFO("FITOM exited");
