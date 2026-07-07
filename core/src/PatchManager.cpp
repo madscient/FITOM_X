@@ -130,11 +130,12 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
         const auto& layer = patch.layers[i];
         if (!layer.isActive()) continue;
 
-        if (layer.voicePatchType == VOICE_PATCH_AWM) {
-            // サンプルベース音源系: HwBankRegistryではなくSampleZoneBankRegistry
-            // を検索する。HwPatchが存在しないため、フォールバック機構
+        if (isSampleBasedVoicePatchType(layer.voicePatchType)) {
+            // サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM):
+            // HwBankRegistryではなくSampleZoneBankRegistryを検索する。
+            // HwPatchが存在しないため、フォールバック機構
             // (findFallbackDeviceIndex、HwPatchの内容を要求する) は使わず、
-            // 厳密一致のみを試す。VOICE_PATCH_AWM系は現状フォールバック
+            // 厳密一致のみを試す。サンプルベース音源系は現状フォールバック
             // 元/先になる想定がないため実用上の制約は小さい。
             const SampleZonePatch* samplePatch = sampleReg_.resolve(layer.hwBank, layer.hwProg);
             if (!samplePatch) {
@@ -147,7 +148,7 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
             if (deviceIndex < 0) {
                 FITOM_LOG_WARN("resolve: layer=" << i << " voicePatchType=0x"
                     << std::hex << (int)layer.voicePatchType
-                    << " — no matching device (AWM系はフォールバック非対応), layer skipped");
+                    << " — no matching device (サンプルベース音源系はフォールバック非対応), layer skipped");
                 continue;
             }
             ResolvedLayer rl;
@@ -216,7 +217,7 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
 ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
                                           const FITOMConfig& config, Patch& storage) const
 {
-    if (voicePatchType == VOICE_PATCH_AWM) {
+    if (isSampleBasedVoicePatchType(voicePatchType)) {
         const SampleZonePatch* samplePatch = sampleReg_.resolve(hwBank, hwProg);
         if (!samplePatch) {
             FITOM_LOG_WARN("resolveDirect: bank=" << (int)hwBank << " prog=" << (int)hwProg
@@ -226,7 +227,7 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
         int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
         if (deviceIndex < 0) {
             FITOM_LOG_WARN("resolveDirect: voicePatchType=0x" << std::hex << (int)voicePatchType
-                << " — no matching device (AWM系はフォールバック非対応)");
+                << " — no matching device (サンプルベース音源系はフォールバック非対応)");
             return {};
         }
 
