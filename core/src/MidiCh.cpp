@@ -574,11 +574,23 @@ void CInstCh::setFineTune(uint16_t tune)
     applyPitchBendToAll();
 }
 
+void CInstCh::setCoarseTune(uint16_t tune)
+{
+    coarseTune_ = tune;
+    applyPitchBendToAll();
+}
+
+void CInstCh::refreshPitch()
+{
+    applyPitchBendToAll();
+}
+
 void CInstCh::setRPNRegister(uint16_t reg, uint16_t val)
 {
     switch (reg) {
     case 0x0000: setBendRange(static_cast<uint8_t>(val >> 7)); break;
     case 0x0001: setFineTune(val); break;
+    case 0x0002: setCoarseTune(val); break;
     case 0x0005: {
         // RPN#5: Modulation Depth Range (Vibrato Depth Range)
         // val は 14bit (0〜16383)。MSB 7bit がセント単位の最大デプス。
@@ -739,15 +751,31 @@ void CInstCh::applyPanpotToAll()
 
 void CInstCh::applyPitchBendToAll()
 {
-    int16_t bendCents = static_cast<int16_t>(bendRange_)
+    // fineFreq(setNoteFineの引数)の単位は「1半音 = 64ステップ」
+    // (CSoundDevice::getFnumberのindex計算: lastNote*64 + ... 参照)。
+    // 以下、bendRange_[半音]の適用も含めて、全てこの単位系に揃える。
+    int16_t bendSteps = static_cast<int16_t>(bendRange_)
                       * (static_cast<int16_t>(pitchBend_ >> 7) - 64);
-    int16_t tuneCents = static_cast<int16_t>(tuning_ >> 7) - 64;
-    int16_t fine = bendCents + tuneCents;
+    // RPN#1 Channel Fine Tuning: 14bit全体(LSBまで)を使う。中心0x2000(8192)。
+    // MIDI規格上の範囲は概ね±100cents(=約±1半音=±64ステップ)。
+    int16_t fineTuneSteps = static_cast<int16_t>(
+        (static_cast<int32_t>(tuning_) - 8192) * 64 / 8192);
+    // RPN#2 Channel Coarse Tuning: MSBのみ有効。中心0x40(64)。
+    // 範囲-64〜+63半音 → ×64でステップ数に変換。
+    int16_t coarseTuneSteps = static_cast<int16_t>(
+        (static_cast<int16_t>(coarseTune_ >> 7) - 64) * 64);
+    int16_t commonFine = bendSteps + fineTuneSteps + coarseTuneSteps;
 
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (!h.isValid() || !h.dev) continue;
-        h.dev->setNoteFine(h.devCh, h.note, fine);
+        // Scale/Octave Tuning (Universal SysEx): ノート(音名, mod12)ごとに
+        // 異なるcentsオフセットを持つため、共通finalとは別にノートごとに
+        // 加算する。fineFreq単位(1半音=64ステップ)に変換。
+        int16_t scaleCents = fitom_ ? fitom_->getScaleTuningCents(h.note) : 0;
+        int16_t scaleSteps = static_cast<int16_t>(
+            static_cast<int32_t>(scaleCents) * 64 / 100);
+        h.dev->setNoteFine(h.devCh, h.note, commonFine + scaleSteps);
     }
 }
 
