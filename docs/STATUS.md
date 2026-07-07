@@ -107,6 +107,7 @@
 | Sustain (CC#64) チップ依存実装 + MIDI配線バグ修正 | ✅ | `midi-implementation-status.md` |
 | Sostenuto (CC#66) | ✅ | `midi-implementation-status.md` |
 | Portamento/Legato モノフォニック専用化 + バグ修正 | ✅ | `midi-implementation-status.md` |
+| Portamento Rate テーブル刷新 (GM2グラフ準拠) + fine_ セント単位遷移対応 | ✅ | `midi-implementation-status.md` |
 | CC#120 forceDamp (全チップ、ALGキャリア判定込み) | ✅ | `midi-implementation-status.md` |
 | VoicePatchType システム (音色パッチ互換性分類) | ✅ | `patch-structure-design.md` |
 | バンクセレクトLSB直接指定モード | ✅ | `patch-structure-design.md` |
