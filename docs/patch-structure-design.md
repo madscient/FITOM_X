@@ -236,11 +236,24 @@ Program Change 受信 (CRhythmCh::progChange)
   → PatchManager::resolveDrum(0, prog)             // バンク番号は常に0固定
       → DrumBankRegistry[0].patches[prog] (= DrumPatch) を取得
       → NoteOn受信時、DrumPatch::getNote(note) で DrumNote を取得
-          → DrumNote.patchBank/patchProgが指す通常のPatchを
-            PatchManager::resolve(patchBank, patchProg, config) で解決
-            (＝通常モードと全く同じPatch解決経路をそのまま通る)
+          → DrumNote.voicePatchTypeでモード判定 (CC#0と全く同じ
+            セマンティクス。CRhythmCh::resolveNote参照):
+              voicePatchType==VOICE_PATCH_NONE(0、省略時デフォルト):
+                通常モード。patchBank/patchProgをPatchBank番号/Progとして
+                PatchManager::resolve(patchBank, patchProg, config)で解決
+                (＝CInstChの通常モードと全く同じ経路。マルチレイヤー・
+                 SwPatch適用あり)
+              voicePatchType==0x01-0x6F: 直接モード。この値自体が
+                VOICE_PATCH_*定数となり、patchBank/patchProgはHwBank
+                インデックス/HwProgとして読み替わる。
+                PatchManager::resolveDirect(voicePatchType, patchBank,
+                patchProg, config, storage)で解決 (単層Patch、SwPatchなし)
           → DrumNote.playNoteを絶対ノート番号として発音
 ```
+
+DrumNoteが直接モードを選べることで、ドラムキットの1音ごとにチップを
+直接指定したい場合(例: キック=OPN、スネア=OPL、ハイハット=PSGという
+混在構成)、そのためだけにPatchBank/Patchを個別に用意する必要がなくなる。
 
 **プロファイル側の`drum_banks[]`は「プログラムチェンジ1つごとに独立した
 ファイル」を割り当てる方式。**1ファイルに全prog分を詰め込む方式は、
