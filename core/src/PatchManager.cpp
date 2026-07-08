@@ -903,6 +903,7 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
 
         if (type == "direct") {
             // 単一Patchへのパススルーを [note_min, note_max] に自動展開
+            uint8_t voicePatchType = j.value("voice_patch_type", static_cast<uint8_t>(VOICE_PATCH_NONE));
             uint8_t patchBank = j.value("patch_bank", static_cast<uint8_t>(0));
             uint8_t patchProg = j.value("patch_prog", static_cast<uint8_t>(0));
             int noteMin = j.value("note_min", 0);
@@ -920,6 +921,7 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
             for (int n = noteMin; n <= noteMax; ++n) {
                 DrumNote& dn = dp.notes[n];
                 dn.enabled   = true;
+                dn.voicePatchType = voicePatchType;
                 dn.patchBank = patchBank;
                 dn.patchProg = patchProg;
                 dn.playNote  = static_cast<uint8_t>(n); // 受信ノートをそのまま渡す
@@ -937,6 +939,7 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
 
                     DrumNote& dn = dp.notes[noteNo];
                     dn.enabled    = true;
+                    dn.voicePatchType = nj.value("voice_patch_type", static_cast<uint8_t>(VOICE_PATCH_NONE));
                     dn.patchBank  = nj.value("patch_bank", static_cast<uint8_t>(0));
                     dn.patchProg  = nj.value("patch_prog", static_cast<uint8_t>(0));
                     dn.playNote   = nj.value("play_note",  static_cast<uint8_t>(60));

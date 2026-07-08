@@ -1006,17 +1006,28 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
 const ResolvedPatch* CRhythmCh::resolveNote(uint8_t midiNote, const DrumNote& dn)
 {
     auto& cache = noteCache_[midiNote];
-    if (cache.patchBank == dn.patchBank &&
+    if (cache.voicePatchType == dn.voicePatchType &&
+        cache.patchBank == dn.patchBank &&
         cache.patchProg == dn.patchProg &&
         cache.isValid()) {
         return &cache.resolved;
     }
     // キャッシュミス → 解決
+    cache.voicePatchType = dn.voicePatchType;
     cache.patchBank = dn.patchBank;
     cache.patchProg = dn.patchProg;
     auto& pm = fitom_->getPatchManager();
-    cache.resolved = pm.resolve(dn.patchBank, dn.patchProg,
-                                fitom_->getConfig());
+
+    if (dn.voicePatchType == VOICE_PATCH_NONE) {
+        // 通常モード: CInstCh::progChangeのbankSelM_==0と同じ経路
+        cache.resolved = pm.resolve(dn.patchBank, dn.patchProg, fitom_->getConfig());
+    } else {
+        // 直接モード: CInstCh::progChangeのbankSelM_!=0と同じ経路。
+        // dn.patchBank/patchProgはHwBankインデックス/HwProgとして
+        // 読み替わる (DrumNoteのコメント参照)。
+        cache.resolved = pm.resolveDirect(dn.voicePatchType, dn.patchBank, dn.patchProg,
+                                          fitom_->getConfig(), cache.directStorage);
+    }
     return cache.isValid() ? &cache.resolved : nullptr;
 }
 

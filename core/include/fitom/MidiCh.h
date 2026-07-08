@@ -369,9 +369,11 @@ private:
     // progChange 時に全ノートのリゾルバを更新するのは重いため、
     // NoteOn 時にオンデマンドで解決してキャッシュする
     struct NoteCache {
+        uint8_t       voicePatchType = 0xFF; // キャッシュキー(モード変更検知用)
         uint8_t       patchBank = 0xFF;
         uint8_t       patchProg = 0xFF;
         ResolvedPatch resolved;
+        Patch         directStorage; // 直接モード時、resolveDirect()のstorage引数用
         bool isValid() const { return resolved.isValid(); }
     };
     std::array<NoteCache, 128> noteCache_;

@@ -18,6 +18,7 @@
 //        - transpose の代わりに play_note を絶対指定
 
 #include "fitom/PatchData.h"
+#include "fitom/FITOMdefine.h"
 #include <cstdint>
 #include <string>
 #include <array>
@@ -33,11 +34,20 @@ struct DrumNote {
     char    name[32] = {};
 
     // ─── Patch 参照 ───────────────────────────────────────────────
-    // CInstCh の ProgChange と同じ体系
-    // Patch → ToneLayer[] → HwPatch (マルチレイヤー対応)
-    // Patch → SwPatch      (ベロシティ感度・ソフトLFO)
-    uint8_t patchBank = 0;   // PatchBank 番号 (MIDI CC#0 と同じ体系)
-    uint8_t patchProg = 0;   // Patch プログラム番号
+    // CInstCh の CC#0(Bank Select MSB)と全く同じモード選択セマンティクス。
+    //   voicePatchType == VOICE_PATCH_NONE(0): 通常モード。
+    //     patchBank/patchProgは、CC#0=0時のCC#32/ProgChgと同じ意味
+    //     (PatchBank→Patch→ToneLayer[]→HwPatch のマルチレイヤー解決、
+    //      PatchManager::resolve(patchBank, patchProg, config)を使う)。
+    //   voicePatchType == 0x01-0x6F: 直接モード。
+    //     patchBank/patchProgは、CC#0=直接モード時のCC#32/ProgChgと
+    //     同じ意味に読み替わる(patchBankはそのVoicePatchType用HwBankの
+    //     インデックス、patchProgはそのバンク内のHwProg。
+    //     PatchManager::resolveDirect(voicePatchType, patchBank,
+    //     patchProg, config, storage)を使う。単層Patch、SwPatch無し)。
+    uint8_t voicePatchType = VOICE_PATCH_NONE; // 省略時0=通常モード(後方互換)
+    uint8_t patchBank = 0;   // 通常モード:PatchBank番号 / 直接モード:HwBankインデックス
+    uint8_t patchProg = 0;   // 通常モード:Progプログラム番号 / 直接モード:HwProg
 
     // ─── 発音ノート ────────────────────────────────────────────────
     // Patch の ToneLayer.transpose は使わず、ここで絶対指定する
