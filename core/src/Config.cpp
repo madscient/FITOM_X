@@ -846,6 +846,15 @@ int FITOMConfig::findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const
     return -1;
 }
 
+int FITOMConfig::findDeviceIndexByDeviceType(uint32_t deviceType) const
+{
+    if (deviceType == DEVICE_NONE) return -1;
+    for (int i = 0; i < static_cast<int>(devices_.size()); ++i) {
+        if (devices_[i].deviceType == deviceType) return i;
+    }
+    return -1;
+}
+
 std::vector<int> FITOMConfig::findAllFallbackDeviceIndices(uint8_t sourceVoicePatchType,
                                                              const HwPatch& patch) const
 {

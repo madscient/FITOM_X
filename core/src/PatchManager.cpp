@@ -152,11 +152,17 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
     auto rt = resolveTriple(voicePatchType, hwBank, hwProg, config);
     if (!rt.isValid()) return {};
 
-    // storage (呼び出し元が寿命を保持) に単層Patchを構築する
+    // storage (呼び出し元が寿命を保持) に単層Patchを構築する。
+    // (Patch::fromSingleLayerはvoicePatchType/hwBank/hwProgの記録用の
+    //  枠組みとしてのみ使われる。内蔵リズム音源はresolveBuiltinRhythm()
+    //  が常に空のダミーHwPatchを返すため、この分岐には到達しない)。
     if (rt.samplePatch) {
         storage = Patch::fromSingleLayer(*rt.samplePatch, voicePatchType, hwBank, hwProg);
-    } else {
+    } else if (rt.hwPatch) {
         storage = Patch::fromSingleLayer(*rt.hwPatch, voicePatchType, hwBank, hwProg);
+    } else {
+        static const HwPatch kDummyPatch{};
+        storage = Patch::fromSingleLayer(kDummyPatch, voicePatchType, hwBank, hwProg);
     }
 
     ResolvedPatch result;
@@ -272,6 +278,50 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     return result;
 }
 
+// 内蔵リズム音源専用の解決ロジック。voicePatchType ==
+// VOICE_PATCH_BUILTIN_RHYTHM(0x70)の場合にresolveTriple()から呼ばれる。
+// チャンネル(=楽器)選択自体は、既存のDrumNote::fixedChメカニズムに
+// 委ねる (呼び出し元のCRhythmCh::applyNoteOnが、fixedCh>=0なら
+// assignCh()で強制的にそのチャンネルへ割り当てる)。この関数は
+// 「対象チップ(デバイス)の解決」だけを行う。
+PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
+    uint8_t chipSel, const FITOMConfig& config, const std::string& logContext) const
+{
+    ResolvedTriple result;
+    std::string ctx = logContext.empty()
+        ? std::string("resolveDirect:")
+        : ("resolve: " + logContext);
+
+    uint32_t targetDeviceType = DEVICE_NONE;
+    if (chipSel == VOICE_PATCH_OPN2) {       // OPNA
+        targetDeviceType = DEVICE_OPNA_RHY;
+    } else if (chipSel == VOICE_PATCH_OPLL) { // OPLL
+        targetDeviceType = DEVICE_OPLL_RHY;
+    } else {
+        // OPL(COPLRhythm)は現状未実装、その他の値も無効。
+        FITOM_LOG_WARN(ctx << " builtin-rhythm: undefined chip selector=0x"
+            << std::hex << (int)chipSel);
+        return result;
+    }
+
+    int deviceIndex = config.findDeviceIndexByDeviceType(targetDeviceType);
+    if (deviceIndex < 0) {
+        FITOM_LOG_WARN(ctx << " builtin-rhythm: deviceType=0x" << std::hex << targetDeviceType
+            << " — no matching device connected");
+        return result;
+    }
+
+    result.deviceIndex = deviceIndex;
+    // COPNARhythm/COPLLRhythmはHwPatchの中身を一切参照しないが、
+    // assignCh()はpatch/samplePatchが両方nullptrだとupdateVoice()自体を
+    // 呼ばない(音量/パン初期化が行われなくなる)ため、空のダミー
+    // HwPatchへのポインタを設定しておく(中身は使われないので内容は
+    // 空のままでよい)。
+    static const HwPatch kEmptyRhythmPatch{};
+    result.hwPatch = &kEmptyRhythmPatch;
+    return result;
+}
+
 PatchManager::ResolvedTriple PatchManager::resolveTriple(
     uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
     const FITOMConfig& config, const std::string& logContext) const
@@ -284,6 +334,13 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // 場合、ToneLayer同士が循環参照する経路を開いてしまうため、
     // この入口で構造的に禁止しておく。
     if (voicePatchType == VOICE_PATCH_NONE) return result;
+
+    // 内蔵リズム音源専用バンク: hwBank(CC#32相当)が対象チップを、
+    // hwProg(ProgChg相当)がそのチップ内の楽器番号を選ぶ。通常の
+    // HwBankRegistry検索を一切経由しない。
+    if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
+        return resolveBuiltinRhythm(hwBank, config, logContext);
+    }
 
     // OPLL系ROM音色専用バンク: バンク0はROM音色専用の予約領域であり、
     // 通常のHwBankRegistry検索(JSONプリセット)を経由しない。

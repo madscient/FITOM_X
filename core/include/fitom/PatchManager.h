@@ -174,6 +174,27 @@ private:
     ResolvedTriple resolveOpllRomVoice(uint8_t hwProg, const FITOMConfig& config,
                                         const std::string& logContext) const;
 
+    // ─── 内蔵リズム音源専用の解決ロジック ──────────────────────────
+    // voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM(0x70)の場合に
+    // resolveTriple()から呼ばれる。
+    //   chipSel(hwBank相当): 対象チップを選ぶ。既存のVOICE_PATCH_*定数
+    //     を再利用する(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。
+    // 通常のVoicePatchTypeベースルーティングでは、COPNARhythm/
+    // COPLLRhythmはdeviceTypeToVoicePatchType()がVOICE_PATCH_NONEを
+    // 返すため到達不能 (findDeviceIndexByDeviceType()で直接検索する)。
+    //
+    // 「楽器番号=チャンネル番号」というハードウェア上の制約があるが、
+    // これは既存のDrumNote::fixedChメカニズム(呼び出し元の
+    // CRhythmCh::applyNoteOnが、fixedCh>=0ならassignCh()で強制的に
+    // そのチャンネルへ割り当てる、既存の仕組み)をそのまま再利用する。
+    // hwProg(patch_prog相当)はこのモードでは使わない
+    // (fixed_chと重複した情報になるため; DrumNote作成者はvoice_patch_type
+    // =0x70を使う場合、必ずfixed_chに対象チャンネル番号を設定すること。
+    // 設定を忘れると動的チャンネル割り当てにフォールバックし、
+    // 意図しない楽器が鳴る可能性がある)。
+    ResolvedTriple resolveBuiltinRhythm(uint8_t chipSel, const FITOMConfig& config,
+                                         const std::string& logContext) const;
+
     // resolveOpllRomVoice()が返すHwPatchの実体。ResolvedTriple::hwPatchは
     // ポインタのため、呼び出し元が使い続けられるよう安定した記憶域に
     // 保持する。[variantSel(0-3)][instIndex(0-15)]。プリセットフラグ
