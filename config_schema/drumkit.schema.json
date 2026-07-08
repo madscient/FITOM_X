@@ -108,7 +108,7 @@
                 "minimum": 0,
                 "maximum": 127,
                 "default": 0,
-                "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。"
+                "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progは使わない(無視される)。楽器選択はfixed_chで行う(必須。設定を忘れると動的チャンネル割り当てにフォールバックし、意図しない楽器が鳴る可能性がある)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
               }
             }
           }
@@ -192,7 +192,7 @@
           "minimum": 0,
           "maximum": 127,
           "default": 0,
-          "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。"
+          "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progは使わない(無視される)。楽器選択はfixed_chで行う(必須。設定を忘れると動的チャンネル割り当てにフォールバックし、意図しない楽器が鳴る可能性がある)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
         }
       }
     }

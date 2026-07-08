@@ -941,6 +941,21 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         if (!patch && !samplePatch) continue;
 
         // ─── チャンネル割り当て ─────────────────────────────────────
+        // 内蔵リズム音源(COPNARhythm/COPLLRhythm)は「チャンネル番号=
+        // 発音される楽器」というハードウェア制約があるため、
+        // voice_patch_type=0x70使用時はfixed_chの設定が必須。設定漏れ
+        // (fixedCh<0のまま)だと、以下のfixedCh分岐に入らず動的割り当て
+        // (allocCh)にフォールバックし、意図しない楽器が鳴る可能性が
+        // あるため警告する。
+        if (li == 0 && dn.fixedCh < 0) {
+            uint32_t devType = fitom_->getConfig().getDeviceType(rl->deviceIndex);
+            if (devType == DEVICE_OPNA_RHY || devType == DEVICE_OPLL_RHY) {
+                FITOM_LOG_WARN("CRhythmCh: note=" << (int)midiNote
+                    << " targets a builtin-rhythm device but fixed_ch is not set "
+                       "— falling back to dynamic allocation, wrong instrument may sound");
+            }
+        }
+
         uint8_t devCh = 0xFF;
         if (li == 0 && dn.fixedCh >= 0) {
             // layer[0] のみ fixedCh を適用
@@ -968,7 +983,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         int playNote = static_cast<int>(dn.playNote) + adj.pitch;
         playNote = std::clamp(playNote, 0, 127);
         int16_t fine = static_cast<int16_t>(dn.fineTune);
-        dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, false);
+        dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, true);
 
         // SwPatch を VoiceProcessor に適用
         // (samplePatchのみ設定されている場合=AWM系レイヤーは、FmVoiceが

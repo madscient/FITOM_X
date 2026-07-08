@@ -273,6 +273,17 @@
 #define VOICE_PATCH_PCMD8        0x53  // YMZ280
 #define VOICE_PATCH_AWM          0x54  // YMF278-AWM+YRW801
 
+// 0x70: 内蔵リズム音源(builtin-rhythm)専用バンク選択子。
+// 通常のVOICE_PATCH_*(特定チップを指す値)とは異なり、これ自体は
+// 「内蔵リズム専用バンクへのアクセス」を意味するモード選択子。
+// CC#0(またはToneLayer/DrumNoteのvoicePatchType)にこの値を指定した
+// 場合、CC#32(hwBank)相当のフィールドで対象チップ(OPNA/OPLL等、
+// 実際にはVOICE_PATCH_OPN2/VOICE_PATCH_OPLL等の既存定数を再利用して
+// 指定する)を選び、ProgChg(hwProg)相当のフィールドで、そのチップの
+// 内蔵リズムユニット内の楽器番号(0起算、チップごとに固定チャンネル数)
+// を選ぶ。詳細はPatchManager::resolveBuiltinRhythm()参照。
+#define VOICE_PATCH_BUILTIN_RHYTHM 0x70
+
 // サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM) かどうかを判定する。
 // これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch
 // (キーゾーン+ベロシティレイヤー+波形/サンプル参照)を使う共通スキーマで

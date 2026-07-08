@@ -121,6 +121,13 @@ public:
     // (完全一致のみ、互換フォールバックは将来実装)。
     int findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const;
 
+    // 生のdeviceType(DEVICE_*)に一致する最初のデバイスのインデックスを
+    // 返す。見つからない場合は-1。COPNARhythm/COPLLRhythm等、
+    // deviceTypeToVoicePatchType()がVOICE_PATCH_NONEを返す(通常の
+    // VoicePatchTypeベースルーティングでは到達できない)特殊デバイスを
+    // 検索するために使う (PatchManager::resolveBuiltinRhythm()参照)。
+    int findDeviceIndexByDeviceType(uint32_t deviceType) const;
+
     // sourceVoicePatchType(+HwPatchの内容)をフォールバックとして受け入れ
     // 可能な、接続済み全デバイスのインデックスをdevices[]の順序で列挙する。
     // (DeviceFactory::acceptsFallback()参照)。Program Change時の
