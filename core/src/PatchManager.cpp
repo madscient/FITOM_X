@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <stdexcept>
+#include <cstring>
 
 namespace fitom {
 
@@ -185,10 +186,40 @@ PatchManager::PatchManager()
 // この2フィールドだけを設定すればよい(他はデフォルト値のまま)。
 void PatchManager::initOpllRomPatches()
 {
+    // ROM音色名。出典: https://github.com/plgDavid/misc/wiki/Copyright-free-OPLL(x)-ROM-patches
+    // (耳コピによる非公式な近似データ。著作権フリーを謳っているが、
+    //  正確な公式名称ではない可能性がある点に留意)。
+    // index[0]はINSTナンバー0(ユーザー音色、このバンクでは常に無音)用の
+    // ダミーで未使用。1-15が実際のROM音色名に対応する。
+    static const char* const kNames[4][16] = {
+        // 0: OPLL (YM2413) / OPLL2
+        { "", "Violin", "Guitar", "Piano", "Flute", "Clarinet", "Oboe",
+          "Trumpet", "Organ", "Horn", "Synthesizer", "Harpsichord",
+          "Vibraphone", "Synthesizer Bass", "Acoustic Bass", "Electric Guitar" },
+        // 1: OPLLX (YM2423)
+        { "", "Strings", "Guitar", "Electric Guitar", "Electric Piano 2",
+          "Flute", "Marimba", "Trumpet", "Harmonica", "Tuba",
+          "Synth Brass 2", "Short Saw", "Vibraphone", "Electric Guitar 2",
+          "Synth Bass 2", "Sitar" },
+        // 2: OPLLP (YMF281)
+        { "", "Clarinet", "Synth Bass", "Piano", "Flute", "Square Wave",
+          "Space Oboe", "Trumpet", "Wow Bell", "Electric Guitar", "Vibes",
+          "Bass", "Vibraphone", "Vibrato Bell", "Click Sine", "Noise and Tone" },
+        // 3: VRC7
+        { "", "Buzzy Bell", "Guitar", "Wurly", "Flute", "Clarinet", "Synth",
+          "Trumpet", "Organ", "Bells", "Vibes", "Vibraphone", "Tutti",
+          "Fretless", "Synth Bass", "Sweep" },
+    };
+
     for (int variantSel = 0; variantSel < 4; ++variantSel) {
         for (int instIndex = 0; instIndex < 16; ++instIndex) {
             HwPatch& p = opllRomPatches_[variantSel][instIndex];
             p = HwPatch{};
+            // id: バンク番号は常に0(ROM専用予約バンク)、prog番号はhwProgの
+            // 生値(variantSel<<4 | instIndex)をそのまま使う。isValid()が
+            // 正しくtrueを返すよう、デフォルトの0xFFFFFFFFuから変更する。
+            p.id = (static_cast<uint32_t>(variantSel) << 4) | static_cast<uint32_t>(instIndex);
+            std::strncpy(p.name, kNames[variantSel][instIndex], sizeof(p.name) - 1);
             p.ext.ALG_EXT = 1;                          // プリセット選択フラグ
             p.hw.ALG      = static_cast<uint8_t>(instIndex & 0xF); // INSTナンバー
         }
