@@ -178,6 +178,45 @@ PatchManager::resolveDirect(voicePatchType, hwBank, hwProg, config, storage)
 (`0x70`-`0x7F`はGM2リズム/メロディ切替(`0x78`/`0x79`)専用および将来予約)。
 `bankSelM_==0`は通常モードのトリガーであり、直接モードには使えない。
 
+### OPLL系ROM音色専用バンク（hwBank=0の特別扱い）
+
+OPLL系チップ(OPLL/OPLLP/OPLLX/VRC7。OPLL2は`VOICE_PATCH_OPLL`を共有する
+ため区別不要)は、実機に焼き込まれた15種類のROMプリセット音色を持つ。
+**これらのROM音色はチップごとに実データが全く異なり、相互に互換性が
+無い**ため、`acceptsFallback`はプリセット音色(`HwPatch::ext.ALG_EXT`
+のbit0が1)のフォールバックを拒否する
+(`opllFamilyAcceptsFallback`参照)。
+
+一方で、ROM音色はチップのハードウェアに固定された既知のデータ
+(実質「プリセットフラグ1bit + INSTナンバー4bit」の5bitのみ)であり、
+チップ種別ごとに手作業でJSONバンクファイルを用意する必要は無い。
+**OPLL系のvoicePatchTypeで`hwBank==0`を指定した場合、通常の
+HwBankRegistry検索(JSON)を経由せず、`hwProg`の値から直接HwPatchを
+機械的に合成する。バンク0はROM音色専用の予約領域であり、JSON
+(プリセット)による定義は不可**(たとえバンク0にJSONバンクを
+ロードしても、`resolveTriple()`が常にこちらを優先するため参照
+されない)。
+
+```
+hwProg (Program Change の値、7bit) の内訳:
+  上位3bit (hwProg >> 4): 使用するOPLL系チップ種別を選択
+    0 = OPLL (OPLL2も含む)   1 = OPLLX
+    2 = OPLLP                3 = VRC7
+    4-7 = 未定義 (無音)
+  下位4bit (hwProg & 0xF): ROM音色インデックス
+    0    = 無音 (ユーザー音色(INST=0)との衝突を避けるため意図的に予約)
+    1-15 = ROM音色インデックス (実機のINSTナンバーに直接対応)
+```
+
+実装: `PatchManager::resolveOpllRomVoice()`。`resolveTriple()`(直接
+モード・ToneLayer解決の共通処理)の入口付近で、`voicePatchType`が
+OPLL系かつ`hwBank==0`の場合にこの専用ロジックへ分岐する。生成される
+`HwPatch`は`PatchManager`が保持する固定サイズのキャッシュ
+(`opllRomPatches_[4][16]`、`ext.ALG_EXT`と`hw.ALG`のみ設定済み)を参照する。
+
+要求されたチップ種別が接続されていない場合、フォールバックは行わず
+無音になる(ROM音色は相互互換性が無いため)。
+
 ### リズムチャンネル: ドラムマップによる解決
 
 `CRhythmCh`はCC#0(`0x79`によるメロディ復帰を除く)/CC#32を一切使わない。
