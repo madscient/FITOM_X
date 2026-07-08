@@ -24,6 +24,7 @@
 #include "fitom/PcmBankData.h"
 #include "fitom/Log.h"
 #include <vector>
+#include <array>
 #include <memory>
 #include <filesystem>
 #include <functional>
@@ -38,7 +39,7 @@ class FITOMConfig;  // デバイスリストへのアクセスに使用
 // ================================================================
 class PatchManager {
 public:
-    explicit PatchManager() = default;
+    explicit PatchManager();
 
     // ─── バンク管理 ───────────────────────────────────────────────
 
@@ -159,6 +160,28 @@ private:
     ResolvedTriple resolveTriple(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
                                   const FITOMConfig& config,
                                   const std::string& logContext = "") const;
+
+    // ─── OPLL系ROM音色専用の解決ロジック ──────────────────────────
+    // voicePatchTypeがOPLLファミリー(OPLL/OPLLP/OPLLX/VRC7、OPLL2は
+    // VOICE_PATCH_OPLLを共有するため区別不要)で、hwBank==0の場合、
+    // 通常のHwBankRegistry検索を経由せず、hwProgの上位3bit/下位4bitから
+    // 直接HwPatchを合成する。バンク0はROM音色専用の予約領域であり、
+    // JSON(プリセット)による定義は不可 (resolveTripleが常にこちらを
+    // 優先するため、たとえJSONでロードされていても参照されない)。
+    //   上位3bit(hwProg>>4): 0=OPLL, 1=OPLLX, 2=OPLLP, 3=VRC7 (4-7は無効)
+    //   下位4bit(hwProg&0xF): 0=無音(ユーザー音色との衝突回避のため
+    //                         意図的に予約)、1-15=ROM音色インデックス
+    ResolvedTriple resolveOpllRomVoice(uint8_t hwProg, const FITOMConfig& config,
+                                        const std::string& logContext) const;
+
+    // resolveOpllRomVoice()が返すHwPatchの実体。ResolvedTriple::hwPatchは
+    // ポインタのため、呼び出し元が使い続けられるよう安定した記憶域に
+    // 保持する。[variantSel(0-3)][instIndex(0-15)]。プリセットフラグ
+    // (ext.ALG_EXT=1)とINSTナンバー(hw.ALG)以外のフィールドはOPLLドライバ
+    // 側で無視されるため未設定のままでよい。PatchManagerコンストラクタで
+    // 一括初期化する。
+    mutable std::array<std::array<HwPatch, 16>, 4> opllRomPatches_{};
+    void initOpllRomPatches();
 
     HwBankRegistry hwReg_;
     SampleZoneBankRegistry sampleReg_;

@@ -174,6 +174,73 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
 // voicePatchType + hwBank + hwProg の3つ組から、実際に発音可能な
 // (device, HwPatch または SamplePatch) を解決する共通ロジック。
 // resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる。
+PatchManager::PatchManager()
+{
+    initOpllRomPatches();
+}
+
+// [variantSel][instIndex] の全64エントリを事前に構築する。
+// OPLLドライバ(updateVoice)はプリセット音色の場合、ext.ALG_EXT(bit0)と
+// hw.ALG(下位4bit=INSTナンバー)以外のフィールドを一切参照しないため、
+// この2フィールドだけを設定すればよい(他はデフォルト値のまま)。
+void PatchManager::initOpllRomPatches()
+{
+    for (int variantSel = 0; variantSel < 4; ++variantSel) {
+        for (int instIndex = 0; instIndex < 16; ++instIndex) {
+            HwPatch& p = opllRomPatches_[variantSel][instIndex];
+            p = HwPatch{};
+            p.ext.ALG_EXT = 1;                          // プリセット選択フラグ
+            p.hw.ALG      = static_cast<uint8_t>(instIndex & 0xF); // INSTナンバー
+        }
+    }
+}
+
+// OPLL系ROM音色専用の解決ロジック。voicePatchTypeがOPLLファミリーの
+// いずれかで、hwBank==0の場合にresolveTriple()から呼ばれる。
+PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
+    uint8_t hwProg, const FITOMConfig& config, const std::string& logContext) const
+{
+    ResolvedTriple result;
+
+    uint8_t variantSel = static_cast<uint8_t>((hwProg >> 4) & 0x7);
+    uint8_t instIndex  = static_cast<uint8_t>(hwProg & 0xF);
+
+    // 下位4bit=0は無音 (ユーザー音色(INST=0)との衝突を避けるため、
+    // このROM音色専用バンクでは意図的に予約し、何も鳴らさない)。
+    if (instIndex == 0) return result;
+
+    static constexpr uint8_t kVariantMap[8] = {
+        VOICE_PATCH_OPLL,   // 0 (OPLL2もVOICE_PATCH_OPLLを共有するため区別不要)
+        VOICE_PATCH_OPLLX,  // 1
+        VOICE_PATCH_OPLLP,  // 2
+        VOICE_PATCH_VRC7,   // 3
+        0, 0, 0, 0          // 4-7: 未定義
+    };
+    uint8_t actualVpt = kVariantMap[variantSel];
+    if (actualVpt == 0) {
+        FITOM_LOG_WARN((logContext.empty() ? "resolveDirect:" : ("resolve: " + logContext))
+            << " OPLL ROM voice: undefined variant selector=" << (int)variantSel
+            << " (prog=0x" << std::hex << (int)hwProg << ")");
+        return result;
+    }
+
+    // ROM音色はチップごとに実データが全く異なるため、フォールバックは
+    // 行わない (opllFamilyAcceptsFallbackがプリセット音色のフォールバック
+    // を拒否するのと同じ方針)。要求された具体的なチップが接続されて
+    // いなければ、そのまま失敗として扱う。
+    int deviceIndex = config.findDeviceIndexByVoicePatchType(actualVpt);
+    if (deviceIndex < 0) {
+        FITOM_LOG_WARN((logContext.empty() ? "resolveDirect:" : ("resolve: " + logContext))
+            << " OPLL ROM voice: voicePatchType=0x" << std::hex << (int)actualVpt
+            << " — no matching device (ROM音色はフォールバック非対応)");
+        return result;
+    }
+
+    result.deviceIndex = deviceIndex;
+    result.hwPatch = &opllRomPatches_[variantSel][instIndex];
+    return result;
+}
+
 PatchManager::ResolvedTriple PatchManager::resolveTriple(
     uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
     const FITOMConfig& config, const std::string& logContext) const
@@ -186,6 +253,15 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // 場合、ToneLayer同士が循環参照する経路を開いてしまうため、
     // この入口で構造的に禁止しておく。
     if (voicePatchType == VOICE_PATCH_NONE) return result;
+
+    // OPLL系ROM音色専用バンク: バンク0はROM音色専用の予約領域であり、
+    // 通常のHwBankRegistry検索(JSONプリセット)を経由しない。
+    // (OPLL2はVOICE_PATCH_OPLLを共有するため、この判定に個別追加は不要)
+    if (hwBank == 0 &&
+        (voicePatchType == VOICE_PATCH_OPLL || voicePatchType == VOICE_PATCH_OPLLP ||
+         voicePatchType == VOICE_PATCH_OPLLX || voicePatchType == VOICE_PATCH_VRC7)) {
+        return resolveOpllRomVoice(hwProg, config, logContext);
+    }
 
     std::string ctx = logContext.empty()
         ? std::string("resolveDirect:")
