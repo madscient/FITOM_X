@@ -105,6 +105,31 @@ SAAは per-channel ステレオパン対応、SSG/EPSG/DCSGは非対応）。
 使う場合は、それを承知の上で宣言している以上、下位チップ環境では
 そのレイヤーが鳴らない(スキップされる)のは想定通りの挙動である。
 
+### 解決アルゴリズムの内部統一: `PatchManager::resolveTriple()`
+
+`voicePatchType + hwBank + hwProg` の3つ組から実際に発音可能な
+(device, HwPatch または SamplePatch) を得るロジックは、以下の2箇所で
+使われる、本質的に同一の処理である:
+
+- `resolve()`: `Patch`内の各`ToneLayer`が持つ`(voicePatchType, hwBank, hwProg)`
+- `resolveDirect()`: リアルタイムのBank Select直接モード(CC#0=type,
+  CC#32=hwBank, ProgChg=hwProg)が持つ同じ3つ組
+
+旧実装ではこの2箇所にほぼ同一のロジック(`acceptsFallback`呼び出し・
+mismatchチェック・デバイス検索)が重複していたため、`PatchManager::
+resolveTriple()`という共通のprivateメソッドに統一した。これにより、
+片方だけを修正して他方の修正を忘れる、という事故が構造的に起こらなくなる
+(実際、OPL3_2フォールバックの穴を発見・修正した際、この重複が
+問題を複雑にしていた)。
+
+**`resolveTriple()`は`voicePatchType == VOICE_PATCH_NONE`(0)を常に
+失敗として扱う。** これは、CC#0の実時間セマンティクスにおける
+「通常モード」(PatchBank参照)に相当する値であり、もし将来
+`resolveTriple()`がPatchBank参照も扱えるよう拡張された場合、
+`ToneLayer`同士が循環参照する経路(Patch AのレイヤーがPatch Bを参照し、
+Patch BのレイヤーがPatch Aを参照する、といった無限再帰)を開いて
+しまうため、あらかじめこの入口で構造的に禁止してある。
+
 ---
 
 ## 3つの解決モード（メロディチャンネル: 通常/直接、リズムチャンネル: ドラムマップ）

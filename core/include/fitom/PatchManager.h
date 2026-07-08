@@ -27,6 +27,7 @@
 #include <memory>
 #include <filesystem>
 #include <functional>
+#include <string>
 
 namespace fitom {
 
@@ -137,6 +138,28 @@ public:
     void setProgressCallback(ProgressCallback cb) { progressCb_ = std::move(cb); }
 
 private:
+    // voicePatchType + hwBank + hwProg の3つ組から、実際に発音可能な
+    // (device, HwPatch または SamplePatch) を解決する共通ロジック。
+    // resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる
+    // (旧実装ではほぼ同一のロジックが2箇所に重複していたため統一した)。
+    //
+    // voicePatchType == VOICE_PATCH_NONE(0) は常に失敗として扱う
+    // (CC#0の実時間セマンティクスにおける「通常モード」=PatchBank参照に
+    //  相当する値。もしこの関数がPatchBank参照も扱えるよう将来拡張
+    //  された場合、ToneLayer同士が循環参照する経路を開いてしまう
+    //  ため、この関数の入口で構造的に禁止しておく)。
+    struct ResolvedTriple {
+        int deviceIndex = -1;
+        const HwPatch* hwPatch = nullptr;
+        const SampleZonePatch* samplePatch = nullptr;
+        bool isValid() const { return deviceIndex >= 0; }
+    };
+    // logContext: ログメッセージの主語("layer=N" 等)。空文字なら
+    // resolveDirect相当の文言にする。
+    ResolvedTriple resolveTriple(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
+                                  const FITOMConfig& config,
+                                  const std::string& logContext = "") const;
+
     HwBankRegistry hwReg_;
     SampleZoneBankRegistry sampleReg_;
     SwBankRegistry swReg_;
