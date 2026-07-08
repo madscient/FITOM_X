@@ -122,92 +122,23 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
             << " prog=" << patch.swProg << " — using default");
     }
 
-    // 各 ToneLayer の HwPatch を解決
-    // voicePatchType に一致するデバイスが見つからない、または
-    // HwBank のタグと不一致の場合、そのレイヤーだけをスキップする
-    // (Patch全体は無効にしない。確保できたレイヤーのみ発音する)。
+    // 各 ToneLayer の HwPatch を解決 (共通ロジックはresolveTriple()に集約、
+    // resolveDirect()と共有する)。voicePatchTypeに一致するデバイスが
+    // 見つからない、またはHwBankのタグと不一致の場合、そのレイヤーだけを
+    // スキップする (Patch全体は無効にしない。確保できたレイヤーのみ発音する)。
     for (int i = 0; i < MAX_TONE_LAYERS; ++i) {
         const auto& layer = patch.layers[i];
         if (!layer.isActive()) continue;
 
-        if (isSampleBasedVoicePatchType(layer.voicePatchType)) {
-            // サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM):
-            // HwBankRegistryではなくSampleZoneBankRegistryを検索する。
-            // HwPatchが存在しないため、フォールバック機構
-            // (findFallbackDeviceIndex、HwPatchの内容を要求する) は使わず、
-            // 厳密一致のみを試す。サンプルベース音源系は現状フォールバック
-            // 元/先になる想定がないため実用上の制約は小さい。
-            const SampleZonePatch* samplePatch = sampleReg_.resolve(layer.hwBank, layer.hwProg);
-            if (!samplePatch) {
-                FITOM_LOG_WARN("resolve: layer=" << i
-                    << " bank=" << (int)layer.hwBank << " prog=" << (int)layer.hwProg
-                    << " SampleZonePatch not found — layer skipped");
-                continue;
-            }
-            int deviceIndex = config.findDeviceIndexByVoicePatchType(layer.voicePatchType);
-            if (deviceIndex < 0) {
-                FITOM_LOG_WARN("resolve: layer=" << i << " voicePatchType=0x"
-                    << std::hex << (int)layer.voicePatchType
-                    << " — no matching device (サンプルベース音源系はフォールバック非対応), layer skipped");
-                continue;
-            }
-            ResolvedLayer rl;
-            rl.layer       = &layer;
-            rl.deviceIndex = deviceIndex;
-            rl.samplePatch = samplePatch;
-            result.layers[result.layerCount++] = rl;
-            continue;
-        }
-
-        // データ (HwBank/HwPatch) は常に layer 本来の voicePatchType 基準で
-        // 検索する。フォールバック可否の判定 (OPLLファミリーのプリセット/
-        // ユーザー判定等) にHwPatchの内容が必要なため、デバイス検索より先に
-        // データを解決する。
-        auto group = FITOMConfig::voicePatchTypeToVoiceGroup(layer.voicePatchType);
-        const HwBank* bank = hwReg_.find(group, layer.hwBank);
-        if (!bank || bank->voicePatchType != layer.voicePatchType) {
-            FITOM_LOG_WARN("resolve: layer=" << i
-                << " bank=" << (int)layer.hwBank
-                << " voicePatchType mismatch (bank="
-                << (bank ? bank->voicePatchType : 0)
-                << ", layer=" << (int)layer.voicePatchType
-                << ") — layer skipped");
-            continue;
-        }
-
-        const HwPatch* hwPatch = &bank->get(layer.hwProg);
-        if (!hwPatch->isValid()) {
-            FITOM_LOG_WARN("HwPatch not found: layer=" << i
-                << " bank=" << (int)layer.hwBank
-                << " prog=" << (int)layer.hwProg);
-            continue;
-        }
-
-        // デバイス検索: まず厳密一致を試し、無ければ接続済み全デバイスに
-        // フォールバック受け入れ可否を問い合わせる。見つかった最初の
-        // 1つだけを採用する (同一レイヤーから複数デバイスが同時に
-        // 発音することはない)。
-        int deviceIndex = config.findDeviceIndexByVoicePatchType(layer.voicePatchType);
-        uint8_t usedVpt = layer.voicePatchType;
-        if (deviceIndex < 0) {
-            deviceIndex = findFallbackDeviceIndex(config, layer.voicePatchType, *hwPatch, usedVpt);
-        }
-        if (deviceIndex < 0) {
-            FITOM_LOG_WARN("resolve: layer=" << i << " voicePatchType=0x"
-                << std::hex << (int)layer.voicePatchType
-                << " — no matching device (fallback exhausted), layer skipped");
-            continue;
-        }
-        if (usedVpt != layer.voicePatchType) {
-            FITOM_LOG_INFO("resolve: layer=" << i << " voicePatchType=0x"
-                << std::hex << (int)layer.voicePatchType
-                << " not connected, falling back to 0x" << (int)usedVpt);
-        }
+        auto rt = resolveTriple(layer.voicePatchType, layer.hwBank, layer.hwProg,
+                                 config, "layer=" + std::to_string(i));
+        if (!rt.isValid()) continue;
 
         ResolvedLayer rl;
         rl.layer       = &layer;
-        rl.deviceIndex = deviceIndex;
-        rl.hwPatch     = hwPatch;
+        rl.deviceIndex = rt.deviceIndex;
+        rl.hwPatch     = rt.hwPatch;
+        rl.samplePatch = rt.samplePatch;
         result.layers[result.layerCount++] = rl;
     }
 
@@ -217,74 +148,112 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
 ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
                                           const FITOMConfig& config, Patch& storage) const
 {
-    if (isSampleBasedVoicePatchType(voicePatchType)) {
-        const SampleZonePatch* samplePatch = sampleReg_.resolve(hwBank, hwProg);
-        if (!samplePatch) {
-            FITOM_LOG_WARN("resolveDirect: bank=" << (int)hwBank << " prog=" << (int)hwProg
-                << " SampleZonePatch not found");
-            return {};
-        }
-        int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
-        if (deviceIndex < 0) {
-            FITOM_LOG_WARN("resolveDirect: voicePatchType=0x" << std::hex << (int)voicePatchType
-                << " — no matching device (サンプルベース音源系はフォールバック非対応)");
-            return {};
-        }
-
-        storage = Patch::fromSingleLayer(*samplePatch, voicePatchType, hwBank, hwProg);
-
-        ResolvedPatch result;
-        result.patch  = &storage;
-        result.swPatch = nullptr;
-        ResolvedLayer rl;
-        rl.layer       = &storage.layers[0];
-        rl.samplePatch = samplePatch;
-        rl.deviceIndex = deviceIndex;
-        result.layers[0]  = rl;
-        result.layerCount = 1;
-        return result;
-    }
-
-    auto group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    const HwBank* bank = hwReg_.find(group, hwBank);
-    if (!bank || bank->voicePatchType != voicePatchType) {
-        FITOM_LOG_WARN("resolveDirect: bank=" << (int)hwBank
-            << " voicePatchType mismatch (bank="
-            << (bank ? bank->voicePatchType : 0)
-            << ", requested=" << (int)voicePatchType << ")");
-        return {};
-    }
-
-    const HwPatch* hwPatch = &bank->get(hwProg);
-    if (!hwPatch->isValid()) {
-        FITOM_LOG_WARN("resolveDirect: HwPatch not found bank=" << (int)hwBank
-            << " prog=" << (int)hwProg);
-        return {};
-    }
-
-    int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
-    if (deviceIndex < 0) {
-        uint8_t usedVpt = voicePatchType;
-        deviceIndex = findFallbackDeviceIndex(config, voicePatchType, *hwPatch, usedVpt);
-    }
-    if (deviceIndex < 0) {
-        FITOM_LOG_WARN("resolveDirect: voicePatchType=0x" << std::hex << (int)voicePatchType
-            << " — no matching device (fallback exhausted)");
-        return {};
-    }
+    auto rt = resolveTriple(voicePatchType, hwBank, hwProg, config);
+    if (!rt.isValid()) return {};
 
     // storage (呼び出し元が寿命を保持) に単層Patchを構築する
-    storage = Patch::fromSingleLayer(*hwPatch, voicePatchType, hwBank, hwProg);
+    if (rt.samplePatch) {
+        storage = Patch::fromSingleLayer(*rt.samplePatch, voicePatchType, hwBank, hwProg);
+    } else {
+        storage = Patch::fromSingleLayer(*rt.hwPatch, voicePatchType, hwBank, hwProg);
+    }
 
     ResolvedPatch result;
     result.patch      = &storage;
     result.swPatch     = nullptr;   // 直接モードはSWパッチなし (VTL等は0=無感度)
     ResolvedLayer rl;
     rl.layer       = &storage.layers[0];
-    rl.hwPatch     = hwPatch;
-    rl.deviceIndex = deviceIndex;
+    rl.hwPatch     = rt.hwPatch;
+    rl.samplePatch = rt.samplePatch;
+    rl.deviceIndex = rt.deviceIndex;
     result.layers[0]  = rl;
     result.layerCount = 1;
+    return result;
+}
+
+// voicePatchType + hwBank + hwProg の3つ組から、実際に発音可能な
+// (device, HwPatch または SamplePatch) を解決する共通ロジック。
+// resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる。
+PatchManager::ResolvedTriple PatchManager::resolveTriple(
+    uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
+    const FITOMConfig& config, const std::string& logContext) const
+{
+    ResolvedTriple result;
+
+    // MSB=0(VOICE_PATCH_NONE)は常に失敗として扱う。CC#0の実時間
+    // セマンティクスにおける「通常モード」(PatchBank参照)に相当する
+    // 値であり、この関数がPatchBank参照も扱えるよう将来拡張された
+    // 場合、ToneLayer同士が循環参照する経路を開いてしまうため、
+    // この入口で構造的に禁止しておく。
+    if (voicePatchType == VOICE_PATCH_NONE) return result;
+
+    std::string ctx = logContext.empty()
+        ? std::string("resolveDirect:")
+        : ("resolve: " + logContext);
+
+    if (isSampleBasedVoicePatchType(voicePatchType)) {
+        // サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM):
+        // HwBankRegistryではなくSampleZoneBankRegistryを検索する。
+        // HwPatchが存在しないため、フォールバック機構
+        // (findFallbackDeviceIndex、HwPatchの内容を要求する) は使わず、
+        // 厳密一致のみを試す。サンプルベース音源系は現状フォールバック
+        // 元/先になる想定がないため実用上の制約は小さい。
+        const SampleZonePatch* samplePatch = sampleReg_.resolve(hwBank, hwProg);
+        if (!samplePatch) {
+            FITOM_LOG_WARN(ctx << " bank=" << (int)hwBank << " prog=" << (int)hwProg
+                << " SampleZonePatch not found");
+            return result;
+        }
+        int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
+        if (deviceIndex < 0) {
+            FITOM_LOG_WARN(ctx << " voicePatchType=0x" << std::hex << (int)voicePatchType
+                << " — no matching device (サンプルベース音源系はフォールバック非対応)");
+            return result;
+        }
+        result.deviceIndex = deviceIndex;
+        result.samplePatch = samplePatch;
+        return result;
+    }
+
+    // データ (HwBank/HwPatch) は常に要求されたvoicePatchType基準で検索する。
+    // フォールバック可否の判定 (OPLLファミリーのプリセット/ユーザー判定等)
+    // にHwPatchの内容が必要なため、デバイス検索より先にデータを解決する。
+    auto group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    const HwBank* bank = hwReg_.find(group, hwBank);
+    if (!bank || bank->voicePatchType != voicePatchType) {
+        FITOM_LOG_WARN(ctx << " bank=" << (int)hwBank
+            << " voicePatchType mismatch (bank=" << (bank ? bank->voicePatchType : 0)
+            << ", requested=" << (int)voicePatchType << ")");
+        return result;
+    }
+
+    const HwPatch* hwPatch = &bank->get(hwProg);
+    if (!hwPatch->isValid()) {
+        FITOM_LOG_WARN(ctx << " HwPatch not found: bank=" << (int)hwBank
+            << " prog=" << (int)hwProg);
+        return result;
+    }
+
+    // デバイス検索: まず厳密一致を試し、無ければ接続済み全デバイスに
+    // フォールバック受け入れ可否を問い合わせる。見つかった最初の
+    // 1つだけを採用する。
+    int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
+    uint8_t usedVpt = voicePatchType;
+    if (deviceIndex < 0) {
+        deviceIndex = findFallbackDeviceIndex(config, voicePatchType, *hwPatch, usedVpt);
+    }
+    if (deviceIndex < 0) {
+        FITOM_LOG_WARN(ctx << " voicePatchType=0x" << std::hex << (int)voicePatchType
+            << " — no matching device (fallback exhausted)");
+        return result;
+    }
+    if (usedVpt != voicePatchType) {
+        FITOM_LOG_INFO(ctx << " voicePatchType=0x" << std::hex << (int)voicePatchType
+            << " not connected, falling back to 0x" << (int)usedVpt);
+    }
+
+    result.deviceIndex = deviceIndex;
+    result.hwPatch = hwPatch;
     return result;
 }
 
