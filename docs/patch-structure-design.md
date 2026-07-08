@@ -212,7 +212,15 @@ hwProg (Program Change の値、7bit) の内訳:
 モード・ToneLayer解決の共通処理)の入口付近で、`voicePatchType`が
 OPLL系かつ`hwBank==0`の場合にこの専用ロジックへ分岐する。生成される
 `HwPatch`は`PatchManager`が保持する固定サイズのキャッシュ
-(`opllRomPatches_[4][16]`、`ext.ALG_EXT`と`hw.ALG`のみ設定済み)を参照する。
+(`opllRomPatches_[4][16]`)を参照する。各エントリは`ext.ALG_EXT`と
+`hw.ALG`(発音に必要な情報)に加え、`id`(isValid()判定用)と`name`
+(表示名)も設定済み。音色名の出典は
+[plgDavid/misc wiki](https://github.com/plgDavid/misc/wiki/Copyright-free-OPLL(x)-ROM-patches)
+(耳コピによる非公式な近似データ。著作権フリーとして公開されているが、
+正確な公式名称ではない可能性がある点に留意)。OPLLX/OPLLPは元資料の
+表記が「番号→名前→説明(近似音色名を含む)」「名前A ~~ 名前B 説明」
+のように複数の情報が併記されているため、代表的な楽器名のみを抽出して
+採用した。
 
 要求されたチップ種別が接続されていない場合、フォールバックは行わず
 無音になる(ROM音色は相互互換性が無いため)。
