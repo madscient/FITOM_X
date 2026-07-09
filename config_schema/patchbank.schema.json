@@ -31,20 +31,6 @@
             "type": "string",
             "description": "パッチ表示名"
           },
-          "sw_bank": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 127,
-            "default": 0,
-            "description": "SwBank番号 (MIDI CC#32)"
-          },
-          "sw_prog": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 127,
-            "default": 0,
-            "description": "SwPatchプログラム番号"
-          },
           "poly": {
             "type": "integer",
             "minimum": 0,

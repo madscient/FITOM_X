@@ -4,28 +4,77 @@
   "title": "FITOM SW パッチバンク (*.swbank.json)",
   "description": "ソフトウェア処理パラメータのバンク。チップ族に依存しない共通バンク。",
   "type": "object",
-  "required": ["name", "patches"],
+  "required": [
+    "name",
+    "patches"
+  ],
   "properties": {
-    "name": { "type": "string" },
+    "name": {
+      "type": "string"
+    },
     "patches": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["prog"],
+        "required": [
+          "prog"
+        ],
         "properties": {
-          "prog": { "type": "integer", "minimum": 0, "maximum": 127 },
-          "name": { "type": "string" },
+          "prog": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "name": {
+            "type": "string"
+          },
           "sw": {
             "type": "object",
-            "description": "チャンネルソフト LFO (ビブラート)",
+            "description": "チャンネルソフトLFO(ビブラート)。F-numberインデックスを周期変調する(1unit≒1.5625cent)。HW LFO(OPM/OPN2内蔵)はボイスパラメータから切り離され、CC#1 Modulationとして別途実装されている(docs/voice-data-design.md参照)。",
             "properties": {
-              "LFO": { "type": "integer", "minimum": 0, "maximum": 18, "description": "LFO速度インデックス" },
-              "LWF": { "type": "integer", "minimum": 0, "maximum": 6,  "description": "波形: 0=のこぎり/1=矩形/2=三角/3=S&H/4=逆のこぎり/5=デルタ/6=サイン" },
-              "LFS": { "type": "integer", "minimum": 0, "maximum": 1,  "description": "NoteOn時位相リセット" },
-              "LFD": { "type": "integer", "minimum": 0, "maximum": 127,"description": "遅延 [20ms単位]" },
-              "LFR": { "type": "integer", "minimum": 0, "maximum": 127,"description": "レート (0=無効)" },
-              "LDM": { "type": "integer", "minimum": 0, "maximum": 255,"description": "深さ上位バイト (符号付き16bit)" },
-              "LDL": { "type": "integer", "minimum": 0, "maximum": 255,"description": "深さ下位バイト" }
+              "LWF": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "description": "波形: 0=上昇のこぎり/1=矩形/2=三角/3=S&H/4=下降のこぎり/5=デルタ/6=サイン"
+              },
+              "LFS": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "NoteOnでリセットするか (0=しない/1=リセット)"
+              },
+              "LFM": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2,
+                "description": "モード (0=repeat/1=one-shot hold/2=one-shot zero)"
+              },
+              "LFD": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "遅延 [20ms単位]"
+              },
+              "LFR": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "レート (0=LFO無効。1〜127は対数カーブで0.5Hz〜50Hzにマッピングされる、docs/voice-data-design.md参照)"
+              },
+              "LFI": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "フェードイン速度 (0=即フルデプス)"
+              },
+              "depth_cents": {
+                "type": "integer",
+                "minimum": -1200,
+                "maximum": 1200,
+                "default": 0,
+                "description": "LFO深さ[セント、-1200〜+1200]。旧実装はLDM/LDL(16bit値を2バイトに分割、MIDI CC制御を想定した設計)だったが、新実装ではMIDI CC制御の可否が未定のため1フィールドに統合した。ピッチLFOがドラム音の装飾に使われるケースを考慮し、±1オクターブまでの深いレンジを確保している。"
+              }
             }
           },
           "ops": {
@@ -36,21 +85,100 @@
               "type": "object",
               "description": "オペレータ単位ソフトパラメータ",
               "properties": {
-                "VTL": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ベロシティ→TL感度" },
-                "VAR": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ベロシティ→AR感度 (将来)" },
-                "VDR": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ベロシティ→DR感度 (将来)" },
-                "VSL": { "type": "integer", "minimum": 0, "maximum": 127 },
-                "VSR": { "type": "integer", "minimum": 0, "maximum": 127 },
-                "VRR": { "type": "integer", "minimum": 0, "maximum": 127 },
-                "VLD": { "type": "integer", "minimum": 0, "maximum": 127 },
-                "VLR": { "type": "integer", "minimum": 0, "maximum": 127 },
-                "SLF": { "type": "integer", "minimum": 0, "maximum": 18,  "description": "ソフトLFO速度" },
-                "SLW": { "type": "integer", "minimum": 0, "maximum": 6,   "description": "ソフトLFO波形" },
-                "SLD": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ソフトLFO深さ (64-127 → -64〜-1)" },
-                "SLY": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ソフトLFO遅延 [20ms単位]" },
-                "SLR": { "type": "integer", "minimum": 0, "maximum": 127, "description": "ソフトLFOレート (0=無効)" }
+                "VTL": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "ベロシティ→TL感度"
+                },
+                "VAR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "ベロシティ→AR感度 (将来)"
+                },
+                "VDR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "ベロシティ→DR感度 (将来)"
+                },
+                "VSL": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                },
+                "VSR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                },
+                "VRR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                },
+                "VLD": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                },
+                "VLR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127
+                },
+                "SLW": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 6,
+                  "description": "波形: 0=上昇のこぎり/1=矩形/2=三角/3=S&H/4=下降のこぎり/5=デルタ/6=サイン"
+                },
+                "SLS": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "NoteOnでリセットするか (0=しない/1=リセット)"
+                },
+                "SLM": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2,
+                  "description": "モード (0=repeat/1=one-shot hold/2=one-shot zero)"
+                },
+                "SLD": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "深さ (0〜63=正方向/64〜127→-64〜-1=負方向)"
+                },
+                "SLY": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "遅延 [20ms単位]"
+                },
+                "SLR": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "レート (0=LFO無効。1〜127は対数カーブで0.5Hz〜50Hzにマッピングされる、docs/voice-data-design.md参照)"
+                },
+                "SLI": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "フェードイン速度 (0=即フルデプス)"
+                }
               }
             }
+          },
+          "fine_transpose": {
+            "type": "integer",
+            "minimum": -1200,
+            "maximum": 1200,
+            "default": 0,
+            "description": "固定トランスポーズ[セント、-1200〜+1200]。ToneLayer.transpose(半音単位、ネイティブパッチのレイヤー固有パラメータ)とは独立した概念で、SwPatchが適用される全ての経路(通常モード/直接モード/内蔵リズム音源等)で効く。両方指定されている場合は加算される。適用時は「半音部分(ノート番号に加算)」と「セント端数部分(kfs単位=1半音64ステップに変換して加算。docs/terminology.mdの「kfs」参照)」に分解される。名前はDrumNote.fine_tuneと同じ命名スタイル(ToneLayer.transposeとの役割混同を避けるため\"fixed\"ではなく\"fine\"を使う)。"
           }
         }
       }

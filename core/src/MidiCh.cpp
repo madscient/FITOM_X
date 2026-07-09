@@ -18,7 +18,7 @@ namespace {
 // グラフ (Y軸: Pitch increment speed [cent/msec] 対数スケール、
 // X軸: cc#5 0-127) から、区分指数関数で再構築した値。
 // 旧FITOM(ROM::portspeed[])と同じ符号エンコード方式を踏襲する:
-//   delta>0: 1tickに delta ステップ(1ステップ=100/64cent)進む
+//   delta>0: 1tickに delta ステップ(1ステップ=1kfs=100/64cent)進む
 //   delta<0: -delta ティックに1ステップ進む
 // tick間隔は1ms(CFITOM::startTimerThreadの既定値)を前提とする。
 // GM2グラフとの照合により全域で概ね良好な一致を確認済み。
@@ -224,6 +224,20 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         if (!rl->layer->inRange(note)) continue;
 
         int transposed = rl->layer->transposedNote(note);
+        // SwPatch.fineTranspose(HwPatch由来の演奏特性の一部、
+        // セント単位・±1200)を加算する。ToneLayer.transpose(半音単位、
+        // ネイティブパッチのレイヤー固有パラメータ)とは独立した概念で、
+        // 両方指定されている場合は加算する。
+        // セント値は「半音部分(ノート番号に加算)」と「セント端数部分
+        // (下でfineに合成する)」に分解する。整数除算/剰余は0方向への
+        // 切り捨てのため、負値でも正しく分解できる
+        // (例: -150セント → 半音-1 + 端数-50セント)。
+        int16_t swTransposeFineCents = 0;
+        if (rl->swPatch && rl->swPatch->fineTranspose != 0) {
+            int cents = rl->swPatch->fineTranspose;
+            transposed += cents / 100;
+            swTransposeFineCents = static_cast<int16_t>(cents % 100);
+        }
         if (transposed < 0 || transposed > 127) continue;
 
         ISoundDevice* dev = fitom_->getDevice(rl->deviceIndex);
@@ -337,30 +351,34 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // portaActive の場合、上の portamento_.start() で isRunning()==true に
         // なっているため、ここでは即座に書き込まず timerCallback の
         // portamento_.update() に滑らかな追従を任せる。
-        int16_t fine = 0;
+        int16_t fine = 0; // kfs単位 (1半音=64ステップ、docs/terminology.md参照)
         if (!portaActive) {
-            int16_t bendCents = static_cast<int16_t>(bendRange_)
-                              * (static_cast<int16_t>(pitchBend_ >> 7) - 64);
-            int16_t tuneCents = static_cast<int16_t>(tuning_ >> 7) - 64;
-            fine = bendCents + tuneCents;
+            // bendKfs/tuneKfs: 変数名の通りkfs単位(旧bendCents/tuneCentsから
+            // 改名。実体はプレーンなセントではなくkfsだったため、実体に
+            // 合わせて2026年7月にリネームした)。
+            int16_t bendKfs = static_cast<int16_t>(bendRange_)
+                             * (static_cast<int16_t>(pitchBend_ >> 7) - 64);
+            int16_t tuneKfs = static_cast<int16_t>(tuning_ >> 7) - 64;
+            fine = bendKfs + tuneKfs;
+            // SwPatch.fineTransposeのセント端数部分をkfs単位に変換して加算
+            // (fineFreq = 64kfs/半音)。
+            if (swTransposeFineCents != 0) {
+                fine = static_cast<int16_t>(fine + swTransposeFineCents * 64 / 100);
+            }
         }
         dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !portaActive);
 
-        // VoiceProcessor に SW パッチを適用
-        // (samplePatchのみ設定されている場合=AWM系レイヤーは、FmVoiceが
-        //  FMオペレータ専用の構造体でありサンプルベース音源には適用できない
-        //  ため、VoiceProcessorによるソフトLFO/ベロシティ感度処理自体を
-        //  スキップする。patch==nullptrのままpatch->hwにアクセスすると
-        //  クラッシュするため、必ずpatchの非nullptrチェックを先に行う)。
-        if (patch && resolver_.swPatch()) {
-            const auto* sp = resolver_.swPatch();
-            FmVoice fv;
-            fv.hw = patch->hw;
-            for (int i = 0; i < 4; ++i) fv.hwOp[i] = patch->hwOp[i];
-            fv.sw = sp->sw;
-            for (int i = 0; i < 4; ++i) fv.swOp[i] = sp->swOp[i];
+        // このノートに適用すべきSwPatch(パフォーマンスパッチ)を
+        // ChStateにセットしておく。実際のVoiceProcessor::onNoteOn()
+        // 呼び出しはCSoundDevice::noteOn()に一本化されている
+        // (以前はここで直接onNoteOn()を呼んでいたが、CSoundDevice::
+        //  noteOn()内の別のonNoteOn()呼び出しと二重になり、SwPatch
+        //  無しの計算で上書きされてしまう潜在バグがあった)。
+        // samplePatchのみ設定されている場合(AWM系レイヤー)はFmVoiceが
+        // FMオペレータ専用の構造体のため、SwPatchは適用しない。
+        if (patch) {
             auto* st = dev->getChState(devCh);
-            if (st) st->proc.onNoteOn(static_cast<uint8_t>(adjVol), expression_, vel, fv);
+            if (st) st->pendingSwPatch = rl->swPatch;
         }
 
         // NoteOn
@@ -979,28 +997,29 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         dev->setPanpot(devCh, static_cast<int8_t>(adjPan), false);
 
         // ノート: DrumNote.playNote を絶対指定、ToneLayer.transpose は無視
-        // (ドラムはトランスポーズより play_note の絶対指定が自然)
+        // (ドラムはトランスポーズより play_note の絶対指定が自然)。
+        // SwPatch.fineTransposeも同じ理由で、ここでは意図的に適用しない。
         int playNote = static_cast<int>(dn.playNote) + adj.pitch;
         playNote = std::clamp(playNote, 0, 127);
         int16_t fine = static_cast<int16_t>(dn.fineTune);
         dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, true);
 
-        // SwPatch を VoiceProcessor に適用
-        // (samplePatchのみ設定されている場合=AWM系レイヤーは、FmVoiceが
-        //  FMオペレータ専用の構造体でありサンプルベース音源には適用できない
-        //  ため、この処理自体をスキップする。patch==nullptrのまま
-        //  patch->hwにアクセスするとクラッシュするため、必ずpatchの
-        //  非nullptrチェックを先に行う)。
-        if (patch && rp->swPatch) {
-            const auto* sp = rp->swPatch;
-            FmVoice fv;
-            fv.hw  = patch->hw;
-            for (int i = 0; i < 4; ++i) fv.hwOp[i] = patch->hwOp[i];
-            fv.sw  = sp->sw;
-            for (int i = 0; i < 4; ++i) fv.swOp[i] = sp->swOp[i];
+        // このノートに適用すべきSwPatch(パフォーマンスパッチ)を
+        // ChStateにセットしておく。実際のVoiceProcessor::onNoteOn()
+        // 呼び出しはCSoundDevice::noteOn()に一本化されている
+        // (以前はここで直接onNoteOn()を呼んでいたが、CSoundDevice::
+        //  noteOn()内の別のonNoteOn()呼び出しと二重になり、SwPatch
+        //  無しの計算で上書きされてしまう潜在バグがあった)。
+        //
+        // DrumNote.swBank/swProgによる上書き(layer[0]専用、fixedChと
+        // 同じ制約)はresolveNote()内で事前に解決・キャッシュ済み
+        // (noteCache_[midiNote].effectiveSwPatch0)。layer[0]以外は、
+        // そのレイヤーが参照するHwPatch自身のswPatchをそのまま使う。
+        const SwPatch* effectiveSwPatch =
+            (li == 0) ? noteCache_[midiNote].effectiveSwPatch0 : rl->swPatch;
+        if (patch) {
             auto* st = dev->getChState(devCh);
-            if (st) st->proc.onNoteOn(static_cast<uint8_t>(adjVol),
-                                      127, vel, fv);
+            if (st) st->pendingSwPatch = effectiveSwPatch;
         }
 
         // ベロシティ (vol + NRPN)
@@ -1024,6 +1043,8 @@ const ResolvedPatch* CRhythmCh::resolveNote(uint8_t midiNote, const DrumNote& dn
     if (cache.voicePatchType == dn.voicePatchType &&
         cache.patchBank == dn.patchBank &&
         cache.patchProg == dn.patchProg &&
+        cache.swBank == dn.swBank &&
+        cache.swProg == dn.swProg &&
         cache.isValid()) {
         return &cache.resolved;
     }
@@ -1031,6 +1052,8 @@ const ResolvedPatch* CRhythmCh::resolveNote(uint8_t midiNote, const DrumNote& dn
     cache.voicePatchType = dn.voicePatchType;
     cache.patchBank = dn.patchBank;
     cache.patchProg = dn.patchProg;
+    cache.swBank = dn.swBank;
+    cache.swProg = dn.swProg;
     auto& pm = fitom_->getPatchManager();
 
     if (dn.voicePatchType == VOICE_PATCH_NONE) {
@@ -1043,6 +1066,22 @@ const ResolvedPatch* CRhythmCh::resolveNote(uint8_t midiNote, const DrumNote& dn
         cache.resolved = pm.resolveDirect(dn.voicePatchType, dn.patchBank, dn.patchProg,
                                           fitom_->getConfig(), cache.directStorage);
     }
+
+    // DrumNote.swBank/swProg上書き(layer[0]専用)を解決し、キャッシュする。
+    // 優先順位: ①DrumNote指定が解決できればそれを使う → ②DrumNote無指定
+    // (-1)、または指定されたが解決に失敗した場合は、"無指定だった場合と
+    // 同じ扱い"としてHwPatch自身が参照するswPatchにフォールバックする
+    // → ③それも無ければパフォーマンスパッチ無し(無音にはならない、
+    // ソフトな失敗)。
+    const SwPatch* fromDrumNote =
+        (dn.swBank >= 0) ? pm.resolveSwPatch(dn.swBank, dn.swProg) : nullptr;
+    if (fromDrumNote) {
+        cache.effectiveSwPatch0 = fromDrumNote;
+    } else {
+        cache.effectiveSwPatch0 = (cache.resolved.layerCount > 0)
+            ? cache.resolved.layers[0].swPatch : nullptr;
+    }
+
     return cache.isValid() ? &cache.resolved : nullptr;
 }
 
@@ -1139,10 +1178,16 @@ void CRhythmCh::timerCallback(uint32_t /*tick*/)
             FmVoice fv;
             fv.hw = rl->hwPatch->hw;
             for (int i = 0; i < 4; ++i) fv.hwOp[i] = rl->hwPatch->hwOp[i];
-            if (cache.resolved.swPatch) {
-                fv.sw = cache.resolved.swPatch->sw;
+            // layer[0]はDrumNote.swBank/swProg上書き解決結果
+            // (effectiveSwPatch0)を使う。それ以外のレイヤーは
+            // 各々が参照するHwPatch自身のswPatchをそのまま使う
+            // (applyNoteOnと同じロジック)。
+            const SwPatch* effectiveSwPatch =
+                (ls.layerIdx == 0) ? cache.effectiveSwPatch0 : rl->swPatch;
+            if (effectiveSwPatch) {
+                fv.sw = effectiveSwPatch->sw;
                 for (int i = 0; i < 4; ++i)
-                    fv.swOp[i] = cache.resolved.swPatch->swOp[i];
+                    fv.swOp[i] = effectiveSwPatch->swOp[i];
             }
 
             auto result = st->proc.onTick(fv);

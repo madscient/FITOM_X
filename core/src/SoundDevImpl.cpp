@@ -309,8 +309,15 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     FmVoice dummy;
     dummy.hw   = s.hwPatch.hw;
     for (int i = 0; i < 4; ++i) dummy.hwOp[i] = s.hwPatch.hwOp[i];
-    // SwPatch は CInstCh 側が VoiceProcessor に適用済み
-    // ここでは volume/expression はデフォルト値で計算
+    // pendingSwPatch: CInstCh/CRhythmChがassignCh直後にセットした、
+    // 現在のノートに適用すべきSwPatch。設定されていれば、そのsw/swOp
+    // をdummyに反映してからonNoteOn()を呼ぶ(SwPatch込みの正しい計算)。
+    // 以前は常にSwPatch無しのdummyのままonNoteOn()を呼んでおり、
+    // CInstCh側が既に計算した結果を無条件で上書きしてしまっていた。
+    if (s.pendingSwPatch) {
+        dummy.sw = s.pendingSwPatch->sw;
+        for (int i = 0; i < 4; ++i) dummy.swOp[i] = s.pendingSwPatch->swOp[i];
+    }
     s.proc.onNoteOn(s.volume, s.expression, vel, dummy);
 
     // CInstCh::noteOn は volume/expression/sustain/panpot を update=false で

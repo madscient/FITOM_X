@@ -49,6 +49,17 @@ public:
     SampleZoneBankRegistry& sampleRegistry() { return sampleReg_; }
     SwBankRegistry&  swRegistry() { return swReg_; }
 
+    // swBank/swProg(-1=参照なし)からSwPatchを解決する。-1の場合、
+    // または指定先が存在しない場合はnullptrを返す(ソフトな失敗。
+    // 呼び出し元はこれをエラー扱いせず、単にパフォーマンスパッチ
+    // 無しとして扱う)。resolveTriple()がHwPatch自身のswBank/swProgを
+    // 解決するために内部的に使うほか、CRhythmChがDrumNote側の上書き
+    // (dn.swBank/swProg)を解決する際にも直接呼ばれる。
+    const SwPatch* resolveSwPatch(int8_t swBank, int8_t swProg) const {
+        if (swBank < 0 || swProg < 0) return nullptr;
+        return swReg_.resolve(swBank, swProg);
+    }
+
     // パッチバンクの取得・登録
     PatchBank& getPatchBank(int bankNo);
     const PatchBank* findPatchBank(int bankNo) const;
@@ -153,6 +164,7 @@ private:
         int deviceIndex = -1;
         const HwPatch* hwPatch = nullptr;
         const SampleZonePatch* samplePatch = nullptr;
+        const SwPatch* swPatch = nullptr;
         bool isValid() const { return deviceIndex >= 0; }
     };
     // logContext: ログメッセージの主語("layer=N" 等)。空文字なら
@@ -240,10 +252,6 @@ public:
         if (!resolved_.isValid() || idx < 0 || idx >= resolved_.layerCount)
             return nullptr;
         return &resolved_.layers[idx];
-    }
-
-    const SwPatch* swPatch() const noexcept {
-        return resolved_.swPatch;
     }
 
     const Patch* patch() const noexcept {

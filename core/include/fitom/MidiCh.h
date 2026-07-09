@@ -125,7 +125,7 @@ private:
     uint8_t start_   = 0;
     uint8_t end_     = 0;
     uint8_t current_ = 0;
-    uint8_t fine_    = 0;
+    uint8_t fine_    = 0; // kfs単位 (0-63、1半音未満の端数)
     uint8_t speed_   = 64;
     bool    enabled_ = false;
     State   state_   = State::Idle;
@@ -372,8 +372,14 @@ private:
         uint8_t       voicePatchType = 0xFF; // キャッシュキー(モード変更検知用)
         uint8_t       patchBank = 0xFF;
         uint8_t       patchProg = 0xFF;
+        int8_t        swBank = -2;   // キャッシュキー(-2=未初期化、-1は正当な値のため使えない)
+        int8_t        swProg = -2;
         ResolvedPatch resolved;
         Patch         directStorage; // 直接モード時、resolveDirect()のstorage引数用
+        // DrumNote.swBank/swProg上書き解決後の実効SwPatch(layer[0]専用、
+        // fixedChと同じ制約)。applyNoteOnで計算し、timerCallbackの
+        // ソフトLFO/トレモロ更新で使い回すためにキャッシュする。
+        const SwPatch* effectiveSwPatch0 = nullptr;
         bool isValid() const { return resolved.isValid(); }
     };
     std::array<NoteCache, 128> noteCache_;

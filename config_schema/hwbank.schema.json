@@ -74,7 +74,7 @@
           },
           "ops": {
             "type": "array",
-            "minItems": 4,
+            "minItems": 1,
             "maxItems": 4,
             "items": {
               "type": "object",
@@ -163,7 +163,8 @@
                   "description": "OPN ch2 FXモード(3rd channel special mode)専用パラメータ。ext.DM0でモード選択。モード1/2(疑似デチューン/非整数倍率): 100/64セント単位の符号付きオフセット。モード3(固定周波数): 0.1Hz単位の絶対周波数。OPN以外・ch2以外では無視。"
                 }
               }
-            }
+            },
+            "description": "オペレータパラメータの配列。要素数はチップのオペレータ数に応じて1〜4で可変(1=SSG/DCSG/SAA/SCC等、2=OPL/OPL2/OPL3_2/OPLL系、4=OPN/OPN2/OPM/OPZ/OPZ2/OPL3(4opモード))。正確な対応はdocs/chip-driver-architecture.mdの「5. VoicePatchType 対応表」参照。指定した要素数分だけ読み込まれ、残りはデフォルト値のまま扱われる(PatchManager::jsonToHwPatch参照)。ADPCM/AWM系はHwPatchを使わない(SampleZonePatchを使う別スキーマ)ため対象外。"
           },
           "ext": {
             "type": "object",
@@ -208,6 +209,20 @@
             "minimum": 0,
             "maximum": 7,
             "description": "OPL3(COPL3) 4OPモード専用: 後半ペア(M2/C2)独立のフィードバック値。実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つ。OPL3以外のチップでは未使用(0固定)。"
+          },
+          "sw_bank": {
+            "type": "integer",
+            "minimum": -1,
+            "maximum": 127,
+            "default": -1,
+            "description": "このHwPatch(音色データ)自身が指定するパフォーマンスパッチ(SwPatch)の参照先バンク番号。-1(省略時のデフォルト)=参照なし。DrumNote側の個別上書き(swBank/swProg)が優先される。指定先が解決できない場合はパフォーマンスパッチが適用されないだけで、HwPatch自体の発音は妨げられない。"
+          },
+          "sw_prog": {
+            "type": "integer",
+            "minimum": -1,
+            "maximum": 127,
+            "default": -1,
+            "description": "sw_bankと組で使う、参照先のプログラム番号。"
           }
         }
       }
