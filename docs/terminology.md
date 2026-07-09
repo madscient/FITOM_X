@@ -122,12 +122,21 @@ CC#0/#32 → PatchManager::resolveTriple(0x70, chipSel, hwProg, ...)
   → PatchManager::resolveBuiltinRhythm(chipSel, ...)
       chipSel(CC#32相当): 対象チップを選ぶ。既存のVOICE_PATCH_*定数を
         再利用する (VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。
-        COPLRhythm(OPL用)は未実装 (2026年7月時点で保留。専用のパッチ
-        データ解決層が別途必要になる可能性があり、大きな設計変更を
-        伴うため)。
       → デバイス(対象チップ)だけを解決する。ProgChg(hwProg)はこの
         モードでは使わない(無視される)。
 ```
+
+**OPL系内蔵リズムチャンネル(`COPLRhythm`)は、この`0x70`経路を使わない**
+(2026年7月に実装、当初は0x70への統合を検討したが設計変更)。OPNA/OPLL
+のリズム音がROM固定でHwPatchを要求しないのに対し、OPLのリズム音は
+BD(バスドラム、2op)以外は1オペレータのみの実際のFM音色パラメータを
+要求するため、**`VOICE_PATCH_OPL_RHY`(0x23)という通常のVoicePatchType**
+を持たせ、他の直接モードチップと全く同じ経路(`resolveTriple`→
+`HwBankRegistry`)でパッチを解決する。HwBankの名前空間も独立
+(`VOICE_GROUP_RHYTHM`)。楽器選択(`fixed_ch`)とパッチのprog番号
+(`patch_prog`)は完全に独立した軸として扱う(1つの楽器スロットに、
+複数の音色候補を用意できる)。詳細は`docs/chip-driver-architecture.md`
+の「VoicePatchType対応表」参照。
 
 **「楽器番号=物理チャンネル番号」というハードウェア上の制約があるため、
 楽器選択は既存の`DrumNote::fixedCh`メカニズムをそのまま再利用する**

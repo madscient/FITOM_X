@@ -497,6 +497,12 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPL3: case DEVICE_OPN3_L3: return VOICE_PATCH_OPL3;
     case DEVICE_OPL4AWM: return VOICE_PATCH_AWM;
 
+    // OPL系内蔵リズムチャンネル: COPNARhythm/COPLLRhythm(VOICE_PATCH_NONE
+    // のまま、findDeviceIndexByDeviceType()で個別に検索する設計)とは異なり、
+    // リズム音が実際のFMオペレータパラメータを要求するため、専用の
+    // VoicePatchType(VOICE_PATCH_OPL_RHY)を持たせる(2026年7月)。
+    case DEVICE_OPL_RHY: return VOICE_PATCH_OPL_RHY;
+
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
     case DEVICE_SSGS: case DEVICE_DSG:
         return VOICE_PATCH_SSG;
@@ -530,6 +536,11 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
         return VOICE_GROUP_OPLL;
     case VOICE_PATCH_OPL3:
         return VOICE_GROUP_OPL3;
+    // OPL系内蔵リズムチャンネル専用。独立した名前空間とする(通常の
+    // OPL2用HwBankとは別管理、2026年7月)。旧FITOMのDEVICE_RHYTHM由来の
+    // 既存グループを流用する。
+    case VOICE_PATCH_OPL_RHY:
+        return VOICE_GROUP_RHYTHM;
     case VOICE_PATCH_SD1: case VOICE_PATCH_MA3:
     case VOICE_PATCH_MA5: case VOICE_PATCH_MA7:
         return VOICE_GROUP_MA3;
@@ -557,6 +568,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "OPL")       return VOICE_PATCH_OPL;
     if (s == "OPL2")      return VOICE_PATCH_OPL2;
     if (s == "OPL3_2")    return VOICE_PATCH_OPL3_2;
+    if (s == "OPL_RHY")   return VOICE_PATCH_OPL_RHY;
     if (s == "OPLL")      return VOICE_PATCH_OPLL;
     if (s == "OPLLP")     return VOICE_PATCH_OPLLP;
     if (s == "OPLLX")     return VOICE_PATCH_OPLLX;

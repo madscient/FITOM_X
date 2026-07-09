@@ -491,6 +491,14 @@ static int operatorCountForVoicePatchType(uint8_t vpt) {
     case VOICE_PATCH_OPLL: case VOICE_PATCH_OPLLP:
     case VOICE_PATCH_OPLLX: case VOICE_PATCH_VRC7:
         return 2;
+    // OPL系内蔵リズムチャンネル: BD(バスドラム)は2オペレータの通常FM
+    // ボイス、HH/SD/TOM/CYMは1オペレータのみ使う単発音のため、パッチ
+    // ごとに実際のオペレータ数が異なる(混在する)。保存時はバンク単位で
+    // 1つの代表値しか指定できないため、情報欠落を避けるためBDの
+    // 要求(2)を代表値とする(HH等の保存時は未使用のhwOp[1]が0埋めで
+    // 余分に出力されるだけで実害はない、2026年7月)。
+    case VOICE_PATCH_OPL_RHY:
+        return 2;
     case VOICE_PATCH_OPN: case VOICE_PATCH_OPN2:
     case VOICE_PATCH_OPM: case VOICE_PATCH_OPZ: case VOICE_PATCH_OPZ2:
     case VOICE_PATCH_OPL3:
