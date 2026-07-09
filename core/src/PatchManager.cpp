@@ -10,6 +10,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <cstring>
+#include <algorithm>
 
 namespace fitom {
 
@@ -473,9 +474,38 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
     g("AM",op.AM); g("VIB",op.VIB); g("EGT",op.EGT); g("WS",op.WS);
 }
 
-json hwPatchToJson(const HwPatch& p) {
+// voicePatchTypeから、そのチップが使うオペレータ数(1/2/4)を判定する。
+// docs/chip-driver-architecture.mdの「5. VoicePatchType 対応表」参照。
+// HwBank保存時(hwPatchToJson)に、実際に意味のあるオペレータ数分だけ
+// JSON出力するために使う(2026年7月〜。以前は常に4要素固定で出力して
+// おり、2op/1opチップでも無意味なダミーデータが書き出されていた)。
+// ADPCM/AWM系はHwPatchを使わない(SampleZonePatchを使う別スキーマ)ため
+// この関数の対象外。
+static int operatorCountForVoicePatchType(uint8_t vpt) {
+    switch (vpt) {
+    case VOICE_PATCH_SSG: case VOICE_PATCH_EPSG:
+    case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
+    case VOICE_PATCH_SCC:
+        return 1;
+    case VOICE_PATCH_OPL: case VOICE_PATCH_OPL2: case VOICE_PATCH_OPL3_2:
+    case VOICE_PATCH_OPLL: case VOICE_PATCH_OPLLP:
+    case VOICE_PATCH_OPLLX: case VOICE_PATCH_VRC7:
+        return 2;
+    case VOICE_PATCH_OPN: case VOICE_PATCH_OPN2:
+    case VOICE_PATCH_OPM: case VOICE_PATCH_OPZ: case VOICE_PATCH_OPZ2:
+    case VOICE_PATCH_OPL3:
+        return 4;
+    default:
+        // SD1/MA3/MA5/MA7(未実装、将来のオペレータ数未確定)や、その他
+        // 未知の値は、情報欠落を避けるため安全側のMAX_HW_OPSを返す。
+        return MAX_HW_OPS;
+    }
+}
+
+json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
     json ops = json::array();
-    for (int i = 0; i < MAX_HW_OPS; ++i) ops.push_back(hwOpToJson(p.hwOp[i]));
+    int n = std::clamp(operatorCountForVoicePatchType(voicePatchType), 1, MAX_HW_OPS);
+    for (int i = 0; i < n; ++i) ops.push_back(hwOpToJson(p.hwOp[i]));
     json out = json{
         {"id",p.id},{"name",p.name},
         {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
@@ -645,7 +675,7 @@ bool PatchManager::saveHwBankJson(const std::filesystem::path& path,
     for (int i = 0; i < BANK_PROG_SIZE; ++i) {
         const auto& p = bank->get(i);
         if (!p.isValid()) continue;
-        auto pj = hwPatchToJson(p);
+        auto pj = hwPatchToJson(p, bank->voicePatchType);
         pj["prog"] = i;
         patches.push_back(pj);
     }
