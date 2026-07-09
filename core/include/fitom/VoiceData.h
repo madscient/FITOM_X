@@ -152,7 +152,7 @@ struct FmChipExt {
     uint8_t DT3;  // Fine frequency: 4bit OPZ ratio mode
 
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
-    uint8_t ALG_EXT;  // ALG 拡張ビット (OPN FX mode / OPM noise / OPZ 2OP 拡張)
+    uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise / OPLL preset選択)
 
     // AY-3-8910 / YM2149 (PSG) 固有
     // HW Envelope Period: レジスタ 0x0B(Fine)+0x0C(Coarse) に対応する

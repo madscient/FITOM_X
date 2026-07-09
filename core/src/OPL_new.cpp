@@ -580,6 +580,170 @@ private:
     std::unique_ptr<OffsetPort> offsetPort_;
 };
 
+// ================================================================
+//  COPLRhythm: OPL系(OPL/OPL2/OPL3)内蔵リズムチャンネル (5ch)
+//  独立デバイスとして生成され、OPLメイン(COPL/COPL2)と物理ポートを
+//  共有する。COPNARhythm/COPLLRhythmと異なり、リズム音がROM固定では
+//  なく実際のFMオペレータパラメータ(HwPatch)を要求するため、
+//  VOICE_PATCH_OPL_RHYという通常のVoicePatchTypeを持ち、パッチ解決は
+//  他の直接モードチップと全く同じ経路(resolveTriple→HwBankRegistry)
+//  で行われる(2026年7月)。
+//
+//  実機レジスタ配置(0xBD): bit5=リズムモード有効、bit4=BD/bit3=SD/
+//  bit2=TOM/bit1=CYM/bit0=HHのキーオン。楽器番号(0-4)をそのまま
+//  ビット位置として使えるよう、論理ch順序を0=HH,1=CYM,2=TOM,3=SD,4=BD
+//  に統一している(COPLLRhythmと同じ並び)。
+//
+//  OPLLと異なり、HH/SD(ch7共有)・TOM/CYM(ch8共有)は「チャンネル全体の
+//  後着優先上書き」ではなく、各々が独立したオペレータスロット
+//  (モジュレータ/キャリア)を持つため、独立したFM音色パラメータを
+//  同時に保持できる。BDのみch6の両オペレータを使う通常の2opボイス。
+// ================================================================
+class COPLRhythm : public CSoundDevice {
+public:
+    COPLRhythm(IPort* port, int sampleRate)
+        : CSoundDevice(DEVICE_OPL_RHY, 5, port,
+                       sampleRate, 72,
+                       FNUM_OFFSET,
+                       FnumTableType::Fnumber,
+                       0x100)
+    {}
+
+    std::string getDescriptor() const override { return "OPL Rhythm 5ch"; }
+    void init() override { setReg(0xBD, 0x20, true); }
+
+protected:
+    // 論理ch(0-4: HH,CYM,TOM,SD,BD) → 物理ch(6-8)対応。
+    // 実機レジスタ0xBDのビット位置(bit0=HH..bit4=BD)と論理ch番号が
+    // 一致するよう並べてある。
+    static constexpr uint8_t kRhythmMapCh[5] = {7, 8, 8, 7, 6};
+    // 単一オペレータ楽器(HH/CYM/TOM/SD)が使う、物理ch内のオペレータ
+    // index(0=モジュレータスロット/1=キャリアスロット)。BD(index4)は
+    // 両方使うためこの表は参照しない。
+    static constexpr uint8_t kRhythmOpIndex[5] = {0, 1, 0, 1, 0};
+    // COPL::kMap と同じ、物理ch(0-8) → オペレータレジスタオフセット。
+    static constexpr uint8_t kSlot[9] = {0, 1, 2, 8, 9, 10, 16, 17, 18};
+
+    static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit
+    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit
+
+    // 物理ch+オペレータindex1個分のレジスタを書き込む。carrier=trueなら
+    // ベロシティ補正値(VoiceProcessor経由)を使う。単一オペレータ楽器は
+    // 常にcarrier=true(単独の発振器として出力されるため)。
+    void writeOperatorRegs(uint8_t physCh, uint8_t opIdx, const FmHwOp& o,
+                            const VoiceProcessor& proc, bool carrier) {
+        uint8_t slot = kSlot[physCh];
+
+        setReg(static_cast<uint16_t>(0x20 + opIdx * 3 + slot),
+               static_cast<uint8_t>(
+                   ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
+                   ((o.SR > 0) ? 0 : 0x20) |
+                   ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
+
+        if (!carrier) {
+            setReg(static_cast<uint16_t>(0x40 + opIdx * 3 + slot),
+                   static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)));
+        }
+
+        const uint8_t ar = carrier ? proc.velAR(0) : (o.AR & 0x1F);
+        const uint8_t dr = carrier ? proc.velDR(0) : (o.DR & 0x1F);
+        setReg(static_cast<uint16_t>(0x60 + opIdx * 3 + slot),
+               static_cast<uint8_t>((ar4(ar) << 4) | ar4(dr)));
+
+        const uint8_t sl = carrier ? proc.velSL(0) : (o.SL & 0xF);
+        const uint8_t rr = carrier ? proc.velRR(0) : (o.SR ? ar4(o.SR) : o.RR);
+        setReg(static_cast<uint16_t>(0x80 + opIdx * 3 + slot),
+               static_cast<uint8_t>(((sl & 0xF) << 4) | (rr & 0xF)));
+
+        setReg(static_cast<uint16_t>(0xE0 + opIdx * 3 + slot), o.WS & 0x3);
+    }
+
+    void updateVoice(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        uint8_t physCh = kRhythmMapCh[ch];
+
+        if (ch == 4) {
+            // BD: 通常の2opボイスとして両オペレータを書く(COPLと同じ
+            // isCarrier規則: op1は常にキャリア、ALG=1(並列)ならop0も)。
+            for (int i = 0; i < 2; ++i) {
+                bool carrier = (i == 1) || ((p.hw.ALG & 1) != 0);
+                writeOperatorRegs(physCh, static_cast<uint8_t>(i), p.hwOp[i], s.proc, carrier);
+            }
+        } else {
+            // HH/CYM/TOM/SD: 単一オペレータ(hwOp[0]のみ使用)、常にキャリア
+            // 扱い(単独の発振器として出力されるため、isCarrier規則は
+            // 適用しない)。
+            writeOperatorRegs(physCh, kRhythmOpIndex[ch], p.hwOp[0], s.proc, true);
+        }
+
+        // FB/ALG/Panは物理ch単位のレジスタ(0xC0+physCh)。ch7(HH/SD)・
+        // ch8(TOM/CYM)は共有するため、後着優先で上書きされる(仕様として
+        // 許容、docs/terminology.md参照)。
+        setReg(static_cast<uint16_t>(0xC0 + physCh),
+               static_cast<uint8_t>(0x30 | ((p.hw.FB & 7) << 1) | (p.hw.ALG & 1)));
+
+        updateVolExp(ch);
+    }
+
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        uint8_t physCh = kRhythmMapCh[ch];
+        uint8_t slot = kSlot[physCh];
+
+        if (ch == 4) {
+            for (int i = 0; i < 2; ++i) {
+                bool carrier = (i == 1) || ((p.hw.ALG & 1) != 0);
+                if (!carrier) continue;
+                uint8_t tl = tl6(s.proc.effectiveTL(i));
+                setReg(static_cast<uint16_t>(0x40 + i * 3 + slot),
+                       static_cast<uint8_t>((p.hwOp[i].KSL << 6) | tl), false);
+            }
+        } else {
+            uint8_t opIdx = kRhythmOpIndex[ch];
+            uint8_t tl = tl6(s.proc.effectiveTL(0));
+            setReg(static_cast<uint16_t>(0x40 + opIdx * 3 + slot),
+                   static_cast<uint8_t>((p.hwOp[0].KSL << 6) | tl), false);
+        }
+    }
+
+    // リズムパートはノート番号に応じてピッチシフトできる(COPLLRhythmと
+    // 同じ設計)。ch7(HH/SD)・ch8(TOM/CYM)は物理チャンネルを共有する
+    // ため、2つの楽器が異なるノート番号で発音すると後着優先で上書き
+    // される(仕様として許容)。
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        uint8_t physCh = kRhythmMapCh[ch];
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        uint8_t b0cur = getReg(static_cast<uint16_t>(0xB0 + physCh)) & 0x20;
+        setReg(static_cast<uint16_t>(0xA0 + physCh),
+               static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
+        setReg(static_cast<uint16_t>(0xB0 + physCh),
+               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+    }
+
+    void updateKey(uint8_t ch, bool keyOn) override {
+        uint8_t keymask = static_cast<uint8_t>(~(1u << ch));
+        uint8_t cur = getReg(0xBD) & keymask;
+        setReg(0xBD, static_cast<uint8_t>(cur | 0x20 | (keyOn ? (1u << ch) : 0)), true);
+    }
+
+    // パート番号は音色データの hw.ALG (下位3bit) で直接指定する
+    // (COPLLRhythmと同じ設計)。該当パートが既に使用中なら0xFF。
+    uint8_t queryCh(IMidiCh* /*owner*/, const HwPatch* patch, int mode) override {
+        if (!patch) return 0xFF;
+        uint8_t num = patch->hw.ALG & 0x7;
+        if (num >= 5) return 0xFF;
+        bool inuse = (getReg(0xBD) & (1u << num)) != 0;
+        return mode ? num : (inuse ? 0xFF : num);
+    }
+    // リズムパートではCC#7/パン/サステインペダルによるリアルタイム
+    // 制御を無視する(COPLLRhythmと同じ判断、重要度が低いため)。
+    void updateSustain(uint8_t /*ch*/) override {}
+    void updatePanpot(uint8_t /*ch*/) override {}
+    void updateTL(uint8_t, uint8_t, uint8_t) override {}
+};
+
 } // namespace fitom
 
 namespace fitom {
@@ -587,6 +751,7 @@ std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr)  { return std::make_u
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr) { return std::make_unique<COPL2>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_unique<COPL3>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr) { return std::make_unique<COPL3_2>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr) { return std::make_unique<COPLRhythm>(p, sr); }
 
 // ================================================================
 //  フォールバック受け入れ判定

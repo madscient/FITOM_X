@@ -243,6 +243,7 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_OPL`(0x20) | OPL, Y8950 | `COPL` | 2 |
 | `VOICE_PATCH_OPL2`(0x21) | OPL2 | `COPL2` | 2 |
 | `VOICE_PATCH_OPL3_2`(0x22) | OPL3_2（OPL3の2opモード） | `COPL3_2` | 2 |
+| `VOICE_PATCH_OPL_RHY`(0x23) | OPL_RHY（OPL系内蔵リズムチャンネル） | `COPLRhythm` | 1または2(楽器により異なる、混在可) |
 | `VOICE_PATCH_OPLL`(0x28) | OPLL, OPLL2 | `COPLL` / `COPLL2` | 2 |
 | `VOICE_PATCH_OPLLP`(0x29) | OPLLP | `COPLLP` | 2 |
 | `VOICE_PATCH_OPLLX`(0x2a) | OPLLX | `COPLLX` | 2 |
@@ -273,6 +274,30 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 (2026年7月〜)。`ops`が「HwPatch対象外」の行は、そもそもHwPatchでは
 なくSampleZonePatch(またはダミーHwPatch)を使うため、この文脈での
 オペレータ数の概念自体が適用されない。
+
+### 設計原則: デバイスに特殊ルーティングが必要かどうかの判断基準
+
+新しいデバイス種別を追加する際、`resolveTriple()`の通常経路
+(`voicePatchType`→`HwBankRegistry`検索→`findDeviceIndexByVoicePatchType`)
+にそのまま乗せられるか、`0x70`(ビルトインリズム)のような専用バイパス
+や、`isSampleBasedVoicePatchType`のような個別分岐が必要になるかは、
+「リズム専用かどうか」ではなく、**そのデバイスの音色データが、標準の
+`HwPatch`という形状でソフトウェア側に実在するかどうか**で決まる
+(2026年7月、`COPLRhythm`実装時の議論から)。
+
+| デバイス | 音色データの実体 | 特殊扱いの要否 |
+|---|---|---|
+| `COPNARhythm`/`COPLLRhythm` | チップROM内蔵の固定音色(ソフトウェアが管理する音色データが実質存在しない) | 必要 (`VOICE_PATCH_NONE`+`0x70`専用バイパス、または`findDeviceIndexByDeviceType`) |
+| AWM/ADPCM系 | ソフトウェア管理下にはあるが、キーゾーン+ベロシティレイヤー+波形インデックスという、`HwPatch`(FMオペレータ型)とは全く異なる形状 | 必要 (`isSampleBasedVoicePatchType`による`SampleZoneBankRegistry`への分岐) |
+| `COPLRhythm` | 他のFMチップと全く同じ`HwPatch`形状(オペレータ数が1〜2と狭いだけ) | **不要** (`resolveTriple`は無改造、最初から本物の`VoicePatchType`を持つ) |
+
+音色データが`HwPatch`の形状に収まるデバイスは、たとえチャンネル数や
+用途が特殊(リズム専用等)であっても、`VOICE_PATCH_NONE`のような
+「識別子なし」の扱いにする必要はなく、専用の`VoicePatchType`を与えて
+「音色データがデバイスを選択する」という通常の原則にそのまま乗せる
+方が、コードの見通しが良くなる。逆に、音色データの形状自体が
+`HwPatch`と根本的に異なる場合(AWM等)や、ソフトウェア側に音色データが
+実在しない場合(ROM固定音源)は、専用の分岐が構造的に避けられない。
 
 ---
 
