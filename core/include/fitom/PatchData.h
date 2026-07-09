@@ -80,6 +80,17 @@ struct HwPatch {
     FmHwOp     hwOp[MAX_HW_OPS]; // オペレータ HW パラメータ
     FmChipExt  ext;           // チップ固有拡張 (OPZ 等)
 
+    // ─── パフォーマンスパッチ(SwPatch)参照 ────────────────────────
+    // -1 = 参照なし(センチネル)。このHwPatch(音色データ)自身が
+    // 「本来意図している演奏特性」のデフォルトを指す。DrumNote側に
+    // 個別の上書き指定(swBank/swProg != -1)があれば、そちらが優先
+    // される (詳細は docs/terminology.md 参照)。
+    // 指定先が解決できなかった場合は、パフォーマンスパッチが
+    // 適用されないだけで、HwPatch自体の発音は妨げられない
+    // (ソフトな失敗、エラー扱いにしない)。
+    int8_t     swBank = -1;
+    int8_t     swProg = -1;
+
     HwPatch() noexcept : id(0xFFFFFFFFu) { name[0] = '\0'; }
 
     bool isValid() const noexcept { return id != 0xFFFFFFFFu; }
@@ -118,6 +129,18 @@ struct SwPatch {
 
     FmSwVoice  sw;            // チャンネル LFO (ビブラート)
     FmSwOp     swOp[MAX_HW_OPS]; // オペレータ単位 (トレモロ / ベロシティ感度)
+
+    // 固定トランスポーズ [セント、-1200〜+1200]。ToneLayer.transpose
+    // (半音単位)とは独立 (ToneLayer.transposeはネイティブパッチの
+    // レイヤー固有パラメータ、こちらはSwPatch=演奏特性の一部として、
+    // 直接モード等でも効かせられる)。両方が有効な場合は加算する。
+    // 適用時は「半音部分(ノート番号に加算)」と「セント端数部分
+    // (kfs単位に変換して加算。docs/terminology.mdの「kfs」参照)」に
+    // 分解される (MidiCh.cpp参照)。名前は DrumNote::fineTune と同じ
+    // 命名スタイル (ToneLayer.transposeとの役割混同を避けるため
+    // "fixed"ではなく"fine"を使う、2026年7月)。
+    // 固定ディレイは2026年7月時点で保留(別途設計を要する)。
+    int16_t    fineTranspose = 0;
 
     SwPatch() noexcept : id(0xFFFFFFFFu) { name[0] = '\0'; }
     bool isValid() const noexcept { return id != 0xFFFFFFFFu; }
@@ -417,18 +440,11 @@ struct Patch {
     // layer[0] がプライマリ。layer[1..3] は省略可能（enabled=false）。
     std::array<ToneLayer, MAX_TONE_LAYERS> layers;
 
-    // ─── SW パッチ参照 ────────────────────────────────────────────
-    // SW パラメータはすべての ToneLayer で共有する（1パッチ1セット）。
-    // 注意: hwBank/hwProg と同様、Patch プリセット (JSON) に静的に
-    // 埋め込まれた値であり、ライブの MIDI CC からは供給されない。
-    uint8_t swBank;   // SW バンク番号
-    uint8_t swProg;   // SW プログラム番号
-
     // ─── パッチ共通パラメータ ─────────────────────────────────────
     uint8_t poly;     // ポリフォニー数 (0=チャンネルマップのデフォルト)
 
     Patch() noexcept
-        : id(0xFFFFFFFFu), swBank(0), swProg(0), poly(0)
+        : id(0xFFFFFFFFu), poly(0)
     {
         name[0] = '\0';
     }
@@ -505,11 +521,16 @@ struct ResolvedLayer {
     // hwPatchのみを参照するため、このフィールド追加による影響はない。
     const SampleZonePatch* samplePatch = nullptr;
     int              deviceIndex = -1;    // devices[] インデックス
+    // 解決済み SwPatch (パフォーマンスパッチ)。以前はResolvedPatch側に
+    // Patch単位で1つだけ保持していたが、HwPatch自身がswBank/swProgを
+    // 持つ設計に変更したため、レイヤー単位(HwPatch単位)の粒度に変更した
+    // (2026年7月)。解決に失敗した場合もnullptrのままになるだけで、
+    // HwPatch自体の発音は妨げられない(ソフトな失敗)。
+    const SwPatch*   swPatch = nullptr;
 };
 
 struct ResolvedPatch {
     const Patch*    patch   = nullptr;  // 元の Patch
-    const SwPatch*  swPatch = nullptr;  // 解決済み SwPatch
     std::array<ResolvedLayer, MAX_TONE_LAYERS> layers;
     int layerCount = 0;
 

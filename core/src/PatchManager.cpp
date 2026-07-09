@@ -116,17 +116,14 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
     ResolvedPatch result;
     result.patch = &patch;
 
-    // SwPatch の解決
-    result.swPatch = swReg_.resolve(patch.swBank, patch.swProg);
-    if (!result.swPatch) {
-        FITOM_LOG_WARN("SwPatch not found: bank=" << patch.swBank
-            << " prog=" << patch.swProg << " — using default");
-    }
-
     // 各 ToneLayer の HwPatch を解決 (共通ロジックはresolveTriple()に集約、
     // resolveDirect()と共有する)。voicePatchTypeに一致するデバイスが
     // 見つからない、またはHwBankのタグと不一致の場合、そのレイヤーだけを
     // スキップする (Patch全体は無効にしない。確保できたレイヤーのみ発音する)。
+    // SwPatch(パフォーマンスパッチ)は、以前はPatch単位で1つだけ
+    // 解決していたが、HwPatch自身がswBank/swProgを持つ設計に変更した
+    // ため、resolveTriple()内でHwPatchごとに自動解決される
+    // (レイヤーごとに異なるパフォーマンスパッチを持ちうる、2026年7月)。
     for (int i = 0; i < MAX_TONE_LAYERS; ++i) {
         const auto& layer = patch.layers[i];
         if (!layer.isActive()) continue;
@@ -140,6 +137,7 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
         rl.deviceIndex = rt.deviceIndex;
         rl.hwPatch     = rt.hwPatch;
         rl.samplePatch = rt.samplePatch;
+        rl.swPatch     = rt.swPatch;
         result.layers[result.layerCount++] = rl;
     }
 
@@ -167,12 +165,15 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
 
     ResolvedPatch result;
     result.patch      = &storage;
-    result.swPatch     = nullptr;   // 直接モードはSWパッチなし (VTL等は0=無感度)
     ResolvedLayer rl;
     rl.layer       = &storage.layers[0];
     rl.hwPatch     = rt.hwPatch;
     rl.samplePatch = rt.samplePatch;
     rl.deviceIndex = rt.deviceIndex;
+    rl.swPatch     = rt.swPatch;   // 直接モードでも、HwPatch自身が
+                                    // swBank/swProgを持てば適用される
+                                    // (2026年7月の設計変更、旧仕様は
+                                    //  「直接モードはSwPatchなし」だった)
     result.layers[0]  = rl;
     result.layerCount = 1;
     return result;
@@ -275,6 +276,7 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
 
     result.deviceIndex = deviceIndex;
     result.hwPatch = &opllRomPatches_[variantSel][instIndex];
+    result.swPatch = resolveSwPatch(result.hwPatch->swBank, result.hwPatch->swProg);
     return result;
 }
 
@@ -317,8 +319,13 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
     // 呼ばない(音量/パン初期化が行われなくなる)ため、空のダミー
     // HwPatchへのポインタを設定しておく(中身は使われないので内容は
     // 空のままでよい)。
-    static const HwPatch kEmptyRhythmPatch{};
+    static const HwPatch kEmptyRhythmPatch{}; // swBank/swProgは常に-1のまま
     result.hwPatch = &kEmptyRhythmPatch;
+    // このHwPatchはチップ全体で共有されるダミーのため、楽器(fixed_ch)
+    // ごとの区別ができず、HwPatch自身にswPatchを持たせる意味が無い
+    // (常に-1でresult.swPatchはnullptrのまま)。楽器ごとに異なる
+    // パフォーマンスパッチを与えたい場合は、DrumNote::swBank/swProg
+    // による上書きを使う (CRhythmCh::applyNoteOn参照)。
     return result;
 }
 
@@ -418,6 +425,10 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
 
     result.deviceIndex = deviceIndex;
     result.hwPatch = hwPatch;
+    // HwPatch自身が指定するパフォーマンスパッチ(SwPatch)を解決する。
+    // -1(参照なし)、または指定先が見つからない場合はnullptrのまま
+    // (ソフトな失敗。hwPatch自体の発音は妨げられない)。
+    result.swPatch = resolveSwPatch(hwPatch->swBank, hwPatch->swProg);
     return result;
 }
 
@@ -465,7 +476,7 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
 json hwPatchToJson(const HwPatch& p) {
     json ops = json::array();
     for (int i = 0; i < MAX_HW_OPS; ++i) ops.push_back(hwOpToJson(p.hwOp[i]));
-    return json{
+    json out = json{
         {"id",p.id},{"name",p.name},
         {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
         {"FB2",p.hw.FB2},
@@ -473,6 +484,11 @@ json hwPatchToJson(const HwPatch& p) {
         {"ext",json{{"REV",p.ext.REV},{"EGS",p.ext.EGS},{"DM0",p.ext.DM0},
                     {"DT3",p.ext.DT3},{"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP}}}
     };
+    // sw_bank/sw_prog は -1(参照なし)がデフォルトのため、設定されている
+    // 場合のみ出力する(既存ファイルとの差分を最小化する)。
+    if (p.swBank >= 0) out["sw_bank"] = p.swBank;
+    if (p.swProg >= 0) out["sw_prog"] = p.swProg;
+    return out;
 }
 HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
     HwPatch p;
@@ -484,6 +500,8 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
     auto g8 = [&](const char* k, uint8_t& v){ if(j.contains(k)) v=j[k].get<uint8_t>(); };
     g8("FB",p.hw.FB); g8("ALG",p.hw.ALG); g8("AMS",p.hw.AMS);
     g8("PMS",p.hw.PMS); g8("NFQ",p.hw.NFQ); g8("FB2",p.hw.FB2);
+    if (j.contains("sw_bank")) p.swBank = static_cast<int8_t>(j["sw_bank"].get<int>());
+    if (j.contains("sw_prog")) p.swProg = static_cast<int8_t>(j["sw_prog"].get<int>());
     if (j.contains("ops") && j["ops"].is_array()) {
         for (int i = 0; i < MAX_HW_OPS && i < (int)j["ops"].size(); ++i)
             jsonToHwOp(j["ops"][i], p.hwOp[i]);
@@ -722,12 +740,15 @@ bool PatchManager::loadSwBankJson(const std::filesystem::path& path, int bankNo)
                     };
                     g8("LWF",p.sw.LWF); g8("LFS",p.sw.LFS); g8("LFM",p.sw.LFM);
                     g8("LFD",p.sw.LFD); g8("LFR",p.sw.LFR); g8("LFI",p.sw.LFI);
-                    g8("LDM",p.sw.LDM); g8("LDL",p.sw.LDL);
+                    if (sw.contains("depth_cents"))
+                        p.sw.depthCents = static_cast<int16_t>(sw["depth_cents"].get<int>());
                 }
                 if (entry.contains("ops") && entry["ops"].is_array()) {
                     for (int i = 0; i < MAX_HW_OPS && i < (int)entry["ops"].size(); ++i)
                         jsonToSwOp(entry["ops"][i], p.swOp[i]);
                 }
+                if (entry.contains("fine_transpose"))
+                    p.fineTranspose = static_cast<int16_t>(entry["fine_transpose"].get<int>());
                 bank.set(prog, p);
             }
         }
@@ -764,9 +785,10 @@ bool PatchManager::saveSwBankJson(const std::filesystem::path& path, int bankNo)
             {"sw", json{
                 {"LWF",p.sw.LWF},{"LFS",p.sw.LFS},{"LFM",p.sw.LFM},
                 {"LFD",p.sw.LFD},{"LFR",p.sw.LFR},{"LFI",p.sw.LFI},
-                {"LDM",p.sw.LDM},{"LDL",p.sw.LDL}
+                {"depth_cents",p.sw.depthCents}
             }},
-            {"ops", ops}
+            {"ops", ops},
+            {"fine_transpose", p.fineTranspose}
         });
     }
     json out = {{"name", bank->name}, {"patches", patches}};
@@ -801,8 +823,6 @@ bool PatchManager::loadPatchBankJson(const std::filesystem::path& path, int bank
                     std::string n = entry["name"].get<std::string>();
                     std::strncpy(p.name, n.c_str(), sizeof(p.name)-1);
                 }
-                if (entry.contains("sw_bank")) p.swBank = entry["sw_bank"].get<uint8_t>();
-                if (entry.contains("sw_prog")) p.swProg = entry["sw_prog"].get<uint8_t>();
                 if (entry.contains("poly"))    p.poly   = entry["poly"].get<uint8_t>();
                 if (entry.contains("layers") && entry["layers"].is_array()) {
                     int li = 0;
@@ -836,7 +856,6 @@ bool PatchManager::savePatchBankJson(const std::filesystem::path& path, int bank
         }
         patches.push_back(json{
             {"prog",i},{"name",p.name},
-            {"sw_bank",p.swBank},{"sw_prog",p.swProg},
             {"poly",p.poly},{"layers",layers}
         });
     }
@@ -966,6 +985,8 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
             int noteMin = j.value("note_min", 0);
             int noteMax = j.value("note_max", 127);
             int8_t  fixedCh  = static_cast<int8_t>(j.value("fixed_ch", -1));
+            int8_t  swBank   = static_cast<int8_t>(j.value("sw_bank", -1));
+            int8_t  swProg   = static_cast<int8_t>(j.value("sw_prog", -1));
             int8_t  pan      = static_cast<int8_t>(j.value("pan", 0));
             uint16_t gateTime = j.value("gate_time", static_cast<uint16_t>(0));
             int16_t fineTune  = j.value("fine_tune", static_cast<int16_t>(0));
@@ -984,6 +1005,8 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
                 dn.playNote  = static_cast<uint8_t>(n); // 受信ノートをそのまま渡す
                 dn.fineTune  = fineTune;
                 dn.fixedCh   = fixedCh;
+                dn.swBank    = swBank;
+                dn.swProg    = swProg;
                 dn.pan       = pan;
                 dn.gateTime  = gateTime;
             }
@@ -1002,6 +1025,8 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
                     dn.playNote   = nj.value("play_note",  static_cast<uint8_t>(60));
                     dn.fineTune   = nj.value("fine_tune",  static_cast<int16_t>(0));
                     dn.fixedCh    = static_cast<int8_t>(nj.value("fixed_ch", -1));
+                    dn.swBank     = static_cast<int8_t>(nj.value("sw_bank", -1));
+                    dn.swProg     = static_cast<int8_t>(nj.value("sw_prog", -1));
                     dn.pan        = static_cast<int8_t>(nj.value("pan", 0));
                     dn.gateTime   = nj.value("gate_time",  static_cast<uint16_t>(0));
                     if (nj.contains("name")) {
@@ -1054,6 +1079,8 @@ bool PatchManager::saveDrumBankJson(const std::filesystem::path& path, int bankN
                 {"play_note",  dn.playNote},
                 {"fine_tune",  dn.fineTune},
                 {"fixed_ch",   dn.fixedCh},
+                {"sw_bank",    dn.swBank},
+                {"sw_prog",    dn.swProg},
                 {"pan",        dn.pan},
                 {"gate_time",  dn.gateTime}
             });

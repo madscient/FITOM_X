@@ -51,7 +51,8 @@ enum class LfoMode : uint8_t {
 //
 //  設計:
 //    - delay / 波形位相 / フェードインを完全に分離
-//    - rate: 波形の周期 (kSpeedStep[rate % 19] tick/周期)
+//    - rate: 波形の周期 (rateToTicks(rate)、対数カーブで0.5Hz〜50Hzに
+//            マッピングする数式。0=無効。docs/voice-data-design.md参照)
 //    - fadein: フェードイン速度 (0=即フルデプス, 1〜127 tick でフル到達)
 //    - mode: Repeat / OneShotHold / OneShotZero
 //    - S&H seed はインスタンス固有 (チャンネル間非共有)
@@ -60,7 +61,7 @@ class LfoControl {
 public:
     enum class Phase { Stopped, Delaying, Running, Held, FadingOut };
 
-    // rate:    0=無効, 1〜127 → kSpeedStep[rate % 19] tick/周期
+    // rate:    0=無効, 1〜127 → rateToTicks(rate) tick/周期 (対数カーブ)
     // delay:   0〜127 × 20ms ティック
     // fadein:  0=即フルデプス, 1〜127=フェードイン tick 数
     // mode:    Repeat / OneShotHold / OneShotZero
@@ -91,7 +92,7 @@ private:
     LfoMode  mode_        = LfoMode::Repeat;
 
     uint16_t delay_left_  = 0;   // 残りディレイ tick 数
-    uint16_t period_      = 0;   // 1周期の tick 数 (kSpeedStep 参照)
+    uint16_t period_      = 0;   // 1周期の tick 数 (rateToTicks() 参照)
     uint16_t phase_tick_  = 0;   // 現在の位相 tick (0〜period_-1)
     bool     one_shot_done_ = false;  // OneShotHold/Zero: 1周期完了フラグ
 

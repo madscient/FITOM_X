@@ -48,8 +48,18 @@ struct ChState {
     const SampleZonePatch* samplePatch = nullptr;
     VoiceProcessor proc;          // SW パラメータ処理エンジン
 
+    // 現在のノートに適用すべきSwPatch(パフォーマンスパッチ)。
+    // CInstCh::noteOn/CRhythmCh::applyNoteOnがassignCh直後にセットし、
+    // CSoundDevice::noteOn()がこれを見て、正しくSwPatch込みのFmVoiceで
+    // VoiceProcessor::onNoteOn()を呼ぶために使う(nullptrならSwPatch無し)。
+    // 以前はCSoundDevice::noteOn()が無条件でSwPatch無しのdummyを使って
+    // onNoteOn()を呼んでおり、CInstCh側が直前に正しく適用した結果を
+    // 上書きしてしまう潜在バグがあった(2026年7月、SwPatchスキーマ変更
+    // の検証中に発見・修正)。
+    const SwPatch* pendingSwPatch = nullptr;
+
     uint8_t  lastNote  = 0xFF;
-    int16_t  fineFreq  = 0;
+    int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/terminology.md「kfs」参照)
     uint16_t noteOnAge = 0;       // 古いチャンネルを奪う優先度
 
     // レガシー互換: FNUM (旧 ISoundDevice::FNUM)
@@ -179,7 +189,7 @@ public:
 
     // ─── パラメータ設定 ─────────────────────────────────────────────────
     virtual void setVoice(uint8_t ch, const HwPatch& patch, bool update = true)  = 0;
-    virtual void setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool update = true) = 0;
+    virtual void setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool update = true) = 0; // fine: kfs単位
     virtual void setVolume(uint8_t ch, uint8_t vol, bool update = true)     = 0;
     virtual void setVelocity(uint8_t ch, uint8_t vel, bool update = true)   = 0;
     virtual void setExpression(uint8_t ch, uint8_t exp, bool update = true) = 0;
@@ -276,7 +286,7 @@ public:
     bool isChOwnedBy(uint8_t ch, const IMidiCh* owner) const override;
 
     void setVoice(uint8_t ch, const HwPatch& patch, bool update = true) override;
-    void setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool update = true) override;
+    void setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool update = true) override; // fine: kfs単位
     void setVolume(uint8_t ch, uint8_t vol, bool update = true) override;
     void setVelocity(uint8_t ch, uint8_t vel, bool update = true) override;
     void setExpression(uint8_t ch, uint8_t exp, bool update = true) override;
@@ -316,7 +326,7 @@ protected:
     virtual void updateFnumber(uint8_t ch, bool forceWrite = true);
 
     // ─── Fnum 計算 ──────────────────────────────────────────────────────
-    virtual ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const;
+    virtual ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const; // offset: kfs単位
 
     // 指定Hzを直接Fnum/Blockに変換する (FnumTableType::Fnumber専用)。
     // getFnumber()のノートテーブル経由と異なり、任意のHz値を直接指定できる。

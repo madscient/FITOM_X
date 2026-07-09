@@ -9,7 +9,6 @@ PatchBank (*.patchbank.json)
         │   ├── voicePatchType        → デバイスタイプID (VOICE_PATCH_*, 0x10-0x54)
         │   ├── hw_bank / hw_prog     → HwPatch への参照キー
         │   └── note_range / transpose / volume_offset / pan_offset
-        ├── sw_bank / sw_prog         → SwPatch への参照キー（全レイヤー共通）
         └── poly
 ```
 
@@ -19,15 +18,32 @@ HwBank (*.hwbank.json)  ← VoiceGroup (粗い分類, 9種) ごとに登録
   └── HwPatch [prog 0..127]
         ├── FmHwVoice hw    (FB / ALG / AMS / PMS / NFQ)
         ├── FmHwOp hwOp[4]  (AR/DR/SL/.../TL/KSR/.../MUL/DT1/DT2/AM/VIB/EGT/WS)
-        └── FmChipExt ext   (REV / EGS / DM0 / DT3 / ALG_EXT / HWEP)
+        ├── FmChipExt ext   (REV / EGS / DM0 / DT3 / ALG_EXT / HWEP)
+        └── sw_bank / sw_prog → SwPatch への参照キー (2026年7月〜、-1=参照なし)
 ```
 
 ```
 SwBank (*.swbank.json)  ← チップ族共通・1セット
   └── SwPatch [prog 0..127]
-        ├── FmSwVoice sw    (チャンネルLFO / ビブラート)
-        └── FmSwOp swOp[4]  (ベロシティ感度 / トレモロLFO)
+        ├── FmSwVoice sw          (チャンネルLFO / ビブラート)
+        ├── FmSwOp swOp[4]        (ベロシティ感度 / トレモロLFO)
+        └── fine_transpose        (固定トランスポーズ[セント、-1200〜+1200]、2026年7月〜)
 ```
+
+**SwPatchへの参照は、以前はPatch単位(全ToneLayerで共有)だったが、
+2026年7月にHwPatch単位(レイヤーごとに異なりうる)へ変更した。** これにより:
+
+- 直接モード(CC#0=0x01-0x6F)やビルトインリズム音源(CC#0=0x70)等、
+  従来「SwPatch適用対象外」だった経路でも、HwPatch自身が参照を
+  持てばパフォーマンスパッチが効くようになった
+- `DrumNote`にも`sw_bank`/`sw_prog`の個別上書きフィールドが追加され、
+  ビルトインリズム音源のように「HwPatchが楽器を区別できない」場合
+  でも、楽器ごとに異なるパフォーマンスパッチを指定できる
+  (優先順位: ①DrumNote指定が解決できればそれを使う → ②DrumNote無指定
+  (-1)、または指定されたが解決に失敗した場合は、"無指定だった場合と
+  同じ扱い"としてHwPatch自身の参照にフォールバックする → ③それも
+  無ければパフォーマンスパッチ無し。DrumNote側の解決失敗は「無指定」
+  と等価に扱われ、HwPatch側へのフォールバックを妨げない点に注意)
 
 ---
 
@@ -169,8 +185,10 @@ bankSelM_ (CC#0) が 0x01-0x6F のとき:
   hwProg         = prog             （Program Changeの値）
 
 PatchManager::resolveDirect(voicePatchType, hwBank, hwProg, config, storage)
-  → PatchBank/ToneLayer/SwPatchを経由せず、単層Patchを直接構築
-  → SwPatch は常に nullptr（ベロシティ感度・ソフトLFOは無効）
+  → PatchBank/ToneLayerを経由せず、単層Patchを直接構築
+  → SwPatchは、解決されたHwPatch自身がsw_bank/sw_progを持っていれば
+    適用される (2026年7月〜。以前は常にnullptrだったが、SwPatch参照が
+    HwPatch単位になったことで直接モードでも効くようになった)
   → Patch::fromSingleLayer() を使用（ノート範囲フル、transpose/offsetなし）
 ```
 
@@ -248,7 +266,9 @@ Program Change 受信 (CRhythmCh::progChange)
                 VOICE_PATCH_*定数となり、patchBank/patchProgはHwBank
                 インデックス/HwProgとして読み替わる。
                 PatchManager::resolveDirect(voicePatchType, patchBank,
-                patchProg, config, storage)で解決 (単層Patch、SwPatchなし)
+                patchProg, config, storage)で解決 (単層Patch。SwPatchは
+                HwPatch自身の参照があれば適用される。DrumNote.sw_bank/
+                sw_progでの上書きも可能)
           → DrumNote.playNoteを絶対ノート番号として発音
 ```
 
@@ -376,3 +396,41 @@ banks/
 
 `Patch::fromSingleLayer()` は直接モードの単層パッチ構築だけでなく、
 旧FMVOICE 1本からのシングルレイヤーパッチ作成にも使われる共用ヘルパー。
+
+---
+
+## 実装過程で発見・修正した既存バグ (2026年7月、SwPatchスキーマ変更時)
+
+SwPatchスキーマ変更(HwPatch単位への参照移行)の実機検証中、既存の
+`CSoundDevice::noteOn()`に、CInstCh/CRhythmChが直前に適用した
+SwPatchの計算結果を、直後に無条件で上書きしてしまう潜在バグが
+あることが判明した。
+
+```cpp
+// 修正前(SoundDevImpl.cpp): コメントと実装が矛盾していた
+// SwPatch は CInstCh 側が VoiceProcessor に適用済み
+s.proc.onNoteOn(s.volume, s.expression, vel, dummy); // dummyはSwPatch無し
+```
+
+`CInstCh::noteOn`/`CRhythmCh::applyNoteOn`が`VoiceProcessor::onNoteOn()`
+を直接呼んでSwPatchを正しく適用した直後、`dev->noteOn(devCh, vel)`の
+内部で`CSoundDevice::noteOn()`が、SwPatchを含まない`dummy`
+(FmVoice)で`onNoteOn()`を再度呼んでしまい、直前の計算結果を丸ごと
+上書きしていた。これは今回のスキーマ変更以前から存在していた
+潜在バグで、旧仕様(Patch単位でのSwPatch共有)でも同様に発生していた
+と考えられる(発見が遅れていた)。
+
+**修正**: `ChState`に`pendingSwPatch`フィールドを新設し、
+`CInstCh`/`CRhythmCh`はここに適用すべきSwPatchをセットするだけに
+留めるよう変更した。実際の`VoiceProcessor::onNoteOn()`呼び出しは
+`CSoundDevice::noteOn()`に一本化し、`pendingSwPatch`があればそれを
+`dummy`に反映してから呼ぶ。これにより二重呼び出しが解消され、
+`CInstCh::noteOn`/`CRhythmCh::applyNoteOn`側のコードも簡潔になった。
+
+## 既知の技術的負債 (2026年7月時点)
+
+- `PatchManager::loadDrumBankJson()`(`Config.cpp`からは呼ばれておらず、
+  実際に使われているのは`loadDrumKitJson()`)はデッドコードの可能性が
+  高い。今回のSwPatchスキーマ変更(`sw_bank`/`sw_prog`追加)は、実際に
+  使われている`loadDrumKitJson()`にのみ適用した。`loadDrumBankJson()`
+  自体の要否は別途確認が必要。

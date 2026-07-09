@@ -233,33 +233,46 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 (VOICE_PATCH_*)を変換する。sub-device自動生成・同種デバイス束ねは全てこの値を
 基準に動作する。詳細は`patch-structure-design.md`参照。
 
-| VoicePatchType | 対応する deviceType | 生成クラス |
-|---|---|---|
-| `VOICE_PATCH_OPN`(0x10) | OPN, OPNB, OPNC | `COPN` |
-| `VOICE_PATCH_OPN2`(0x11) | OPN2, OPN2C, OPN2L, OPNA, OPN3L, 2610B, F286, OPN3 | `COPNA` / `COPN2` |
-| `VOICE_PATCH_OPM`(0x19) | OPM, OPP | `COPM` / `COPP` |
-| `VOICE_PATCH_OPZ`(0x1a) | OPZ | `COPZ` |
-| `VOICE_PATCH_OPZ2`(0x1b) | OPZ2 | `COPZ`（共用） |
-| `VOICE_PATCH_OPL`(0x20) | OPL, Y8950 | `COPL` |
-| `VOICE_PATCH_OPL2`(0x21) | OPL2 | `COPL2` |
-| `VOICE_PATCH_OPL3_2`(0x22) | OPL3_2（OPL3の2opモード） | `COPL3_2` |
-| `VOICE_PATCH_OPLL`(0x28) | OPLL, OPLL2 | `COPLL` / `COPLL2` |
-| `VOICE_PATCH_OPLLP`(0x29) | OPLLP | `COPLLP` |
-| `VOICE_PATCH_OPLLX`(0x2a) | OPLLX | `COPLLX` |
-| `VOICE_PATCH_VRC7`(0x2b) | VRC7 | `CVRC7` |
-| `VOICE_PATCH_OPL3`(0x30) | OPL3, OPN3_L3 | `COPL3`（4OPモード専用） |
-| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, SSGS, DSG | `CSSG` |
-| `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） |
-| `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` |
-| `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` |
-| `VOICE_PATCH_SCC`(0x48) | SCC, SCCP | `CSCC` |
-| `VOICE_PATCH_ADPCMB`(0x51) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` |
-| `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` |
-| `VOICE_PATCH_PCMD8`(0x53) | PCMD8 | `CAdPcmZ280` |
-| なし(`VOICE_PATCH_NONE`) | OPNA_RHY, OPLL_RHY 等リズムデバイス | `COPNARhythm` / `COPLLRhythm` |
+| VoicePatchType | 対応する deviceType | 生成クラス | オペレータ数 |
+|---|---|---|---|
+| `VOICE_PATCH_OPN`(0x10) | OPN, OPNB, OPNC | `COPN` | 4 |
+| `VOICE_PATCH_OPN2`(0x11) | OPN2, OPN2C, OPN2L, OPNA, OPN3L, 2610B, F286, OPN3 | `COPNA` / `COPN2` | 4 |
+| `VOICE_PATCH_OPM`(0x19) | OPM, OPP | `COPM` / `COPP` | 4 |
+| `VOICE_PATCH_OPZ`(0x1a) | OPZ | `COPZ` | 4 |
+| `VOICE_PATCH_OPZ2`(0x1b) | OPZ2 | `COPZ`（共用） | 4 |
+| `VOICE_PATCH_OPL`(0x20) | OPL, Y8950 | `COPL` | 2 |
+| `VOICE_PATCH_OPL2`(0x21) | OPL2 | `COPL2` | 2 |
+| `VOICE_PATCH_OPL3_2`(0x22) | OPL3_2（OPL3の2opモード） | `COPL3_2` | 2 |
+| `VOICE_PATCH_OPLL`(0x28) | OPLL, OPLL2 | `COPLL` / `COPLL2` | 2 |
+| `VOICE_PATCH_OPLLP`(0x29) | OPLLP | `COPLLP` | 2 |
+| `VOICE_PATCH_OPLLX`(0x2a) | OPLLX | `COPLLX` | 2 |
+| `VOICE_PATCH_VRC7`(0x2b) | VRC7 | `CVRC7` | 2 |
+| `VOICE_PATCH_OPL3`(0x30) | OPL3, OPN3_L3 | `COPL3`（4OPモード専用） | 4 |
+| `VOICE_PATCH_SD1`(0x38) | (未実装) | - | 不明(将来実装時に確定) |
+| `VOICE_PATCH_MA3`(0x39) | (未実装) | - | 不明(将来実装時に確定) |
+| `VOICE_PATCH_MA5`(0x3a) | (未実装) | - | 不明(将来実装時に確定) |
+| `VOICE_PATCH_MA7`(0x3b) | (未実装) | - | 不明(将来実装時に確定) |
+| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, SSGS, DSG | `CSSG` | 1 |
+| `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） | 1 |
+| `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` | 1 |
+| `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` | 1 |
+| `VOICE_PATCH_SCC`(0x48) | SCC, SCCP | `CSCC` | 1 |
+| `VOICE_PATCH_ADPCMB_Y8950`(0x50) | Y8950(ADPCM部) | `CYmDelta` | HwPatch対象外(SampleZonePatch使用) |
+| `VOICE_PATCH_ADPCMB`(0x51) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` | HwPatch対象外(SampleZonePatch使用) |
+| `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` | HwPatch対象外(SampleZonePatch使用) |
+| `VOICE_PATCH_PCMD8`(0x53) | PCMD8 | `CAdPcmZ280` | HwPatch対象外(SampleZonePatch使用) |
+| `VOICE_PATCH_AWM`(0x54) | AWM | `COPL4AWM` | HwPatch対象外(SampleZonePatch使用) |
+| なし(`VOICE_PATCH_NONE`) | OPNA_RHY, OPLL_RHY 等リズムデバイス | `COPNARhythm` / `COPLLRhythm` | HwPatch対象外(内蔵リズム、ダミーHwPatch使用) |
 
 太字は複数の`deviceType`が同じ`VoicePatchType`に統合されている箇所（同種デバイス
 自動束ねやsub-device生成の都合で意図的に統合したもの）。
+
+「オペレータ数」列は、`hwbank.schema.json`の`ops`配列の実際の要素数
+(1〜4で可変)、および`PatchManager::hwPatchToJson()`がHwBank保存時に
+書き出すべき要素数を判定するための、正式な参照情報として使う
+(2026年7月〜)。`ops`が「HwPatch対象外」の行は、そもそもHwPatchでは
+なくSampleZonePatch(またはダミーHwPatch)を使うため、この文脈での
+オペレータ数の概念自体が適用されない。
 
 ---
 

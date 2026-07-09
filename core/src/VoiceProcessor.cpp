@@ -3,8 +3,10 @@
 
 #include "fitom/VoiceProcessor.h"
 #include "fitom/VolumeUtils.h"
+#include "fitom/Log.h"
 #include <cmath>
 #include <algorithm>
+#include <cstdio>
 
 namespace fitom {
 
@@ -33,18 +35,32 @@ static const int8_t kSinTable[240] = {
    -46,-43,-40,-37,-34,-31,-28,-25,-22,-19,-16,-13,-9,-6,-3,
 };
 
-// kSpeedStep[i]: LFO 1周期のティック数（1tick=1ms）
-// index 0-18: 既存値 (最大 120ms ≈ 8.3Hz)
-// index 19: 160ms ≈ 6.25Hz ← CC#1 デフォルトビブラート
-// index 20: 200ms = 5.00Hz
-static const uint8_t kSpeedStep[21] = {
-    1,2,3,4,5,6,8,10,12,15,16,20,24,30,40,48,60,80,120,160,200
-};
+// LFOレート(1〜127)→周期[tick](1tick=1ms)への変換。
+// テーブル方式(旧kSpeedStep)を廃止し、対数(指数)カーブの数式に
+// 変更した(2026年7月)。理由: 線形に近い値を直接周期として使う
+// 旧方式では、低域(ビブラートとして最も使われる帯域)ほど隣接ステップ
+// 間の比率(知覚的な尺度)が大きくなり、分解能が悪化する問題があった
+// (docs/voice-data-design.md参照)。対数カーブなら、rate値を1増やす
+// ごとに周波数が一定比率(約3.7%)で変化するため、低域・高域を問わず
+// 均等なステップになる。
+// 周波数レンジ0.5Hz〜50Hzは、旧FITOM(ROM::speedstep[]、10ms tick)が
+// 実際に生成していたレンジ(0.417Hz〜50Hz)に近い値(完全一致は不要、
+// 概ね一致していればよいとの方針、2026年7月)。
+static uint16_t rateToTicks(uint8_t rate) noexcept
+{
+    if (rate == 0) return 0; // LFO無効 (呼び出し元でもチェック済み)
+    constexpr double kFreqMin = 0.5;   // Hz (rate=1)
+    constexpr double kFreqMax = 50.0;  // Hz (rate=127)
+    const double t = static_cast<double>(std::min<uint8_t>(rate, 127) - 1) / 126.0;
+    const double freq = kFreqMin * std::pow(kFreqMax / kFreqMin, t);
+    const double periodMs = 1000.0 / freq;
+    return static_cast<uint16_t>(std::lround(periodMs));
+}
 
 // CC#1 ビブラートのデフォルトパラメータ
-// 波形: sine (LWF=6), 周期: index=19 (160ms ≈ 6.25Hz)
+// 波形: sine (LWF=6), 周期: rate=70 (≈6.23Hz、旧デフォルトの6.25Hzに近似)
 // デプス最大: 32 steps ≈ 50 cent (RPN#5 で変更可能)
-static constexpr uint8_t  kCC1DefaultRate     = 19;
+static constexpr uint8_t  kCC1DefaultRate     = 70;
 static constexpr int16_t  kCC1DefaultMaxDepth = 32;  // steps (≈50cent @ CC#1=127)
 
 } // anonymous namespace
@@ -63,7 +79,7 @@ void LfoControl::start(uint8_t rate, uint8_t delay_20ms,
     if (rate == 0) { stop(); return; }
 
     mode_     = mode;
-    period_   = kSpeedStep[rate < 21 ? rate : 20];
+    period_   = rateToTicks(rate);
     phase_tick_     = 0;
     one_shot_done_  = false;
 
@@ -506,11 +522,14 @@ void VoiceProcessor::recalcChLfo(const FmVoice& voice) noexcept
     const auto& sw = voice.sw;
     const int16_t wav = static_cast<int16_t>(chLfo_.wave(sw.LWF));
 
-    int32_t depth = (static_cast<int32_t>(sw.LDM) << 8) | sw.LDL;
-    if (depth >= 8192) depth -= 16384;
-
-    int32_t val = static_cast<int32_t>(wav) * depth / (120 * 8192 / 127);
-    chLfoValue_ = static_cast<int16_t>(clamp(static_cast<int>(val), -128, 127));
+    // depthCents[セント、-1200〜+1200] をkfs単位に変換
+    // (docs/terminology.mdの「kfs」参照)。SLD(トレモロ深さ)と同じ設計
+    // パターン: 波形が最大振幅(±120)のとき、変調量はdepthKfsそのもの
+    // (=ユーザー指定の深さ)になる。
+    int32_t depthCents = clamp(static_cast<int>(sw.depthCents), -1200, 1200);
+    int32_t depthKfs = depthCents * 64 / 100;
+    int32_t val = static_cast<int32_t>(wav) * depthKfs / 120;
+    chLfoValue_ = static_cast<int16_t>(clamp(val, -768, 768));
 }
 
 } // namespace fitom

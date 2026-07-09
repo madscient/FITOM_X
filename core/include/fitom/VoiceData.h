@@ -192,7 +192,7 @@ struct FmSwOp {
     uint8_t SLM;  // Soft LFO mode:  0=repeat / 1=one-shot(hold) / 2=one-shot(zero)
     uint8_t SLD;  // Soft LFO depth: 0〜63=正方向 / 64〜127→-64〜-1=負方向
     uint8_t SLY;  // Soft LFO delay: 0〜127 [20ms 単位]
-    uint8_t SLR;  // Soft LFO rate:  0〜127 (0=LFO 無効, kSpeedStep参照)
+    uint8_t SLR;  // Soft LFO rate:  0〜127 (0=LFO無効。1-127は対数カーブで0.5Hz〜50Hzに変換、rateToTicks()参照)
     uint8_t SLI;  // Soft LFO fade-in: 0=即フルデプス / 1〜127=フェードイン速度
 
     constexpr FmSwOp() noexcept
@@ -212,13 +212,20 @@ struct FmSwVoice {
     uint8_t LFS;  // LFO sync: 0=NoteOnでリセットしない / 1=リセット
     uint8_t LFM;  // LFO mode: 0=repeat / 1=one-shot(hold) / 2=one-shot(zero)
     uint8_t LFD;  // LFO delay: 0〜127 [20ms 単位]
-    uint8_t LFR;  // LFO rate:  0〜127 (0=LFO 無効, kSpeedStep参照)
+    uint8_t LFR;  // LFO rate:  0〜127 (0=LFO無効。1-127は対数カーブで0.5Hz〜50Hzに変換、rateToTicks()参照)
     uint8_t LFI;  // LFO fade-in: 0=即フルデプス / 1〜127=フェードイン速度
-    uint8_t LDM;  // LFO depth (MSB): 0〜8191=正方向 / 8192〜16383→-8192〜-1
-    uint8_t LDL;  // LFO depth (LSB)
+
+    // LFO深さ [セント、-1200〜+1200]。旧実装はLDM/LDL(16bit値を2バイトに
+    // 分割)だったが、これはMIDI CCによる制御を想定した設計だった。
+    // 新実装ではパラメータのMIDI CC制御可否は未定(コア実装確定後に別途
+    // 検討)のため、1フィールドに統合し、直感的なセント単位で直接指定
+    // する形に変更した(2026年7月)。ピッチLFOがドラム音の装飾に使われる
+    // ケースを考慮し、±200セント(旧LDM/LDLの実質上限)より広い、
+    // ±1オクターブ(±1200セント)までのレンジを確保している。
+    int16_t depthCents = 0;
 
     constexpr FmSwVoice() noexcept
-        : LWF(0), LFS(0), LFM(0), LFD(0), LFR(0), LFI(0), LDM(0), LDL(0) {}
+        : LWF(0), LFS(0), LFM(0), LFD(0), LFR(0), LFI(0), depthCents(0) {}
 };
 
 #pragma pack(pop)
@@ -291,8 +298,16 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
     dst.hw.NFQ  = src.NFQ;
 
     // SW (チャンネル LFO)
-    dst.sw.LDM  = src.LDM;
-    dst.sw.LDL  = src.LDL;
+    // 旧LDM/LDL(16bit分割、kfs相当)を新しいdepthCents(セント単位、
+    // 1フィールド)に変換する。新レンジ(±1200セント)は旧の実質上限
+    // (±8192kfs≈±200セント相当だった想定)より大幅に広いため、
+    // クランプは実質的に効かない。
+    {
+        int16_t rawDepth = static_cast<int16_t>((static_cast<uint16_t>(src.LDM) << 8) | src.LDL);
+        if (rawDepth >= 8192) rawDepth -= 16384;
+        int cents = rawDepth * 100 / 64;
+        dst.sw.depthCents = static_cast<int16_t>(cents < -1200 ? -1200 : (cents > 1200 ? 1200 : cents));
+    }
     dst.sw.LWF  = src.LWF;
     dst.sw.LFS  = src.LFS;
     dst.sw.LFM  = src.LFM;
@@ -343,7 +358,13 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
     dst.AMS = src.hw.AMS;
     dst.PMS = src.hw.PMS;
     dst.NFQ = src.hw.NFQ;
-    dst.LDM = src.sw.LDM;  dst.LDL = src.sw.LDL;
+    {
+        int kfs = static_cast<int>(src.sw.depthCents) * 64 / 100;
+        kfs = kfs < -8192 ? -8192 : (kfs > 8191 ? 8191 : kfs);
+        uint16_t raw16 = static_cast<uint16_t>(kfs < 0 ? kfs + 16384 : kfs);
+        dst.LDM = static_cast<uint8_t>(raw16 >> 8);
+        dst.LDL = static_cast<uint8_t>(raw16 & 0xFF);
+    }
     dst.LWF = src.sw.LWF;  // LFO フィールド廃止 (HW LFO はパフォーマンスパラメータへ)
     dst.LFS = src.sw.LFS;  dst.LFD = src.sw.LFD;
     dst.LFR = src.sw.LFR;
