@@ -5,9 +5,7 @@
   "description": "通常運用では変更しない設定。管理者・開発者向け。プロファイルとは別ファイル。",
   "type": "object",
   "additionalProperties": false,
-
   "properties": {
-
     "log": {
       "type": "object",
       "description": "ロギング設定",
@@ -15,7 +13,14 @@
       "properties": {
         "level": {
           "type": "string",
-          "enum": ["trace", "debug", "info", "warning", "error", "fatal"],
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warning",
+            "error",
+            "fatal"
+          ],
           "default": "info",
           "description": "最小ログレベル。通常は 'info'。問題調査時のみ 'debug' / 'trace' に変更する。"
         },
@@ -28,10 +33,19 @@
           "type": "boolean",
           "default": true,
           "description": "コンソール（標準エラー出力）にもログを出力するか。"
+        },
+        "_comment": {
+          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
-
     "plugins": {
       "type": "object",
       "description": "プラグイン DLL のパス設定。実行ファイルからの相対パスまたは絶対パスで指定する。",
@@ -49,12 +63,31 @@
                 "libfitom_midi_alsa.so"
               ],
               "description": "MIDI バックエンド DLL のパス。省略時は MIDI 入力なしで動作する。"
+            },
+            "_comment": {
+              "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
             }
+          }
+        },
+        "_comment": {
+          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
           }
         }
       }
     },
-
     "timing": {
       "type": "object",
       "description": "タイマー・ポーリング設定。",
@@ -73,12 +106,30 @@
           "minimum": 100,
           "maximum": 10000,
           "description": "ハードウェアポーリングスレッドのスリープ間隔 [μs]。"
+        },
+        "_comment": {
+          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
         }
       }
+    },
+    "_comment": {
+      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
     }
-
   },
-
   "examples": [
     {
       "log": {
