@@ -46,7 +46,7 @@
             "items": {
               "type": "object",
               "required": [
-                "device_index",
+                "voice_patch_type",
                 "hw_bank",
                 "hw_prog",
                 "enabled"
