@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-pcm-image-catalog",
+  "title": "FITOM PCM/ADPCM メモリイメージカタログ (*.pcm_image_catalog.json)",
+  "description": "アプリケーション(ホストプログラム)が管理するPCM/ADPCM系サンプルメモリイメージファイルの一覧を、種別ごとに列挙するカタログ。FITOM_X本体はこのファイルを一切解釈・読み込みしない(実機/エミュレータを問わずhwifプラグインの管轄領域)。hw_plugins[].profileが指すプラグイン固有の設定ファイル側から、このカタログファイルへのパスを参照させる想定(具体的な参照方法・キー名はプラグインの実装に委ねられる)。プラグインは、自身が管理するチップに対応する種別のエントリーがあれば、指定されたファイルをロードする。単なる推奨慣習であり、FITOM_Xプロジェクトが定義する『種別』の語彙を、複数のhwifプラグイン間で共有できるようにすることが目的。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "images"
+  ],
+  "properties": {
+    "_comment": {
+      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。",
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "images": {
+      "type": "object",
+      "description": "種別名をキーとする、イメージファイルパスの一覧。1種別につき1ファイルのみ(重複を避けるため、配列ではなくオブジェクト形式を採用)。",
+      "additionalProperties": false,
+      "properties": {
+        "ADPCM-A": {
+          "type": "string",
+          "description": "ADPCM-A(リズム/効果音用サンプルメモリ)のイメージファイルへのパス。対応チップ例: YM2610/YM2610B(OPNB/OPNBB)。"
+        },
+        "ADPCM-B": {
+          "type": "string",
+          "description": "ADPCM-B(録音/PCM再生用サンプルメモリ)のイメージファイルへのパス。対応チップ例: YM2608(OPNA)、Y8950。OPNB/OPNBB(YM2610/YM2610B)のADPCM-Bはメモリのバウンダリ(アドレッシング境界)が異なり、ダンプイメージが厳密には同一にならない可能性があるため、共有せずOPNB_ADPCM-Bを別途使うこと(2026年7月〜)。"
+        },
+        "OPNB_ADPCM-B": {
+          "type": "string",
+          "description": "OPNB/OPNBB(YM2610/YM2610B)専用のADPCM-Bイメージファイルへのパス。OPNA(YM2608)/Y8950とはメモリのバウンダリ(アドレッシング境界)が異なるため、通常のADPCM-Bとは別のイメージファイルを指定する必要がある(2026年7月〜)。"
+        },
+        "OPNA_RHYTHM": {
+          "type": "string",
+          "description": "YM2608(OPNA)内蔵リズム音源(COPNARhythm)用のROMサンプルイメージへのパス。"
+        },
+        "OPL4AWM": {
+          "type": "string",
+          "description": "YMF278(OPL4)のAWM(PCM/波形メモリ)音源部のイメージファイルへのパス。"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "_comment": "OPNB(YM2610B)+OPNA(YM2608)混在構成の例。ADPCM-BはOPNA/Y8950用、OPNB_ADPCM-BはOPNB用で、メモリバウンダリの違いにより別イメージが必要。",
+      "images": {
+        "ADPCM-A": "samples/ym2610b_adpcma.bin",
+        "ADPCM-B": "samples/opna_adpcmb.bin",
+        "OPNB_ADPCM-B": "samples/ym2610b_adpcmb.bin",
+        "OPNA_RHYTHM": "samples/opna_rhythm_rom.bin",
+        "OPL4AWM": "samples/opl4_awm_rom.bin"
+      }
+    }
+  ]
+}
