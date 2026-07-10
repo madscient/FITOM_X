@@ -423,7 +423,7 @@
           },
           "profile": {
             "type": "string",
-            "description": "HWPlugin_Init()に渡すプラグイン固有の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。DLLロード直後、他の全関数より前に自動的にHWPlugin_Init(path)として呼ばれる。省略時はnullptrが渡され、プラグイン自身のデフォルト探索ルールに従う。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。HWPlugin_Init()が失敗を返した場合、このプラグインは登録されない。",
+            "description": "HWPlugin_Init()に渡すプラグイン固有の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。DLLロード直後、他の全関数より前に自動的にHWPlugin_Init(path)として呼ばれる。省略時はnullptrが渡され、プラグイン自身のデフォルト探索ルールに従う。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。HWPlugin_Init()が失敗を返した場合、このプラグインは登録されない。 ADPCM/PCM系サンプルメモリを必要とするチップ(YM2608/YM2610/YM2610B/YMF278等)を扱う場合、このプラグイン固有の設定ファイル側から、PCMメモリイメージカタログ(pcm_image_catalog.schema.json参照)へのパスを参照させる想定(具体的な参照キー名・方法はプラグインの実装に委ねられ、FITOM_X本体は関知しない、2026年7月〜)。",
             "examples": [
               "fmhwif_profile.json",
               "profiles/fmhwif_studio.json"
