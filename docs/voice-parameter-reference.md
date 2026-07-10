@@ -14,8 +14,8 @@
 
 ```
 hw  (FmHwVoice, パッチ1つにつき1組): FB, ALG, AMS, PMS, NFQ, FB2
-ops (FmHwOp, オペレータ4つ): AR,DR,SL,SR,RR,TL,KSR,KSL,MUL,DT1,DT2,FXV,AM,VIB,EGT,WS
-ext (FmChipExt, パッチ1つにつき1組): REV,EGS,DM0,DT3,ALG_EXT,HWEP
+ops (FmHwOp, オペレータ4つ): AR,DR,SL,SR,RR,TL,KSR,KSL,MUL,DT1,DT2,FXV,AM,VIB,EGT,WS,REV,EGS,DT3
+ext (FmChipExt, パッチ1つにつき1組): DM0,ALG_EXT,HWEP
 ```
 
 `ext`/`FB2`/`FXV`等、多くのフィールドは「特定チップのみが参照し、他チップでは
@@ -65,10 +65,10 @@ OPMの全フィールドに加え、以下が有効：
 
 | フィールド | 意味 |
 |---|---|
-| `ext.REV` | Reverberation (4bit) |
-| `ext.EGS` | EG bias (7bit) |
+| `ops[i].REV` | Reverberation (4bit、オペレータ単位) |
+| `ops[i].EGS` | EG bias (7bit、オペレータ単位) |
 | `ops[i].WS` | Wave Select (3bit、OPZ独自波形) |
-| `ops[i].DT3` | 補助デチューン |
+| `ops[i].DT3` | 補助デチューン (OPZ ratio mode、オペレータ単位) |
 
 固定周波数モード（`ext.DM0`、旧FITOM由来のOPZ用途）は未実装のまま（要データシート再確認）。2系統LFOリソースも旧FITOM同様未実装。
 
@@ -83,6 +83,44 @@ OPMの全フィールドに加え、以下が有効：
 | `ops[0-1].AR/DR/SL/SR/RR/TL/KSR/KSL/MUL/AM/VIB/EGT` | 通常の2opパラメータ |
 | `ops[i].WS` | Wave Select (OPL2以降、2bit) |
 
+### レジスタイメージからの変換: `SR`/`RR`/`EGT`(実機EGビット)の関係
+
+OPL系(OPL/OPL2/OPL3)のパッチをレジスタイメージ(実機ダンプ等)から
+起こす場合、実機レジスタ`0x20+slot`のbit5(EG Type、通称EGTビット)と
+`0x80+slot`の下位4bit(RRフィールド)の組み合わせを、FITOMの`SR`/`RR`
+両フィールドに、以下の規則で変換する必要がある(`ops[i].EGT`自体は
+OPL系では別の用途(SSG-EGタイプ、OPN/SSG専用)のため無関係)。
+
+実機のEGビットは「サステイン(bit5=1)」と「パーカッシブ(bit5=0)」の
+2つの動作モードを切り替える。パーカッシブモードでは、キーオン中でも
+RRレジスタの値で減衰し続ける(通常のADSRの"サステイン"に相当する
+挙動が無く、代わりにRRが「2段目の減衰」として働く)。FITOMは、この
+2つのモードを`SR`(Sustain Rate)フィールドの有無で統一的に表現する。
+
+| 実機の状態 | FITOM側への変換 |
+|---|---|
+| EGTビット=1(サステイン)、RRレジスタ=r | `SR=0`、`RR = r << 1`(4bit→5bit、下位ビットは0埋めでよい) |
+| EGTビット=0(パーカッシブ)、RRレジスタ=r | `SR = r << 1`(4bit→5bit)、`RR`は任意(EGT=1時にのみ参照されるため実機データには反映されない。0のままでよい) |
+
+適用(FITOM→実機、`COPL::updateVoice`等の実装)は上記の逆変換:
+
+```cpp
+// EGTビット: SR>0ならパーカッシブ(0)、SR==0ならサステイン(0x20)
+((o.SR > 0) ? 0 : 0x20)
+// RRレジスタ: SR>0ならSRを4bit変換、SR==0ならRRを4bit変換
+(o.SR ? ar4(o.SR) : o.RR)
+// ar4: 5bit→4bit変換(上位4bitを採用)
+static uint8_t ar4(uint8_t v) { return v >> 1; }
+```
+
+この変換規則(FITOMの`SR`/`RR`と、実機EGTビット/RRレジスタの対応)は
+OPL/OPL2/OPL3(4opモード含む)/OPLL系で共通する。ただしOPLLは、
+`updateVoice`(発音チャンネル確保時)と`updateKey`(キーオン/キーオフ
+のたび)という2つの関数に分けて実装しており、実際に`SR`の値が
+RRレジスタへ反映されるのは`updateKey`のタイミングである点が、
+OPL系(`updateVoice`のみで完結)と異なる。詳細はOPLL専用セクション
+(下記)を参照。
+
 ---
 
 ## OPL3 (YMF262) 4OPモード — `COPL3`
@@ -93,6 +131,9 @@ OPMの全フィールドに加え、以下が有効：
 | `hw.FB` | **前半ペア**(M1/C1)独立フィードバック |
 | `hw.FB2` | **後半ペア**(M2/C2)独立フィードバック（実機は前半・後半で別レジスタを持つため分離） |
 | `ops[0-3].AR/DR/SL/SR/RR/TL/KSR/KSL/MUL/WS/AM/VIB/EGT` | 通常の4opパラメータ |
+
+`SR`/`RR`/実機EGTビットの変換規則は、上記OPL/OPL2セクション参照
+(OPL3の4opモードも同じ規則)。
 
 ### 疑似デチューン
 
@@ -114,6 +155,34 @@ OPL2へのフォールバックは全オペレータでWS<4の場合のみ許可
 | `hw.FB`/`hw.ALG` | 通常パラメータ (2op) |
 | `ops[0-1].AR/DR/SL/SR/RR/KSR/AM/VIB/EGT` | 通常の2opパラメータ |
 | `ops[1].TL` | キャリアのみTLが意味を持つ（ops[0]はモジュレータ、TL無視） |
+
+### レジスタイメージからの変換: `SR`/`RR`
+
+OPLLは、実機EGビット(bit5、通称EGTビット、"SUS"表記のこともある)と
+RRレジスタを、**`updateVoice`と`updateKey`という2つの関数に分けて**
+書き込む、OPL系とは異なる実装アプローチを取っている(2026年7月に
+検証・訂正)。
+
+- `updateVoice`(発音チャンネル確保時に1回呼ばれる): この時点では
+  常にFITOMの`RR`の値のみをRRレジスタに書く(仮の初期値)。
+- `updateKey`(キーオン/キーオフのたびに呼ばれる): キーオン中は
+  `SR>0`ならEGTビット=0にして`SR`の値(4bit変換)をRRレジスタに、
+  キーオフ時はEGTビット=1にして`RR`の値をRRレジスタに、**動的に
+  再書き込みする**。
+
+`updateVoice`→(キーオン時)`updateKey`の順で呼ばれるため、**実際に
+発音中に有効なのは`updateKey`が書いた値**であり、最終的な変換規則
+自体はOPL系と同じ(`SR`の値がパーカッシブモード時の実際の減衰速度と
+して、正しく実機に反映される)。`updateVoice`単体だけを見ると
+`SR`が無視されているように見えるが、これは仮の初期値に過ぎず、
+バグではない。
+
+レジスタイメージから起こす場合の変換(OPL系と同じ規則):
+
+| 実機の状態 | FITOM側への変換 |
+|---|---|
+| EGTビット=1(サステイン)、RRレジスタ=r | `SR=0`、`RR=r`(そのまま、ビット幅変換不要) |
+| EGTビット=0(パーカッシブ)、RRレジスタ=r | `SR = r << 1`(4bit→5bit)、`RR`は任意(キーオフ時にのみ参照されるため) |
 
 ### プリセット/ユーザー音色判定
 

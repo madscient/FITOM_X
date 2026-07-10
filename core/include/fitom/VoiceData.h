@@ -81,7 +81,17 @@ struct FmHwOp {
     uint8_t AR;   // Attack Rate:    5bit (OPN/OPM: そのまま / OPL: 上位4bit使用)
     uint8_t DR;   // Decay Rate:     5bit
     uint8_t SL;   // Sustain Level:  4bit
-    uint8_t SR;   // Sustain Rate:   5bit (OPL は未使用 / OPLL は1bit)
+    uint8_t SR;   // Sustain Rate: 5bit。SR>0でパーカッシブモード
+                  // (実機EGTビット=0、キーオン中もこのレートで減衰
+                  // し続ける)、SR==0でサステインモード(実機EGTビット=1、
+                  // 通常のADSR。RRはキーオフ時にのみ適用)を表す。
+                  // OPL/OPL2/OPL3/OPLL共通: パーカッシブモード時、
+                  // 実機RRレジスタにはRRの代わりにSRの値(4bit変換)を
+                  // 書く。OPLLはこの反映を updateVoice(初期値、常にRR)
+                  // ではなく updateKey(キーオン/キーオフ毎に動的に
+                  // 再書き込み)で行う点がOPL系と異なるが、最終的な
+                  // 変換規則自体は共通(2026年7月に確認・訂正)。詳細は
+                  // docs/voice-parameter-reference.md参照。
     uint8_t RR;   // Release Rate:   4bit
     uint8_t TL;   // Total Level:    7bit (OPL は6bit / 上位1bit無視)
 
@@ -107,18 +117,30 @@ struct FmHwOp {
     // OPN以外・ch2以外では無視される。0=無効(通常のch2共有Fnumberを使用)。
     int16_t FXV;
 
-    // ─── LFO (HW) / AM・VIB ──────────────────────────────────────
+    // ─── AM・VIB ──────────────────────────────────────────────────
     uint8_t AM;   // AM enable:   1bit
     uint8_t VIB;  // VIB enable:  1bit (OPL のみ)
 
     // ─── EG 拡張 ─────────────────────────────────────────────────
-    uint8_t EGT;  // SSG-EG type: 4bit (OPN/OPNA のみ / 他: 0固定)
+    uint8_t EGT;  // SSG-EG type: 4bit (OPN: SSG-EGタイプ0-7としてそのまま
+                  // 使用 / SSG: bit3=HWエンベロープ使用フラグ、下位4bit=
+                  // 波形シェイプとしてビットフィールド的に共用 / 他: 0固定)
     uint8_t WS;   // Wave Select: 3bit (OPL2: 2bit / OPL3/OPZ: 3bit / OPM: 0固定)
+
+    // ─── OPZ (YM2414) 固有、オペレータ単位 ─────────────────────────
+    // 2026年7月、FmChipExt(チャンネル単位)から移設。実機OPZは各オペレータ
+    // に個別のREV/EGS/DT3を設定できるため、チャンネル単位の共通値に
+    // 強制すると表現力が失われる(旧実装は4オペレータの値を1つに
+    // 上書きして潰していた、既存の不具合だった)。
+    uint8_t REV;  // Reverberation: 4bit (OPZ のみ)
+    uint8_t EGS;  // EG bias:       7bit (OPZ のみ)
+    uint8_t DT3;  // Fine frequency: 4bit OPZ ratio mode (OPZ のみ)
 
     constexpr FmHwOp() noexcept
         : AR(31), DR(0), SL(0), SR(0), RR(7), TL(0)
         , KSR(0), KSL(0), MUL(1), DT1(0), DT2(0), FXV(0)
-        , AM(0), VIB(0), EGT(0), WS(0) {}
+        , AM(0), VIB(0), EGT(0), WS(0)
+        , REV(0), EGS(0), DT3(0) {}
 };
 
 // ----------------------------------------------------------------
@@ -145,11 +167,13 @@ struct FmHwVoice {
 //  特定チップのドライバのみが参照する。不要なチップでは全フィールド0。
 // ================================================================
 struct FmChipExt {
-    // OPZ (YM2414) 固有
-    uint8_t REV;  // Reverberation: 4bit (OPZ のみ)
-    uint8_t EGS;  // EG bias:       7bit (OPZ のみ)
-    uint8_t DM0;  // Osc fixed freq flag: 1bit (OPZ/OPP ノイズ OR フラグ)
-    uint8_t DT3;  // Fine frequency: 4bit OPZ ratio mode
+    // OPZ (YM2414) / OPN (ch2 FXモード) 共用。REV/EGS/DT3は2026年7月に
+    // FmHwOp(オペレータ単位)へ移設した(この4番目のフィールドのみ
+    // チャンネル単位で正しいため、こちらは残す)。
+    // OPZ: Osc fixed freq flag (ノイズORフラグ、1bit)。
+    // OPN: ch2 FXモード種別 (0=通常/1=疑似デチューン/2=非整数倍率/
+    //      3=固定周波数)。
+    uint8_t DM0;
 
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
     uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise / OPLL preset選択)
@@ -162,7 +186,7 @@ struct FmChipExt {
     uint16_t HWEP;
 
     constexpr FmChipExt() noexcept
-        : REV(0), EGS(0), DM0(0), DT3(0), ALG_EXT(0), HWEP(0) {}
+        : DM0(0), ALG_EXT(0), HWEP(0) {}
 };
 
 // ================================================================
@@ -330,11 +354,14 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
         h.AM  = s.AM;   h.VIB = s.VIB;
         h.EGT = s.EGT;  h.WS  = s.WS;
 
-        // チップ拡張 (オペレータ単位)
-        dst.ext.REV  = s.REV;  // OP0 で代表（OPZ は全OP共通）
-        dst.ext.EGS  = s.EGS;
-        dst.ext.DM0  = s.DM0;
-        dst.ext.DT3  = s.DT3;
+        // チップ拡張 (オペレータ単位、2026年7月にFmHwOpへ移設)
+        h.REV = s.REV;
+        h.EGS = s.EGS;
+        h.DT3 = s.DT3;
+        // DM0のみチャンネル単位のまま(ext.DM0)。旧形式もOP単位で
+        // DM0を持っていたが、意味的にチャンネル共通の値のため
+        // op[0]の値を代表として使う。
+        if (i == 0) dst.ext.DM0 = s.DM0;
 
         // SW (オペレータ)
         auto& w  = dst.swOp[i];
@@ -381,10 +408,10 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
         d.AM  = h.AM;   d.VIB = h.VIB;
         d.EGT = h.EGT;  d.WS  = h.WS;
 
-        d.REV = src.ext.REV;
-        d.EGS = src.ext.EGS;
+        d.REV = h.REV;
+        d.EGS = h.EGS;
         d.DM0 = src.ext.DM0;
-        d.DT3 = src.ext.DT3;
+        d.DT3 = h.DT3;
 
         d.VTL = w.VTL;  d.VAR = w.VAR;  d.VDR = w.VDR;
         d.VSL = w.VSL;  d.VSR = w.VSR;  d.VRR = w.VRR;

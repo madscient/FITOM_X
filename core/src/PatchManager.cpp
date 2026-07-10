@@ -462,7 +462,8 @@ json hwOpToJson(const FmHwOp& op) {
         {"AR",op.AR},{"DR",op.DR},{"SL",op.SL},{"SR",op.SR},{"RR",op.RR},
         {"TL",op.TL},{"KSR",op.KSR},{"KSL",op.KSL},
         {"MUL",op.MUL},{"DT1",op.DT1},{"DT2",op.DT2},{"FXV",op.FXV},
-        {"AM",op.AM},{"VIB",op.VIB},{"EGT",op.EGT},{"WS",op.WS}
+        {"AM",op.AM},{"VIB",op.VIB},{"EGT",op.EGT},{"WS",op.WS},
+        {"REV",op.REV},{"EGS",op.EGS},{"DT3",op.DT3}
     };
 }
 void jsonToHwOp(const json& j, FmHwOp& op) {
@@ -472,6 +473,7 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
     g("MUL",op.MUL); g("DT1",op.DT1); g("DT2",op.DT2);
     if (j.contains("FXV")) op.FXV = j["FXV"].get<int16_t>();
     g("AM",op.AM); g("VIB",op.VIB); g("EGT",op.EGT); g("WS",op.WS);
+    g("REV",op.REV); g("EGS",op.EGS); g("DT3",op.DT3);
 }
 
 // voicePatchTypeから、そのチップが使うオペレータ数(1/2/4)を判定する。
@@ -519,8 +521,8 @@ json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
         {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
         {"FB2",p.hw.FB2},
         {"ops",ops},
-        {"ext",json{{"REV",p.ext.REV},{"EGS",p.ext.EGS},{"DM0",p.ext.DM0},
-                    {"DT3",p.ext.DT3},{"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP}}}
+        {"ext",json{{"DM0",p.ext.DM0},
+                    {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP}}}
     };
     // sw_bank/sw_prog は -1(参照なし)がデフォルトのため、設定されている
     // 場合のみ出力する(既存ファイルとの差分を最小化する)。
@@ -550,8 +552,7 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
         //  ext.* が正しく読み込まれていなかった)
         const auto& ex = j["ext"];
         auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
-        ge8("REV",p.ext.REV); ge8("EGS",p.ext.EGS); ge8("DM0",p.ext.DM0);
-        ge8("DT3",p.ext.DT3); ge8("ALG_EXT",p.ext.ALG_EXT);
+        ge8("DM0",p.ext.DM0); ge8("ALG_EXT",p.ext.ALG_EXT);
         if (ex.contains("HWEP")) p.ext.HWEP = ex["HWEP"].get<uint16_t>();
     }
     return p;

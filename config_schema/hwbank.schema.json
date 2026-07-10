@@ -161,6 +161,24 @@
                   "minimum": -32768,
                   "maximum": 32767,
                   "description": "OPN ch2 FXモード(3rd channel special mode)専用パラメータ。ext.DM0でモード選択。モード1/2(疑似デチューン/非整数倍率): 100/64セント単位の符号付きオフセット。モード3(固定周波数): 0.1Hz単位の絶対周波数。OPN以外・ch2以外では無視。"
+                },
+                "REV": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15,
+                  "description": "Reverberation: 4bit (OPZのみ、オペレータ単位)"
+                },
+                "EGS": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "description": "EG bias: 7bit (OPZのみ、オペレータ単位)"
+                },
+                "DT3": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15,
+                  "description": "Fine frequency: 4bit OPZ ratio mode (OPZのみ、オペレータ単位)"
                 }
               }
             },
@@ -170,26 +188,11 @@
             "type": "object",
             "description": "チップ固有拡張パラメータ (OPZ / PSG 等)",
             "properties": {
-              "REV": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 15
-              },
-              "EGS": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127
-              },
               "DM0": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 3,
                 "description": "OPZ: Osc fixed freq flag(1bit相当、0/1)。OPN ch2: FXモード選択 (0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数)。他チップでは未使用。"
-              },
-              "DT3": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 15
               },
               "ALG_EXT": {
                 "type": "integer",
