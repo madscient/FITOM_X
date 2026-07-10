@@ -121,8 +121,9 @@ COPM : CSoundDevice                    (YM2151, 8ch)
 
 - `updateKey`でリリース中再トリガー対策（`s.wasReleasing`、`ChState`が
   `run()`直前の状態を記録）を実装。他チップにも同様の対策を展開済み。
-- `COPZ`は`ext.REV`/`ext.EGS`（レジスタ`0xC0+slot`）を実装。旧FITOM自体が
-  未実装だった機能。OPZの2LFOリソース対応は旧FITOMも未完成のため現状維持。
+- `COPZ`は`hwOp[i].REV`/`hwOp[i].EGS`（レジスタ`0xC0+slot`、オペレータ単位、
+  2026年7月にFmChipExtから移設）を実装。旧FITOM自体が未実装だった機能。
+  OPZの2LFOリソース対応は旧FITOMも未完成のため現状維持。
 
 ### 4.3 OPL系
 

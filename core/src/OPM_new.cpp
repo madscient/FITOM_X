@@ -366,16 +366,16 @@ public:
 
     void updateVoice(uint8_t ch) override {
         const HwPatch& p = chState_[ch].hwPatch;
-        const FmChipExt& ex = p.ext;
         // OPZ 固有: WS / DT3 を最初に書く
         for (int i = 0; i < 4; ++i) {
             const FmHwOp& o = p.hwOp[kMap[i]];
             setReg(static_cast<uint16_t>(0x40 + i * 8 + ch),
-                   static_cast<uint8_t>(0x80 | ((o.WS & 7) << 4) | (ex.DT3 & 0xF)));
+                   static_cast<uint8_t>(0x80 | ((o.WS & 7) << 4) | (o.DT3 & 0xF)));
             // REV(Reverberation)/EGS(EG bias): 旧FITOMは未実装(固定値0x20)のままだった。
-            // 新FITOMの FmChipExt には REV/EGS フィールドがあるため使用する。
+            // 新FITOMの FmHwOp には REV/EGS フィールドがある(2026年7月に
+            // オペレータ単位へ移設)ため使用する。
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
-                   static_cast<uint8_t>(((ex.EGS & 0x3) << 6) | (ex.REV & 0x1F) | 0x20));
+                   static_cast<uint8_t>(((o.EGS & 0x3) << 6) | (o.REV & 0x1F) | 0x20));
         }
         COPM::updateVoice(ch); // 共通部分を呼ぶ
     }
@@ -397,9 +397,9 @@ namespace {
 // いないかを判定する。全て未使用(デフォルト値)ならOPM等価として
 //安全に再生できる。
 bool usesOpzExtensions(const HwPatch& patch) {
-    if (patch.ext.REV != 0 || patch.ext.EGS != 0 || patch.ext.DT3 != 0) return true;
     for (int i = 0; i < 4; ++i) {
-        if (patch.hwOp[i].WS != 0) return true;
+        const FmHwOp& o = patch.hwOp[i];
+        if (o.REV != 0 || o.EGS != 0 || o.DT3 != 0 || o.WS != 0) return true;
     }
     return false;
 }
