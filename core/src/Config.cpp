@@ -259,6 +259,16 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
     if (j.contains("midi_backend") && j["midi_backend"].is_object()) {
         midiBackendDll_ = j["midi_backend"].value("dll", "");
     }
+    if (j.contains("psg_fallback_chip") && j["psg_fallback_chip"].is_string()) {
+        uint8_t vpt = stringToVoicePatchType(j["psg_fallback_chip"].get<std::string>());
+        if (isPsgFamilyVoicePatchType(vpt)) {
+            psgFallbackChip_ = vpt;
+        } else {
+            FITOM_LOG_WARN("psg_fallback_chip: 不正な値 '"
+                << j["psg_fallback_chip"].get<std::string>()
+                << "'、デフォルト(SSG)を使用");
+        }
+    }
 
     // --- 音色バンク一式のロード (hw/sw/patch/drum/scc_wave/pcm) ---
     // patchMgr が渡された場合のみ実行する (省略時は従来通りデバイス構成

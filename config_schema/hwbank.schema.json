@@ -192,6 +192,12 @@
                 "minimum": 0,
                 "maximum": 65535,
                 "description": "AY-3-8910/YM2149 HW Envelope Period (レジスタ0x0B Fine + 0x0C Coarse の16bit値、分割不可の単一パラメータ)。HW EG (EGT bit3) 使用時のみ有効。"
+              },
+              "target_voice_patch_type": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255,
+                "description": "PSG系共有バンク(voice_patch_type=0x40固定でロードされるバンク)専用。このパッチが実際に対象とするVoicePatchTypeの値(0x40=SSG/0x41=EPSG/0x42=DCSG/0x43=SAA/0x48=SCC)を指定する。0(デフォルト)=未設定、プロファイルのpsg_fallback_chipで指定されたチップにフォールバックする。PSG系以外のチップでは無視される。"
               }
             }
           },

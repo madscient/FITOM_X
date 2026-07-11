@@ -409,10 +409,37 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // デバイス検索: まず厳密一致を試し、無ければ接続済み全デバイスに
     // フォールバック受け入れ可否を問い合わせる。見つかった最初の
     // 1つだけを採用する。
-    int deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
-    uint8_t usedVpt = voicePatchType;
-    if (deviceIndex < 0) {
-        deviceIndex = findFallbackDeviceIndex(config, voicePatchType, *hwPatch, usedVpt);
+    int deviceIndex;
+    uint8_t usedVpt;
+    if (isPsgFamilyVoicePatchType(voicePatchType)) {
+        // PSG系共有バンク(2026年7月新設): バンク検索は常に共有の
+        // 入口(VOICE_PATCH_SSG=0x40)で行うが、実際のデバイス解決は
+        // パッチごとのext.targetVoicePatchType(未設定なら
+        // config.getPsgFallbackChip())で行う。「音色がデバイスを
+        // 選択する」原則を、バンク検索(常に0x40)とデバイス解決
+        // (パッチごとに異なりうる)の2段階に分離することで、異なる
+        // PSGチップ間で誤ってspanning(mergeSpannableDevices)されて
+        // しまう事態を避けている。フォールバック機構
+        // (findFallbackDeviceIndex)はチップ間のケーパビリティ差が
+        // 大きく単純な互換性判定が難しいため使わず、明示的な
+        // targetVoicePatchType指定とプロファイル設定のフォールバック
+        // 先切り替えのみで対応する。
+        uint8_t realVpt = hwPatch->ext.targetVoicePatchType;
+        if (realVpt == 0) realVpt = config.getPsgFallbackChip();
+        if (!isPsgFamilyVoicePatchType(realVpt)) {
+            FITOM_LOG_WARN(ctx << " bank=" << (int)hwBank << " prog=" << (int)hwProg
+                << " ext.targetVoicePatchType=0x" << std::hex << (int)realVpt
+                << " is not a valid PSG family type");
+            return result;
+        }
+        deviceIndex = config.findDeviceIndexByVoicePatchType(realVpt);
+        usedVpt = realVpt;
+    } else {
+        deviceIndex = config.findDeviceIndexByVoicePatchType(voicePatchType);
+        usedVpt = voicePatchType;
+        if (deviceIndex < 0) {
+            deviceIndex = findFallbackDeviceIndex(config, voicePatchType, *hwPatch, usedVpt);
+        }
     }
     if (deviceIndex < 0) {
         FITOM_LOG_WARN(ctx << " voicePatchType=0x" << std::hex << (int)voicePatchType
@@ -420,8 +447,16 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
         return result;
     }
     if (usedVpt != voicePatchType) {
-        FITOM_LOG_INFO(ctx << " voicePatchType=0x" << std::hex << (int)voicePatchType
-            << " not connected, falling back to 0x" << (int)usedVpt);
+        if (isPsgFamilyVoicePatchType(voicePatchType)) {
+            // PSG系共有バンク: これは切断時のフォールバックではなく、
+            // パッチのext.targetVoicePatchType(またはpsg_fallback_chip)
+            // による、意図的なデバイス選択の結果。
+            FITOM_LOG_INFO(ctx << " PSG共有バンク(0x" << std::hex << (int)voicePatchType
+                << ")のパッチ指定により、対象チップ0x" << (int)usedVpt << "を選択");
+        } else {
+            FITOM_LOG_INFO(ctx << " voicePatchType=0x" << std::hex << (int)voicePatchType
+                << " not connected, falling back to 0x" << (int)usedVpt);
+        }
     }
 
     result.deviceIndex = deviceIndex;
@@ -522,7 +557,8 @@ json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
         {"FB2",p.hw.FB2},
         {"ops",ops},
         {"ext",json{{"DM0",p.ext.DM0},
-                    {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP}}}
+                    {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP},
+                    {"target_voice_patch_type",p.ext.targetVoicePatchType}}}
     };
     // sw_bank/sw_prog は -1(参照なし)がデフォルトのため、設定されている
     // 場合のみ出力する(既存ファイルとの差分を最小化する)。
@@ -553,6 +589,7 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
         const auto& ex = j["ext"];
         auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
         ge8("DM0",p.ext.DM0); ge8("ALG_EXT",p.ext.ALG_EXT);
+        ge8("target_voice_patch_type",p.ext.targetVoicePatchType);
         if (ex.contains("HWEP")) p.ext.HWEP = ex["HWEP"].get<uint16_t>();
     }
     return p;
