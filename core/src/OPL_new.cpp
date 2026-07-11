@@ -25,9 +25,16 @@ namespace fitom {
 // ================================================================
 class COPL : public CSoundDevice {
 public:
-    COPL(IPort* port, int sampleRate, uint8_t devId = DEVICE_OPL2)
+    // 実機YM3526/YM3812のマスタークロック(NTSC colorburst相当、
+    // 3.579545MHz)。sampleRate引数は他チップドライバとのファクトリ
+    // 関数シグネチャ一貫性のために残すが、Fnum計算には使用しない
+    // (2026年7月に、誤ってsampleRateをfnumMasterとして使っていた
+    // バグを修正。以前はFnumberが常に65535にクランプされていた)。
+    static constexpr int kMasterClock = 3579545;
+
+    COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2)
         : CSoundDevice(devId, 9, port,
-                       sampleRate, 72,   // fnum master/divide
+                       kMasterClock, 72,   // fnum master/divide
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x100)
@@ -260,9 +267,16 @@ public:
 // ================================================================
 class COPL3 : public CSoundDevice {
 public:
-    COPL3(IPort* port, int sampleRate)
+    // 実機YMF262のマスタークロック(14.31818MHz、COPLの3.579545MHzの
+    // ちょうど4倍)。divide=288(=COPLの72×4)と対応しており、この
+    // 4倍/4倍の比率により、COPLと数学的に同一のFnumber値を生成する
+    // (2026年7月に、誤ってsampleRateをfnumMasterとして使っていた
+    // バグを修正)。
+    static constexpr int kMasterClock = 14318180;
+
+    COPL3(IPort* port, int /*sampleRate*/)
         : CSoundDevice(DEVICE_OPL3, 6, port,
-                       sampleRate, 288,
+                       kMasterClock, 288,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x200)
@@ -288,6 +302,27 @@ public:
 protected:
     static const uint8_t opmap[4];  // 4オペレータ分のスロットオフセット
     static const uint8_t carmsk[8]; // hw.ALG(3bit)値ごとのキャリアOPビットマスク
+
+    // 疑似デチューン(FXV由来)の計算結果キャッシュ。旧FITOM
+    // (OPL3.cpp)のPseudoDT1[ch]/PseudoDT2[ch]と同じ設計(2026年7月に
+    // 復元)。基底クラスのupdateFnumber()が計算した通常のFnumが
+    // updateFreq(ch,&fnum)という形で強制的に渡されてしまうため、
+    // updateFreq側でfn引数をそのまま使うと疑似デチューンが常に
+    // バイパスされてしまう(2026年7月に発見した不具合)。これを
+    // 避けるため、updateFnumber()をオーバーライドし、基底クラスを
+    // 呼ぶ"前"に疑似デチューンを事前計算してキャッシュしておき、
+    // updateFreq()はfn引数を使わず常にこのキャッシュを参照する。
+    ChState::Fnum pseudoDT1_[6]{};
+    ChState::Fnum pseudoDT2_[6]{};
+
+    void updateFnumber(uint8_t ch, bool forceWrite = true) override {
+        if (ch < maxChs_) {
+            const HwPatch& p = chState_[ch].hwPatch;
+            pseudoDT1_[ch] = getFnumber(ch, p.hwOp[0].FXV);
+            pseudoDT2_[ch] = getFnumber(ch, p.hwOp[2].FXV);
+        }
+        CSoundDevice::updateFnumber(ch, forceWrite);
+    }
 
     uint16_t portBase(uint8_t ch) const { return (ch >= 3) ? 0x100 : 0; }
     uint8_t  localCh(uint8_t ch)  const { return ch % 3; }
@@ -386,20 +421,27 @@ protected:
         setReg(static_cast<uint16_t>(0x40 + slot), lev, false);
     }
 
-    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+    void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
         // 疑似デチューン: op[0]/op[2] (各2OPペアの先頭オペレータ) の
-        // DT2 フィールドを符号付き8bit (int8_t、100/64セント単位) として
-        // 再解釈し、前半/後半ペアで別々のFnumberを計算する。
-        // getFnumber() の offset 引数は index 単位 = 100/64セントであり、
-        // DT2 の単位と一致するため変換不要でそのまま渡せる。
-        const HwPatch& p = chState_[ch].hwPatch;
-        int16_t pdt1 = static_cast<int16_t>(static_cast<int8_t>(p.hwOp[0].DT2));
-        int16_t pdt2 = static_cast<int16_t>(static_cast<int8_t>(p.hwOp[2].DT2));
-
-        ChState::Fnum fnum1 = fn ? *fn : getFnumber(ch, pdt1);
-        ChState::Fnum fnum2 = fn ? *fn : getFnumber(ch, pdt2);
-        // fn (外部から明示指定、例: ポルタメント時) が渡された場合は
-        // 疑似デチューンを適用せず両ペアとも同じ fnum を使う。
+        // FXV フィールド(int16_t、100/64セント単位のオフセット)を使い、
+        // 前半/後半ペアで別々のFnumberを計算する。OPNのFXモード
+        // (疑似デチューン、ext.DM0=1)と同じフィールド・同じ計算式を
+        // 共有する(2026年7月〜)。旧FITOM(OPL3.cpp)はDT1(<<7)とDT2を
+        // ビット合成した14bit値(±8192)を使っていたが、FXVは元々
+        // 16bit(±32767)でより広いレンジを持ち、ビット合成も不要なため
+        // こちらに一本化した。DT1/DT2は他チップと同じ「OPLでは0固定」
+        // の状態に戻す。
+        //
+        // fn引数は意図的に無視する(旧FITOMと同じ設計)。基底クラスの
+        // updateFnumber()が計算した"疑似デチューンなし"の通常Fnumが
+        // updateFreq(ch,&fnum)という形で強制的に渡されてくるため、
+        // これをそのまま使うと疑似デチューンが常にバイパスされてしまう
+        // (2026年7月に発見・修正)。updateFnumber()をオーバーライドし、
+        // 基底クラスを呼ぶ"前"に疑似デチューンを事前計算して
+        // pseudoDT1_/pseudoDT2_ にキャッシュしてあるので、常にそちらを
+        // 使う(ポルタメント時も含め、常に疑似デチューンが正しく反映される)。
+        const ChState::Fnum& fnum1 = pseudoDT1_[ch];
+        const ChState::Fnum& fnum2 = pseudoDT2_[ch];
 
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
@@ -497,16 +539,20 @@ protected:
                    static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)), true);
         }
 
-        // B0/B3 の bit5 = KeyOn (前半・後半両方)
+        // B0/B3 の bit5 = KeyOn (前半・後半)
         uint16_t reg_b1 = static_cast<uint16_t>(rop + 0xB0 + dch);
         uint16_t reg_b2 = static_cast<uint16_t>(rop + 0xB0 + pairCh(ch));
         uint8_t b1cur = getReg(reg_b1) & 0xDF;
         setReg(reg_b1, static_cast<uint8_t>(b1cur | (keyOn ? 0x20 : 0)), true);
-        // COPL3 は常に4OP専用チャンネルとして使うデバイスのため、
-        // 前半・後半ペアのキーオン/オフは常に同時に行う
-        // (hw.ALG bit2=ConnectionSELの値に関わらず)。
-        uint8_t b2cur = getReg(reg_b2) & 0xDF;
-        setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
+        // ConnectionSEL(ext.ALG_EXT、4OP結合有効化ビット)が立っている場合、
+        // または キーオフ時(後片付けのため常に両方送る)のみ、後半ペアにも
+        // キーオンを送る。旧FITOM(OPL3.cpp)の
+        // `if ((voice->AL & 0x08) || !keyon)` を復元したもの
+        // (2026年7月、一時的にこの条件を撤廃していたのを訂正)。
+        if ((p.ext.ALG_EXT & 1) || !keyOn) {
+            uint8_t b2cur = getReg(reg_b2) & 0xDF;
+            setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
+        }
     }
 };
 
@@ -601,9 +647,9 @@ private:
 // ================================================================
 class COPLRhythm : public CSoundDevice {
 public:
-    COPLRhythm(IPort* port, int sampleRate)
+    COPLRhythm(IPort* port, int /*sampleRate*/)
         : CSoundDevice(DEVICE_OPL_RHY, 5, port,
-                       sampleRate, 72,
+                       COPL::kMasterClock, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x100)

@@ -109,12 +109,19 @@ struct FmHwOp {
     // フィールド幅は変更せず、解釈のみで対応する。0=デチューンなし。
     uint8_t DT2;
 
-    // OPN ch2 FXモード (3rd channel special mode) 専用パラメータ。
-    // ext.DM0 (チャンネル単位、0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数)
-    // でモードを選択し、本フィールドの解釈が変わる。オペレータ単位。
-    //   モード1/2: 100/64セント単位の符号付きオフセット (getFnumber(ch,FXV))
-    //   モード3  : 0.1Hz単位の絶対周波数 (getFnumberFromHz(FXV/10.0))
-    // OPN以外・ch2以外では無視される。0=無効(通常のch2共有Fnumberを使用)。
+    // 疑似デチューン/拡張周波数オフセット用パラメータ (100/64セント単位、
+    // getFnumber()にそのまま渡せる)。以下の2箇所で使われる:
+    //   OPN ch2 FXモード(3rd channel special mode)専用。ext.DM0
+    //   (チャンネル単位、0=通常/1=疑似デチューン/2=非整数倍率/
+    //   3=固定周波数)でモードを選択し、本フィールドの解釈が変わる。
+    //     モード1/2: 100/64セント単位の符号付きオフセット (getFnumber(ch,FXV))
+    //     モード3  : 0.1Hz単位の絶対周波数 (getFnumberFromHz(FXV/10.0))
+    //   OPL3(COPL3)の4OP疑似デチューン(op[0]/op[2]、2026年7月〜)。
+    //     旧FITOMはDT1(<<7)+DT2をビット合成した14bit値(±8192)を
+    //     使っていたが、FXVは元々16bit(±32767)でより広いレンジを持ち、
+    //     ビット合成も不要なためこちらに統一した(OPNのFXモードと同じ
+    //     フィールド・同じ計算式を共有する)。
+    // 上記以外のチップ/チャンネルでは無視される。0=無効。
     int16_t FXV;
 
     // ─── AM・VIB ──────────────────────────────────────────────────
@@ -148,7 +155,12 @@ struct FmHwOp {
 // ----------------------------------------------------------------
 struct FmHwVoice {
     uint8_t FB;   // Feedback:    3bit
-    uint8_t ALG;  // Algorithm:   3bit (OPN/OPM: 3bit / OPL: 1bit / OPL3: 4bit)
+    uint8_t ALG;  // Algorithm: 3bit (OPN/OPM: 3bit / OPL: 1bit /
+                  // OPL3: bit0=CON1(前半ペア接続)/bit1=CON2(後半ペア接続)、
+                  // bit2は未使用。4OP結合有効化フラグ(ConnectionSEL)は
+                  // ext.ALG_EXTに分離して持つ(2026年7月に訂正。以前
+                  // このコメントに「OPL3:4bit」「hw.ALG bit2=
+                  // ConnectionSEL」という誤った記述があった)。
     uint8_t AMS;  // AM Sensitivity:  2bit (OPM のみ / 他: 0固定)
     uint8_t PMS;  // PM Sensitivity:  3bit (OPM のみ / 他: 0固定)
     uint8_t NFQ;  // Noise Frequency: 5bit (OPM/OPZ: ノイズ周波数 / 他: 0固定)
@@ -176,7 +188,9 @@ struct FmChipExt {
     uint8_t DM0;
 
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
-    uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise / OPLL preset選択)
+    uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise / OPLL preset選択 /
+                      // OPL3 ConnectionSEL(4OP結合有効化、2026年7月に
+                      // COPL3::updateKeyでの参照漏れを訂正))
 
     // AY-3-8910 / YM2149 (PSG) 固有
     // HW Envelope Period: レジスタ 0x0B(Fine)+0x0C(Coarse) に対応する
