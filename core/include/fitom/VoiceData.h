@@ -199,8 +199,21 @@ struct FmChipExt {
     // ここでは1つの16bitフィールドとして保持する。
     uint16_t HWEP;
 
+    // PSG系共有バンク専用(2026年7月新設)。SSG/EPSG/DCSG/SAA/SCCは
+    // ハードウェアケーパビリティの差が大きい一方、音色定義の幅が狭く
+    // 単独チップでバンクの名前空間を埋めにくいため、全チップが共通の
+    // CC#0(VOICE_PATCH_SSG=0x40固定)/HwBank名前空間を共有する設計に
+    // 変更した。本フィールドには、このパッチが実際に対象とする
+    // VoicePatchType(VOICE_PATCH_SSG/EPSG/DCSG/SAA/SCCのいずれかの
+    // 実際の値)を埋め込む。「音色がデバイスを選択する」原則を、
+    // バンクの検索(常に0x40)とデバイス解決(パッチごとに異なる)の
+    // 2段階に分離することで維持している。0=未設定
+    // (profile.schema.jsonのpsg_fallback_chipで指定されたチップに
+    // フォールバックする)。詳細はdocs/patch-structure-design.md参照。
+    uint8_t targetVoicePatchType;
+
     constexpr FmChipExt() noexcept
-        : DM0(0), ALG_EXT(0), HWEP(0) {}
+        : DM0(0), ALG_EXT(0), HWEP(0), targetVoicePatchType(0) {}
 };
 
 // ================================================================

@@ -456,6 +456,18 @@
       "items": {
         "type": "string"
       }
+    },
+    "psg_fallback_chip": {
+      "type": "string",
+      "enum": [
+        "SSG",
+        "EPSG",
+        "DCSG",
+        "SAA",
+        "SCC"
+      ],
+      "default": "SSG",
+      "description": "PSG系共有バンク(voice_patch_type=0x40、SSG/EPSG/DCSG/SAA/SCC全チップが同じCC#0/バンク名前空間を共有する、2026年7月〜)において、個々のHwPatchエントリの対象チップ指定(targetVoicePatchType)が未設定(0)の場合に、どのチップ向けとして解決するかを指定する。省略時は'SSG'。hw_patchごとに明示的な対象チップが指定されている場合は、この設定よりそちらが優先される。"
     }
   },
   "examples": [

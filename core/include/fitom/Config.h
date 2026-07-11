@@ -6,6 +6,7 @@
 #include "fitom/HWPort.h"
 #include "fitom/PatchData.h"
 #include "fitom/ISoundDevice.h"
+#include "fitom/FITOMdefine.h"
 
 #include <cstdint>
 #include <string>
@@ -179,6 +180,8 @@ public:
     uint8_t getMasterVolume()   const;
     double  getMasterPitch()    const { return masterPitch_; }
     void    setMasterPitch(double p)  { masterPitch_ = p; }
+    // PSG系共有バンクのフォールバック先(2026年7月新設)。
+    uint8_t getPsgFallbackChip() const { return psgFallbackChip_; }
 
     using ProgressCb = std::function<void(const std::string&)>;
     void setProgressCallback(ProgressCb cb) { progressCb_ = std::move(cb); }
@@ -227,6 +230,12 @@ protected:
     std::vector<DeviceEntry>     devices_;
     std::vector<std::string>     midiInputNames_;
     std::string                  midiBackendDll_;
+
+    // PSG系共有バンク(voice_patch_type=0x40固定)における、HwPatch側の
+    // targetVoicePatchTypeが未設定(0)の場合のフォールバック先。
+    // プロファイルのpsg_fallback_chipから設定される(2026年7月新設、
+    // 省略時はVOICE_PATCH_SSG)。
+    uint8_t     psgFallbackChip_ = VOICE_PATCH_SSG;
 
     uint8_t     masterVolume_    = 100;
     double      masterPitch_     = 440.0;

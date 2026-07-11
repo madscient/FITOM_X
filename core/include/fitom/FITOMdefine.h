@@ -318,6 +318,24 @@ inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
     return vpt >= 0x50 && vpt <= VOICE_PATCH_AWM;
 }
 
+// PSG系(SSG/EPSG/DCSG/SAA/SCC)かどうかを判定する(2026年7月新設)。
+// 値が連続していない(0x40,0x41,0x42,0x43,0x48)ため範囲チェックでは
+// 判定できず、個別列挙する。PSG系は全チップが共通のCC#0
+// (VOICE_PATCH_SSG=0x40)/HwBank名前空間を共有する設計になっており、
+// この判定関数は主にHwPatch::ext.targetVoicePatchTypeの妥当性検証、
+// および将来この共有設計を他のPSG派生チップに拡張する際の判定基準
+// として使う。詳細はdocs/patch-structure-design.md参照。
+inline bool isPsgFamilyVoicePatchType(uint8_t vpt) noexcept {
+    switch (vpt) {
+    case VOICE_PATCH_SSG: case VOICE_PATCH_EPSG:
+    case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
+    case VOICE_PATCH_SCC:
+        return true;
+    default:
+        return false;
+    }
+}
+
 #define LOCATION_MONO	0
 #define LOCATION_LEFT	1
 #define LOCATION_RIGHT	2
