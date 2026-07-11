@@ -134,14 +134,48 @@ COPL3 : CSoundDevice                   (4OPモード専用, 6ch)
 COPL3_2 : CSpanDevice                  (内部にCOPL2×2、2OP残余6ch)
 ```
 
+**【重大バグ修正 2026年7月】** `COPL`/`COPL2`/`COPL3`/`COPLRhythm`の
+コンストラクタが、`fnumMaster`(実機マスタークロック)に、誤って
+呼び出し元から渡される`sampleRate`(オーディオのサンプルレート、
+44100等)をそのまま使っていた。`COPN`(正しい設計、`fnumMaster`は
+`3993600`等の固定値をデフォルト引数に持つ)とは異なり、OPL系だけが
+この誤りを持っていた。影響: Fnumber計算式`freq*(2^17/master)*divide`
+の`master`に、本来MHz単位であるべき値の代わりに数万Hz程度の
+`sampleRate`が使われるため、計算結果が常に65535(uint16_t上限)に
+クランプされ、**全てのOPL系チップでピッチが常に不正確**になって
+いた(OPL3の疑似デチューン機能の検証中に発見)。修正:
+`kMasterClock`という静的定数(`COPL`=3579545Hz、`COPL3`=14318180Hz
+=`COPL`の4倍。`divide`(72/288)も4倍の関係になっており、両者は数学的に
+同一のFnumberを生成する)をコンストラクタ内で使うよう変更し、
+`sampleRate`引数はファクトリ関数シグネチャ一貫性のためだけに残し、
+実際には使用しないようにした。
+
 - **4OPモード**：`COPL3`は各ポートch0-2(3ch×2ポート=6ch)を4OP専用として使用。
-  `hw.ALG`(3bit)が{bit0:前半ペアCON, bit1:後半ペアCON, bit2:ConnectionSEL}を
-  直接表現し、`carmsk[8]`テーブルでキャリア判定。`COPL3_2`は残りch6-8(3ch×2ポート)
-  を2OPとして使用（`enableCh`でch0-5を無効化）。
-- **疑似デチューン**：`hwOp[0]/[2].DT2`(uint8_t、`static_cast<int8_t>`で符号付き
-  100/64セント単位として再解釈)を前半/後半ペアそれぞれの`getFnumber(ch,offset)`
-  オフセットとして使用。単位変換は不要（`getFnumber`のoffset単位＝100/64セントと
-  DT2の単位が一致するため）。
+  `hw.ALG`(bit0-1のみ使用)が{bit0:前半ペアCON, bit1:後半ペアCON}を直接表現し、
+  4OP結合有効化フラグ(ConnectionSEL)は`ext.ALG_EXT`に分離して持つ(2026年7月に
+  訂正。以前`hw.ALG`のbit2をConnectionSELとして誤って扱っており、実際には
+  `COPL3::updateKey`がこのフラグを一切参照していなかった)。`ext.ALG_EXT`が
+  1の場合、または常にキーオフ時は、前半・後半ペア両方に同時にキーオン/オフを
+  送る。0の場合、キーオン時は前半ペアのみに送る(旧FITOM OPL3.cppの
+  `voice->AL & 0x08`相当を復元)。`carmsk[8]`テーブルでキャリア判定。
+  `COPL3_2`は残りch6-8(3ch×2ポート)を2OPとして使用（`enableCh`でch0-5を無効化）。
+- **疑似デチューン**：`hwOp[0]/[2].FXV`(int16_t、100/64セント単位)を前半/後半
+  ペアそれぞれの`getFnumber(ch,offset)`オフセットとして使用。OPNのFXモード
+  (疑似デチューン、`ext.DM0=1`)と同じフィールド・同じ計算式を共有する
+  (2026年7月〜。以前は`hwOp[0]/[2].DT2`をビット合成した14bit値(±8192)を
+  使う独自実装だったが、`FXV`(元々16bit、±32767)に一本化し、より広い
+  レンジをより単純な実装で実現した。`DT1`/`DT2`はOPL系では他チップ同様
+  「実機に相当機構が無いため0固定」の状態に戻った）。
+- **疑似デチューンのキャッシュ機構**：基底クラス`CSoundDevice::updateFnumber`
+  は、通常のノート番号ベースのFnum(疑似デチューン無し)を計算した後、
+  `updateFreq(ch,&fnum)`という形で、その結果を"強制的に"引数として渡して
+  くる。`COPL3::updateFreq`がこの引数をそのまま使ってしまうと、疑似
+  デチューンが常にバイパスされてしまう(2026年7月に発見・修正)。これを
+  避けるため、`COPL3`は`updateFnumber`をオーバーライドし、基底クラスを
+  呼ぶ"前"に疑似デチューンを計算して`pseudoDT1_[ch]`/`pseudoDT2_[ch]`
+  にキャッシュしておき、`updateFreq`は渡された`fn`引数を無視して常に
+  このキャッシュを参照する(旧FITOM OPL3.cppの`PseudoDT1[ch]`/
+  `PseudoDT2[ch]`と同じ設計)。
 - **`VOICE_PATCH_OPL3`(0x30)は`COPL3`(4OP)専用**。`COPL3_2`(2OP)は
   独立した`VOICE_PATCH_OPL3_2`(0x22)を持つ（**訂正**：以前`VOICE_PATCH_OPL2`
   と共有する設計にしていたが誤りだった。実機OPL3の2opモードはWSが3bit
