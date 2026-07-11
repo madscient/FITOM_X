@@ -514,6 +514,11 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 
     case DEVICE_ADPCMB: return VOICE_PATCH_ADPCMB;
     case DEVICE_ADPCMB_OPNA: return VOICE_PATCH_ADPCMB; // 音色パラメータ形式はOPNBと共通
+    // Y8950内蔵ADPCM-Bも同じVOICE_PATCH_ADPCMBを使う(2026年7月〜)。
+    // レジスタマップ・分周比の違いはCYmDelta内部で吸収されるため、
+    // 音色データ形式・ハードウェア挙動に互換性があり、OPNA/OPNBの
+    // ADPCM-Bとspanning対象になる(OPN2/OPNBのFM音源部と同じ考え方)。
+    case DEVICE_ADPCMB_Y8950: return VOICE_PATCH_ADPCMB;
     case DEVICE_ADPCMA: return VOICE_PATCH_ADPCMA;
     case DEVICE_PCMD8:  return VOICE_PATCH_PCMD8;
 
@@ -548,7 +553,7 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
     case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
     case VOICE_PATCH_SCC:
         return VOICE_GROUP_PSG;
-    case VOICE_PATCH_ADPCMB_Y8950: case VOICE_PATCH_ADPCMB:
+    case VOICE_PATCH_ADPCMB:
     case VOICE_PATCH_ADPCMA: case VOICE_PATCH_PCMD8:
     case VOICE_PATCH_AWM:
         return VOICE_GROUP_PCM;
@@ -583,7 +588,6 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "DCSG")      return VOICE_PATCH_DCSG;
     if (s == "SAA1099" || s == "SAA") return VOICE_PATCH_SAA;
     if (s == "SCC" || s == "SCCP")    return VOICE_PATCH_SCC;
-    if (s == "ADPCMB_Y8950") return VOICE_PATCH_ADPCMB_Y8950;
     if (s == "ADPCMB")    return VOICE_PATCH_ADPCMB;
     if (s == "ADPCMA")    return VOICE_PATCH_ADPCMA;
     if (s == "PCMD8")     return VOICE_PATCH_PCMD8;
@@ -905,7 +909,8 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"EPSG",  DEVICE_EPSG},  {"DCSG",  DEVICE_DCSG},
         {"SCC",   DEVICE_SCC},   {"SCCP",  DEVICE_SCCP},
         {"SAA",   DEVICE_SAA},   {"SAA1099", DEVICE_SAA},
-        {"ADPCM", DEVICE_ADPCM}, {"PCMD8", DEVICE_PCMD8},
+        {"PCMD8", DEVICE_PCMD8},
+        {"ADPCMB_Y8950", DEVICE_ADPCMB_Y8950},
     };
     for (const auto& [name, id] : kChipMap) {
         if (chipName == name) return id;

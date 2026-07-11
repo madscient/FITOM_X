@@ -13,19 +13,6 @@
       "type": "string",
       "description": "バンク表示名"
     },
-    "chip_group": {
-      "type": "string",
-      "enum": [
-        "OPM",
-        "OPN",
-        "OPL2",
-        "OPL3",
-        "OPLL",
-        "PSG",
-        "PCM"
-      ],
-      "description": "対象チップ族。ロード時の VoiceGroup 解決に使用。"
-    },
     "patches": {
       "type": "array",
       "items": {
@@ -235,7 +222,6 @@
   "examples": [
     {
       "name": "OPM Strings",
-      "chip_group": "OPM",
       "patches": [
         {
           "prog": 0,

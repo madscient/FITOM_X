@@ -65,10 +65,19 @@
 #define DEVICE_PCMD8	57	//YMZ280
 #define DEVICE_SSGD		58	//SSG on Digital (YMF288/YMF294)
 
-#define	DEVICE_ADPCM	119	//virtual device for ADPCM channel
+#define	DEVICE_ADPCM	119	//virtual device for ADPCM channel (旧汎用名、DEVICE_ADPCMB_Y8950推奨)
 #define	DEVICE_ADPCMA	118	//YM2610/YM2610B
 #define	DEVICE_ADPCMB	117	//YM2610/YM2610B (OPNB系)。OPNA用は DEVICE_ADPCMB_OPNA を使う
 #define	DEVICE_ADPCMB_OPNA	60	//YM2608 (OPNA) 内蔵ADPCM-B。レジスタマップがOPNBと異なるため分離
+// Y8950(YM3801)内蔵ADPCM-B。レジスタマップ・fnumDivideがOPNA/OPNBと
+// 異なるため、専用のdeviceTypeとして分離する(2026年7月に新設。
+// 以前は汎用的なDEVICE_ADPCMを流用しており、専用の識別子が無かった)。
+// voicePatchTypeはVOICE_PATCH_ADPCMB(OPNAと共通)を使う。実機の
+// レジスタマップ・分周比の違いはチップドライバ(CYmDelta)内部の
+// 初期化パラメータで吸収されるため、音色データ形式(SampleZonePatch)
+// とハードウェア挙動に互換性があり、spanning対象になる
+// (OPN2とOPNBのFM音源部が同じVoicePatchTypeを共有するのと同じ考え方)。
+#define	DEVICE_ADPCMB_Y8950	59
 
 #define DEVICE_RHYTHM	120	// Virtual device for rhythm channel
 
@@ -275,7 +284,14 @@
 // (旧0x70-0x74から変更。BankSel.MSB(CC#0)による直接モードのチップ選択
 //  IDとして使うため、0x01-0x6Fの範囲に収める必要がある。0x70-0x7Fは
 //  将来の予約領域および GM2 リズム/メロディ切替 (0x78/0x79) 専用とする)
-#define VOICE_PATCH_ADPCMB_Y8950 0x50  // Y8950
+//
+// 0x50は予約領域(2026年7月、VOICE_PATCH_ADPCMB_Y8950を削除した際に
+// 空いた枠)。Y8950内蔵ADPCM-BはDEVICE_ADPCMB_Y8950というdeviceType
+// を持つが、voicePatchTypeはOPNAと共通のVOICE_PATCH_ADPCMB(0x51)を
+// 使う(音色データ形式・ハードウェア挙動に互換性がありspanning対象と
+// なるため)。0x50自体は、将来他のPCM系デバイスを追加する場合のために
+// 予約領域として残す(スキーマ上は許容するが、現状マッピングされる
+// デバイスは無い)。
 #define VOICE_PATCH_ADPCMB       0x51  // YM2608
 #define VOICE_PATCH_ADPCMA       0x52  // YM2610
 #define VOICE_PATCH_PCMD8        0x53  // YMZ280
@@ -296,10 +312,10 @@
 // これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch
 // (キーゾーン+ベロシティレイヤー+波形/サンプル参照)を使う共通スキーマで
 // 扱われる (PatchManager::resolve()の分岐、PatchData.hのSampleZone*参照)。
-// 0x50-0x54 は連続した値として意図的に採番されているため、範囲チェックで
-// 判定できる。
+// 範囲の下限は0x50(予約領域、現状未使用)から。0x50-0x54は連続した
+// 値として意図的に採番されているため、範囲チェックで判定できる。
 inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
-    return vpt >= VOICE_PATCH_ADPCMB_Y8950 && vpt <= VOICE_PATCH_AWM;
+    return vpt >= 0x50 && vpt <= VOICE_PATCH_AWM;
 }
 
 #define LOCATION_MONO	0
