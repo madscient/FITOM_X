@@ -574,6 +574,14 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
 
 uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
 {
+    // 【重要】ここで新しい文字列を追加/変更した場合は、
+    // config_schema/profile.schema.json の hw_banks[].group の enum も
+    // 必ず同期して更新すること。2026年7月、この同期が長期間行われて
+    // おらず、OPZ等の多数の文字列がスキーマから欠落し、
+    // docs/patch-structure-design.mdの記載例がバリデーションエラーに
+    // なる不整合が発見された(ステージングプロジェクトからの指摘)。
+    // SD1/MA3/MA5/MA7系(未実装チップドライバ)は、この関数では認識するが
+    // enumには意図的に含めない(実装済みのVoicePatchTypeのみ許可する方針)。
     // OPNA/OPNBは音色パラメータ互換性の観点でOPN2に統合済み
     if (s == "OPN")      return VOICE_PATCH_OPN;
     if (s == "OPN2" || s == "OPNA" || s == "OPNB") return VOICE_PATCH_OPN2;
@@ -594,7 +602,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "MA5" || s == "MA-5") return VOICE_PATCH_MA5;
     if (s == "MA7" || s == "MA-7") return VOICE_PATCH_MA7;
     if (s == "SSG")       return VOICE_PATCH_SSG;
-    if (s == "AY8930")    return VOICE_PATCH_EPSG;
+    if (s == "EPSG" || s == "AY8930") return VOICE_PATCH_EPSG;
     if (s == "DCSG")      return VOICE_PATCH_DCSG;
     if (s == "SAA1099" || s == "SAA") return VOICE_PATCH_SAA;
     if (s == "SCC" || s == "SCCP")    return VOICE_PATCH_SCC;

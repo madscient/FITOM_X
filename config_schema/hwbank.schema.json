@@ -140,8 +140,8 @@
                 "WS": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 7,
-                  "description": "Wave Select (OPL/OPZ)"
+                  "maximum": 127,
+                  "description": "Wave Select。チップにより意味・実際の値域が異なる(型は共通の7bit幅、2026年7月にmaximumを7→127へ拡大): OPL2=2bit(0-3)、OPL3/OPZ=3bit(0-7)、OPM=0固定、SCC/SCC+=7bit(0-127、波形メモリへの直接インデックス)、AY8930(EPSG)=4bit(0-15、デューティ比として転用、波形メモリとは無関係)。"
                 },
                 "FXV": {
                   "type": "integer",
