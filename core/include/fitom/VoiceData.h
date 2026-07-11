@@ -132,7 +132,12 @@ struct FmHwOp {
     uint8_t EGT;  // SSG-EG type: 4bit (OPN: SSG-EGタイプ0-7としてそのまま
                   // 使用 / SSG: bit3=HWエンベロープ使用フラグ、下位4bit=
                   // 波形シェイプとしてビットフィールド的に共用 / 他: 0固定)
-    uint8_t WS;   // Wave Select: 3bit (OPL2: 2bit / OPL3/OPZ: 3bit / OPM: 0固定)
+    uint8_t WS;   // Wave Select: チップにより意味・値域が異なる (型は共通の
+                  // 7bit幅、2026年7月にスキーマ側maximumを7→127へ拡大)。
+                  // OPL2: 2bit / OPL3/OPZ: 3bit / OPM: 0固定 /
+                  // SCC/SCC+: 7bit(波形メモリへの直接インデックス) /
+                  // AY8930(EPSG): 4bit(デューティ比として転用、波形メモリ
+                  // とは無関係)。
 
     // ─── OPZ (YM2414) 固有、オペレータ単位 ─────────────────────────
     // 2026年7月、FmChipExt(チャンネル単位)から移設。実機OPZは各オペレータ

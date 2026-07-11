@@ -213,17 +213,36 @@
               "group": {
                 "type": "string",
                 "enum": [
-                  "OPM",
                   "OPN",
+                  "OPN2",
+                  "OPNA",
+                  "OPNB",
+                  "OPM",
+                  "OPZ",
+                  "OPZ2",
+                  "OPL",
                   "OPL2",
                   "OPL3",
+                  "OPL3_2",
+                  "OPL_RHY",
                   "OPLL",
-                  "PSG",
-                  "PCM",
+                  "OPLLP",
+                  "OPLLX",
+                  "VRC7",
+                  "SSG",
+                  "EPSG",
+                  "DCSG",
+                  "SAA",
+                  "SCC",
+                  "SCCP",
+                  "ADPCMB",
+                  "ADPCMA",
+                  "PCMD8",
                   "AWM",
-                  "OPL_RHY"
+                  "PSG",
+                  "PCM"
                 ],
-                "description": "チップ族を表す文字列。VOICE_PATCH_*にマッピングされる (FITOMConfig::stringToVoicePatchType参照)。AWMはVOICE_PATCH_AWM (OPL4 AWM部+YRW801等、サンプルベース音源系) を指し、このバンクは HwBank形式ではなくSampleZoneBank形式 (別スキーマ、prog単位でkey_min/key_max+wave_indexのゾーン配列を持つ) でパースされる。 OPL_RHYはOPL系内蔵リズムチャンネル(COPLRhythm)専用のパッチバンク(通常のOPL/OPL2用HwBankとは独立した名前空間、2026年7月〜)。"
+                "description": "対象チップ族。ロード時の VoiceGroup 解決に使用。PatchManager::stringToVoicePatchType(Config.cpp)が認識する全文字列を反映している(2026年7月に、細かい分類文字列(OPZ等)の多くが欠落していた不整合を修正)。SD1/MA3/MA5/MA7系は現状チップドライバが未実装のため、stringToVoicePatchType自体は認識するが本enumには含めない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
               },
               "bank": {
                 "type": "integer",
