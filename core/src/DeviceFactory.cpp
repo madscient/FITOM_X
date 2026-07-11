@@ -122,10 +122,10 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_SCCP:      return createCSCC(port, sampleRate, deviceType);
     case DEVICE_SAA:       return createCSAA1099(port, sampleRate);
 
-    case DEVICE_ADPCM:
     case DEVICE_ADPCMA:
     case DEVICE_ADPCMB:
     case DEVICE_ADPCMB_OPNA:
+    case DEVICE_ADPCMB_Y8950:
     case DEVICE_PCMD8:
     case DEVICE_MA1:
     case DEVICE_MA2:       return createCAdPcm(port, sampleRate, deviceType);
@@ -159,7 +159,12 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_DCSG:                                     return 4;
     case DEVICE_SCC: case DEVICE_SCCP:                   return 5;
     case DEVICE_SAA:                                     return 6;
-    case DEVICE_ADPCM: case DEVICE_PCMD8: case DEVICE_MA2: return 8;
+    case DEVICE_PCMD8: case DEVICE_MA2: return 8;
+    // Y8950内蔵ADPCM-Bは1チャンネル(DEVICE_ADPCMB/DEVICE_ADPCMB_OPNAと
+    // 同じ、実機は同時に1音のみ再生可能)。旧汎用識別子DEVICE_ADPCMは
+    // 削除した(動いていなかったコードとの互換性維持は不要と判断、
+    // 2026年7月)。
+    case DEVICE_ADPCMB_Y8950:                              return 1;
     case DEVICE_ADPCMA:                                    return 6;
     case DEVICE_OPL4AWM:                                   return 24;
     case DEVICE_OPNA_RHY:                                  return 6;

@@ -652,9 +652,11 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
     case DEVICE_PCMD8:
     case DEVICE_MA2:
         return std::make_unique<CAdPcmZ280>(p, sr, 4 * 1024 * 1024); // 4MB
-    case DEVICE_ADPCM:
     case DEVICE_MA1:
-        // Y8950 (YM3801) 内蔵ADPCM
+    case DEVICE_ADPCMB_Y8950:
+        // Y8950 (YM3801) 内蔵ADPCM。DEVICE_ADPCMB_Y8950が正式な識別子
+        // (2026年7月新設)。旧汎用識別子DEVICE_ADPCMは削除した
+        // (動いていなかったコードとの互換性維持は不要と判断)。
         return std::make_unique<CYmDelta>(
             deviceType, p, 0x20, sr, 72, 256 * 1024, DEVICE_Y8950,
             kY8950_DeltaT);
