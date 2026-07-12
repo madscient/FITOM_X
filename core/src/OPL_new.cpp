@@ -697,7 +697,16 @@ protected:
                static_cast<uint8_t>((ar4(ar) << 4) | ar4(dr)));
 
         const uint8_t sl = carrier ? proc.velSL(0) : (o.SL & 0xF);
-        const uint8_t rr = carrier ? proc.velRR(0) : (o.SR ? ar4(o.SR) : o.RR);
+        // EGT/SR制御(パーカッシブ/サステインモード切替)は、carrier/
+        // modulatorを問わず全オペレータに適用する(2026年7月に訂正)。
+        // 通常のCOPL::updateVoiceでcarrierを見ているのは、サスティン
+        // ペダル中の特殊なRRフォールバック(kFallbackRR)がキャリアのみに
+        // 作用するためであり、EGT/SR制御そのものとは別の話。リズム
+        // チャンネルはサスティンペダル非対応のため、そちらのロジックは
+        // 元々不要(kFallbackRR相当の分岐は追加しない)。
+        const uint8_t srValue = carrier ? proc.velSR(0) : o.SR;
+        const uint8_t rrValue = carrier ? proc.velRR(0) : o.RR;
+        const uint8_t rr = srValue ? ar4(srValue) : rrValue;
         setReg(static_cast<uint16_t>(0x80 + opIdx * 3 + slot),
                static_cast<uint8_t>(((sl & 0xF) << 4) | (rr & 0xF)));
 

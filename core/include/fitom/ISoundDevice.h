@@ -48,16 +48,6 @@ struct ChState {
     const SampleZonePatch* samplePatch = nullptr;
     VoiceProcessor proc;          // SW パラメータ処理エンジン
 
-    // 現在のノートに適用すべきSwPatch(パフォーマンスパッチ)。
-    // CInstCh::noteOn/CRhythmCh::applyNoteOnがassignCh直後にセットし、
-    // CSoundDevice::noteOn()がこれを見て、正しくSwPatch込みのFmVoiceで
-    // VoiceProcessor::onNoteOn()を呼ぶために使う(nullptrならSwPatch無し)。
-    // 以前はCSoundDevice::noteOn()が無条件でSwPatch無しのdummyを使って
-    // onNoteOn()を呼んでおり、CInstCh側が直前に正しく適用した結果を
-    // 上書きしてしまう潜在バグがあった(2026年7月、SwPatchスキーマ変更
-    // の検証中に発見・修正)。
-    const SwPatch* pendingSwPatch = nullptr;
-
     uint8_t  lastNote  = 0xFF;
     int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/terminology.md「kfs」参照)
     uint16_t noteOnAge = 0;       // 古いチャンネルを奪う優先度
@@ -153,9 +143,18 @@ public:
     // ─── チャンネル割り当て ─────────────────────────────────────────────
     // samplePatch: サンプルベース音源系 (VOICE_PATCH_AWM等) 用。
     // hwPatchとは排他 (通常のFMオペレータ系チップはnullptrのまま呼ぶ)。
-    virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch,
+    // vel/swPatch: 2026年7月追加。VoiceProcessor::onNoteOn()をupdateVoice()
+    // より前に呼べるようにするため(ドキュメント化された正しい設計、
+    // voice-data-design.mdのフェーズ6手順3参照。以前はonNoteOn()が
+    // noteOn()側に遅延しており、updateVoice()内のキャリア側ベロシティ
+    // 補正値(velAR/velDR/velSL/velRR/velSR)が常に未計算のまま実機へ
+    // 送信されるバグがあった)。pendingSwPatch機構はこれにより不要に
+    // なったため削除した。
+    virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
+                             const SwPatch* swPatch = nullptr,
                              const SampleZonePatch* samplePatch = nullptr) = 0;
-    virtual uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
+    virtual uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch, uint8_t vel,
+                              const SwPatch* swPatch = nullptr,
                               const SampleZonePatch* samplePatch = nullptr) = 0;
     // queryCh は findBestCh に統合 (後方互換のため残す)
     virtual uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode)    = 0;
@@ -267,9 +266,11 @@ public:
     IPort*      getPort()             override { return port_; }
     std::string getDescriptor() const override;
 
-    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch,
+    uint8_t allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
+                     const SwPatch* swPatch = nullptr,
                      const SampleZonePatch* samplePatch = nullptr) override;
-    uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
+    uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch, uint8_t vel,
+                      const SwPatch* swPatch = nullptr,
                       const SampleZonePatch* samplePatch = nullptr) override;
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override;
     void    releaseCh(uint8_t ch) override;

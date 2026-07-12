@@ -537,12 +537,93 @@ s.proc.onNoteOn(s.volume, s.expression, vel, dummy); // dummyはSwPatch無し
 潜在バグで、旧仕様(Patch単位でのSwPatch共有)でも同様に発生していた
 と考えられる(発見が遅れていた)。
 
-**修正**: `ChState`に`pendingSwPatch`フィールドを新設し、
+**当時の修正**: `ChState`に`pendingSwPatch`フィールドを新設し、
 `CInstCh`/`CRhythmCh`はここに適用すべきSwPatchをセットするだけに
 留めるよう変更した。実際の`VoiceProcessor::onNoteOn()`呼び出しは
 `CSoundDevice::noteOn()`に一本化し、`pendingSwPatch`があればそれを
 `dummy`に反映してから呼ぶ。これにより二重呼び出しが解消され、
 `CInstCh::noteOn`/`CRhythmCh::applyNoteOn`側のコードも簡潔になった。
+
+**その後の展開**: 下記「`updateVoice()`/`onNoteOn()`呼び出し順序の
+根本的欠陥」の修正により、`pendingSwPatch`という遅延設定機構自体が
+2026年7月に不要となり削除された(`assignCh()`が`vel`/`swPatch`を
+直接受け取れるようになったため)。
+
+---
+
+## `updateVoice()`/`onNoteOn()`呼び出し順序の根本的欠陥 (2026年7月発見・修正)
+
+OPL系内蔵リズムチャンネル(`COPLRhythm`)のSR/EGT制御(パーカッシブ/
+サステインモード切替)を検証する過程で、より根本的な、システム全体に
+影響する欠陥を発見した。
+
+### 発見の経緯
+
+`COPLRhythm::writeOperatorRegs`が、キャリアオペレータ側で`SR`
+(Sustain Rate)フィールドを無視し、常に`proc.velRR(0)`(ベロシティ
+補正されたRR)だけを使っていた不具合を修正する過程で、修正後も
+実機テストで正しい値(`ar4(velSR)`)が反映されないことが判明した。
+調査の結果、`proc.velSR(0)`自体が常に`0`(未計算)を返していることが
+分かった。
+
+### 根本原因
+
+`assignCh()`は`updateVoice()`を、`VoiceProcessor::onNoteOn()`
+(ベロシティ補正値`velAR`/`velDR`/`velSL`/`velRR`/`velSR`の計算)が
+呼ばれる**前**に実行していた。
+
+```
+allocChWithFallback（velを引数に持たない）
+  → assignCh → updateVoice（★ここでcarrier側ベロシティ補正値を参照するが、まだ計算前）
+→ setVolume/setExpression/setSustain/setPanpot（ChState更新のみ）
+→ setNoteFine
+→ dev->noteOn(devCh, vel)
+    → s.proc.onNoteOn(...)（★ここで初めてvelAR/velDR/velSL/velRR/velSRが計算される）
+    → updateVolExp（TLのみ再書き込み）
+    → updateKey（キーオンビットのみ）
+```
+
+`updateKey`は純粋仮想関数で、各チップドライバの実装はキーオンビット
+制御のみを行い、AR/DR/SL/RR等の再書き込みは一切行わない
+(`COPLLRhythm::updateKey`のような、キーオン/キーオフごとの動的な
+EGT/RR切り替えを持つ一部の例外を除く)。そのため、**`updateVoice`内で
+`carrier`側が参照するベロシティ補正値は、常に未計算(デフォルト0)の
+まま実機へ送信されていた**。これは`COPLRhythm`だけでなく、`COPL`/
+`COPN`を含む、ほぼ全てのチップドライバに共通する欠陥だった
+(`COPN`も`car ? s.proc.velAR(op) : ...`という同型のコードを持つ)。
+
+`docs/voice-data-design.md`の「フェーズ6（チップドライバ移行）の
+具体的な手順」には、当初から正しい設計が明記されていた
+(`3. SetVoice() で proc_[ch].onNoteOn(...) を呼ぶように変更`)。
+しかし実際の実装では、`onNoteOn`が`SetVoice`相当の`assignCh`ではなく、
+別の`noteOn`関数(`assignCh`の"後"に呼ばれる)に実装されており、
+ドキュメント化された正しい設計から逸脱していた。
+
+### 修正
+
+1. `ISoundDevice::allocCh`/`assignCh`に`vel`(ベロシティ)と`swPatch`
+   (パフォーマンスパッチ、直接受け渡し)を引数として追加。
+2. `CSoundDevice::assignCh()`内、`updateVoice()`を呼ぶ**前**に
+   `s.proc.onNoteOn(...)`を呼ぶよう変更(ドキュメント通りの設計に復元)。
+3. `CSoundDevice::noteOn()`からは、重複していた`onNoteOn()`呼び出しを
+   削除。
+4. `pendingSwPatch`機構(前節参照)を削除し、`swPatch`は`assignCh`に
+   直接渡すよう単純化。
+5. `MidiCh.cpp`の全呼び出し元(`allocChWithFallback`、`CInstCh::noteOn`、
+   `CRhythmCh::applyNoteOn`)、および`MultiDevice.h`の`CSpanDevice`/
+   `CUnison`(複数チップ束ね)を、新しいシグネチャに合わせて更新。
+
+### レガート/ポルタメントへの影響
+
+無し。レガートは`assignCh`を経由せず、既存の割り当て済みチャンネルに
+対して`setVelocity()`(TLのみ更新、`onNoteOn`は呼ばない)を呼ぶだけで
+あり、今回の修正対象外。ポルタメントもピッチ(Fnumber)の計算・反映
+タイミングのみに関わる、独立した機能であり影響しない。
+
+### 検証
+
+`COPN`・`COPLRhythm`双方で、`noteOn`後に`velAR`等が正しく計算済みの
+値になることを実機テストで確認した(修正前は常に`0`)。
 
 ## 既知の技術的負債 (2026年7月時点)
 
