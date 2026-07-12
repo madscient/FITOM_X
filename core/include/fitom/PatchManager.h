@@ -91,6 +91,11 @@ public:
     bool loadHwBankJson(const std::filesystem::path& path,
                         HwBankRegistry::VoiceGroup group, int bankNo,
                         uint8_t voicePatchType = 0);
+    // OPLL ROM音色用のswPatchメタデータ専用バンクを読み込む
+    // (profile.jsonのhw_banks[].role=="builtin_swpatch_meta"用、
+    // 2026年7月新設)。通常のHwBankRegistryには登録せず、
+    // opllBuiltinMetaBank_に直接保持する。
+    bool loadOpllBuiltinMetaBankJson(const std::filesystem::path& path);
     bool loadSwBankJson(const std::filesystem::path& path, int bankNo);
     bool loadPatchBankJson(const std::filesystem::path& path, int bankNo);
 
@@ -215,6 +220,15 @@ private:
     // 一括初期化する。
     mutable std::array<std::array<HwPatch, 16>, 4> opllRomPatches_{};
     void initOpllRomPatches();
+
+    // OPLL ROM音色用のswPatchメタデータ専用バンク(2026年7月新設)。
+    // profile.jsonのhw_banks[].role=="builtin_swpatch_meta"で指定
+    // されたバンクが、通常のHwBankRegistry検索を経由せず、ここに
+    // 直接保持される。resolveOpllRomVoice()が
+    // HwBank::findByBuiltinRef()で参照する。未設定ならnullptrのまま
+    // (通常通りswPatch適用なしで動作する、ソフトな失敗)。
+    HwBank opllBuiltinMetaBank_;
+    bool   hasOpllBuiltinMetaBank_ = false;
 
     HwBankRegistry hwReg_;
     SampleZoneBankRegistry sampleReg_;

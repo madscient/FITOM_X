@@ -251,6 +251,13 @@
               },
               "file": {
                 "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "builtin_swpatch_meta"
+                ],
+                "description": "このバンクエントリの特殊な役割(省略時は通常のHwBank、voice_patch_type/bank/prog経由で検索される)。\"builtin_swpatch_meta\": OPLL ROM音色(opllRomPatches_、PatchManager::resolveOpllRomVoice参照)にswPatchを紐づけるための専用メタデータバンク。通常のHwBankRegistry検索の対象にならず、専用の保持スロット(PatchManager::opllBuiltinMetaBank_)にルーティングされる。bankフィールドの値はこの場合意味を持たない(何番でもよい)が、スキーマ上は引き続き必須のままとする(既存のhw_banks[]エントリ形式との一貫性のため)。各パッチエントリはhwbank.schema.jsonのbuiltinフィールド(ops[]とは排他)で、対象のROM音色を指定する。2026年7月新設。詳細はdocs/patch-structure-design.md参照。"
               }
             }
           }

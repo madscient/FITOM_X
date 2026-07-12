@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <algorithm>
+#include <unordered_map>
 
 namespace fitom {
 
@@ -277,7 +278,19 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
 
     result.deviceIndex = deviceIndex;
     result.hwPatch = &opllRomPatches_[variantSel][instIndex];
-    result.swPatch = resolveSwPatch(result.hwPatch->swBank, result.hwPatch->swProg);
+    // ROM音色自体のswBank/swProgは常に-1(未設定)のため(initOpllRomPatches
+    // 参照)、代わりにopllBuiltinMetaBank_(profile.jsonのhw_banks[].role=
+    // "builtin_swpatch_meta"で指定された専用バンク)を、(variantSel,
+    // instIndex)で検索してswPatchを解決する(2026年7月新設)。
+    // 未設定・未一致ならnullptrのまま(ソフトな失敗、ROM音色自体の発音は
+    // 妨げられない)。
+    if (hasOpllBuiltinMetaBank_) {
+        const HwPatch* metaPatch = opllBuiltinMetaBank_.findByBuiltinRef(
+            static_cast<int8_t>(variantSel), static_cast<int8_t>(instIndex));
+        if (metaPatch) {
+            result.swPatch = resolveSwPatch(metaPatch->swBank, metaPatch->swProg);
+        }
+    }
     return result;
 }
 
@@ -548,18 +561,32 @@ static int operatorCountForVoicePatchType(uint8_t vpt) {
 }
 
 json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
-    json ops = json::array();
-    int n = std::clamp(operatorCountForVoicePatchType(voicePatchType), 1, MAX_HW_OPS);
-    for (int i = 0; i < n; ++i) ops.push_back(hwOpToJson(p.hwOp[i]));
-    json out = json{
-        {"id",p.id},{"name",p.name},
-        {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
-        {"FB2",p.hw.FB2},
-        {"ops",ops},
-        {"ext",json{{"DM0",p.ext.DM0},
-                    {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP},
-                    {"target_voice_patch_type",p.ext.targetVoicePatchType}}}
-    };
+    static constexpr const char* kBuiltinTypeNames[4] = {"OPLL", "OPLLX", "OPLLP", "VRC7"};
+    json out;
+    if (p.builtin.isValid()) {
+        // builtin参照専用エントリ: ops[]は出力しない(排他)。
+        out = json{
+            {"id",p.id},{"name",p.name},
+            {"builtin", json{
+                {"patch_type", (p.builtin.patchType >= 0 && p.builtin.patchType < 4)
+                    ? kBuiltinTypeNames[p.builtin.patchType] : "OPLL"},
+                {"patch_no", p.builtin.patchNo}
+            }}
+        };
+    } else {
+        json ops = json::array();
+        int n = std::clamp(operatorCountForVoicePatchType(voicePatchType), 1, MAX_HW_OPS);
+        for (int i = 0; i < n; ++i) ops.push_back(hwOpToJson(p.hwOp[i]));
+        out = json{
+            {"id",p.id},{"name",p.name},
+            {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
+            {"FB2",p.hw.FB2},
+            {"ops",ops},
+            {"ext",json{{"DM0",p.ext.DM0},
+                        {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP},
+                        {"target_voice_patch_type",p.ext.targetVoicePatchType}}}
+        };
+    }
     // sw_bank/sw_prog は -1(参照なし)がデフォルトのため、設定されている
     // 場合のみ出力する(既存ファイルとの差分を最小化する)。
     if (p.swBank >= 0) out["sw_bank"] = p.swBank;
@@ -573,11 +600,25 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
         std::string n = j["name"].get<std::string>();
         std::strncpy(p.name, n.c_str(), sizeof(p.name)-1);
     }
+    if (j.contains("sw_bank")) p.swBank = static_cast<int8_t>(j["sw_bank"].get<int>());
+    if (j.contains("sw_prog")) p.swProg = static_cast<int8_t>(j["sw_prog"].get<int>());
+    if (j.contains("builtin")) {
+        // builtin参照専用エントリ: ops[]/ext等は読まない(排他、oneOfで
+        // スキーマレベルでも強制済み)。
+        static const std::unordered_map<std::string, int8_t> kBuiltinTypeMap = {
+            {"OPLL", 0}, {"OPLLX", 1}, {"OPLLP", 2}, {"VRC7", 3}
+        };
+        const auto& bj = j["builtin"];
+        if (bj.contains("patch_type")) {
+            auto it = kBuiltinTypeMap.find(bj["patch_type"].get<std::string>());
+            if (it != kBuiltinTypeMap.end()) p.builtin.patchType = it->second;
+        }
+        if (bj.contains("patch_no")) p.builtin.patchNo = static_cast<int8_t>(bj["patch_no"].get<int>());
+        return p;
+    }
     auto g8 = [&](const char* k, uint8_t& v){ if(j.contains(k)) v=j[k].get<uint8_t>(); };
     g8("FB",p.hw.FB); g8("ALG",p.hw.ALG); g8("AMS",p.hw.AMS);
     g8("PMS",p.hw.PMS); g8("NFQ",p.hw.NFQ); g8("FB2",p.hw.FB2);
-    if (j.contains("sw_bank")) p.swBank = static_cast<int8_t>(j["sw_bank"].get<int>());
-    if (j.contains("sw_prog")) p.swProg = static_cast<int8_t>(j["sw_prog"].get<int>());
     if (j.contains("ops") && j["ops"].is_array()) {
         for (int i = 0; i < MAX_HW_OPS && i < (int)j["ops"].size(); ++i)
             jsonToHwOp(j["ops"][i], p.hwOp[i]);
@@ -708,6 +749,39 @@ bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
         return true;
     } catch (const std::exception& e) {
         FITOM_LOG_ERR("HwBank parse error: " << e.what());
+        return false;
+    }
+}
+
+bool PatchManager::loadOpllBuiltinMetaBankJson(const std::filesystem::path& path)
+{
+    reportProgress("Loading OPLL builtin swPatch meta bank: " + path.string());
+    std::ifstream f(path);
+    if (!f) { FITOM_LOG_ERR("Cannot open: " << path.string()); return false; }
+    try {
+        json j = json::parse(f, nullptr, true, true);
+        opllBuiltinMetaBank_ = HwBank{};
+        if (j.contains("name")) opllBuiltinMetaBank_.name = j["name"].get<std::string>();
+        opllBuiltinMetaBank_.filename = path.string();
+        // このバンクのbank/prog番号自体は検索キーとして使われない
+        // (findByBuiltinRef()がbuiltinフィールドで線形探索するため)。
+        // idの一意性さえ保てればよいので、prog自体をそのままbankNoの
+        // 代わりに使う。
+        if (j.contains("patches") && j["patches"].is_array()) {
+            int autoProg = 0;
+            for (auto& entry : j["patches"]) {
+                int prog = entry.value("prog", autoProg);
+                if (prog < 0 || prog >= BANK_PROG_SIZE) continue;
+                opllBuiltinMetaBank_.set(prog, jsonToHwPatch(entry, 0, prog));
+                autoProg = prog + 1;
+            }
+        }
+        hasOpllBuiltinMetaBank_ = true;
+        FITOM_LOG_INFO("OPLL builtin swPatch meta bank loaded: " << opllBuiltinMetaBank_.name
+            << " (" << path.filename().string() << ")");
+        return true;
+    } catch (const std::exception& e) {
+        FITOM_LOG_ERR("OPLL builtin swPatch meta bank parse error: " << e.what());
         return false;
     }
 }

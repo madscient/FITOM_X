@@ -971,12 +971,24 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
     // HW / SW / Patch バンクも同様に処理
     if (banks.contains("hw_banks")) {
         for (const auto& e : banks["hw_banks"]) {
-            std::string groupStr = e.value("group", "OPN");
-            int bankNo  = e.value("bank", 0);
             std::string file = e.value("file", "");
             if (file.empty()) continue;
             std::filesystem::path path = file;
             if (path.is_relative()) path = baseDir / path;
+
+            // role=="builtin_swpatch_meta": OPLL ROM音色用のswPatch
+            // メタデータ専用バンク(2026年7月新設)。通常のHwBankRegistry
+            // 検索経路には登録せず、専用の保持スロットへルーティングする。
+            // group/bankフィールドはこの場合意味を持たない(スキーマ上は
+            // 引き続き必須のまま、既存形式との一貫性のため)。
+            std::string role = e.value("role", "");
+            if (role == "builtin_swpatch_meta") {
+                pm.loadOpllBuiltinMetaBankJson(path);
+                continue;
+            }
+
+            std::string groupStr = e.value("group", "OPN");
+            int bankNo  = e.value("bank", 0);
             // "group" 文字列 → VoicePatchType → VoiceGroup(検索キー) の2段変換。
             // (旧実装は "OPZ" 等の細分類文字列を判定できず VOICE_GROUP_OPNA に
             //  誤って落ちるバグがあったため、ここで併せて修正する)
