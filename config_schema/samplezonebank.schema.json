@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fitom-samplezonebank",
+  "title": "FITOM SampleZoneBank (*.samplezonebank.json)",
+  "description": "サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM、isSampleBasedVoicePatchType対象)専用のパッチバンク。通常のHwPatch(FMオペレータ型、hwbank.schema.json)とは完全に独立した別スキーマ。1プログラム=複数キーゾーンへの波形マッピングという、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状のデータを持つ。プロファイル側ではhw_banks[].group(AWM等)経由で参照される(PatchManager::loadSampleZoneBankJson)。生成はプログラム実装と密接に関わるため通常は手作業では作られないが、バリデーション対象にはなるため定義しておく(2026年7月新設)。詳細はdocs/voice-parameter-reference.mdの「OPL4 AWM」節参照。",
+  "type": "object",
+  "required": ["patches"],
+  "properties": {
+    "_comment": {
+      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+      "type": ["string", "array"],
+      "items": { "type": "string" }
+    },
+    "name": {
+      "type": "string",
+      "description": "バンク名(表示用)。"
+    },
+    "patches": {
+      "type": "array",
+      "description": "1エントリ=1プログラム番号(prog)ぶんのゾーン列。",
+      "items": {
+        "type": "object",
+        "required": ["prog", "zones"],
+        "additionalProperties": false,
+        "properties": {
+          "prog": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127,
+            "description": "プログラム番号(0-127)。BANK_PROG_SIZEの範囲外は読み込み時に無視される。"
+          },
+          "name": {
+            "type": "string",
+            "description": "パッチ名(表示用、例: \"Acoustic Grand Piano\")。"
+          },
+          "zones": {
+            "type": "array",
+            "minItems": 1,
+            "description": "キーゾーン列。ノートオン時、先頭から線形探索し、key_min<=note<=key_max かつ vel_min<=velocity<=vel_max を満たす最初のゾーンのwave_indexを使う。該当ゾーンが無ければzones[0]にフォールバックする。",
+            "items": {
+              "type": "object",
+              "required": ["wave_index"],
+              "additionalProperties": false,
+              "properties": {
+                "key_min": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "default": 0,
+                  "description": "このゾーンが適用されるMIDIノート範囲の下限。"
+                },
+                "key_max": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "default": 127,
+                  "description": "このゾーンが適用されるMIDIノート範囲の上限。"
+                },
+                "vel_min": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "default": 0,
+                  "description": "ベロシティレイヤー範囲の下限(省略時0=無制限)。"
+                },
+                "vel_max": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "default": 127,
+                  "description": "ベロシティレイヤー範囲の上限(省略時127=無制限)。"
+                },
+                "wave_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 511,
+                  "description": "チップ側のROM/PCM波形番号(チップ依存の生値)。YRW801実機の波形総数を踏まえた安全マージンとしてmaximum=511としている(実データの最大観測値は324、2026年7月時点)。"
+                },
+                "root_note": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "default": 69,
+                  "description": "録音時の基準ノート(MIDI note番号)。ピッチ可変のPCM系チップ(ADPCM-B/PCMD8等)がノートからの相対ピッチシフト量を計算するのに使う。ピッチ固定チップ(OPL4AWM等、Fnumber計算がチップ側で完結する場合)は未使用(既定値のままでよい)。既定値69(A4)は旧FITOM ADPCM-Bの暗黙の基準ピッチ規約に合わせている(60(C4)にしてはならない)。"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "ゾーンの表示名(任意、例: \"Acoustic Snare\")。エンジン本体は一切参照しない(発音処理には影響しない)。ドラムキット用SampleZonePatchの各ゾーンが、GM標準等の特定のドラムノートに対応する場合、プロファイル設計・将来のGUI実装で表示するために使う(2026年7月新設)。"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "name": "YRW801 GM (melodic) 抜粋",
+      "patches": [
+        {
+          "prog": 0,
+          "name": "Acoustic Grand Piano",
+          "zones": [
+            { "key_min": 20, "key_max": 39, "wave_index": 300 },
+            { "key_min": 40, "key_max": 45, "wave_index": 301 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "YRW801 GM Drum Kit 抜粋",
+      "patches": [
+        {
+          "prog": 0,
+          "name": "GM Drum Kit (ws>=128)",
+          "zones": [
+            { "key_min": 24, "key_max": 24, "wave_index": 203, "name": "Drum note #24" },
+            { "key_min": 36, "key_max": 36, "wave_index": 17, "name": "Bass Drum 1" },
+            { "key_min": 38, "key_max": 38, "wave_index": 209, "name": "Acoustic Snare" }
+          ]
+        }
+      ]
+    }
+  ]
+}

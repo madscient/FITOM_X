@@ -220,8 +220,48 @@
             "maximum": 127,
             "default": -1,
             "description": "sw_bankと組で使う、参照先のプログラム番号。"
+          },
+          "builtin": {
+            "type": "object",
+            "description": "OPLL ROM音色(内部生成、opllRomPatches_)への参照。このバンクが「builtin専用バンク」(profile.jsonのhw_banks[].role=\"builtin_swpatch_meta\"で指定)である場合のみ意味を持つ。prog番号による機械的な対応ではなく、パッチ設計者が明示的に指定するuser specificな識別子。opsとは排他(2026年7月新設、docs/patch-structure-design.md参照)。",
+            "properties": {
+              "patch_type": {
+                "type": "string",
+                "enum": [
+                  "OPLL",
+                  "OPLLX",
+                  "OPLLP",
+                  "VRC7"
+                ],
+                "description": "対象チップバリアント。PatchManager::kVariantMapと対応。"
+              },
+              "patch_no": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 15,
+                "description": "ROM音色番号(1-15)。initOpllRomPatches()のkNames[][]参照。"
+              }
+            },
+            "required": [
+              "patch_type",
+              "patch_no"
+            ],
+            "additionalProperties": false
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "ops"
+            ]
+          },
+          {
+            "required": [
+              "builtin"
+            ]
+          }
+        ],
+        "description": "opsとbuiltinはどちらか一方が必須(排他)。builtinはOPLL ROM音色への参照専用で、通常のHwPatch(ops[]でFMパラメータを記述)とは異なる用途に使う。"
       }
     }
   },

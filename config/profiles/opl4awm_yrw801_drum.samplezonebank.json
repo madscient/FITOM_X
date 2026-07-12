@@ -8,287 +8,344 @@
         {
           "key_min": 24,
           "key_max": 24,
-          "wave_index": 203
+          "wave_index": 203,
+          "name": "Drum note #24"
         },
         {
           "key_min": 25,
           "key_max": 25,
-          "wave_index": 196
+          "wave_index": 196,
+          "name": "Drum note #25"
         },
         {
           "key_min": 26,
           "key_max": 26,
-          "wave_index": 196
+          "wave_index": 196,
+          "name": "Drum note #26"
         },
         {
           "key_min": 27,
           "key_max": 27,
-          "wave_index": 196
+          "wave_index": 196,
+          "name": "High Q"
         },
         {
           "key_min": 28,
           "key_max": 28,
-          "wave_index": 196
+          "wave_index": 196,
+          "name": "Slap"
         },
         {
           "key_min": 30,
           "key_max": 30,
-          "wave_index": 195
+          "wave_index": 195,
+          "name": "Scratch Pull"
         },
         {
           "key_min": 31,
           "key_max": 31,
-          "wave_index": 209
+          "wave_index": 209,
+          "name": "Sticks"
         },
         {
           "key_min": 32,
           "key_max": 32,
-          "wave_index": 210
+          "wave_index": 210,
+          "name": "Square Click"
         },
         {
           "key_min": 33,
           "key_max": 33,
-          "wave_index": 17
+          "wave_index": 17,
+          "name": "Metronome Click"
         },
         {
           "key_min": 35,
           "key_max": 35,
-          "wave_index": 17
+          "wave_index": 17,
+          "name": "Acoustic Bass Drum"
         },
         {
           "key_min": 36,
           "key_max": 36,
-          "wave_index": 17
+          "wave_index": 17,
+          "name": "Bass Drum 1"
         },
         {
           "key_min": 37,
           "key_max": 37,
-          "wave_index": 210
+          "wave_index": 210,
+          "name": "Side Stick"
         },
         {
           "key_min": 38,
           "key_max": 38,
-          "wave_index": 209
+          "wave_index": 209,
+          "name": "Acoustic Snare"
         },
         {
           "key_min": 39,
           "key_max": 39,
-          "wave_index": 10
+          "wave_index": 10,
+          "name": "Hand Clap"
         },
         {
           "key_min": 40,
           "key_max": 40,
-          "wave_index": 209
+          "wave_index": 209,
+          "name": "Electric Snare"
         },
         {
           "key_min": 41,
           "key_max": 41,
-          "wave_index": 200
+          "wave_index": 200,
+          "name": "Low Floor Tom"
         },
         {
           "key_min": 42,
           "key_max": 42,
-          "wave_index": 121
+          "wave_index": 121,
+          "name": "Closed Hi-Hat"
         },
         {
           "key_min": 43,
           "key_max": 43,
-          "wave_index": 200
+          "wave_index": 200,
+          "name": "High Floor Tom"
         },
         {
           "key_min": 44,
           "key_max": 44,
-          "wave_index": 123
+          "wave_index": 123,
+          "name": "Pedal Hi-Hat"
         },
         {
           "key_min": 45,
           "key_max": 45,
-          "wave_index": 200
+          "wave_index": 200,
+          "name": "Low Tom"
         },
         {
           "key_min": 46,
           "key_max": 46,
-          "wave_index": 122
+          "wave_index": 122,
+          "name": "Open Hi-Hat"
         },
         {
           "key_min": 47,
           "key_max": 47,
-          "wave_index": 199
+          "wave_index": 199,
+          "name": "Low-Mid Tom"
         },
         {
           "key_min": 48,
           "key_max": 48,
-          "wave_index": 199
+          "wave_index": 199,
+          "name": "Hi-Mid Tom"
         },
         {
           "key_min": 49,
           "key_max": 49,
-          "wave_index": 49
+          "wave_index": 49,
+          "name": "Crash Cymbal 1"
         },
         {
           "key_min": 50,
           "key_max": 50,
-          "wave_index": 199
+          "wave_index": 199,
+          "name": "High Tom"
         },
         {
           "key_min": 51,
           "key_max": 51,
-          "wave_index": 46
+          "wave_index": 46,
+          "name": "Ride Cymbal 1"
         },
         {
           "key_min": 52,
           "key_max": 52,
-          "wave_index": 122
+          "wave_index": 122,
+          "name": "Chinese Cymbal"
         },
         {
           "key_min": 53,
           "key_max": 53,
-          "wave_index": 33
+          "wave_index": 33,
+          "name": "Ride Bell"
         },
         {
           "key_min": 54,
           "key_max": 54,
-          "wave_index": 37
+          "wave_index": 37,
+          "name": "Tambourine"
         },
         {
           "key_min": 55,
           "key_max": 55,
-          "wave_index": 49
+          "wave_index": 49,
+          "name": "Splash Cymbal"
         },
         {
           "key_min": 56,
           "key_max": 56,
-          "wave_index": 29
+          "wave_index": 29,
+          "name": "Cowbell"
         },
         {
           "key_min": 57,
           "key_max": 57,
-          "wave_index": 49
+          "wave_index": 49,
+          "name": "Crash Cymbal 2"
         },
         {
           "key_min": 58,
           "key_max": 58,
-          "wave_index": 157
+          "wave_index": 157,
+          "name": "Vibraslap"
         },
         {
           "key_min": 59,
           "key_max": 59,
-          "wave_index": 46
+          "wave_index": 46,
+          "name": "Ride Cymbal 2"
         },
         {
           "key_min": 60,
           "key_max": 60,
-          "wave_index": 28
+          "wave_index": 28,
+          "name": "Hi Bongo"
         },
         {
           "key_min": 61,
           "key_max": 61,
-          "wave_index": 28
+          "wave_index": 28,
+          "name": "Low Bongo"
         },
         {
           "key_min": 62,
           "key_max": 62,
-          "wave_index": 30
+          "wave_index": 30,
+          "name": "Mute Hi Conga"
         },
         {
           "key_min": 63,
           "key_max": 63,
-          "wave_index": 31
+          "wave_index": 31,
+          "name": "Open Hi Conga"
         },
         {
           "key_min": 64,
           "key_max": 64,
-          "wave_index": 31
+          "wave_index": 31,
+          "name": "Low Conga"
         },
         {
           "key_min": 65,
           "key_max": 65,
-          "wave_index": 156
+          "wave_index": 156,
+          "name": "High Timbale"
         },
         {
           "key_min": 66,
           "key_max": 66,
-          "wave_index": 156
+          "wave_index": 156,
+          "name": "Low Timbale"
         },
         {
           "key_min": 67,
           "key_max": 67,
-          "wave_index": 11
+          "wave_index": 11,
+          "name": "High Agogo"
         },
         {
           "key_min": 68,
           "key_max": 68,
-          "wave_index": 11
+          "wave_index": 11,
+          "name": "Low Agogo"
         },
         {
           "key_min": 69,
           "key_max": 69,
-          "wave_index": 47
+          "wave_index": 47,
+          "name": "Cabasa"
         },
         {
           "key_min": 70,
           "key_max": 70,
-          "wave_index": 48
+          "wave_index": 48,
+          "name": "Maracas"
         },
         {
           "key_min": 71,
           "key_max": 71,
-          "wave_index": 324
+          "wave_index": 324,
+          "name": "Short Whistle"
         },
         {
           "key_min": 72,
           "key_max": 72,
-          "wave_index": 324
+          "wave_index": 324,
+          "name": "Long Whistle"
         },
         {
           "key_min": 73,
           "key_max": 73,
-          "wave_index": 36
+          "wave_index": 36,
+          "name": "Short Guiro"
         },
         {
           "key_min": 74,
           "key_max": 74,
-          "wave_index": 36
+          "wave_index": 36,
+          "name": "Long Guiro"
         },
         {
           "key_min": 75,
           "key_max": 75,
-          "wave_index": 32
+          "wave_index": 32,
+          "name": "Claves"
         },
         {
           "key_min": 76,
           "key_max": 76,
-          "wave_index": 44
+          "wave_index": 44,
+          "name": "Hi Wood Block"
         },
         {
           "key_min": 77,
           "key_max": 77,
-          "wave_index": 44
+          "wave_index": 44,
+          "name": "Low Wood Block"
         },
         {
           "key_min": 78,
           "key_max": 78,
-          "wave_index": 34
+          "wave_index": 34,
+          "name": "Mute Cuica"
         },
         {
           "key_min": 79,
           "key_max": 79,
-          "wave_index": 35
+          "wave_index": 35,
+          "name": "Open Cuica"
         },
         {
           "key_min": 80,
           "key_max": 80,
-          "wave_index": 50
+          "wave_index": 50,
+          "name": "Mute Triangle"
         },
         {
           "key_min": 81,
           "key_max": 81,
-          "wave_index": 50
+          "wave_index": 50,
+          "name": "Open Triangle"
         },
         {
           "key_min": 82,
           "key_max": 82,
-          "wave_index": 47
+          "wave_index": 47,
+          "name": "Shaker"
         }
       ]
     }

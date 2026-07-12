@@ -68,6 +68,25 @@ static constexpr int BANK_PROG_SIZE  = 128;  // バンク内プログラム数
 static constexpr int MAX_HW_OPS = 4;
 
 // ================================================================
+//  BuiltinRef: OPLL ROM音色(内部生成、opllRomPatches_)への参照。
+//  「builtin」フィールド専用バンク(hw_banks[].roleで指定)の各
+//  パッチエントリが持つ。通常のops[]とは排他(一方が設定されて
+//  いれば、もう一方はJSON上に存在しないことをスキーマで強制する)。
+//  2026年7月新設: ROM音色にswBank/swProg(パフォーマンスパッチ)を
+//  紐づけるための、prog番号に依存しないuser specificな識別子。
+// ================================================================
+struct BuiltinRef {
+    // 0=OPLL/1=OPLLX/2=OPLLP/3=VRC7 (PatchManager::kVariantMap相当)。
+    // -1=未設定。
+    int8_t patchType = -1;
+    // 1-15 (ROM音色番号、initOpllRomPatches()のkNames[][]と同じ規約)。
+    // -1=未設定。
+    int8_t patchNo = -1;
+
+    bool isValid() const noexcept { return patchType >= 0 && patchNo >= 1; }
+};
+
+// ================================================================
 //  HwPatch: ハードウェアレジスタイメージ
 //  チップに直接書き込む値のみを保持する。
 //  ソフトパラメータ・ベロシティ感度は含まない。
@@ -79,6 +98,12 @@ struct HwPatch {
     FmHwVoice  hw;            // チャンネル HW パラメータ
     FmHwOp     hwOp[MAX_HW_OPS]; // オペレータ HW パラメータ
     FmChipExt  ext;           // チップ固有拡張 (OPZ 等)
+
+    // OPLL ROM音色への参照(builtin専用バンクのみ使用、通常のops[]と
+    // 排他)。isValid()がtrueの場合、hw/hwOp[]/extの内容は無視される
+    // (ROM音色自体のFMパラメータはopllRomPatches_由来のまま変更
+    // できないため)。
+    BuiltinRef builtin;
 
     // ─── パフォーマンスパッチ(SwPatch)参照 ────────────────────────
     // -1 = 参照なし(センチネル)。このHwPatch(音色データ)自身が
@@ -169,6 +194,21 @@ struct HwBank {
     }
     void set(int prog, const HwPatch& p) {
         if (prog >= 0 && prog < BANK_PROG_SIZE) patches[prog] = p;
+    }
+
+    // builtin専用バンク(hw_banks[].role=="builtin_swpatch_meta")内を、
+    // (patchType, patchNo)の一致で線形探索する(2026年7月新設)。
+    // 通常のprog番号による機械的対応ではなく、パッチ設計者が明示的に
+    // 指定したbuiltin参照でマッチングするため、一致するエントリが
+    // バンク内のどのprog番号にあっても構わない。
+    const HwPatch* findByBuiltinRef(int8_t patchType, int8_t patchNo) const noexcept {
+        for (const auto& p : patches) {
+            if (p.isValid() && p.builtin.patchType == patchType
+                && p.builtin.patchNo == patchNo) {
+                return &p;
+            }
+        }
+        return nullptr;
     }
 };
 
