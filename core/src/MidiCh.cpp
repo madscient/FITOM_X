@@ -174,18 +174,19 @@ void CInstCh::progChange(uint8_t prog)
 namespace {
 std::pair<ISoundDevice*, uint8_t> allocChWithFallback(
     CFITOM* fitom, ISoundDevice* dev, const ResolvedLayer* rl,
-    IMidiCh* owner, const HwPatch* patch, const SampleZonePatch* samplePatch)
+    IMidiCh* owner, const HwPatch* patch, uint8_t vel, const SwPatch* swPatch,
+    const SampleZonePatch* samplePatch)
 {
     // ① 一次候補デバイスに、スティール無しで空きがあるか確認
     if (patch) {
         uint8_t ch = dev->queryCh(owner, patch, /*mode=*/1);
         if (ch != 0xFF) {
-            dev->assignCh(ch, owner, patch, samplePatch);
+            dev->assignCh(ch, owner, patch, vel, swPatch, samplePatch);
             return {dev, ch};
         }
     } else {
         // AWM等: フォールバック非対応、通常のallocCh(スティール込み)のみ
-        uint8_t ch = dev->allocCh(owner, patch, samplePatch);
+        uint8_t ch = dev->allocCh(owner, patch, vel, swPatch, samplePatch);
         return {dev, ch};
     }
 
@@ -198,7 +199,7 @@ std::pair<ISoundDevice*, uint8_t> allocChWithFallback(
         if (!candDev) continue;
         uint8_t ch = candDev->queryCh(owner, patch, /*mode=*/1);
         if (ch != 0xFF) {
-            candDev->assignCh(ch, owner, patch, samplePatch);
+            candDev->assignCh(ch, owner, patch, vel, swPatch, samplePatch);
             FITOM_LOG_INFO("DVA fallback: device[" << rl->deviceIndex
                 << "] busy, handed off to device[" << idx << "]");
             return {candDev, ch};
@@ -206,7 +207,7 @@ std::pair<ISoundDevice*, uint8_t> allocChWithFallback(
     }
 
     // ③ どの候補も空きが無い → 一次候補デバイスで強制スティール(最終手段)
-    uint8_t ch = dev->allocCh(owner, patch, samplePatch);
+    uint8_t ch = dev->allocCh(owner, patch, vel, swPatch, samplePatch);
     return {dev, ch};
 }
 } // namespace
@@ -257,7 +258,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
 
         uint8_t devCh = 0xFF;
         if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
-            devCh = dev->assignCh(phyCh_, this, patch, samplePatch);
+            devCh = dev->assignCh(phyCh_, this, patch, vel, rl->swPatch, samplePatch);
         } else if (mono_ && timbres_ > 0) {
             // モノ: 同一レイヤーの最初のノートを奪う
             for (int hi = 0; hi < MAX_NOTES; ++hi) {
@@ -271,13 +272,13 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             }
             if (devCh == 0xFF) {
                 auto [handoffDev, handoffCh] = allocChWithFallback(
-                    fitom_, dev, rl, this, patch, samplePatch);
+                    fitom_, dev, rl, this, patch, vel, rl->swPatch, samplePatch);
                 dev = handoffDev;
                 devCh = handoffCh;
             }
         } else {
             auto [handoffDev, handoffCh] = allocChWithFallback(
-                fitom_, dev, rl, this, patch, samplePatch);
+                fitom_, dev, rl, this, patch, vel, rl->swPatch, samplePatch);
             dev = handoffDev;
             devCh = handoffCh;
         }
@@ -368,18 +369,11 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         }
         dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !portaActive);
 
-        // このノートに適用すべきSwPatch(パフォーマンスパッチ)を
-        // ChStateにセットしておく。実際のVoiceProcessor::onNoteOn()
-        // 呼び出しはCSoundDevice::noteOn()に一本化されている
-        // (以前はここで直接onNoteOn()を呼んでいたが、CSoundDevice::
-        //  noteOn()内の別のonNoteOn()呼び出しと二重になり、SwPatch
-        //  無しの計算で上書きされてしまう潜在バグがあった)。
-        // samplePatchのみ設定されている場合(AWM系レイヤー)はFmVoiceが
-        // FMオペレータ専用の構造体のため、SwPatchは適用しない。
-        if (patch) {
-            auto* st = dev->getChState(devCh);
-            if (st) st->pendingSwPatch = rl->swPatch;
-        }
+        // SwPatch(パフォーマンスパッチ)は、上記のassignCh/allocChWithFallback
+        // 呼び出し時に直接渡し済み(2026年7月、pendingSwPatch機構を廃止して
+        // 単純化。旧設計はVoiceProcessor::onNoteOn()がupdateVoice()より
+        // 後に呼ばれていたための回避策だったが、根本原因(呼び出し順序)を
+        // 修正したため不要になった)。
 
         // NoteOn
         if (!mono_ || !legato_) {
@@ -973,13 +967,28 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
                        "— falling back to dynamic allocation, wrong instrument may sound");
             }
         }
+        // このノートに適用すべきSwPatch(パフォーマンスパッチ)。
+        // DrumNote.swBank/swProgによる上書き(layer[0]専用、fixedChと
+        // 同じ制約)はresolveNote()内で事前に解決・キャッシュ済み
+        // (noteCache_[midiNote].effectiveSwPatch0)。layer[0]以外は、
+        // そのレイヤーが参照するHwPatch自身のswPatchをそのまま使う。
+        // assignCh/allocCh呼び出し時に直接渡す(2026年7月、
+        // pendingSwPatch機構を廃止して単純化)。
+        const SwPatch* effectiveSwPatch =
+            (li == 0) ? noteCache_[midiNote].effectiveSwPatch0 : rl->swPatch;
+
+        // ベロシティ (vol + NRPN)
+        int adjVel = static_cast<int>(vel) + adj.vel;
+        adjVel = std::clamp(adjVel, 1, 127);
 
         uint8_t devCh = 0xFF;
         if (li == 0 && dn.fixedCh >= 0) {
             // layer[0] のみ fixedCh を適用
-            devCh = dev->assignCh(static_cast<uint8_t>(dn.fixedCh), this, patch, samplePatch);
+            devCh = dev->assignCh(static_cast<uint8_t>(dn.fixedCh), this, patch,
+                                   static_cast<uint8_t>(adjVel), effectiveSwPatch, samplePatch);
         } else {
-            devCh = dev->allocCh(this, patch, samplePatch);
+            devCh = dev->allocCh(this, patch, static_cast<uint8_t>(adjVel),
+                                  effectiveSwPatch, samplePatch);
         }
         if (devCh == 0xFF) continue;
 
@@ -1003,28 +1012,6 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         playNote = std::clamp(playNote, 0, 127);
         int16_t fine = static_cast<int16_t>(dn.fineTune);
         dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, true);
-
-        // このノートに適用すべきSwPatch(パフォーマンスパッチ)を
-        // ChStateにセットしておく。実際のVoiceProcessor::onNoteOn()
-        // 呼び出しはCSoundDevice::noteOn()に一本化されている
-        // (以前はここで直接onNoteOn()を呼んでいたが、CSoundDevice::
-        //  noteOn()内の別のonNoteOn()呼び出しと二重になり、SwPatch
-        //  無しの計算で上書きされてしまう潜在バグがあった)。
-        //
-        // DrumNote.swBank/swProgによる上書き(layer[0]専用、fixedChと
-        // 同じ制約)はresolveNote()内で事前に解決・キャッシュ済み
-        // (noteCache_[midiNote].effectiveSwPatch0)。layer[0]以外は、
-        // そのレイヤーが参照するHwPatch自身のswPatchをそのまま使う。
-        const SwPatch* effectiveSwPatch =
-            (li == 0) ? noteCache_[midiNote].effectiveSwPatch0 : rl->swPatch;
-        if (patch) {
-            auto* st = dev->getChState(devCh);
-            if (st) st->pendingSwPatch = effectiveSwPatch;
-        }
-
-        // ベロシティ (vol + NRPN)
-        int adjVel = static_cast<int>(vel) + adj.vel;
-        adjVel = std::clamp(adjVel, 1, 127);
 
         dev->noteOn(devCh, static_cast<uint8_t>(adjVel));
 

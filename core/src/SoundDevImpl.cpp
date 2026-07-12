@@ -162,8 +162,8 @@ uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
     return ret;
 }
 
-uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch,
-                               const SampleZonePatch* samplePatch)
+uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
+                               const SwPatch* swPatch, const SampleZonePatch* samplePatch)
 {
     // 仮想関数 queryCh() 経由でチャンネルを選択する。
     // (修正前は findBestCh() を直接呼んでいたため、派生クラスが queryCh()
@@ -197,12 +197,12 @@ uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch,
             << " age=" << chState_[ret].noteOnAge);
     }
 
-    assignCh(ret, owner, patch, samplePatch);
+    assignCh(ret, owner, patch, vel, swPatch, samplePatch);
     return ret;
 }
 
-uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
-                                const SampleZonePatch* samplePatch)
+uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch, uint8_t vel,
+                                const SwPatch* swPatch, const SampleZonePatch* samplePatch)
 {
     if (ch >= maxChs_) return 0xFF;
     auto& s = chState_[ch];
@@ -213,11 +213,25 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
         noteOff(ch);
 
     s.assign(owner);
+    s.velocity = vel;
     // patch/samplePatchは排他 (呼び出し側であるCInstCh::noteOnが
     // layer.voicePatchType == VOICE_PATCH_AWM かどうかで使い分ける)。
     if (patch) {
         s.hwPatch = *patch;
         s.samplePatch = nullptr;
+        // VoiceProcessor::onNoteOn()をupdateVoice()より前に呼ぶ
+        // (ドキュメント化された正しい設計、voice-data-design.mdの
+        // フェーズ6手順3参照。2026年7月訂正。以前はnoteOn()側で
+        // 遅延して呼ばれており、updateVoice()内のキャリア側ベロシティ
+        // 補正値が常に未計算のまま実機へ送信されるバグがあった)。
+        FmVoice dummy;
+        dummy.hw = s.hwPatch.hw;
+        for (int i = 0; i < 4; ++i) dummy.hwOp[i] = s.hwPatch.hwOp[i];
+        if (swPatch) {
+            dummy.sw = swPatch->sw;
+            for (int i = 0; i < 4; ++i) dummy.swOp[i] = swPatch->swOp[i];
+        }
+        s.proc.onNoteOn(s.volume, s.expression, vel, dummy);
         updateVoice(ch);
     } else if (samplePatch) {
         s.samplePatch = samplePatch;
@@ -305,20 +319,10 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     s.run();
     s.noteOnAge = 0;
 
-    // VoiceProcessor を起動（LFO リセット・ベロシティ計算）
-    FmVoice dummy;
-    dummy.hw   = s.hwPatch.hw;
-    for (int i = 0; i < 4; ++i) dummy.hwOp[i] = s.hwPatch.hwOp[i];
-    // pendingSwPatch: CInstCh/CRhythmChがassignCh直後にセットした、
-    // 現在のノートに適用すべきSwPatch。設定されていれば、そのsw/swOp
-    // をdummyに反映してからonNoteOn()を呼ぶ(SwPatch込みの正しい計算)。
-    // 以前は常にSwPatch無しのdummyのままonNoteOn()を呼んでおり、
-    // CInstCh側が既に計算した結果を無条件で上書きしてしまっていた。
-    if (s.pendingSwPatch) {
-        dummy.sw = s.pendingSwPatch->sw;
-        for (int i = 0; i < 4; ++i) dummy.swOp[i] = s.pendingSwPatch->swOp[i];
-    }
-    s.proc.onNoteOn(s.volume, s.expression, vel, dummy);
+    // VoiceProcessor::onNoteOn()は、assignCh()内でupdateVoice()より前に
+    // 既に呼ばれている(2026年7月訂正、voice-data-design.mdのフェーズ6
+    // 手順3参照)。ここで再度呼ぶと、LFOリセット等が二重に走ってしまう
+    // ため呼ばない。
 
     // CInstCh::noteOn は volume/expression/sustain/panpot を update=false で
     // 先に一括設定するため (assignCh内のupdateVoice()より後のタイミングで
