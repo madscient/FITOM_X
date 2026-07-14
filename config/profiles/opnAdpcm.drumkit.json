@@ -1,29 +1,30 @@
 {
   "type": "routed",
   "name": "OPNA/B GM std kit",
+  "choke_groups": [[42, 46]],
   "notes": [
     {
       "note": 35, "name": "Acoustic Bass Drum",
       "patch_bank": 0, "patch_prog": 0,
-      "play_note": 24, "fine_tune": 0, "fixed_ch": -1,
+      "play_note": 24, "fine_tune": 0,
       "pan": 0, "gate_time": 0
     },
     {
       "note": 38, "name": "Acoustic Snare",
       "patch_bank": 0, "patch_prog": 1,
-      "play_note": 38, "fine_tune": 0, "fixed_ch": -1,
+      "play_note": 38, "fine_tune": 0,
       "pan": 0, "gate_time": 0
     },
     {
       "note": 42, "name": "Closed Hi-Hat",
       "patch_bank": 0, "patch_prog": 2,
-      "play_note": 60, "fine_tune": 0, "fixed_ch": 9,
+      "play_note": 60, "fine_tune": 0,
       "pan": 20, "gate_time": 10
     },
     {
       "note": 46, "name": "Open Hi-Hat",
       "patch_bank": 0, "patch_prog": 2,
-      "play_note": 66, "fine_tune": 0, "fixed_ch": 9,
+      "play_note": 66, "fine_tune": 0,
       "pan": 20, "gate_time": 0
     }
   ]

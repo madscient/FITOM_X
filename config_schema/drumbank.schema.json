@@ -77,13 +77,6 @@
                   "default": 0,
                   "description": "ファインチューニング [cents]。"
                 },
-                "fixed_ch": {
-                  "type": "integer",
-                  "minimum": -1,
-                  "maximum": 15,
-                  "default": -1,
-                  "description": "固定チャンネル番号。-1 = 自動割り当て。ToneLayer[0] のデバイスに適用。"
-                },
                 "pan": {
                   "type": "integer",
                   "minimum": -64,
@@ -96,7 +89,7 @@
                   "minimum": 0,
                   "maximum": 65535,
                   "default": 0,
-                  "description": "ゲートタイム [タイマーティック]。0 = NoteOff で停止。fixed_ch と組み合わせてハイハット制御に使う。"
+                  "description": "ゲートタイム [タイマーティック]。0 = NoteOff で停止。指定時間経過で自動的に停止する(クローズハイハット等、短く減衰する音色に使う)。"
                 }
               }
             }
@@ -120,7 +113,6 @@
               "patch_prog": 0,
               "play_note": 24,
               "fine_tune": 0,
-              "fixed_ch": -1,
               "pan": 0,
               "gate_time": 0,
               "comment": "Patch 0:0 は OPN 用キックパッチ (ToneLayer[0]=OPN ch0)"
@@ -132,10 +124,9 @@
               "patch_prog": 10,
               "play_note": 72,
               "fine_tune": 0,
-              "fixed_ch": 2,
               "pan": -20,
               "gate_time": 8,
-              "comment": "fixed_ch=2 固定。Open Hi-Hat(46) も fixed_ch=2 なので上書きされる"
+              "comment": "この旧形式(*.drumbank.json)はノート間の相互チョークに未対応。オープン/クローズの相互ダンプが必要な場合は、新形式(*.drumkit.json)のトップレベルchoke_groupsを使うこと"
             },
             {
               "note": 46,
@@ -144,7 +135,6 @@
               "patch_prog": 11,
               "play_note": 72,
               "fine_tune": 0,
-              "fixed_ch": 2,
               "pan": -20,
               "gate_time": 0
             },
@@ -155,7 +145,6 @@
               "patch_prog": 0,
               "play_note": 24,
               "fine_tune": 0,
-              "fixed_ch": -1,
               "pan": 0,
               "gate_time": 0,
               "comment": "Patch 1:0 がマルチレイヤー(OPN layer0 + SSG layer1)ならキックが2チップ同時発音"

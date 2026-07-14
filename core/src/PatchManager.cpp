@@ -140,6 +140,7 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
         rl.hwPatch     = rt.hwPatch;
         rl.samplePatch = rt.samplePatch;
         rl.swPatch     = rt.swPatch;
+        rl.forcedCh    = rt.forcedCh;
         result.layers[result.layerCount++] = rl;
     }
 
@@ -176,6 +177,7 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
                                     // swBank/swProgを持てば適用される
                                     // (2026年7月の設計変更、旧仕様は
                                     //  「直接モードはSwPatchなし」だった)
+    rl.forcedCh    = rt.forcedCh;
     result.layers[0]  = rl;
     result.layerCount = 1;
     return result;
@@ -296,12 +298,11 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
 
 // 内蔵リズム音源専用の解決ロジック。voicePatchType ==
 // VOICE_PATCH_BUILTIN_RHYTHM(0x70)の場合にresolveTriple()から呼ばれる。
-// チャンネル(=楽器)選択自体は、既存のDrumNote::fixedChメカニズムに
-// 委ねる (呼び出し元のCRhythmCh::applyNoteOnが、fixedCh>=0なら
-// assignCh()で強制的にそのチャンネルへ割り当てる)。この関数は
-// 「対象チップ(デバイス)の解決」だけを行う。
+// 「対象チップ(デバイス)の解決」に加え、hwProgをそのままチャンネル
+// (=楽器)番号として検証し、ResolvedTriple::forcedChに設定する。
 PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
-    uint8_t chipSel, const FITOMConfig& config, const std::string& logContext) const
+    uint8_t chipSel, uint8_t hwProg, const FITOMConfig& config,
+    const std::string& logContext) const
 {
     ResolvedTriple result;
     std::string ctx = logContext.empty()
@@ -327,7 +328,17 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
         return result;
     }
 
+    ISoundDevice* dev = config.getDevice(deviceIndex);
+    const uint8_t chCount = dev ? dev->getChCount() : 0;
+    if (hwProg >= chCount) {
+        FITOM_LOG_WARN(ctx << " builtin-rhythm: prog=" << (int)hwProg
+            << " is out of range for deviceType=0x" << std::hex << targetDeviceType
+            << std::dec << " (chCount=" << (int)chCount << ") — no instrument selected");
+        return result; // forcedCh=-1のまま、deviceIndexも未設定=無効
+    }
+
     result.deviceIndex = deviceIndex;
+    result.forcedCh = static_cast<int8_t>(hwProg);
     // COPNARhythm/COPLLRhythmはHwPatchの中身を一切参照しないが、
     // assignCh()はpatch/samplePatchが両方nullptrだとupdateVoice()自体を
     // 呼ばない(音量/パン初期化が行われなくなる)ため、空のダミー
@@ -335,7 +346,7 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
     // 空のままでよい)。
     static const HwPatch kEmptyRhythmPatch{}; // swBank/swProgは常に-1のまま
     result.hwPatch = &kEmptyRhythmPatch;
-    // このHwPatchはチップ全体で共有されるダミーのため、楽器(fixed_ch)
+    // このHwPatchはチップ全体で共有されるダミーのため、楽器(prog)
     // ごとの区別ができず、HwPatch自身にswPatchを持たせる意味が無い
     // (常に-1でresult.swPatchはnullptrのまま)。楽器ごとに異なる
     // パフォーマンスパッチを与えたい場合は、DrumNote::swBank/swProg
@@ -360,7 +371,7 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // hwProg(ProgChg相当)がそのチップ内の楽器番号を選ぶ。通常の
     // HwBankRegistry検索を一切経由しない。
     if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
-        return resolveBuiltinRhythm(hwBank, config, logContext);
+        return resolveBuiltinRhythm(hwBank, hwProg, config, logContext);
     }
 
     // OPLL系ROM音色専用バンク: バンク0はROM音色専用の予約領域であり、
@@ -478,6 +489,28 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // -1(参照なし)、または指定先が見つからない場合はnullptrのまま
     // (ソフトな失敗。hwPatch自体の発音は妨げられない)。
     result.swPatch = resolveSwPatch(hwPatch->swBank, hwPatch->swProg);
+
+    // COPLRhythm(OPL系内蔵リズム)は、COPNARhythm/COPLLRhythmと同じ
+    // 「チャンネル番号=楽器」というハードウェア制約を持つ(実機レジスタ
+    // 0xBDのビット位置に楽器番号がそのまま対応する、OPL_new.cppの
+    // COPLRhythmクラス冒頭コメント参照)。resolveBuiltinRhythm(0x70)と
+    // 同じ設計を踏襲し、hwProgをそのままチャンネル番号としてforcedCh
+    // に設定する。範囲外なら解決失敗として扱う(誤った楽器が鳴るより
+    // 無音の方が安全、という判断も0x70と同じ)。この結果、HwBank内で
+    // 1チャンネル(楽器)につき使えるHwPatchエントリはhwProg=そのチャンネル
+    // 番号の1個のみとなる(同一楽器に複数の音色候補を持たせることは
+    // できない — 2026年7月、fixed_ch廃止に伴う設計統一)。
+    if (voicePatchType == VOICE_PATCH_OPL_RHY) {
+        ISoundDevice* dev = config.getDevice(deviceIndex);
+        const uint8_t chCount = dev ? dev->getChCount() : 0;
+        if (hwProg >= chCount) {
+            FITOM_LOG_WARN(ctx << " OPL_RHY: prog=" << (int)hwProg
+                << " is out of range (chCount=" << (int)chCount << ")");
+            return ResolvedTriple{}; // 無効化して返す(無音)
+        }
+        result.forcedCh = static_cast<int8_t>(hwProg);
+    }
+
     return result;
 }
 
@@ -1069,7 +1102,6 @@ bool PatchManager::loadDrumBankJson(const std::filesystem::path& path, int bankN
                         dn.patchProg  = nj.value("patch_prog", static_cast<uint8_t>(0));
                         dn.playNote   = nj.value("play_note",  static_cast<uint8_t>(60));
                         dn.fineTune   = nj.value("fine_tune",  static_cast<int16_t>(0));
-                        dn.fixedCh    = static_cast<int8_t>(nj.value("fixed_ch", -1));
                         dn.pan        = static_cast<int8_t>(nj.value("pan", 0));
                         dn.gateTime   = nj.value("gate_time",  static_cast<uint16_t>(0));
                         if (nj.contains("name")) {
@@ -1134,7 +1166,6 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
             uint8_t patchProg = j.value("patch_prog", static_cast<uint8_t>(0));
             int noteMin = j.value("note_min", 0);
             int noteMax = j.value("note_max", 127);
-            int8_t  fixedCh  = static_cast<int8_t>(j.value("fixed_ch", -1));
             int8_t  swBank   = static_cast<int8_t>(j.value("sw_bank", -1));
             int8_t  swProg   = static_cast<int8_t>(j.value("sw_prog", -1));
             int8_t  pan      = static_cast<int8_t>(j.value("pan", 0));
@@ -1154,7 +1185,6 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
                 dn.patchProg = patchProg;
                 dn.playNote  = static_cast<uint8_t>(n); // 受信ノートをそのまま渡す
                 dn.fineTune  = fineTune;
-                dn.fixedCh   = fixedCh;
                 dn.swBank    = swBank;
                 dn.swProg    = swProg;
                 dn.pan       = pan;
@@ -1174,7 +1204,6 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
                     dn.patchProg  = nj.value("patch_prog", static_cast<uint8_t>(0));
                     dn.playNote   = nj.value("play_note",  static_cast<uint8_t>(60));
                     dn.fineTune   = nj.value("fine_tune",  static_cast<int16_t>(0));
-                    dn.fixedCh    = static_cast<int8_t>(nj.value("fixed_ch", -1));
                     dn.swBank     = static_cast<int8_t>(nj.value("sw_bank", -1));
                     dn.swProg     = static_cast<int8_t>(nj.value("sw_prog", -1));
                     dn.pan        = static_cast<int8_t>(nj.value("pan", 0));
@@ -1182,6 +1211,40 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
                     if (nj.contains("name")) {
                         std::string nn = nj["name"].get<std::string>();
                         std::strncpy(dn.name, nn.c_str(), sizeof(dn.name) - 1);
+                    }
+                }
+            }
+
+            // チョークグループ: 同一グループ内のノートが相互にダンプし
+            // 合う(ハイヒハット等)。1ノートが複数グループへ二重登録
+            // されるのは曖昧なため、検出したら警告して以降を無視する
+            // (最初に見つかったグループのみ採用)。
+            if (j.contains("choke_groups") && j["choke_groups"].is_array()) {
+                std::array<bool, 128> assigned{};
+                for (const auto& gj : j["choke_groups"]) {
+                    if (!gj.is_array()) continue;
+                    std::vector<uint8_t> group;
+                    for (const auto& nv : gj) {
+                        int n = nv.get<int>();
+                        if (n < 0 || n >= 128) {
+                            FITOM_LOG_WARN("DrumKit: choke_groups note=" << n
+                                << " out of range, ignored (" << path.string() << ")");
+                            continue;
+                        }
+                        if (assigned[static_cast<size_t>(n)]) {
+                            FITOM_LOG_WARN("DrumKit: note=" << n
+                                << " already belongs to another choke_group, ignored ("
+                                << path.string() << ")");
+                            continue;
+                        }
+                        assigned[static_cast<size_t>(n)] = true;
+                        group.push_back(static_cast<uint8_t>(n));
+                    }
+                    if (group.size() >= 2) {
+                        dp.chokeGroups.push_back(std::move(group));
+                    } else if (!group.empty()) {
+                        FITOM_LOG_WARN("DrumKit: choke_group with <2 notes ignored ("
+                            << path.string() << ")");
                     }
                 }
             }
@@ -1228,7 +1291,6 @@ bool PatchManager::saveDrumBankJson(const std::filesystem::path& path, int bankN
                 {"patch_prog", dn.patchProg},
                 {"play_note",  dn.playNote},
                 {"fine_tune",  dn.fineTune},
-                {"fixed_ch",   dn.fixedCh},
                 {"sw_bank",    dn.swBank},
                 {"sw_prog",    dn.swProg},
                 {"pan",        dn.pan},
@@ -1303,6 +1365,9 @@ bool PatchManager::loadDrumBankLegacy(const std::filesystem::path& path, int ban
             if (noteNo < 0 || noteNo >= 128) continue;
 
             // カンマ分割: name,DevName,BankNo,ProgNo,Note[:FineTune],Pan,Gate[,Ch]
+            // 末尾の[,Ch]列(旧チャンネル固定値)はfixed_ch廃止に伴い読み捨てる。
+            // ハイハット等のチョークが必要な場合は、変換後にDrumPatch::
+            // chokeGroupsで明示的に再設定すること。
             std::vector<std::string> parts;
             std::stringstream ss(val);
             std::string tok;
@@ -1331,9 +1396,6 @@ bool PatchManager::loadDrumBankLegacy(const std::filesystem::path& path, int ban
             }
             dn.pan      = static_cast<int8_t>(std::stoi(parts[5]));
             dn.gateTime = static_cast<uint16_t>(std::stoi(parts[6]));
-            if (parts.size() > 7) {
-                dn.fixedCh = static_cast<int8_t>(std::stoi(parts[7]));
-            }
 
             FITOM_LOG_DEBUG("DrumBank legacy: note=" << noteNo
                 << " '" << dn.name << "' patchBank=" << (int)dn.patchBank

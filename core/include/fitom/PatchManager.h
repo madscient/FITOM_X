@@ -170,6 +170,12 @@ private:
         const HwPatch* hwPatch = nullptr;
         const SampleZonePatch* samplePatch = nullptr;
         const SwPatch* swPatch = nullptr;
+        // ハードウェア制約により、この解決結果を発音する際に必ず特定の
+        // デバイスチャンネルへ強制割り当て(assignCh)しなければならない
+        // 場合に、そのチャンネル番号を保持する(-1=制約なし、通常通り
+        // allocCh/DVAによる動的割り当てが可能)。ビルトインリズム音源
+        // (resolveBuiltinRhythm参照)が現状唯一の設定元。
+        int8_t forcedCh = -1;
         bool isValid() const { return deviceIndex >= 0; }
     };
     // logContext: ログメッセージの主語("layer=N" 等)。空文字なら
@@ -200,16 +206,18 @@ private:
     // COPLLRhythmはdeviceTypeToVoicePatchType()がVOICE_PATCH_NONEを
     // 返すため到達不能 (findDeviceIndexByDeviceType()で直接検索する)。
     //
-    // 「楽器番号=チャンネル番号」というハードウェア上の制約があるが、
-    // これは既存のDrumNote::fixedChメカニズム(呼び出し元の
-    // CRhythmCh::applyNoteOnが、fixedCh>=0ならassignCh()で強制的に
-    // そのチャンネルへ割り当てる、既存の仕組み)をそのまま再利用する。
-    // hwProg(patch_prog相当)はこのモードでは使わない
-    // (fixed_chと重複した情報になるため; DrumNote作成者はvoice_patch_type
-    // =0x70を使う場合、必ずfixed_chに対象チャンネル番号を設定すること。
-    // 設定を忘れると動的チャンネル割り当てにフォールバックし、
-    // 意図しない楽器が鳴る可能性がある)。
-    ResolvedTriple resolveBuiltinRhythm(uint8_t chipSel, const FITOMConfig& config,
+    // 「楽器番号=チャンネル番号」というハードウェア上の制約があるため、
+    // hwProg(patch_prog相当、CInstCh::progChangeのProgram Changeと同じ
+    // 入力経路)をそのままデバイスチャンネル番号として解釈し、
+    // ResolvedTriple::forcedChに設定する。範囲外のhwProgは無効な
+    // チャンネルとして扱い、警告を出してforcedCh=-1のまま返す
+    // (呼び出し元は通常のDVAにフォールバックせず、発音自体を
+    // スキップする — 誤った楽器が鳴るより無音の方が安全)。
+    // これにより、DrumNote(CRhythmCh)経由だけでなく、CInstChの通常の
+    // Program Changeからもビルトインリズムの個別楽器を選択できる
+    // (VoiceData選択→デバイス確定、の原則をここでも一貫させる)。
+    ResolvedTriple resolveBuiltinRhythm(uint8_t chipSel, uint8_t hwProg,
+                                         const FITOMConfig& config,
                                          const std::string& logContext) const;
 
     // resolveOpllRomVoice()が返すHwPatchの実体。ResolvedTriple::hwPatchは

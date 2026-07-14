@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <vector>
 #include <unordered_map>
 
 namespace fitom {
@@ -54,16 +55,11 @@ struct DrumNote {
     uint8_t  playNote  = 60;  // 実際に発音する MIDI ノート番号
     int16_t  fineTune  = 0;   // ファインチューニング [cents]
 
-    // ─── チャンネル固定 ────────────────────────────────────────────
-    // -1 = 自動割り当て
-    //  n = 全 ToneLayer の layer[0] に固定チャンネルを使う
-    int8_t   fixedCh   = -1;
-
     // ─── パフォーマンスパッチ(SwPatch)参照の上書き ─────────────────
     // -1(無指定)の場合、そのノートが参照するHwPatch自身の
     // swBank/swProgにフォールバックする。ビルトインリズム音源
     // (voicePatchType=0x70)はHwPatchがチップ全体で共有される
-    // ダミーのため、楽器(fixed_ch)ごとに異なるパフォーマンスパッチを
+    // ダミーのため、楽器(patch_prog)ごとに異なるパフォーマンスパッチを
     // 与えたい場合は、ここで明示的に指定する必要がある。
     // 指定先が解決できなかった場合は、パフォーマンスパッチが
     // 適用されないだけで、無音にはならない(ソフトな失敗)。
@@ -88,6 +84,16 @@ struct DrumPatch {
 
     std::array<DrumNote, 128> notes;
 
+    // ─── チョークグループ ──────────────────────────────────────────
+    // 同一グループ内のいずれかのノートがNoteOnされると、同グループの
+    // 他の発音中ノートを強制的にダンプ(停止)する(例: クローズ/オープン
+    // ハイハット)。ハードウェアのチャンネル共有には一切依存しない、
+    // MIDIレシーバー(CRhythmCh)レベルの明示的な停止処理として実現する。
+    // 各グループは2つ以上のMIDIノート番号のリスト。1つのノートが
+    // 複数グループに属することは想定しない(ロード時に検出・警告し、
+    // 最初に見つかったグループを採用する)。
+    std::vector<std::vector<uint8_t>> chokeGroups;
+
     DrumPatch() noexcept { name[0] = '\0'; notes.fill(DrumNote{}); }
 
     bool isValid()     const noexcept { return id != 0xFFFFFFFFu; }
@@ -95,6 +101,17 @@ struct DrumPatch {
     const DrumNote* getNote(uint8_t midiNote) const noexcept {
         if (midiNote >= 128) return nullptr;
         return notes[midiNote].isActive() ? &notes[midiNote] : nullptr;
+    }
+
+    // midiNoteが属するチョークグループを返す(無ければnullptr)。
+    // グループ数・サイズは通常小さい(ハイハット程度)ため線形探索で十分。
+    const std::vector<uint8_t>* findChokeGroup(uint8_t midiNote) const noexcept {
+        for (const auto& group : chokeGroups) {
+            for (uint8_t n : group) {
+                if (n == midiNote) return &group;
+            }
+        }
+        return nullptr;
     }
 };
 
@@ -164,7 +181,9 @@ inline DrumNote fromLegacyDrumMap(const DRUMMAP& src,
     d.patchProg = patchProg;
     d.playNote  = src.num;
     d.fineTune  = static_cast<int16_t>(src.fnum);
-    d.fixedCh   = static_cast<int8_t>(src.ch);
+    // 旧DRUMMAP::chは物理チャンネル固定値だったが、fixed_ch廃止に伴い
+    // 変換先が無い。ハイハット等のチョークが必要な場合は、変換後に
+    // DrumPatch::chokeGroupsで明示的に再設定すること。
     d.pan       = src.pan;
     d.gateTime  = src.gate;
     std::strncpy(d.name, src.name, sizeof(d.name) - 1);
