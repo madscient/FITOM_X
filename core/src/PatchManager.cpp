@@ -493,22 +493,25 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // COPLRhythm(OPL系内蔵リズム)は、COPNARhythm/COPLLRhythmと同じ
     // 「チャンネル番号=楽器」というハードウェア制約を持つ(実機レジスタ
     // 0xBDのビット位置に楽器番号がそのまま対応する、OPL_new.cppの
-    // COPLRhythmクラス冒頭コメント参照)。resolveBuiltinRhythm(0x70)と
-    // 同じ設計を踏襲し、hwProgをそのままチャンネル番号としてforcedCh
-    // に設定する。範囲外なら解決失敗として扱う(誤った楽器が鳴るより
-    // 無音の方が安全、という判断も0x70と同じ)。この結果、HwBank内で
-    // 1チャンネル(楽器)につき使えるHwPatchエントリはhwProg=そのチャンネル
-    // 番号の1個のみとなる(同一楽器に複数の音色候補を持たせることは
-    // できない — 2026年7月、fixed_ch廃止に伴う設計統一)。
+    // COPLRhythmクラス冒頭コメント参照)。ただしOPL_RHYはHwBankから
+    // 「任意のHwPatch(音色)を指定可能」という設計のため、hwProg(格納
+    // スロット番号)をそのままチャンネル番号に使うことはできない
+    // (1チャンネルにつきHwBankスロットを1つしか使えなくなってしまう)。
+    // 代わりに、HwPatch自身が持つext.rhythmCh(対象チャンネル番号、
+    // HwPatch作成時に楽器ごとに指定)を参照する。未設定(0xFF)または
+    // 範囲外は解決失敗として扱う(誤った楽器が鳴るより無音の方が安全、
+    // という判断は0x70と同じ)。
     if (voicePatchType == VOICE_PATCH_OPL_RHY) {
         ISoundDevice* dev = config.getDevice(deviceIndex);
         const uint8_t chCount = dev ? dev->getChCount() : 0;
-        if (hwProg >= chCount) {
-            FITOM_LOG_WARN(ctx << " OPL_RHY: prog=" << (int)hwProg
-                << " is out of range (chCount=" << (int)chCount << ")");
+        const uint8_t rhythmCh = hwPatch->ext.rhythmCh;
+        if (rhythmCh >= chCount) {
+            FITOM_LOG_WARN(ctx << " OPL_RHY: bank=" << (int)hwBank
+                << " prog=" << (int)hwProg << " ext.rhythmCh=" << (int)rhythmCh
+                << " is unset or out of range (chCount=" << (int)chCount << ")");
             return ResolvedTriple{}; // 無効化して返す(無音)
         }
-        result.forcedCh = static_cast<int8_t>(hwProg);
+        result.forcedCh = static_cast<int8_t>(rhythmCh);
     }
 
     return result;
@@ -617,7 +620,8 @@ json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
             {"ops",ops},
             {"ext",json{{"DM0",p.ext.DM0},
                         {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP},
-                        {"target_voice_patch_type",p.ext.targetVoicePatchType}}}
+                        {"target_voice_patch_type",p.ext.targetVoicePatchType},
+                        {"rhythm_ch",p.ext.rhythmCh}}}
         };
     }
     // sw_bank/sw_prog は -1(参照なし)がデフォルトのため、設定されている
@@ -664,6 +668,7 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
         auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
         ge8("DM0",p.ext.DM0); ge8("ALG_EXT",p.ext.ALG_EXT);
         ge8("target_voice_patch_type",p.ext.targetVoicePatchType);
+        ge8("rhythm_ch",p.ext.rhythmCh);
         if (ex.contains("HWEP")) p.ext.HWEP = ex["HWEP"].get<uint16_t>();
     }
     return p;

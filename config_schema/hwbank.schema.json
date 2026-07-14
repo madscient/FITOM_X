@@ -198,6 +198,13 @@
                 "minimum": 0,
                 "maximum": 255,
                 "description": "PSG系共有バンク(voice_patch_type=0x40固定でロードされるバンク)専用。このパッチが実際に対象とするVoicePatchTypeの値(0x40=SSG/0x41=EPSG/0x42=DCSG/0x43=SAA/0x48=SCC)を指定する。0(デフォルト)=未設定、プロファイルのpsg_fallback_chipで指定されたチップにフォールバックする。PSG系以外のチップでは無視される。"
+              },
+              "rhythm_ch": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255,
+                "default": 255,
+                "description": "voice_patch_type=0x23(VOICE_PATCH_OPL_RHY、COPLRhythm)専用。このパッチが対象とする物理チャンネル(=楽器)番号を指定する: 0=HH, 1=CYM, 2=TOM, 3=SD, 4=BD。255(デフォルト)=未設定であり、OPL_RHYで使う場合は指定必須(未設定のまま解決しようとすると発音失敗になる)。patch_prog(HwBank内の格納スロット番号)とは独立した軸であり、同じ楽器に複数の音色バリエーションを別スロットとして用意できる。OPL_RHY以外のチップでは無視される。"
               }
             }
           },
