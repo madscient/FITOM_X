@@ -567,6 +567,10 @@ struct ResolvedLayer {
     // (2026年7月)。解決に失敗した場合もnullptrのままになるだけで、
     // HwPatch自体の発音は妨げられない(ソフトな失敗)。
     const SwPatch*   swPatch = nullptr;
+    // ハードウェア制約による強制チャンネル(-1=制約なし)。
+    // PatchManager::ResolvedTriple::forcedChからそのまま引き継がれる。
+    // 詳細はPatchManager.hのResolvedTriple::forcedChコメント参照。
+    int8_t           forcedCh = -1;
 };
 
 struct ResolvedPatch {

@@ -376,9 +376,9 @@ private:
         int8_t        swProg = -2;
         ResolvedPatch resolved;
         Patch         directStorage; // 直接モード時、resolveDirect()のstorage引数用
-        // DrumNote.swBank/swProg上書き解決後の実効SwPatch(layer[0]専用、
-        // fixedChと同じ制約)。applyNoteOnで計算し、timerCallbackの
-        // ソフトLFO/トレモロ更新で使い回すためにキャッシュする。
+        // DrumNote.swBank/swProg上書き解決後の実効SwPatch(layer[0]専用の
+        // 制約)。applyNoteOnで計算し、timerCallbackのソフトLFO/トレモロ
+        // 更新で使い回すためにキャッシュする。
         const SwPatch* effectiveSwPatch0 = nullptr;
         bool isValid() const { return resolved.isValid(); }
     };

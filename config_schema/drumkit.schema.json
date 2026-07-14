@@ -82,13 +82,6 @@
                 "default": 0,
                 "description": "ファインチューニング [cents]。"
               },
-              "fixed_ch": {
-                "type": "integer",
-                "minimum": -1,
-                "maximum": 15,
-                "default": -1,
-                "description": "固定チャンネル番号。-1 = 自動割り当て。ToneLayer[0] のデバイスに適用。"
-              },
               "pan": {
                 "type": "integer",
                 "minimum": -64,
@@ -101,21 +94,21 @@
                 "minimum": 0,
                 "maximum": 65535,
                 "default": 0,
-                "description": "ゲートタイム [タイマーティック]。0 = NoteOff で停止。fixed_ch と組み合わせてハイハット制御に使う。"
+                "description": "ゲートタイム [タイマーティック]。0 = NoteOff で停止。指定時間経過で自動的に停止する(クローズハイハット等、短く減衰する音色に使う)。オープン/クローズ等、複数ノート間の相互ダンプにはchoke_groups(トップレベル)を使う。"
               },
               "voice_patch_type": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 127,
                 "default": 0,
-                "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progは使わない(無視される)。楽器選択はfixed_chで行う(必須。設定を忘れると動的チャンネル割り当てにフォールバックし、意図しない楽器が鳴る可能性がある)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
+                "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progで楽器(チャンネル)番号を直接指定する(必須。範囲外の場合は解決失敗として扱われ、動的チャンネル割り当てへのフォールバックは行われない=誤った楽器が鳴るより無音を優先)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
               },
               "sw_bank": {
                 "type": "integer",
                 "minimum": -1,
                 "maximum": 127,
                 "default": -1,
-                "description": "パフォーマンスパッチ(SwPatch)参照の上書き。-1(無指定、デフォルト)の場合、そのノートが参照するHwPatch自身のsw_bank/sw_progにフォールバックする。ビルトインリズム音源(voice_patch_type=0x70)はHwPatchがチップ全体で共有されるダミーのため、楽器(fixed_ch)ごとに異なるパフォーマンスパッチを与えたい場合は、ここで明示的に指定する必要がある。指定先が解決できない場合は、パフォーマンスパッチが適用されないだけで無音にはならない。"
+                "description": "パフォーマンスパッチ(SwPatch)参照の上書き。-1(無指定、デフォルト)の場合、そのノートが参照するHwPatch自身のsw_bank/sw_progにフォールバックする。ビルトインリズム音源(voice_patch_type=0x70)はHwPatchがチップ全体で共有されるダミーのため、楽器(patch_prog)ごとに異なるパフォーマンスパッチを与えたい場合は、ここで明示的に指定する必要がある。指定先が解決できない場合は、パフォーマンスパッチが適用されないだけで無音にはならない。"
               },
               "sw_prog": {
                 "type": "integer",
@@ -126,6 +119,20 @@
               }
             }
           }
+        },
+        "choke_groups": {
+          "type": "array",
+          "description": "チョークグループのリスト。各グループは2つ以上のMIDIノート番号の配列で、そのうちいずれかがNoteOnされると、同グループ内の他の発音中ノートを強制的にダンプ(停止)する(例: クローズ/オープンハイハット)。ハードウェアのチャンネル共有には依存しない、CRhythmCh側の明示的な停止処理として実装される。1つのノートが複数グループに属することは想定していない(ロード時に検出し、後発のグループ登録を警告付きで無視する)。",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 127
+            }
+          },
+          "default": []
         },
         "_comment": {
           "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
@@ -190,13 +197,6 @@
           "default": 0,
           "description": "ファインチューニング [cents]。全ノート共通。"
         },
-        "fixed_ch": {
-          "type": "integer",
-          "minimum": -1,
-          "maximum": 15,
-          "default": -1,
-          "description": "固定チャンネル番号。-1 = 自動割り当て。"
-        },
         "pan": {
           "type": "integer",
           "minimum": -64,
@@ -216,14 +216,14 @@
           "minimum": 0,
           "maximum": 127,
           "default": 0,
-          "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progは使わない(無視される)。楽器選択はfixed_chで行う(必須。設定を忘れると動的チャンネル割り当てにフォールバックし、意図しない楽器が鳴る可能性がある)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
+          "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progで楽器(チャンネル)番号を直接指定する(必須。範囲外の場合は解決失敗として扱われ、動的チャンネル割り当てへのフォールバックは行われない=誤った楽器が鳴るより無音を優先)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
         },
         "sw_bank": {
           "type": "integer",
           "minimum": -1,
           "maximum": 127,
           "default": -1,
-          "description": "パフォーマンスパッチ(SwPatch)参照の上書き。-1(無指定、デフォルト)の場合、そのノートが参照するHwPatch自身のsw_bank/sw_progにフォールバックする。ビルトインリズム音源(voice_patch_type=0x70)はHwPatchがチップ全体で共有されるダミーのため、楽器(fixed_ch)ごとに異なるパフォーマンスパッチを与えたい場合は、ここで明示的に指定する必要がある。指定先が解決できない場合は、パフォーマンスパッチが適用されないだけで無音にはならない。"
+          "description": "パフォーマンスパッチ(SwPatch)参照の上書き。-1(無指定、デフォルト)の場合、そのノートが参照するHwPatch自身のsw_bank/sw_progにフォールバックする。ビルトインリズム音源(voice_patch_type=0x70)はHwPatchがチップ全体で共有されるダミーのため、楽器(patch_prog)ごとに異なるパフォーマンスパッチを与えたい場合は、ここで明示的に指定する必要がある。指定先が解決できない場合は、パフォーマンスパッチが適用されないだけで無音にはならない。"
         },
         "sw_prog": {
           "type": "integer",
@@ -249,6 +249,7 @@
     {
       "type": "routed",
       "name": "OPNA/B GM std kit",
+      "choke_groups": [[42, 46]],
       "notes": [
         {
           "note": 35,
@@ -257,7 +258,6 @@
           "patch_prog": 0,
           "play_note": 24,
           "fine_tune": 0,
-          "fixed_ch": -1,
           "pan": 0,
           "gate_time": 0
         },
@@ -268,9 +268,18 @@
           "patch_prog": 1,
           "play_note": 60,
           "fine_tune": 0,
-          "fixed_ch": 9,
           "pan": 20,
           "gate_time": 10
+        },
+        {
+          "note": 46,
+          "name": "Open Hi-Hat",
+          "patch_bank": 0,
+          "patch_prog": 1,
+          "play_note": 66,
+          "fine_tune": 0,
+          "pan": 20,
+          "gate_time": 0
         }
       ]
     },

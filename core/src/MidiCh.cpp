@@ -257,7 +257,16 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         uint8_t prevNote = 0xFF;
 
         uint8_t devCh = 0xFF;
-        if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
+        if (rl->forcedCh >= 0) {
+            // ハードウェア制約による強制チャンネル(ビルトインリズム等)。
+            // 同一レイヤーでは常に同じ値(progChange時に解決・固定済み)
+            // のため、mono_/legatoの「前ノートのチャンネルを奪う」処理は
+            // 不要 — 常にforcedChへ再アサインするだけでよい。phyCh_
+            // (NRPNによるユーザー明示指定)より優先する(理由はCRhythmCh
+            // 側の同種コメント参照)。
+            devCh = dev->assignCh(static_cast<uint8_t>(rl->forcedCh), this, patch,
+                                   vel, rl->swPatch, samplePatch);
+        } else if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
             devCh = dev->assignCh(phyCh_, this, patch, vel, rl->swPatch, samplePatch);
         } else if (mono_ && timbres_ > 0) {
             // モノ: 同一レイヤーの最初のノートを奪う
@@ -921,6 +930,17 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
     // 既発音を停止（同一ノートを上書き）
     noteSlots_[midiNote].stopAll();
 
+    // チョークグループ: 同一グループの他のノートが発音中なら強制ダンプ
+    // する(例: クローズ/オープンハイハット)。ハードウェアのチャンネル
+    // 共有には依存しない、ノート単位の明示的な停止処理。全ToneLayerを
+    // 止めるためマルチレイヤーでも正しく機能する。
+    if (currentPatch_) {
+        const auto* group = currentPatch_->findChokeGroup(midiNote);
+        if (group) {
+            for (uint8_t n : *group) noteSlots_[n].stopAll();
+        }
+    }
+
     // Patch を解決（キャッシュ優先）
     const ResolvedPatch* rp = resolveNote(midiNote, dn);
     if (!rp || !rp->isValid()) {
@@ -953,23 +973,17 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         if (!patch && !samplePatch) continue;
 
         // ─── チャンネル割り当て ─────────────────────────────────────
-        // 内蔵リズム音源(COPNARhythm/COPLLRhythm)は「チャンネル番号=
-        // 発音される楽器」というハードウェア制約があるため、
-        // voice_patch_type=0x70使用時はfixed_chの設定が必須。設定漏れ
-        // (fixedCh<0のまま)だと、以下のfixedCh分岐に入らず動的割り当て
-        // (allocCh)にフォールバックし、意図しない楽器が鳴る可能性が
-        // あるため警告する。
-        if (li == 0 && dn.fixedCh < 0) {
-            uint32_t devType = fitom_->getConfig().getDeviceType(rl->deviceIndex);
-            if (devType == DEVICE_OPNA_RHY || devType == DEVICE_OPLL_RHY) {
-                FITOM_LOG_WARN("CRhythmCh: note=" << (int)midiNote
-                    << " targets a builtin-rhythm device but fixed_ch is not set "
-                       "— falling back to dynamic allocation, wrong instrument may sound");
-            }
-        }
+        // 内蔵リズム音源(COPNARhythm/COPLLRhythm)の「チャンネル番号=
+        // 発音される楽器」というハードウェア制約は、rl->forcedChとして
+        // PatchManager::resolveBuiltinRhythm側で既に解決・検証済み。
+        // forcedChが無効(-1)のままここに来ることはない —
+        // resolveBuiltinRhythmはhwProgが範囲外の場合、レイヤー自体を
+        // 無効(rl->layer/hwPatchが無い状態)として返すため、この関数の
+        // 先頭で既にスキップされている。
+        //
         // このノートに適用すべきSwPatch(パフォーマンスパッチ)。
-        // DrumNote.swBank/swProgによる上書き(layer[0]専用、fixedChと
-        // 同じ制約)はresolveNote()内で事前に解決・キャッシュ済み
+        // DrumNote.swBank/swProgによる上書き(layer[0]専用の制約)は
+        // resolveNote()内で事前に解決・キャッシュ済み
         // (noteCache_[midiNote].effectiveSwPatch0)。layer[0]以外は、
         // そのレイヤーが参照するHwPatch自身のswPatchをそのまま使う。
         // assignCh/allocCh呼び出し時に直接渡す(2026年7月、
@@ -982,9 +996,9 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         adjVel = std::clamp(adjVel, 1, 127);
 
         uint8_t devCh = 0xFF;
-        if (li == 0 && dn.fixedCh >= 0) {
-            // layer[0] のみ fixedCh を適用
-            devCh = dev->assignCh(static_cast<uint8_t>(dn.fixedCh), this, patch,
+        if (rl->forcedCh >= 0) {
+            // ハードウェア制約による強制チャンネル(ビルトインリズム等)。
+            devCh = dev->assignCh(static_cast<uint8_t>(rl->forcedCh), this, patch,
                                    static_cast<uint8_t>(adjVel), effectiveSwPatch, samplePatch);
         } else {
             devCh = dev->allocCh(this, patch, static_cast<uint8_t>(adjVel),
