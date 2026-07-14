@@ -217,8 +217,23 @@ struct FmChipExt {
     // フォールバックする)。詳細はdocs/patch-structure-design.md参照。
     uint8_t targetVoicePatchType;
 
+    // VOICE_PATCH_OPL_RHY(COPLRhythm)専用(2026年7月新設)。このHwPatchが
+    // 対象とする物理チャンネル(=楽器)番号を指定する。0=HH, 1=CYM,
+    // 2=TOM, 3=SD, 4=BD(COPLRhythmの論理ch順序、OPL_new.cppのクラス
+    // コメント参照)。0xFF=未設定(VOICE_PATCH_OPL_RHYで使う場合は必須。
+    // 未設定のまま解決しようとするとエラー扱いになる)。
+    //
+    // hwProg(HwBank内の格納スロット番号)とは独立した軸である点に注意:
+    // hwProgは「どのHwPatch(音色)を選ぶか」、rhythmChは「その音色が
+    // どの物理チャンネル(楽器)向けか」を表す。これにより、1つの楽器
+    // (例: SD)に対して複数の音色バリエーションをHwBank内の別スロットに
+    // 用意できる(「音色データが任意に指定可能」というOPL_RHYの設計を
+    // 保つため。hwProgをそのままチャンネル番号として使ってしまうと、
+    // 1チャンネルにつきHwBankスロットを1つしか使えなくなってしまう)。
+    uint8_t rhythmCh;
+
     constexpr FmChipExt() noexcept
-        : DM0(0), ALG_EXT(0), HWEP(0), targetVoicePatchType(0) {}
+        : DM0(0), ALG_EXT(0), HWEP(0), targetVoicePatchType(0), rhythmCh(0xFF) {}
 };
 
 // ================================================================
