@@ -35,6 +35,34 @@ struct FITOMPatchInfo {
     int         layerCount;
 };
 
+// ─── チャンネルモニター情報 (MIDIモニター画面用) ──────────────────────────
+// Bank/Prog/Volumeは発音の有無に関わらず常に現在値を反映する
+// (CC#0/#32、プログラムチェンジ受信のたびに更新される)。
+// Note以降は、そのチャンネルが現在発音中の場合のみ意味を持つ
+// (sounding==falseの間は直前の発音内容が残っている可能性があるため、
+//  GUI側はsoundingを見て表示を切り替えること)。
+struct FITOMChannelMonitor {
+    int         ch = 0;              // 0-15
+    bool        isRhythm = false;    // GM2リズムチャンネルかどうか
+
+    int         bankNo = 0;
+    int         progNo = 0;
+    std::string bankName;            // 解決できない場合は空文字
+    std::string progName;            // 同上
+    uint8_t     volume = 0;
+
+    bool        sounding = false;    // 現在発音中か
+    uint8_t     lastNote = 0xFF;     // 0xFF=無し。発音中の場合、直近に
+                                      // 鳴らしたノート(グリッド内は
+                                      // 後発優先になる)
+    uint8_t     velocity = 0;
+    std::string noteName;            // "C4"等。lastNote==0xFFの場合は空文字
+    std::string deviceName;          // 解決できない場合は空文字
+    int         deviceIndex = -1;
+    uint8_t     fnumBlock = 0;
+    uint16_t    fnum = 0;
+};
+
 // ─── ブリッジクラス ─────────────────────────────────────────────────────────
 class FITOMBridge {
 public:
@@ -55,6 +83,11 @@ public:
     // ─── デバイス情報 ────────────────────────────────────────────────────
     std::vector<FITOMDeviceInfo> getDevices() const;
     std::vector<FITOMMidiInfo>   getMidiInputs() const;
+
+    // ─── MIDIモニター (MPU=16chの処理単位。現状最大4面) ────────────────
+    int getMpuCount() const;
+    // mpuIndexが範囲外の場合は空配列を返す。常に16要素(ch0-15)。
+    std::vector<FITOMChannelMonitor> getChannelMonitors(int mpuIndex) const;
 
     // ─── パッチ一覧 ──────────────────────────────────────────────────────
     std::vector<FITOMPatchInfo> getPatches(int bankNo) const;
