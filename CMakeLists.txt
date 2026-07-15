@@ -144,6 +144,33 @@ endif()
 
 # GUI
 if(FITOM_GUI_IMGUI)
+    # GLFW: 例示/テスト/ドキュメントはビルド不要
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
+    if(UNIX AND NOT APPLE)
+        # Wayland開発ツール(wayland-scanner等)が無い環境でも構成できる
+        # よう、既定ではX11のみでビルドする。Wayland対応が必要な場合は
+        # 呼び出し側で -DGLFW_BUILD_WAYLAND=ON を指定すること。
+        set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_X11     ON  CACHE BOOL "" FORCE)
+    endif()
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/glfw/CMakeLists.txt")
+        message(FATAL_ERROR
+            "third_party/glfw が見つかりません。\n"
+            "  git submodule add https://github.com/glfw/glfw.git third_party/glfw\n"
+            "  (または https://github.com/glfw/glfw/releases から取得して配置してください)")
+    endif()
+    add_subdirectory(third_party/glfw)
+
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/imgui/CMakeLists.txt")
+        message(FATAL_ERROR
+            "third_party/imgui が見つかりません(third_party/imgui/CMakeLists.txt はFITOM_X側で追加したラッパー)。\n"
+            "  git submodule add https://github.com/ocornut/imgui.git third_party/imgui")
+    endif()
+    add_subdirectory(third_party/imgui)
+
     add_subdirectory(gui/bridge)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/fitom_gui/CMakeLists.txt")
         add_subdirectory(apps/fitom_gui)
