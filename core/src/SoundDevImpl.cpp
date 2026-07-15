@@ -270,6 +270,18 @@ void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
         updateFnumber(ch, true);
 }
 
+// CC#77: ソフトウェアLFO Depthの演奏時上書き。
+void CSoundDevice::setLfoDepthOverride(uint8_t ch, int16_t cents)
+{
+    if (ch >= maxChs_) return;
+    auto& s = chState_[ch];
+    if (!s.isActive()) return;
+    s.proc.setLfoDepthOverride(cents);
+    // デプスが変わったので F-number を再計算(次tickを待たず即座に反映)
+    if (s.proc.channelLfoActive())
+        updateFnumber(ch, true);
+}
+
 void CSoundDevice::onMasterPitchChanged(double pitchHz)
 {
     // FnumRegistry のキャッシュはセッター側でクリア済み (呼び出し元責務)

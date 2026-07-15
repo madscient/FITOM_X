@@ -66,6 +66,18 @@ public:
     virtual void bankSelMSB(uint8_t msb)           {}
     virtual void bankSelLSB(uint8_t lsb)           {}
 
+    // CC#14/#15(非標準): HW LFO搭載チップ(OPM/OPZ等)のDepth/Rateを
+    // 直接設定する。詳細はCInstCh::hwLfoDepth_のコメント参照。
+    virtual void setHwLfoDepth(uint8_t dep)        {}
+    virtual void setHwLfoRate(uint8_t rate)        {}
+
+    // CC#76/77/78(GM2 Sound Controller 7/8/9): ソフトウェアLFO
+    // (音色固有LFO、sw.LFR>0のケース)のRate/Depth/Delayを演奏時に
+    // 上書きする。詳細はCInstCh::lfoRateOverride_のコメント参照。
+    virtual void setSoftLfoRate(uint8_t rate)      {}
+    virtual void setSoftLfoDepth(uint8_t depth)    {}
+    virtual void setSoftLfoDelay(uint8_t delay)    {}
+
     // RPN / NRPN
     virtual void setBendRange(uint8_t range)       {}
     virtual void setFineTune(uint16_t tune)        {}
@@ -187,6 +199,11 @@ public:
     void setForceDamp(bool fd) override;
     void bankSelMSB(uint8_t msb) override;
     void bankSelLSB(uint8_t lsb) override;
+    void setHwLfoDepth(uint8_t dep) override;
+    void setHwLfoRate(uint8_t rate) override;
+    void setSoftLfoRate(uint8_t rate) override;
+    void setSoftLfoDepth(uint8_t depth) override;
+    void setSoftLfoDelay(uint8_t delay) override;
     void setBendRange(uint8_t range) override;
     void setFineTune(uint16_t tune) override;
     void setCoarseTune(uint16_t tune) override;
@@ -319,11 +336,34 @@ private:
     // されないため)。
     bool     voiceLimitOverride_ = false;
     bool     mono_       = false;
+    // CC#1(モジュレーション)。ソフトウェアLFO(setCC1Modulation経由の
+    // ピッチ揺れ)専用。2026年7月、ハードウェアLFO(HW LFO搭載チップの
+    // enablePM/setLFODepth等)への関与を廃止し独立させた。
     uint8_t  pmDepth_        = 0;
-    uint8_t  amDepth_        = 0;
-    uint8_t  pmRate_         = 0;
-    uint8_t  amRate_         = 0;
     int16_t  modDepthRange_  = 32; // RPN#5: CC#1=127 時の最大デプス [Fnum steps]
+    // CC#14/#15(非標準)。HW LFO搭載チップ(OPM/OPZ等)のDepth/Rateを
+    // 直接設定する。チップ内に1系統のみの共有リソースのため、AM/PM
+    // どちらとして効くかはチャンネルではなくボイス自身のAMS/PMSが
+    // 決める(noteOn()でenablePM/enableAMを無条件に呼び、各デバイス側が
+    // 自分のAMS/PMS値に応じて実質的な有効/無効を判断する)。
+    uint8_t  hwLfoDepth_ = 0;
+    uint8_t  hwLfoRate_  = 0;
+
+    // CC#76/78(ソフトウェアLFO Rate/Delay)。-1(センチネル)=上書きなし、
+    // 音色データ(sw.LFR/LFD)をそのまま使う。LFO(再)始動時にしか意味を
+    // 持たない(=次のノートオンから反映される)ため、DepthのようにCC受信時
+    // に発音中のノートへ即座にpushする経路は持たない。noteOn()側で
+    // SwPatchの一時コピーへ焼き込んでからassignCh/allocChへ渡す
+    // (VoiceProcessor::onNoteOn()はassignCh()の内部で、CInstChがdevChを
+    // 受け取るより前に呼ばれてしまうため、後からch単位でpushする方式
+    // では最初のノートに間に合わない)。
+    int16_t  lfoRateOverride_  = -1;
+    int16_t  lfoDelayOverride_ = -1;
+    // CC#77(ソフトウェアLFO Depth)。-2000(センチネル、depthCentsの
+    // 正当範囲±1200の外側)=上書きなし。VoiceProcessor側で毎tick
+    // 再計算されるため、こちらはCC受信時に発音中の全ノートへ即座に
+    // pushできる(setLfoDepthOverride参照)。
+    int16_t  lfoDepthOverrideCents_ = -2000;
     uint8_t  phyCh_      = 127;
 
     // ─── パッチ管理 ────────────────────────────────────────────────

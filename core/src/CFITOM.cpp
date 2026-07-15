@@ -769,6 +769,8 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     case 7:   midicch->setVolume(val); break;
     case 10:  midicch->setPanpot(val); break;
     case 11:  midicch->setExpression(val); break;
+    case 14:  midicch->setHwLfoDepth(val); break;  // 非標準: HW LFO Depth
+    case 15:  midicch->setHwLfoRate(val); break;   // 非標準: HW LFO Rate
     case 32:  midicch->bankSelLSB(val); break;
     case 64:  midicch->setSustain(val); break;      // Sustain (Damper) Pedal
     case 65:  midicch->setPortamento(val >= 64); break;
@@ -776,6 +778,9 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     // 67: Soft Pedal — 非対応 (FM音源には直接対応するパラメータがないため)
     case 68:  midicch->setLegato(val >= 64); break;
     case 5:   midicch->setPortTime(val); break;
+    case 76:  midicch->setSoftLfoRate(val); break;   // GM2 Sound Controller 7: Vibrato Rate
+    case 77:  midicch->setSoftLfoDepth(val); break;  // GM2 Sound Controller 8: Vibrato Depth
+    case 78:  midicch->setSoftLfoDelay(val); break;  // GM2 Sound Controller 9: Vibrato Delay
     case 84:  midicch->setPortamentoSource(val); break; // Portamento Control (Source Note)
     case 120: midicch->allSoundOff(); break;        // All Sound Off (force damp)
     case 121: midicch->resetAllCtrl(); break;

@@ -26,9 +26,7 @@ public:
                        -61,            // origin note O4C+
                        FnumTableType::Fnumber,
                        0x100)
-        , lfoOwner_(nullptr)
-        , lfoUsed_(0)
-        , lfoAmDepth_(0), lfoPmDepth_(0), lfoAmRate_(0), lfoPmRate_(0)
+        , lfoDepth_(0), lfoRate_(0)
     {
         opCount_ = 4;
         masterTune_ = computeMasterTune(440.0); // デフォルト A4=440Hz
@@ -44,7 +42,7 @@ public:
     void reset() override {
         CSoundDevice::reset();
         for (int i = 0x20; i < 0xFF; ++i) setReg(static_cast<uint16_t>(i), 0, true);
-        lfoOwner_ = nullptr; lfoUsed_ = 0;
+        lfoDepth_ = 0; lfoRate_ = 0;
     }
 
 protected:
@@ -223,56 +221,58 @@ protected:
         return CSoundDevice::queryCh(owner, patch, mode);
     }
 
-    // HW LFO (PM) — チップ全体で1リソース
+    // HW LFO — チップ全体でRate/Depthは1系統のみの共有リソース(実機の
+    // 制約そのもの)だが、チャンネルごとのAMS/PMS感度(reg 0x38+ch)は
+    // 独立しているため、複数チャンネルが同時に(異なるAMS/PMS配分で)
+    // 参照して構わない。以前はチャンネルをまたいだ「所有権」の奪い合い
+    // (lfoOwner_、他chのAMS/PMSビットを強制クリア)を行っていたが、
+    // これは正当な同時使用のケース(複数チャンネルで同時にAMS>0または
+    // PMS>0のボイスを鳴らす)を誤って阻害するため撤廃した
+    // (2026年7月)。AM/PMいずれとして効くかは、このチャンネルに
+    // 現在割り当てられているボイス自身のAMS/PMS値で決まる(0ならその
+    // チャンネルには実質無効果)。
     void enablePM(uint8_t ch, bool on) override {
         const auto& s = chState_[ch];
-        if (on && s.owner) {
-            if (lfoOwner_ != s.owner) {
-                clearLfoUsers();
-                lfoOwner_ = s.owner;
-            }
-            lfoUsed_ |= (1u << ch);
+        if (on) {
             setReg(static_cast<uint16_t>(0x38 + ch),
                    static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x38 + ch)) & 0x07)
                    | ((s.hwPatch.hw.PMS & 7) << 4)));
         } else {
             setReg(static_cast<uint16_t>(0x38 + ch),
                    static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x38 + ch)) & 0x07));
-            lfoUsed_ &= ~(1u << ch);
-            if (!lfoUsed_) lfoOwner_ = nullptr;
         }
     }
 
     void enableAM(uint8_t ch, bool on) override {
         const auto& s = chState_[ch];
-        if (on && s.owner) {
-            if (lfoOwner_ != s.owner) {
-                clearLfoUsers();
-                lfoOwner_ = s.owner;
-            }
-            lfoUsed_ |= (1u << ch);
+        if (on) {
             setReg(static_cast<uint16_t>(0x38 + ch),
                    static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x38 + ch)) & 0x70)
                    | (s.hwPatch.hw.AMS & 3)));
         } else {
             setReg(static_cast<uint16_t>(0x38 + ch),
                    static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x38 + ch)) & 0x70));
-            lfoUsed_ &= ~(1u << ch);
-            if (!lfoUsed_) lfoOwner_ = nullptr;
         }
     }
 
-    void setPMDepth(uint8_t, uint8_t dep) override {
-        if (lfoPmDepth_ != dep) { lfoPmDepth_ = dep; setReg(0x19, 0x80 | dep); }
+    // Depth/Rateはチップ内蔵LFOが1系統のみのため、チャンネル引数は
+    // 使わない(全チャンネル共通)。PMD/AMDは同じレジスタ0x19を
+    // MSBビットで書き分ける2つの独立したラッチだが、AM/PMどちらとして
+    // 効くかは各チャンネルのAMS/PMSが決めるため、setLFODepth()は常に
+    // 両方のラッチへ同じ値を書き込む(2026年7月、setPMDepth/setAMDepth
+    // を統合)。
+    void setLFODepth(uint8_t, uint8_t dep) override {
+        if (lfoDepth_ == dep) return;
+        lfoDepth_ = dep;
+        setReg(0x19, static_cast<uint8_t>(0x80 | dep)); // PMDラッチ
+        setReg(0x19, static_cast<uint8_t>(dep & 0x7F));  // AMDラッチ
     }
-    void setAMDepth(uint8_t, uint8_t dep) override {
-        if (lfoAmDepth_ != dep) { lfoAmDepth_ = dep; setReg(0x19, dep & 0x7F); }
-    }
-    void setPMRate(uint8_t, uint8_t rate) override {
-        if (lfoPmRate_ != rate) { lfoPmRate_ = rate; setReg(0x18, static_cast<uint8_t>(rate << 1)); }
-    }
-    void setAMRate(uint8_t, uint8_t rate) override {
-        if (lfoAmRate_ != rate) { lfoAmRate_ = rate; setReg(0x18, static_cast<uint8_t>(rate << 1)); }
+    // LFRQ(レジスタ0x18)はAM/PMで共有の単一レジスタのため、元々
+    // setPMRate/setAMRateは同一の書き込みだった(2026年7月、統合)。
+    void setLFORate(uint8_t, uint8_t rate) override {
+        if (lfoRate_ == rate) return;
+        lfoRate_ = rate;
+        setReg(0x18, static_cast<uint8_t>(rate << 1));
     }
 
 protected:
@@ -280,22 +280,12 @@ protected:
 private:
     static const uint8_t kKeyCode[12];
 
-    IMidiCh* lfoOwner_;
-    uint32_t lfoUsed_;
-    uint8_t  lfoAmDepth_, lfoPmDepth_, lfoAmRate_, lfoPmRate_;
+    uint8_t  lfoDepth_ = 0, lfoRate_ = 0;
     int16_t  masterTune_ = 0;
 
     bool isCarrier(uint8_t ch, int op) const {
         uint8_t alg = chState_[ch].hwPatch.hw.ALG & 7;
         return (kCarrierMask[alg] >> op) & 1;
-    }
-    void clearLfoUsers() {
-        for (int i = 0; i < 8; ++i) {
-            if (lfoUsed_ & (1u << i))
-                setReg(static_cast<uint16_t>(0x38 + i),
-                       static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x38 + i)) & 0x03));
-        }
-        lfoUsed_ = 0;
     }
 
     // masterTune_: note=69(A4) → KC=0x4C(oct4,A), KF=0 になる基準オフセット

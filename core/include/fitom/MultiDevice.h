@@ -96,6 +96,7 @@ public:
     const HwPatch* getCurrentPatch(uint8_t ch) const override = 0;
     uint8_t        getCurrentNote(uint8_t ch) const override = 0;
     void    setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) override = 0;
+    void    setLfoDepthOverride(uint8_t ch, int16_t cents) override = 0;
     void    updateTL(uint8_t ch, uint8_t op, uint8_t tl) override = 0;
 
     // グローバルch → 実チップのローカルchへ変換して ChState を返す
@@ -224,11 +225,26 @@ public:
     void setExpression(uint8_t ch, uint8_t e, bool u) override         SPAN_DELEGATE(setExpression, e, u)
     void setPanpot(uint8_t ch, int8_t p, bool u) override              SPAN_DELEGATE(setPanpot, p, u)
     void setSustain(uint8_t ch, bool s, bool u) override               SPAN_DELEGATE(setSustain, s, u)
+    // HW LFO: OPM/OPZ等がスパン(複数物理チップを1つのデバイスとして
+    // 束ねる構成)されている場合、Depth/Rateは物理チップごとに独立した
+    // リソースのため、そのチャンネルが実際に発音している物理チップへ
+    // 正しく転送する必要がある(2026年7月追加。以前はCMultiDevice/
+    // CSpanDeviceがこれらのメソッドを一切オーバーライドしておらず、
+    // ISoundDevice基底のno-opにフォールバックしていたため、スパン構成
+    // ではHW LFOが常に無効化されたままだった)。
+    void enablePM(uint8_t ch, bool on) override                        SPAN_DELEGATE(enablePM, on)
+    void enableAM(uint8_t ch, bool on) override                        SPAN_DELEGATE(enableAM, on)
+    void setLFODepth(uint8_t ch, uint8_t dep) override                 SPAN_DELEGATE(setLFODepth, dep)
+    void setLFORate(uint8_t ch, uint8_t rate) override                 SPAN_DELEGATE(setLFORate, rate)
 #undef SPAN_DELEGATE
 
     void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) override {
         auto [dev, lch] = resolveGlobalCh(ch);
         if (dev) dev->setCC1Modulation(lch, cc1, maxDepth);
+    }
+    void setLfoDepthOverride(uint8_t ch, int16_t cents) override {
+        auto [dev, lch] = resolveGlobalCh(ch);
+        if (dev) dev->setLfoDepthOverride(lch, cents);
     }
     void updateTL(uint8_t ch, uint8_t op, uint8_t tl) override {
         auto [dev, lch] = resolveGlobalCh(ch);
@@ -369,10 +385,20 @@ public:
     void setExpression(uint8_t ch, uint8_t e, bool u) override         UNISON_BROADCAST(setExpression, e, u)
     void setPanpot(uint8_t ch, int8_t p, bool u) override              UNISON_BROADCAST(setPanpot, p, u)
     void setSustain(uint8_t ch, bool s, bool u) override               UNISON_BROADCAST(setSustain, s, u)
+    // HW LFO: ユニゾン構成は全チップが同じchで同時発音するため、
+    // 単純に全チップへ同じ値をブロードキャストする(2026年7月追加、
+    // 理由はCSpanDevice側の同種コメント参照)。
+    void enablePM(uint8_t ch, bool on) override                        UNISON_BROADCAST(enablePM, on)
+    void enableAM(uint8_t ch, bool on) override                        UNISON_BROADCAST(enableAM, on)
+    void setLFODepth(uint8_t ch, uint8_t dep) override                 UNISON_BROADCAST(setLFODepth, dep)
+    void setLFORate(uint8_t ch, uint8_t rate) override                 UNISON_BROADCAST(setLFORate, rate)
 #undef UNISON_BROADCAST
 
     void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) override {
         for (auto* c : chips_) c->setCC1Modulation(ch, cc1, maxDepth);
+    }
+    void setLfoDepthOverride(uint8_t ch, int16_t cents) override {
+        for (auto* c : chips_) c->setLfoDepthOverride(ch, cents);
     }
     void updateTL(uint8_t ch, uint8_t op, uint8_t tl) override {
         for (auto* c : chips_) c->updateTL(ch, op, tl);
