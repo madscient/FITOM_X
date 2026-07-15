@@ -231,14 +231,29 @@ private:
         // MIDI NoteOff は来たが sostenutoHeld のため noteOff() を保留中。
         // ペダルが離されたタイミングで実際に noteOff() する。
         bool pendingRelease = false;
+        // ボイス数上限スティール用の発音順シーケンス番号。同一NoteOn
+        // イベントで生成された全レイヤーのエントリは同じ値を持つ
+        // (noteOn()の先頭で1回だけ採番するため)。
+        uint32_t seq = 0;
         bool isValid() const { return devCh != 0xFF; }
     };
     static constexpr int MAX_NOTES = 16;
     std::array<NoteHist, MAX_NOTES> notes_;
-    int timbres_ = 0;   // 現在発音中のノート数
+    int timbres_ = 0;   // 現在発音中のレイヤーエントリ数(notes_[]の有効件数)
+    uint32_t noteSeq_ = 0;  // enterNote()の発音順を追跡する単調増加カウンタ
 
     NoteHist* findNote(uint8_t note, int layerIdx = -1);
-    void enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev);
+    void enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev, uint32_t seq);
+
+    // ボイス数上限(voiceLimit_)によるスティール。noteOn()の先頭で、
+    // 新しいノートを受け付ける前に呼ぶ。現在保持中の「ノート」
+    // (notes_[]はレイヤー単位のエントリのため、複数レイヤーを持つ
+    // 音色は複数エントリになるが、ここではnote番号ごとにユニークな
+    // 1ボイスとして数える)が上限に達していれば、発音順が最も古い
+    // ノート(seqが最小)が使う全レイヤーを丸ごと解放する。
+    // モノフォニックモード(mono_)時は、既存の同一レイヤー内スティール
+    // (noteOn()内のmono_分岐)で対応するため、この関数は呼ばれない。
+    void stealOldestNoteIfNeeded();
 
     // Sostenuto OFF 時: pendingRelease 中のノートを実際に noteOff() する。
     // ボイススティールで devCh が別の発音に再利用されていないか
@@ -281,6 +296,17 @@ private:
     uint8_t  portaSourceNote_ = 0xFF;
     bool     forceDamp_  = false;
     uint8_t  poly_       = 1;
+    // 実効ボイス数上限。progChange()実行時、voiceLimitOverride_==falseなら
+    // poly_と同じ値に初期化される。CC#126(Mono Mode On, M>=2 または M=0)
+    // で明示的に上書きでき、CC#127(Poly Mode On)で解除されpoly_に戻る。
+    // mono_==trueの間は参照されない(noteOn()内の既存のモノ処理が別途
+    // 優先される)。
+    uint8_t  voiceLimit_ = 1;
+    // trueの間、progChange()によるpoly_再計算時もvoiceLimit_を上書き
+    // しない(CC#126で明示指定した値をパッチ切替後も維持する。MIDI規格上
+    // チャンネルモードメッセージはプログラムチェンジで暗黙にリセット
+    // されないため)。
+    bool     voiceLimitOverride_ = false;
     bool     mono_       = false;
     uint8_t  pmDepth_        = 0;
     uint8_t  amDepth_        = 0;
