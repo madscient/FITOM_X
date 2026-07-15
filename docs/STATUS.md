@@ -69,8 +69,9 @@
 
 | ファイル | 状態 | 内容 |
 |---|---|---|
-| `gui/mfc_shim/FITOMBridge.h` | ✅ | MFC ↔ コアブリッジ API |
-| `gui/mfc_shim/FITOMBridge.cpp` | ✅ | ブリッジ実装 |
+| `gui/bridge/FITOMBridge.h` | ✅ | UIフレームワーク非依存のコアブリッジAPI |
+| `gui/bridge/FITOMBridge.cpp` | ✅ | ブリッジ実装 |
+| `apps/fitom_gui/` | 🚧 | Dear ImGui GUIアプリケーション(現状はブリッジとのリンク確認のみのプレースホルダ、ImGui本体・レンダラー未導入) |
 
 ### 設定スキーマ・ドキュメント
 
@@ -138,7 +139,7 @@
 - VoicePatchType 未実装チップ (MA3系列, SAA1099, AWM) のドライバ実装
 - OPL/OPL2/OPL3自体のリズムモード対応（現状OPLL系のみ対応。COPL_new.cppにリズム関連コードなし）
 - VoicePatchType 完全一致以外へのフォールバック（旧FITOMの互換リスト相当、将来実装予定）
-- GUI (Qt6) 実装
+- GUI (Dear ImGui) 実装(`apps/fitom_gui`。現状はプレースホルダのみ、ImGui本体・レンダラー/ウィンドウバックエンドの導入から)
 - OPZ の2系統LFOリソース対応（旧FITOMも未完成のため現状維持）
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ未完了
 
