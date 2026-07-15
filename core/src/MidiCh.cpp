@@ -143,6 +143,9 @@ void CInstCh::progChange(uint8_t prog)
         if (chCount > 0 && chCount < newPoly) newPoly = chCount;
     }
     poly_ = (newPoly > 0) ? std::min<uint8_t>(newPoly, MAX_NOTES) : 1;
+    // CC#126で明示的にボイス数上限を指定していない限り、パッチの
+    // 自動算出値に追従させる。
+    if (!voiceLimitOverride_) voiceLimit_ = poly_;
 
     FITOM_LOG_DEBUG("CInstCh ch=" << static_cast<int>(ch_)
         << ": ProgChange " << static_cast<int>(prog)
@@ -218,6 +221,15 @@ std::pair<ISoundDevice*, uint8_t> allocChWithFallback(
 void CInstCh::noteOn(uint8_t note, uint8_t vel)
 {
     if (resolver_.layerCount() == 0) return;
+
+    // ボイス数上限によるスティール(モノフォニックモード時は、既存の
+    // 同一レイヤー内スティール(下のmono_分岐)で対応するため対象外)。
+    if (!mono_) stealOldestNoteIfNeeded();
+
+    // このNoteOnイベントで生成される全レイヤーのエントリに共通の
+    // 発音順シーケンス番号(ボイス数上限スティールでの「最も古いノート」
+    // 判定に使う)。
+    const uint32_t thisSeq = ++noteSeq_;
 
     for (int li = 0; li < resolver_.layerCount(); ++li) {
         const auto* rl = resolver_.layer(li);
@@ -394,7 +406,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             dev->setVelocity(devCh, vel);
         }
 
-        enterNote(li, devCh, note, dev);
+        enterNote(li, devCh, note, dev, thisSeq);
     }
 }
 
@@ -752,25 +764,40 @@ void CInstCh::dataDecrement(uint16_t reg, bool isNrpn)
 // ----------------------------------------------------------------
 //  CC#126 (Mono Mode On) / CC#127 (Poly Mode On)
 //
-//  voices(CC#126の値)はMIDI規格上「モノフォニックボイスを割り当てる
-//  チャンネル数」を意味するが、本チャンネルは単一MIDIチャンネル内で
-//  複数ノートを個別に管理するアーキテクチャのため、複数チャンネルに
-//  またがる割り当ての概念がない。値に関わらずこのチャンネル自体を
-//  モノフォニックモードにする。
+//  voices(CC#126の値、M)の扱い:
+//   M=1        : 真のモノフォニック。レガート(CC#68)・ポルタメント
+//                (CC#5/#65/#84)が機能する既存のモノ専用経路
+//                (noteOn()内のmono_分岐)を有効にする。
+//   M=0 または
+//   M>=2       : レガート/ポルタメントとの整合性のため、mono_は
+//                falseのまま(=ポリフォニック動作)とし、代わりに
+//                「ボイス数上限付きスティール」(voiceLimit_)を有効に
+//                する。M=0は規格上「使える分だけ」を意味するため、
+//                パッチが自動算出したpoly_をそのまま上限に使う。
+//                M>=2はその値(MAX_NOTES上限)を明示的なボイス数上限
+//                として使う。
 // ----------------------------------------------------------------
-void CInstCh::setMonoMode(uint8_t /*voices*/)
+void CInstCh::setMonoMode(uint8_t voices)
 {
-    if (mono_) return;
     allNoteOff();   // モード切替時は発音中のノートを一旦整理する(旧実装と同じ方針)
-    mono_ = true;
+    if (voices == 1) {
+        mono_ = true;
+    } else {
+        mono_ = false;
+        voiceLimitOverride_ = true;
+        voiceLimit_ = (voices == 0)
+            ? poly_
+            : std::min<uint8_t>(voices, static_cast<uint8_t>(MAX_NOTES));
+    }
 }
 
 void CInstCh::setPolyMode()
 {
-    if (!mono_) return;
     allNoteOff();
     mono_   = false;
     legato_ = false;
+    voiceLimitOverride_ = false;
+    voiceLimit_ = poly_;
 }
 
 // ----------------------------------------------------------------
@@ -850,7 +877,7 @@ CInstCh::NoteHist* CInstCh::findNote(uint8_t note, int layerIdx)
     return nullptr;
 }
 
-void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev)
+void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev, uint32_t seq)
 {
     // 空きスロットを探す
     for (auto& h : notes_) {
@@ -859,16 +886,70 @@ void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice*
             h.devCh    = devCh;
             h.note     = note;
             h.dev      = dev;
+            h.seq      = seq;
             ++timbres_;
             return;
         }
     }
-    // 空きなし: 最も古いエントリを上書き (ポリフォニーオーバー)
+    // 空きなし(MAX_NOTES件全て使用中): stealOldestNoteIfNeeded()が
+    // noteOn()の先頭で毎回ボイス数上限を強制しているため、通常は
+    // ここに到達しない。万一到達した場合に備え、最も古いエントリ
+    // (notes_[0])が使っていたデバイスチャンネルを正しく解放してから
+    // 上書きする(2026年7月修正: 以前はnoteOff()を呼ばずに上書きして
+    // おり、デバイスチャンネルが解放されないまま迷子になっていた)。
+    if (notes_[0].dev) notes_[0].dev->noteOff(notes_[0].devCh);
     notes_[0].layerIdx = static_cast<uint8_t>(layerIdx);
     notes_[0].devCh    = devCh;
     notes_[0].note     = note;
     notes_[0].dev      = dev;
+    notes_[0].seq      = seq;
+    notes_[0].sostenutoHeld  = false;
+    notes_[0].pendingRelease = false;
     FITOM_LOG_DEBUG("CInstCh ch=" << (int)ch_ << ": note history overflow");
+}
+
+// ボイス数上限(voiceLimit_)によるスティール。mono_==trueの間は呼ばれない
+// (noteOn()側で分岐)。
+void CInstCh::stealOldestNoteIfNeeded()
+{
+    if (voiceLimit_ == 0) return;
+
+    // notes_[]はレイヤー単位のエントリのため、note番号ごとにユニークな
+    // 1ボイスとして集計し直す(同じnoteの複数レイヤーは同じseqを持つ)。
+    uint8_t  heldNotes[MAX_NOTES];
+    uint32_t heldSeq[MAX_NOTES];
+    int heldCount = 0;
+    for (const auto& h : notes_) {
+        if (!h.isValid()) continue;
+        int idx = -1;
+        for (int k = 0; k < heldCount; ++k) {
+            if (heldNotes[k] == h.note) { idx = k; break; }
+        }
+        if (idx < 0) {
+            heldNotes[heldCount] = h.note;
+            heldSeq[heldCount]   = h.seq;
+            ++heldCount;
+        } else if (h.seq < heldSeq[idx]) {
+            heldSeq[idx] = h.seq;
+        }
+    }
+
+    if (heldCount < static_cast<int>(voiceLimit_)) return;
+
+    // 発音順が最も古い(seqが最小)ノートを選ぶ
+    int oldestIdx = 0;
+    for (int k = 1; k < heldCount; ++k) {
+        if (heldSeq[k] < heldSeq[oldestIdx]) oldestIdx = k;
+    }
+    const uint8_t stealNote = heldNotes[oldestIdx];
+
+    for (int hi = 0; hi < MAX_NOTES; ++hi) {
+        auto& h = notes_[hi];
+        if (h.isValid() && h.note == stealNote) {
+            if (h.dev) h.dev->noteOff(h.devCh);
+            leaveNote(hi);
+        }
+    }
 }
 
 void CInstCh::leaveNote(int histIdx)
