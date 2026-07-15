@@ -78,6 +78,17 @@ public:
     virtual void setSoftLfoDepth(uint8_t depth)    {}
     virtual void setSoftLfoDelay(uint8_t delay)    {}
 
+    // SysEx(private, 00H 48H 01H, sub-cmd 0x01, target-type 0x00)による
+    // HwPatchパラメータオーバーライド。jsonTextが空オブジェクト"{}"の
+    // 場合は、指定レイヤーのオーバーライドを解除する(音色本来の値に
+    // 戻る)。それ以外はJSONをパースし、現在有効なHwPatchへ差分マージ
+    // する。戻り値はJSON構文が正しかったかどうか(対象レイヤーが
+    // 存在しない等の理由による無視はtrueのまま扱う、詳細は実装参照)。
+    virtual bool mergeHwPatchOverride(uint8_t layer, const std::string& jsonText) { return false; }
+    // プログラムチェンジ受信時に呼ばれる。全レイヤーのオーバーライドを
+    // 解除する。
+    virtual void clearHwPatchOverrides() {}
+
     // RPN / NRPN
     virtual void setBendRange(uint8_t range)       {}
     virtual void setFineTune(uint16_t tune)        {}
@@ -204,6 +215,8 @@ public:
     void setSoftLfoRate(uint8_t rate) override;
     void setSoftLfoDepth(uint8_t depth) override;
     void setSoftLfoDelay(uint8_t delay) override;
+    bool mergeHwPatchOverride(uint8_t layer, const std::string& jsonText) override;
+    void clearHwPatchOverrides() override;
     void setBendRange(uint8_t range) override;
     void setFineTune(uint16_t tune) override;
     void setCoarseTune(uint16_t tune) override;
@@ -380,6 +393,16 @@ private:
     // 次のプログラムチェンジ受信まで有効(progChange()でクリアされる)。
     int8_t   swBankOverride_ = -1;
     int8_t   swProgOverride_ = -1;
+
+    // SysExによるHwPatchパラメータオーバーライド(target-type=0x00)。
+    // レイヤーごとに独立して保持する。有効なレイヤーは
+    // hwPatchOverrideActive_[layer]==trueの間、noteOn()で
+    // rl->hwPatchの代わりにhwPatchOverride_[layer]を使う。
+    // 初回のマージ時は、その時点でこのチャンネルが実際に使っている
+    // HwPatch(resolver_.layer(layer)->hwPatch)を起点にする。
+    // 次のプログラムチェンジ受信まで有効(clearHwPatchOverrides参照)。
+    std::array<HwPatch, MAX_TONE_LAYERS> hwPatchOverride_{};
+    std::array<bool, MAX_TONE_LAYERS>    hwPatchOverrideActive_{};
 
     // ─── パッチ管理 ────────────────────────────────────────────────
     PatchManager*  patchMgr_  = nullptr;

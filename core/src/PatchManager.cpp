@@ -674,6 +674,40 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
     return p;
 }
 
+// SysExによるHwPatchパラメータオーバーライド用のマージ実装
+// (2026年7月新設)。jsonToHwPatch()と異なり、まっさらなHwPatchからでは
+// なく既存のtargetへ差分マージする(存在するキーのみ上書き)。
+// id/name/builtinはこの経路では対象外(意図的に無視する。builtinの
+// 有無で分岐すると「音色データが標準のHwPatch形状かどうか」の判断が
+// 必要になり複雑化するため、そもそも対象にしない)。
+// "ops"はnull/{}の要素をスキップとして扱う点がjsonToHwPatch()との
+// 主な違い(全要素を常に上書きするjsonToHwPatch()に対し、こちらは
+// 明示的に指定された要素だけを上書きする)。
+static void mergeHwPatchFromJson(const json& j, HwPatch& target) {
+    auto g8 = [&](const char* k, uint8_t& v){ if(j.contains(k)) v=j[k].get<uint8_t>(); };
+    g8("FB",target.hw.FB); g8("ALG",target.hw.ALG); g8("AMS",target.hw.AMS);
+    g8("PMS",target.hw.PMS); g8("NFQ",target.hw.NFQ); g8("FB2",target.hw.FB2);
+    if (j.contains("ops") && j["ops"].is_array()) {
+        const auto& opsArr = j["ops"];
+        for (int i = 0; i < MAX_HW_OPS && i < static_cast<int>(opsArr.size()); ++i) {
+            const auto& oj = opsArr[i];
+            if (oj.is_null()) continue;                     // null = スキップ
+            if (oj.is_object() && oj.empty()) continue;      // {} = スキップ
+            jsonToHwOp(oj, target.hwOp[i]);   // 既存のtarget.hwOp[i]へマージ
+        }
+    }
+    if (j.contains("ext")) {
+        const auto& ex = j["ext"];
+        auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
+        ge8("DM0",target.ext.DM0); ge8("ALG_EXT",target.ext.ALG_EXT);
+        ge8("target_voice_patch_type",target.ext.targetVoicePatchType);
+        ge8("rhythm_ch",target.ext.rhythmCh);
+        if (ex.contains("HWEP")) target.ext.HWEP = ex["HWEP"].get<uint16_t>();
+    }
+    if (j.contains("sw_bank")) target.swBank = static_cast<int8_t>(j["sw_bank"].get<int>());
+    if (j.contains("sw_prog")) target.swProg = static_cast<int8_t>(j["sw_prog"].get<int>());
+}
+
 json swOpToJson(const FmSwOp& op) {
     return json{
         {"VTL",op.VTL},{"VAR",op.VAR},{"VDR",op.VDR},{"VSL",op.VSL},
@@ -756,6 +790,27 @@ SampleZonePatch jsonToSampleZonePatch(const json& j, uint32_t bank, uint32_t pro
 }
 
 } // anonymous namespace
+
+// SysExによるHwPatchパラメータオーバーライド用。詳細はヘッダの
+// 宣言コメント参照。実際のフィールドマージは上のmergeHwPatchFromJson()
+// (このファイル内、匿名名前空間の自由関数)に委譲する。
+bool PatchManager::mergeHwPatchFromJsonText(const std::string& jsonText, HwPatch& target,
+                                             std::string* errorOut) const
+{
+    json j;
+    try {
+        j = json::parse(jsonText);
+    } catch (const std::exception& e) {
+        if (errorOut) *errorOut = std::string("JSON parse error: ") + e.what();
+        return false;
+    }
+    if (!j.is_object()) {
+        if (errorOut) *errorOut = "JSON root must be an object";
+        return false;
+    }
+    mergeHwPatchFromJson(j, target);
+    return true;
+}
 
 // ================================================================
 //  HwBank JSON I/O

@@ -254,6 +254,15 @@ public:
         if (it2 == it->second.end()) return nullptr;
         return &it2->second;
     }
+    // SysExによるプリセットバンク直接編集(target-type=0x01)用の
+    // 可変アクセサ(2026年7月新設)。
+    HwBank* findMutable(VoiceGroup group, int bankNo) {
+        auto it = banks_.find(group);
+        if (it == banks_.end()) return nullptr;
+        auto it2 = it->second.find(bankNo);
+        if (it2 == it->second.end()) return nullptr;
+        return &it2->second;
+    }
 
     // デバイス ID から VoiceGroup を解決 (旧 GetDeviceVoiceGroupMask 相当)
     static VoiceGroup groupFromDeviceId(uint32_t deviceId);

@@ -64,6 +64,20 @@ public:
     PatchBank& getPatchBank(int bankNo);
     const PatchBank* findPatchBank(int bankNo) const;
 
+    // ─── SysExによるHwPatchパラメータオーバーライド ────────────────
+    // JSON文字列をパースし、targetへ差分マージする(存在するキーのみ
+    // 上書き。id/name/builtinはこの経路では対象外、意図的に無視する)。
+    // "ops"は0-4要素の可変長配列で、null または {} の要素は該当
+    // オペレータをスキップする(現在値を変更しない)。
+    // 呼び出し元は、対象がMIDIチャンネル単位のオーバーライドか
+    // (CInstCh::mergeHwPatchOverride参照)、プリセットバンク直接編集か
+    // (hwRegistry().findMutable()で得たHwPatchへ直接この関数を呼ぶ)を
+    // 問わず、同じマージ処理を共有する。
+    // JSON構文エラー時はfalseを返しtargetは変更しない(全体を無視、
+    // 部分適用はしない)。errorOutが非nullなら詳細を格納する。
+    bool mergeHwPatchFromJsonText(const std::string& jsonText, HwPatch& target,
+                                   std::string* errorOut = nullptr) const;
+
     // ─── プログラムチェンジ解決 ──────────────────────────────────
 
     // Patch + デバイス情報 → ResolvedPatch を構築する。

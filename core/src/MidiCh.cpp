@@ -113,6 +113,7 @@ void CInstCh::progChange(uint8_t prog)
     pendingSwBankOverride_ = -1;
     swBankOverride_ = -1;
     swProgOverride_ = -1;
+    clearHwPatchOverrides();
     if (!patchMgr_ || !fitom_) return;
 
     ResolvedPatch resolved;
@@ -265,7 +266,12 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         ISoundDevice* dev = fitom_->getDevice(rl->deviceIndex);
         if (!dev) continue;
 
-        const HwPatch* patch = rl->hwPatch;
+        // SysEx(target-type=0x00)によるHwPatchパラメータオーバーライドが
+        // このレイヤーで有効なら、rl->hwPatch(音色本来のパラメータ)の
+        // 代わりに使う。サンプルベース音源系(samplePatch経由)は対象外
+        // (HwPatchを使わない別スキーマのため)。
+        const HwPatch* patch = (hwPatchOverrideActive_[li] && rl->hwPatch)
+            ? &hwPatchOverride_[li] : rl->hwPatch;
         // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ非nullptr。
         // patchとは排他 (PatchManager::resolve()が保証する)。
         const SampleZonePatch* samplePatch = rl->samplePatch;
@@ -1181,6 +1187,74 @@ void CInstCh::setSoftLfoDepth(uint8_t depth)
 void CInstCh::setSoftLfoDelay(uint8_t delay)
 {
     lfoDelayOverride_ = delay;
+}
+
+// SysEx(private, 00H 48H 01H, sub-cmd 0x01, target-type 0x00)による
+// HwPatchパラメータオーバーライド。詳細な規約はMidiCh.hの
+// hwPatchOverride_コメント参照。
+bool CInstCh::mergeHwPatchOverride(uint8_t layer, const std::string& jsonText)
+{
+    if (layer >= MAX_TONE_LAYERS) return false;
+
+    // 空オブジェクト"{}"は明示的な解除コマンドとして扱う(マージ対象
+    // フィールドが1つも無い=何も変化しない、では利用者が「元に戻す」
+    // 操作をできなくなるため、特別扱いする)。
+    // 簡易判定: 空白文字を除いて"{}"であれば解除とみなす
+    // (本格的なJSONパースをする前の軽量なショートカット)。
+    {
+        std::string trimmed;
+        for (char c : jsonText) {
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') trimmed += c;
+        }
+        if (trimmed == "{}") {
+            hwPatchOverrideActive_[layer] = false;
+            // 発音中のノートにも即座に「元の音色」を反映する。
+            for (int hi = 0; hi < MAX_NOTES; ++hi) {
+                auto& h = notes_[hi];
+                if (!h.isValid() || h.layerIdx != layer || !h.dev) continue;
+                const auto* rl = resolver_.layer(layer);
+                if (rl && rl->hwPatch) h.dev->setVoice(h.devCh, *rl->hwPatch, true);
+            }
+            return true;
+        }
+    }
+
+    if (!patchMgr_) return false;
+
+    // マージの起点: 既にこのレイヤーのオーバーライドが有効なら
+    // 積み上げてマージする(複数回のSysExで少しずつ調整できるように)。
+    // 無効なら、現在このチャンネルが実際に使っているHwPatchを起点に
+    // コピーする。
+    if (!hwPatchOverrideActive_[layer]) {
+        const auto* rl = resolver_.layer(layer);
+        if (rl && rl->hwPatch) {
+            hwPatchOverride_[layer] = *rl->hwPatch;
+        } else {
+            hwPatchOverride_[layer] = HwPatch{};
+        }
+    }
+
+    std::string err;
+    if (!patchMgr_->mergeHwPatchFromJsonText(jsonText, hwPatchOverride_[layer], &err)) {
+        FITOM_LOG_WARN("CInstCh ch=" << (int)ch_ << " layer=" << (int)layer
+            << ": HwPatch override JSON parse failed: " << err);
+        return false;
+    }
+    hwPatchOverrideActive_[layer] = true;
+
+    // 発音中のノートにも即座に反映する(音作りをリアルタイムで
+    // 試聴しながら調整できるように)。
+    for (int hi = 0; hi < MAX_NOTES; ++hi) {
+        auto& h = notes_[hi];
+        if (!h.isValid() || h.layerIdx != layer || !h.dev) continue;
+        h.dev->setVoice(h.devCh, hwPatchOverride_[layer], true);
+    }
+    return true;
+}
+
+void CInstCh::clearHwPatchOverrides()
+{
+    hwPatchOverrideActive_.fill(false);
 }
 
 // ================================================================

@@ -902,10 +902,98 @@ void MidiProcessor::processSysEx()
 // (拡張ID形式)。将来実装用のスタブのみ。呼び出し時点でsysexBuf_[0..2]が
 // 00H 48H 01Hであることは呼び出し元(processSysEx)で確認済み。
 // sysexBuf_[3]以降、sysexPt_までがメーカー固有のペイロード。
+// SysEx(private, manufacturer 00H 48H 01H)によるHwPatchパラメータ
+// オーバーライド。プロトコル:
+//   [3]   sub-cmd (0x01固定、将来の拡張用に予約)
+//   [4]   target-type (0x00=MIDIチャンネル / 0x01=プリセットバンク直接編集)
+//   [5..] target-addr (target-typeにより可変長、下記参照)
+//   [layerOffset]   layer (対象ToneLayerインデックス。target-type=0x01では無視)
+//   [jsonOffset..]  JSONペイロード(ASCII、オーバーライドしたい
+//                   フィールドのみを持つオブジェクト)
+//
+// target-addr:
+//   target-type=0x00: [5]=MIDIチャンネル(0-15)                    (1byte)
+//   target-type=0x01: [5]=VoicePatchType [6]=HwBankインデックス
+//                      [7]=HwProg番号                               (3byte)
 void MidiProcessor::processPrivateSysEx()
 {
-    FITOM_LOG_DEBUG("SysEx: private (manufacturer 00H 48H 01H) received, "
-        "length=" << (sysexPt_ - 3) << " bytes — not yet implemented");
+    if (sysexPt_ < 5) {
+        FITOM_LOG_DEBUG("SysEx: private message too short (missing sub-cmd/target-type), ignored");
+        return;
+    }
+    const uint8_t subCmd = sysexBuf_[3];
+    if (subCmd != 0x01) {
+        FITOM_LOG_DEBUG("SysEx: private sub-cmd=0x" << std::hex << (int)subCmd
+            << std::dec << " unhandled");
+        return;
+    }
+
+    const uint8_t targetType = sysexBuf_[4];
+    size_t addrLen;
+    if (targetType == 0x00)      addrLen = 1; // ch
+    else if (targetType == 0x01) addrLen = 3; // voicePatchType, hwBank, hwProg
+    else {
+        FITOM_LOG_DEBUG("SysEx: HwPatch override target-type=0x" << std::hex << (int)targetType
+            << std::dec << " unhandled");
+        return;
+    }
+
+    const size_t layerOffset = 5 + addrLen;
+    if (sysexPt_ < layerOffset + 1) {
+        FITOM_LOG_DEBUG("SysEx: HwPatch override message too short (missing layer byte)");
+        return;
+    }
+    const uint8_t layer = sysexBuf_[layerOffset];
+    const size_t jsonOffset = layerOffset + 1;
+    const std::string jsonText(reinterpret_cast<const char*>(&sysexBuf_[jsonOffset]),
+                                sysexPt_ - jsonOffset);
+
+    if (targetType == 0x00) {
+        const uint8_t ch = sysexBuf_[5];
+        if (ch >= 16) {
+            FITOM_LOG_WARN("SysEx: HwPatch override invalid channel=" << (int)ch);
+            return;
+        }
+        IMidiCh* midicch = channels_[ch].get();
+        if (!midicch) return;
+        if (!midicch->mergeHwPatchOverride(layer, jsonText)) {
+            FITOM_LOG_WARN("SysEx: HwPatch override (channel) failed ch=" << (int)ch
+                << " layer=" << (int)layer);
+        }
+        return;
+    }
+
+    // targetType == 0x01: プリセットバンク直接編集
+    if (!parent_) return;
+    const uint8_t voicePatchType = sysexBuf_[5];
+    const uint8_t hwBank         = sysexBuf_[6];
+    const uint8_t hwProg         = sysexBuf_[7];
+
+    PatchManager& pm = parent_->getPatchManager();
+    const uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    HwBank* bank = pm.hwRegistry().findMutable(group, hwBank);
+    if (!bank) {
+        FITOM_LOG_WARN("SysEx: HwPatch override (bank) target not found: voicePatchType=0x"
+            << std::hex << (int)voicePatchType << std::dec << " hwBank=" << (int)hwBank);
+        return;
+    }
+    if (hwProg >= BANK_PROG_SIZE) {
+        FITOM_LOG_WARN("SysEx: HwPatch override (bank) hwProg out of range: " << (int)hwProg);
+        return;
+    }
+    HwPatch& target = bank->patches[hwProg];
+    if (!target.isValid()) {
+        // このSysExは既存プリセットの編集専用であり、空きスロットから
+        // 新規パッチを作る用途ではない(id/nameを設定する手段が
+        // この経路には無いため、マージしても発見不能な音色になる)。
+        FITOM_LOG_WARN("SysEx: HwPatch override (bank) target slot is empty (hwBank="
+            << (int)hwBank << " hwProg=" << (int)hwProg << "), ignored");
+        return;
+    }
+    std::string err;
+    if (!pm.mergeHwPatchFromJsonText(jsonText, target, &err)) {
+        FITOM_LOG_WARN("SysEx: HwPatch override (bank) JSON parse failed: " << err);
+    }
 }
 
 void MidiProcessor::timerCallback(uint32_t tick)
