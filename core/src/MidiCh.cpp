@@ -1431,13 +1431,18 @@ void CRhythmCh::setRPNRegister(uint16_t /*reg*/, uint16_t /*val*/) {}
 
 void CRhythmCh::setNRPNRegister(uint16_t reg, uint16_t val)
 {
-    // GM2 Drum Per-Part NRPN
+    // GM2 Drum Per-Part NRPN。GM2規格上、Pitch/TVA Level/Panのいずれも
+    // Data Entry MSB(0-127、中央値64)のみを使う仕様のため、valの上位
+    // 7bit(MSB)を取り出す(2026年7月、下位7bitを取り違えていたバグを
+    // 修正。合成後の14bit値をそのまま使っていたため、LSB(CC#38)を
+    // 明示的に送らない一般的なDAWでは事実上機能していなかった)。
     uint8_t note = static_cast<uint8_t>(reg & 0x7F);
     if (note >= 128) return;
+    const int16_t msb = static_cast<int16_t>(val >> 7);
     switch (reg & 0xFF00) {
-    case 0x1800: noteAdj_[note].pitch = static_cast<int16_t>(val) - 64; break;
-    case 0x1A00: noteAdj_[note].vel   = static_cast<int16_t>(val) - 64; break;
-    case 0x1C00: noteAdj_[note].pan   = static_cast<int16_t>(val) - 64; break;
+    case 0x1800: noteAdj_[note].pitch = msb - 64; break;
+    case 0x1A00: noteAdj_[note].vel   = msb - 64; break;
+    case 0x1C00: noteAdj_[note].pan   = msb - 64; break;
     default: break;
     }
 }
