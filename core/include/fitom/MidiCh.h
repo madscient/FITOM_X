@@ -255,6 +255,17 @@ private:
     // (noteOn()内のmono_分岐)で対応するため、この関数は呼ばれない。
     void stealOldestNoteIfNeeded();
 
+    // NRPN 96,1 (0x3001) + Data Entry MSB受信時の物理チャンネル固定。
+    // 「モノフォニック かつ 直接モードで有効なデバイスを選択中」の場合
+    // のみ、指定チャンネルがそのデバイスのチャンネル数(スパニングされて
+    // いる場合は合算後の値、ISoundDevice::getChCount()が既に反映済み)
+    // の範囲内であれば、DVAをバイパスして常にその物理チャンネルへ
+    // 割り当てる(phyCh_に設定)。条件を満たさない、または範囲外の場合は
+    // 解除状態(phyCh_=127)のままになる。この状態は、新たなNRPN96,1+
+    // Data Entry受信(この関数自体)・プログラムチェンジ・バンクセレクト
+    // のいずれかで都度クリアされる(呼び出し元がクリアする)。
+    void applyPhyChOverride(uint8_t requestedCh);
+
     // Sostenuto OFF 時: pendingRelease 中のノートを実際に noteOff() する。
     // ボイススティールで devCh が別の発音に再利用されていないか
     // isChOwnedBy() で確認してから解放する。
