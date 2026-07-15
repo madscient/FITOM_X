@@ -200,6 +200,11 @@ public:
     // cc1: MIDI CC#1 の値 (0-127)。maxDepth: RPN#5 由来の最大デプス。
     virtual void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) = 0;
 
+    // CC#77: ソフトウェアLFO Depthの演奏時上書き(音色固有LFO、
+    // sw.LFR>0のケース専用)。発音中のノートにも即座に反映される。
+    // cents: -1200〜+1200。範囲外(センチネル)を渡すと上書きを解除する。
+    virtual void setLfoDepthOverride(uint8_t ch, int16_t cents) = 0;
+
     // ─── ChState への直接アクセス (VoiceProcessor::onNoteOn 等で使用) ───────
     // CMultiDevice (CSpanDevice/CUnison) 経由の場合、グローバルch→
     // ローカルchへの変換を行った上で実チップの ChState を返す。
@@ -213,10 +218,15 @@ public:
 
 
     // ─── HW LFO (チップ内蔵 LFO) ────────────────────────────────────────
+    // AM/PMどちらとして効くかは、そのチャンネルに現在割り当てられている
+    // ボイス自身のAMS/PMS感度パラメータで決まる(enablePM/enableAM参照)。
+    // Depth/Rateはチップ内に1系統しかない共有リソースのため、AM用/PM用に
+    // 分ける意味が無く、単一のsetLFODepth/setLFORateに統合している
+    // (2026年7月、setPMDepth/setAMDepth・setPMRate/setAMRateを統合)。
     virtual void enablePM(uint8_t ch, bool on)              {}
     virtual void enableAM(uint8_t ch, bool on)              {}
-    virtual void setPMDepth(uint8_t ch, uint8_t dep)        {}
-    virtual void setAMDepth(uint8_t ch, uint8_t dep)        {}
+    virtual void setLFODepth(uint8_t ch, uint8_t dep)       {}
+    virtual void setLFORate(uint8_t ch, uint8_t rate)       {}
 
     // ─── 特定チップのみ有効なオプショナルインターフェース ──────────────────
     // CSCC (SCC/SCCP) のみ: 波形テーブルレジストリを注入する
@@ -224,8 +234,6 @@ public:
     // ADPCM系 (CAdPcmBase 派生) のみ: PCMバンクレジストリを注入・初期化する
     virtual void setPcmRegistry(const PcmBankRegistry* /*reg*/, int /*bankNo*/ = 0) {}
     virtual void initPcmData() {}
-    virtual void setPMRate(uint8_t ch, uint8_t rate)        {}
-    virtual void setAMRate(uint8_t ch, uint8_t rate)        {}
 
     // ─── 直接レジスタアクセス ───────────────────────────────────────────
     virtual void    setReg(uint16_t reg, uint8_t data, bool forceWrite = false) = 0;
@@ -295,6 +303,7 @@ public:
     void setSustain(uint8_t ch, bool sus, bool update = true) override;
     void setMasterVolume(uint8_t vol) override;
     void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) override;
+    void setLfoDepthOverride(uint8_t ch, int16_t cents) override;
     void onMasterPitchChanged(double pitchHz) override;
 
     void    setReg(uint16_t reg, uint8_t data, bool forceWrite = false) override;

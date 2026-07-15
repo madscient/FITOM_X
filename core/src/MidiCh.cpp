@@ -264,6 +264,23 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // patchとは排他 (PatchManager::resolve()が保証する)。
         const SampleZonePatch* samplePatch = rl->samplePatch;
 
+        // CC#76/78(ソフトウェアLFO Rate/Delay)の演奏時上書きがあれば、
+        // SwPatchの一時コピーへ焼き込んでからassignCh/allocChへ渡す。
+        // VoiceProcessor::onNoteOn()はassignCh()の内部で呼ばれるため、
+        // この時点で焼き込んでおく必要がある(詳細はlfoRateOverride_の
+        // コメント参照)。元のrl->swPatchは共有パッチデータのため直接
+        // 書き換えない。
+        SwPatch overriddenSw{};
+        const SwPatch* effSwPatch = rl->swPatch;
+        if (lfoRateOverride_ >= 0 || lfoDelayOverride_ >= 0) {
+            if (rl->swPatch) overriddenSw = *rl->swPatch;
+            if (lfoRateOverride_ >= 0)
+                overriddenSw.sw.LFR = static_cast<uint8_t>(lfoRateOverride_);
+            if (lfoDelayOverride_ >= 0)
+                overriddenSw.sw.LFD = static_cast<uint8_t>(lfoDelayOverride_);
+            effSwPatch = &overriddenSw;
+        }
+
         // ────────────────────────────────────────────────────────
         // ハードチャンネル割り当て
         // ────────────────────────────────────────────────────────
@@ -280,9 +297,9 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             // (NRPNによるユーザー明示指定)より優先する(理由はCRhythmCh
             // 側の同種コメント参照)。
             devCh = dev->assignCh(static_cast<uint8_t>(rl->forcedCh), this, patch,
-                                   vel, rl->swPatch, samplePatch);
+                                   vel, effSwPatch, samplePatch);
         } else if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
-            devCh = dev->assignCh(phyCh_, this, patch, vel, rl->swPatch, samplePatch);
+            devCh = dev->assignCh(phyCh_, this, patch, vel, effSwPatch, samplePatch);
         } else if (mono_ && timbres_ > 0) {
             // モノ: 同一レイヤーの最初のノートを奪う
             for (int hi = 0; hi < MAX_NOTES; ++hi) {
@@ -296,13 +313,13 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             }
             if (devCh == 0xFF) {
                 auto [handoffDev, handoffCh] = allocChWithFallback(
-                    fitom_, dev, rl, this, patch, vel, rl->swPatch, samplePatch);
+                    fitom_, dev, rl, this, patch, vel, effSwPatch, samplePatch);
                 dev = handoffDev;
                 devCh = handoffCh;
             }
         } else {
             auto [handoffDev, handoffCh] = allocChWithFallback(
-                fitom_, dev, rl, this, patch, vel, rl->swPatch, samplePatch);
+                fitom_, dev, rl, this, patch, vel, effSwPatch, samplePatch);
             dev = handoffDev;
             devCh = handoffCh;
         }
@@ -329,19 +346,21 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         adjPan = std::clamp(adjPan, -64, 63);
         dev->setPanpot(devCh, static_cast<int8_t>(adjPan), false);
 
-        // HW LFO (Modulation CC)
-        if (pmDepth_ > 0) {
-            dev->enablePM(devCh, true);
-            dev->setPMDepth(devCh, pmDepth_);
-            dev->setPMRate(devCh, pmRate_);
-        } else if (amDepth_ > 0) {
-            dev->enableAM(devCh, true);
-            dev->setAMDepth(devCh, amDepth_);
-            dev->setAMRate(devCh, amRate_);
-        } else {
-            dev->enablePM(devCh, false);
-            dev->enableAM(devCh, false);
-        }
+        // HW LFO(CC#14/#15由来のhwLfoDepth_/hwLfoRate_)。有効/無効自体は
+        // CCではなく、このノートが今まさに使うボイス自身のAMS/PMS値で
+        // 決まる(デバイス側のenablePM/enableAM実装がAMS/PMS=0なら実質
+        // 無効果になる)。CC#1(pmDepth_)はここでは一切参照しない
+        // (2026年7月、ソフトウェアLFOと完全に分離した)。
+        dev->enablePM(devCh, true);
+        dev->enableAM(devCh, true);
+        dev->setLFODepth(devCh, hwLfoDepth_);
+        dev->setLFORate(devCh, hwLfoRate_);
+
+        // ソフトウェアLFO Depth(CC#77)。このデバイスチャンネルを直前に
+        // 使っていた別のMIDIチャンネル/ノートのオーバーライド値が
+        // 残っていないよう、上書きが無効(-2000)の場合も含め毎ノート
+        // 必ず送る。
+        dev->setLfoDepthOverride(devCh, lfoDepthOverrideCents_);
 
         // ────────────────────────────────────────────────────────
         // ポルタメント (モノフォニックチャンネル専用)
@@ -491,7 +510,16 @@ void CInstCh::resetAllCtrl()
     portaSourceNote_ = 0xFF;  // CC#84 の保留状態もクリア
     bendRange_ = 2;
     tuning_    = 8192;
-    pmDepth_ = amDepth_ = pmRate_ = amRate_ = 0;
+    pmDepth_ = 0;
+    setHwLfoDepth(0);
+    setHwLfoRate(0);
+    lfoRateOverride_  = -1;
+    lfoDelayOverride_ = -1;
+    lfoDepthOverrideCents_ = -2000; // 上書き解除(音色データのdepthCentsに戻す)
+    for (int hi = 0; hi < MAX_NOTES; ++hi) {
+        auto& h = notes_[hi];
+        if (h.isValid() && h.dev) h.dev->setLfoDepthOverride(h.devCh, lfoDepthOverrideCents_);
+    }
     modDepthRange_ = 32;  // kCC1DefaultMaxDepth
 }
 
@@ -546,14 +574,18 @@ void CInstCh::setModulation(uint8_t dep)
     }
 }
 
-void CInstCh::setFootCtrl(uint8_t dep)
+// CC#4(フットコントローラー)。以前はハードウェアLFOのAMデプスに
+// 間接的に使われていたが、2026年7月にAM/PMの有効化をボイス自身の
+// AMS/PMSへ一本化したのに伴い、フットコントローラーが操作すべき
+// パラメータが無くなった。ソフトウェアAM(トレモロ)相当の仕組みは
+// 現状存在しないため、当面は無効(受信するが何もしない)。
+void CInstCh::setFootCtrl(uint8_t /*dep*/)
 {
-    amDepth_ = dep;
 }
 
-void CInstCh::setBreathCtrl(uint8_t dep)
+// CC#2(ブレスコントローラー)。CC#4と同じ理由で当面は無効。
+void CInstCh::setBreathCtrl(uint8_t /*dep*/)
 {
-    amDepth_ = dep;
 }
 
 void CInstCh::setPortamento(bool on)
@@ -1062,19 +1094,65 @@ void CInstCh::applyPitchBendToAll()
     }
 }
 
+// CC#14/#15受信時、既に発音中の全ノートへ即座に反映する
+// (ボリューム/パン等、他のCCと同じ「即時反映」方針に合わせる)。
+// 有効/無効自体はボイス自身のAMS/PMSで決まるため、ここでは常に
+// enablePM/enableAM=trueを送るだけでよい(noteOn()と同じ考え方)。
 void CInstCh::applyLFOToAll()
 {
-    // HW LFO (Modulation) をすべての発音中チャンネルに適用
-    bool pmOn = (pmDepth_ > 0);
-    bool amOn = (amDepth_ > 0);
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (!h.isValid() || !h.dev) continue;
-        h.dev->enablePM(h.devCh, pmOn);
-        h.dev->enableAM(h.devCh, amOn);
-        if (pmOn) { h.dev->setPMDepth(h.devCh, pmDepth_); h.dev->setPMRate(h.devCh, pmRate_); }
-        if (amOn) { h.dev->setAMDepth(h.devCh, amDepth_); h.dev->setAMRate(h.devCh, amRate_); }
+        h.dev->enablePM(h.devCh, true);
+        h.dev->enableAM(h.devCh, true);
+        h.dev->setLFODepth(h.devCh, hwLfoDepth_);
+        h.dev->setLFORate(h.devCh, hwLfoRate_);
     }
+}
+
+// CC#14(非標準): HW LFO Depth
+void CInstCh::setHwLfoDepth(uint8_t dep)
+{
+    hwLfoDepth_ = dep;
+    applyLFOToAll();
+}
+
+// CC#15(非標準): HW LFO Rate
+void CInstCh::setHwLfoRate(uint8_t rate)
+{
+    hwLfoRate_ = rate;
+    applyLFOToAll();
+}
+
+// CC#76(Sound Controller 7 / Vibrato Rate): ソフトウェアLFOのRateを
+// 上書きする。0-127をsw.LFRと同じ単位としてそのまま使う。LFO(再)始動
+// 時にしか意味を持たないため、noteOn()側でSwPatchに焼き込んで
+// assignCh/allocChへ渡す(即時反映はできない、次のノートオンから反映)。
+void CInstCh::setSoftLfoRate(uint8_t rate)
+{
+    lfoRateOverride_ = rate;
+}
+
+// CC#77(Sound Controller 8 / Vibrato Depth): ソフトウェアLFOのDepthを
+// 上書きする。0-127を-1200〜+1200セントへ線形マッピングする
+// (127で最大デプス)。VoiceProcessor側で毎tick再計算されるため、
+// 発音中のノートにも即座に反映される。
+void CInstCh::setSoftLfoDepth(uint8_t depth)
+{
+    lfoDepthOverrideCents_ = static_cast<int16_t>(static_cast<int32_t>(depth) * 1200 / 127);
+    for (int hi = 0; hi < MAX_NOTES; ++hi) {
+        auto& h = notes_[hi];
+        if (!h.isValid() || !h.dev) continue;
+        h.dev->setLfoDepthOverride(h.devCh, lfoDepthOverrideCents_);
+    }
+}
+
+// CC#78(Sound Controller 9 / Vibrato Delay): ソフトウェアLFOのDelayを
+// 上書きする。0-127をsw.LFDと同じ単位(20ms)としてそのまま使う。
+// Rateと同じ理由でnoteOn()側でSwPatchに焼き込む方式。
+void CInstCh::setSoftLfoDelay(uint8_t delay)
+{
+    lfoDelayOverride_ = delay;
 }
 
 // ================================================================

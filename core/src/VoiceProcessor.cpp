@@ -526,7 +526,10 @@ void VoiceProcessor::recalcChLfo(const FmVoice& voice) noexcept
     // (docs/terminology.mdの「kfs」参照)。SLD(トレモロ深さ)と同じ設計
     // パターン: 波形が最大振幅(±120)のとき、変調量はdepthKfsそのもの
     // (=ユーザー指定の深さ)になる。
-    int32_t depthCents = clamp(static_cast<int>(sw.depthCents), -1200, 1200);
+    // CC#77(Depth)の上書きが有効なら音色自身のdepthCentsより優先する。
+    const int16_t rawDepthCents = (lfoDepthOverrideCents_ >= -1200 && lfoDepthOverrideCents_ <= 1200)
+        ? lfoDepthOverrideCents_ : sw.depthCents;
+    int32_t depthCents = clamp(static_cast<int>(rawDepthCents), -1200, 1200);
     int32_t depthKfs = depthCents * 64 / 100;
     int32_t val = static_cast<int32_t>(wav) * depthKfs / 120;
     chLfoValue_ = static_cast<int16_t>(clamp(val, -768, 768));

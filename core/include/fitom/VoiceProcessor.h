@@ -132,6 +132,14 @@ public:
     // maxDepth: CC#1=127 時のデプス [Fnum steps] (RPN#5 で変更可能)
     void setCC1Modulation(uint8_t cc1, int16_t maxDepth) noexcept;
 
+    // ─── CC#77: ソフトウェアLFO Depthの演奏時上書き ────────────────
+    // 音色データ(sw.depthCents)より優先される。次のtickから即座に
+    // 反映される(発音中のノートにも効く)。Rate(CC#76)/Delay(CC#78)は
+    // 呼び出し元(CInstCh)がSwPatch自体を書き換えてassignCh/allocChへ
+    // 渡す方式のため、ここには無い。
+    void setLfoDepthOverride(int16_t cents) noexcept { lfoDepthOverrideCents_ = cents; }
+    void clearLfoDepthOverride() noexcept { lfoDepthOverrideCents_ = -2000; }
+
     // ─── ボリューム/エクスプレッション変更時に呼ぶ ────────────────
     // チャンネルレベルが変化した場合に effectiveTL を再計算する。
     // 戻り値: true = TL が変化したのでチップへの書き込みが必要
@@ -179,6 +187,18 @@ private:
     bool     cc1LfoMode_      = false; // true = CC#1 駆動モード (LFR=0)
     uint8_t  cc1Value_        = 0;     // 現在の CC#1 値 (0-127)
     int16_t  cc1LfoMaxDepth_  = 32;   // CC#1=127 時の最大デプス [steps]
+
+    // CC#77によるソフトウェアLFO Depthの演奏時上書き。
+    // 音色データ(voice.sw.depthCents)より優先される。毎tick再計算される
+    // ため、発音中のノートにも即座に反映できる(recalcChLfo参照)。
+    // -2000(センチネル、depthCentsの正当範囲±1200の外側)=上書きなし。
+    // Rate(CC#76)/Delay(CC#77)はLFO(再)始動時にしか意味を持たない
+    // ため、こちらはVoiceProcessorではなくCInstCh側でSwPatchに焼き
+    // 込んでからassignCh/allocChへ渡す方式にしている
+    // (VoiceProcessor::onNoteOn()がassignCh()内部で、CInstChがdevChを
+    // 受け取るより前に呼ばれてしまうため、後からch単位でpushする
+    // 方式ではこの2つには間に合わない)。
+    int16_t  lfoDepthOverrideCents_ = -2000;
 
     // ベロシティ補正済み EG レート (onNoteOn 時に設定)
     uint8_t velAR_[4]  = {};   // 補正後 AR  (0-31)
