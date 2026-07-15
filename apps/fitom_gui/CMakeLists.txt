@@ -2,10 +2,7 @@
 #
 # Dear ImGuiベースのGUIアプリケーション。fitom_core には直接触れず、
 # gui/bridge (FITOMBridge) 経由でのみコアにアクセスする。
-#
-# 現時点ではDear ImGui本体・レンダラー/ウィンドウバックエンド(GLFW+OpenGL3
-# 等)はまだ導入していないプレースホルダ状態。main.cpp は
-# fitom_gui_bridge とのリンクが正しく通ることの確認用。
+# バックエンドは GLFW + OpenGL3 (third_party/imgui, third_party/glfw)。
 
 add_executable(fitom_gui
     main.cpp
@@ -14,6 +11,7 @@ add_executable(fitom_gui
 target_link_libraries(fitom_gui
     PRIVATE
         fitom_gui_bridge
+        imgui
 )
 
 # fitom_cli と同じ場所に出力する(MIDIバックエンドDLLの自動探索のため)。
