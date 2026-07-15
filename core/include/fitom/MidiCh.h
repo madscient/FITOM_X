@@ -295,7 +295,9 @@ private:
     // Data Entry受信(この関数自体)・プログラムチェンジ・バンクセレクト
     // のいずれかで都度クリアされる(呼び出し元がクリアする)。
     void applyPhyChOverride(uint8_t requestedCh);
-
+    // NRPN 97,n (0x3080-0x309F): ToneLayerオーバーライド。
+    // 詳細はMidiCh.hのToneLayerOverrideコメント参照。
+    void applyToneLayerOverride(uint16_t reg, uint16_t val);
     // Sostenuto OFF 時: pendingRelease 中のノートを実際に noteOff() する。
     // ボイススティールで devCh が別の発音に再利用されていないか
     // isChOwnedBy() で確認してから解放する。
@@ -403,6 +405,43 @@ private:
     // 次のプログラムチェンジ受信まで有効(clearHwPatchOverrides参照)。
     std::array<HwPatch, MAX_TONE_LAYERS> hwPatchOverride_{};
     std::array<bool, MAX_TONE_LAYERS>    hwPatchOverrideActive_{};
+
+    // NRPN 97,*(ToneLayerオーバーライド、2026年7月新設)。
+    // 「ネイティブパッチバンクが選択されているチャンネル」(bankSelM_==0)
+    // でのみ有効。直接モード(bankSelM_!=0)のチャンネルでは、
+    // setNRPNRegister()内で全て無視する(何もしない)。
+    //
+    // レイヤーあたり8パラメータ、NRPN LSB = layer*8 + パラメータ番号
+    // (MSB=97固定): 0=voice_patch_type(保持のみ)、1=hwbank(保持のみ)、
+    // 2=hwprog(受信時にpending中の0/1とセットでデバイス/HwPatch選択を
+    // 確定・上書き)、3=transpose、4=note range lo、5=note range hi、
+    // 6=volume offset、7=pan offset(3-7はいずれも受信時に即座に上書き
+    // 値として確定するが、実際に音へ反映されるのは次のノートオンから)。
+    struct ToneLayerOverride {
+        // 0/1番: hwprog(2番)受信まで確定しない一時保存値。
+        uint8_t pendingVoicePatchType = 0;
+        uint8_t pendingHwBank         = 0;
+        // 2番受信で確定: patchActive=trueになり、以後resolved.layers[0]
+        // (resolveDirect()と全く同じ経路で解決した単層ResolvedPatch)を
+        // rl(ResolvedLayer)の代わりに使う。directStorageはその実体
+        // (PatchResolver::directStorage_と同じ役割のストレージ)。
+        bool patchActive = false;
+        Patch directStorage;
+        ResolvedPatch resolved;
+
+        // 3-7番: 個別に独立したオーバーライド。有効フラグが立っている
+        // 間、ネイティブ(またはpatchActive時は上記resolved)のToneLayer
+        // が持つ値の代わりにこちらを使う。
+        bool    transposeActive = false;    int8_t  transpose = 0;
+        bool    noteRangeLoActive = false;  uint8_t noteRangeLo = 0;
+        bool    noteRangeHiActive = false;  uint8_t noteRangeHi = 127;
+        bool    volumeOffsetActive = false; int8_t  volumeOffset = 0;
+        bool    panOffsetActive = false;    int8_t  panOffset = 0;
+    };
+    std::array<ToneLayerOverride, MAX_TONE_LAYERS> layerOverride_;
+    // 全レイヤーのオーバーライドを解除する(progChange()で呼ばれる、
+    // 次のプログラムチェンジまで有効という仕様のため)。
+    void clearToneLayerOverrides() { layerOverride_.fill(ToneLayerOverride{}); }
 
     // ─── パッチ管理 ────────────────────────────────────────────────
     PatchManager*  patchMgr_  = nullptr;
