@@ -107,6 +107,12 @@ void CInstCh::progChange(uint8_t prog)
     // NRPN 96,1による物理チャンネル固定は、プログラムチェンジ受信で
     // 都度解除される(applyPhyChOverride参照)。
     phyCh_ = 127;
+    // NRPN 96,2/96,3によるパフォーマンスバンク/プログラムの上書きも、
+    // プログラムチェンジ受信で解除される(仕様上、次のプログラム
+    // チェンジまで有効)。
+    pendingSwBankOverride_ = -1;
+    swBankOverride_ = -1;
+    swProgOverride_ = -1;
     if (!patchMgr_ || !fitom_) return;
 
     ResolvedPatch resolved;
@@ -264,16 +270,27 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // patchとは排他 (PatchManager::resolve()が保証する)。
         const SampleZonePatch* samplePatch = rl->samplePatch;
 
+        // NRPN 96,2/96,3(パフォーマンスバンク/プログラムセレクト)が
+        // 有効なら、HwPatch本来の参照先(rl->swPatch)の代わりにこちらを
+        // 基点にする。解決に失敗した場合(バンク/プログラムが存在しない
+        // 等)は、無指定時と同じ扱いとしてrl->swPatchにソフトフォール
+        // バックする(DrumNote::swBank/swProgと同じ規約)。
+        const SwPatch* baseSwPatch = rl->swPatch;
+        if (swBankOverride_ >= 0 && patchMgr_) {
+            const SwPatch* overridden = patchMgr_->resolveSwPatch(swBankOverride_, swProgOverride_);
+            if (overridden) baseSwPatch = overridden;
+        }
+
         // CC#76/78(ソフトウェアLFO Rate/Delay)の演奏時上書きがあれば、
-        // SwPatchの一時コピーへ焼き込んでからassignCh/allocChへ渡す。
-        // VoiceProcessor::onNoteOn()はassignCh()の内部で呼ばれるため、
-        // この時点で焼き込んでおく必要がある(詳細はlfoRateOverride_の
-        // コメント参照)。元のrl->swPatchは共有パッチデータのため直接
-        // 書き換えない。
+        // (上記で決まった)基点となるSwPatchの一時コピーへ焼き込んで
+        // からassignCh/allocChへ渡す。VoiceProcessor::onNoteOn()は
+        // assignCh()の内部で呼ばれるため、この時点で焼き込んでおく
+        // 必要がある(詳細はlfoRateOverride_のコメント参照)。元の
+        // SwPatch(共有パッチデータ)は直接書き換えない。
         SwPatch overriddenSw{};
-        const SwPatch* effSwPatch = rl->swPatch;
+        const SwPatch* effSwPatch = baseSwPatch;
         if (lfoRateOverride_ >= 0 || lfoDelayOverride_ >= 0) {
-            if (rl->swPatch) overriddenSw = *rl->swPatch;
+            if (baseSwPatch) overriddenSw = *baseSwPatch;
             if (lfoRateOverride_ >= 0)
                 overriddenSw.sw.LFR = static_cast<uint8_t>(lfoRateOverride_);
             if (lfoDelayOverride_ >= 0)
@@ -731,6 +748,17 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
         // 以前はLSB側を参照していたが、DAW等が通常MSBのみを送るため
         // 事実上機能していなかった)。
         applyPhyChOverride(static_cast<uint8_t>(val >> 7));
+        break;
+    case 0x3002: // NRPN 96,2: パフォーマンスバンクセレクト
+        // まだ確定しない。96,3受信時に、この値とセットで確定させる。
+        pendingSwBankOverride_ = static_cast<int8_t>(val >> 7);
+        break;
+    case 0x3003: // NRPN 96,3: パフォーマンスプログラムセレクト
+        // このNRPN受信時点のpendingSwBankOverride_と、このNRPN自身の
+        // Data Entry MSB値をセットで確定させる。次のプログラム
+        // チェンジ受信まで有効。
+        swBankOverride_ = pendingSwBankOverride_;
+        swProgOverride_ = static_cast<int8_t>(val >> 7);
         break;
     default: break;
     }
