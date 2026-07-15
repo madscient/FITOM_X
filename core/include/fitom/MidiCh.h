@@ -72,6 +72,20 @@ public:
     virtual void setCoarseTune(uint16_t tune)      {}
     virtual void setRPNRegister(uint16_t reg, uint16_t val)  {}
     virtual void setNRPNRegister(uint16_t reg, uint16_t val) {}
+    // CC#96 / #97 (Data Increment / Decrement): reg は現在選択中の
+    // RPN/NRPN番号、isNrpn はNRPN選択中かどうか(CC#98/99/100/101で
+    // 選択済みの状態、MidiProcessor側が保持する)。選択中のパラメータの
+    // 値を1ステップ増減させる。対応しないreg/未選択時は何もしない。
+    virtual void dataIncrement(uint16_t reg, bool isNrpn) {}
+    virtual void dataDecrement(uint16_t reg, bool isNrpn) {}
+
+    // CC#126 (Mono Mode On) / CC#127 (Poly Mode On)。
+    // voicesはMIDI規格上「モノフォニックボイスを割り当てるチャンネル数」
+    // だが、本チャンネルは単一MIDIチャンネル内で複数ノートを個別に管理
+    // するアーキテクチャのため、複数チャンネルにまたがる割り当ての概念が
+    // ない。値に関わらずこのチャンネル自体のモノ/ポリ切替として扱う。
+    virtual void setMonoMode(uint8_t voices)       {}
+    virtual void setPolyMode()                     {}
 
     // コールバック
     virtual void timerCallback(uint32_t tick)      = 0;
@@ -178,6 +192,10 @@ public:
     void setCoarseTune(uint16_t tune) override;
     void setRPNRegister(uint16_t reg, uint16_t val) override;
     void setNRPNRegister(uint16_t reg, uint16_t val) override;
+    void dataIncrement(uint16_t reg, bool isNrpn) override;
+    void dataDecrement(uint16_t reg, bool isNrpn) override;
+    void setMonoMode(uint8_t voices) override;
+    void setPolyMode() override;
 
     // ─── コールバック ──────────────────────────────────────────────
     void timerCallback(uint32_t tick) override;
@@ -310,6 +328,8 @@ public:
     void timerCallback(uint32_t tick) override;
     void setRPNRegister(uint16_t reg, uint16_t val) override;
     void setNRPNRegister(uint16_t reg, uint16_t val) override;
+    void dataIncrement(uint16_t reg, bool isNrpn) override;
+    void dataDecrement(uint16_t reg, bool isNrpn) override;
 
     uint8_t  getLastNote()  const override { return lastNote_; }
     uint8_t  getProgramNo() const override { return programNo_; }

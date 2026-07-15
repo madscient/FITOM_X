@@ -681,6 +681,99 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 }
 
 // ----------------------------------------------------------------
+//  CC#96 / #97 (Data Increment / Decrement)
+//
+//  各パラメータの「1ステップ」は、対応するRPN/NRPNのデータエントリー
+//  (CC#6/#38)が実際にどのビット位置を参照するかに合わせている:
+//  bendRange_はMSBのみ(1ステップ=1)、tuning_/coarseTune_は14bit値
+//  そのものだがMSB単位で変化させるのが自然なため1ステップ=128、
+//  phyCh_はLSBのみを参照する実装のため1ステップ=1。
+// ----------------------------------------------------------------
+void CInstCh::dataIncrement(uint16_t reg, bool isNrpn)
+{
+    if (isNrpn) {
+        switch (reg) {
+        case 0x3001:
+            phyCh_ = static_cast<uint8_t>(std::min<int>(static_cast<int>(phyCh_) + 1, 127));
+            break;
+        default: break;
+        }
+        return;
+    }
+    switch (reg) {
+    case 0x0000:
+        setBendRange(static_cast<uint8_t>(std::min<int>(static_cast<int>(bendRange_) + 1, 127)));
+        break;
+    case 0x0001:
+        setFineTune(static_cast<uint16_t>(std::min<int>(static_cast<int>(tuning_) + 128, 16383)));
+        break;
+    case 0x0002:
+        setCoarseTune(static_cast<uint16_t>(std::min<int>(static_cast<int>(coarseTune_) + 128, 16383)));
+        break;
+    case 0x0005: {
+        int cents = std::clamp(modDepthRange_ * 100 / 64 + 1, 0, 127);
+        setRPNRegister(0x0005, static_cast<uint16_t>(cents) << 7);
+        break;
+    }
+    default: break;
+    }
+}
+
+void CInstCh::dataDecrement(uint16_t reg, bool isNrpn)
+{
+    if (isNrpn) {
+        switch (reg) {
+        case 0x3001:
+            phyCh_ = static_cast<uint8_t>(std::max<int>(static_cast<int>(phyCh_) - 1, 0));
+            break;
+        default: break;
+        }
+        return;
+    }
+    switch (reg) {
+    case 0x0000:
+        setBendRange(static_cast<uint8_t>(std::max<int>(static_cast<int>(bendRange_) - 1, 0)));
+        break;
+    case 0x0001:
+        setFineTune(static_cast<uint16_t>(std::max<int>(static_cast<int>(tuning_) - 128, 0)));
+        break;
+    case 0x0002:
+        setCoarseTune(static_cast<uint16_t>(std::max<int>(static_cast<int>(coarseTune_) - 128, 0)));
+        break;
+    case 0x0005: {
+        int cents = std::clamp(modDepthRange_ * 100 / 64 - 1, 0, 127);
+        setRPNRegister(0x0005, static_cast<uint16_t>(cents) << 7);
+        break;
+    }
+    default: break;
+    }
+}
+
+// ----------------------------------------------------------------
+//  CC#126 (Mono Mode On) / CC#127 (Poly Mode On)
+//
+//  voices(CC#126の値)はMIDI規格上「モノフォニックボイスを割り当てる
+//  チャンネル数」を意味するが、本チャンネルは単一MIDIチャンネル内で
+//  複数ノートを個別に管理するアーキテクチャのため、複数チャンネルに
+//  またがる割り当ての概念がない。値に関わらずこのチャンネル自体を
+//  モノフォニックモードにする。
+// ----------------------------------------------------------------
+void CInstCh::setMonoMode(uint8_t /*voices*/)
+{
+    if (mono_) return;
+    allNoteOff();   // モード切替時は発音中のノートを一旦整理する(旧実装と同じ方針)
+    mono_ = true;
+}
+
+void CInstCh::setPolyMode()
+{
+    if (!mono_) return;
+    allNoteOff();
+    mono_   = false;
+    legato_ = false;
+}
+
+// ----------------------------------------------------------------
 //  タイマーコールバック
 // ----------------------------------------------------------------
 
@@ -1217,6 +1310,34 @@ void CRhythmCh::setNRPNRegister(uint16_t reg, uint16_t val)
     case 0x1800: noteAdj_[note].pitch = static_cast<int16_t>(val) - 64; break;
     case 0x1A00: noteAdj_[note].vel   = static_cast<int16_t>(val) - 64; break;
     case 0x1C00: noteAdj_[note].pan   = static_cast<int16_t>(val) - 64; break;
+    default: break;
+    }
+}
+
+// CC#96 / #97 (Data Increment / Decrement): GM2 Drum Per-Part NRPNのみ対応
+// (RPNはリズムチャンネルでは使用しないため常に無視)。
+void CRhythmCh::dataIncrement(uint16_t reg, bool isNrpn)
+{
+    if (!isNrpn) return;
+    uint8_t note = static_cast<uint8_t>(reg & 0x7F);
+    if (note >= 128) return;
+    switch (reg & 0xFF00) {
+    case 0x1800: noteAdj_[note].pitch = static_cast<int16_t>(std::min<int>(noteAdj_[note].pitch + 1, 63)); break;
+    case 0x1A00: noteAdj_[note].vel   = static_cast<int16_t>(std::min<int>(noteAdj_[note].vel + 1, 63));   break;
+    case 0x1C00: noteAdj_[note].pan   = static_cast<int16_t>(std::min<int>(noteAdj_[note].pan + 1, 63));   break;
+    default: break;
+    }
+}
+
+void CRhythmCh::dataDecrement(uint16_t reg, bool isNrpn)
+{
+    if (!isNrpn) return;
+    uint8_t note = static_cast<uint8_t>(reg & 0x7F);
+    if (note >= 128) return;
+    switch (reg & 0xFF00) {
+    case 0x1800: noteAdj_[note].pitch = static_cast<int16_t>(std::max<int>(noteAdj_[note].pitch - 1, -64)); break;
+    case 0x1A00: noteAdj_[note].vel   = static_cast<int16_t>(std::max<int>(noteAdj_[note].vel - 1, -64));   break;
+    case 0x1C00: noteAdj_[note].pan   = static_cast<int16_t>(std::max<int>(noteAdj_[note].pan - 1, -64));   break;
     default: break;
     }
 }

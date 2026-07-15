@@ -798,6 +798,14 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
         break;
     }
     case 38: rpn_[ch].lsb = val; break; // Data Entry LSB
+    case 96:  // Data Increment
+        if (rpn_[ch].reg != 0x3FFF) midicch->dataIncrement(rpn_[ch].reg, rpn_[ch].isNrpn);
+        break;
+    case 97:  // Data Decrement
+        if (rpn_[ch].reg != 0x3FFF) midicch->dataDecrement(rpn_[ch].reg, rpn_[ch].isNrpn);
+        break;
+    case 126: midicch->setMonoMode(val); break;  // Mono Mode On
+    case 127: midicch->setPolyMode(); break;     // Poly Mode On
     default:
         FITOM_LOG_DEBUG("CC#" << (int)cc << "=" << (int)val << " ch=" << (int)ch << " unhandled");
         break;
