@@ -78,6 +78,12 @@ public:
     bool mergeHwPatchFromJsonText(const std::string& jsonText, HwPatch& target,
                                    std::string* errorOut = nullptr) const;
 
+    // SwPatch版。フィールドは"sw"(LWF/LFS/LFM/LFD/LFR/LFI/depth_cents)・
+    // "ops"(0-4要素、null/{}スキップ)・"fine_transpose"。id/nameは対象外。
+    // 詳細な規約はmergeHwPatchFromJsonText()と同じ。
+    bool mergeSwPatchFromJsonText(const std::string& jsonText, SwPatch& target,
+                                   std::string* errorOut = nullptr) const;
+
     // ─── プログラムチェンジ解決 ──────────────────────────────────
 
     // Patch + デバイス情報 → ResolvedPatch を構築する。

@@ -89,6 +89,12 @@ public:
     // 解除する。
     virtual void clearHwPatchOverrides() {}
 
+    // SysEx(private, 00H 48H 01H, sub-cmd 0x02, target-type 0x00)による
+    // SwPatch(パフォーマンスパッチ)パラメータオーバーライド。
+    // mergeHwPatchOverride()と同じ規約(jsonTextが"{}"なら解除)。
+    virtual bool mergeSwPatchOverride(uint8_t layer, const std::string& jsonText) { return false; }
+    virtual void clearSwPatchOverrides() {}
+
     // RPN / NRPN
     virtual void setBendRange(uint8_t range)       {}
     virtual void setFineTune(uint16_t tune)        {}
@@ -217,6 +223,8 @@ public:
     void setSoftLfoDelay(uint8_t delay) override;
     bool mergeHwPatchOverride(uint8_t layer, const std::string& jsonText) override;
     void clearHwPatchOverrides() override;
+    bool mergeSwPatchOverride(uint8_t layer, const std::string& jsonText) override;
+    void clearSwPatchOverrides() override;
     void setBendRange(uint8_t range) override;
     void setFineTune(uint16_t tune) override;
     void setCoarseTune(uint16_t tune) override;
@@ -405,6 +413,16 @@ private:
     // 次のプログラムチェンジ受信まで有効(clearHwPatchOverrides参照)。
     std::array<HwPatch, MAX_TONE_LAYERS> hwPatchOverride_{};
     std::array<bool, MAX_TONE_LAYERS>    hwPatchOverrideActive_{};
+
+    // SysExによるSwPatchパラメータオーバーライド(target-type=0x00、
+    // sub-cmd=0x02)。hwPatchOverride_と全く同じ規約
+    // (初回マージ時はrl->swPatchを起点にコピー、次のプログラム
+    // チェンジまで有効)。ただしHwPatchと異なり、発音中ノートへの
+    // 即時プッシュ手段(ISoundDevice::setVoice()相当)を持たないため、
+    // 反映は次のノートオンから(noteOn()のbaseSwPatch決定チェーンに
+    // 組み込む、CC#76/78のRate/Delay上書きと同じ制約)。
+    std::array<SwPatch, MAX_TONE_LAYERS> swPatchOverride_{};
+    std::array<bool, MAX_TONE_LAYERS>    swPatchOverrideActive_{};
 
     // NRPN 97,*(ToneLayerオーバーライド、2026年7月新設)。
     // 「ネイティブパッチバンクが選択されているチャンネル」(bankSelM_==0)

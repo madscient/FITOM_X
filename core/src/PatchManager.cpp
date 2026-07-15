@@ -724,6 +724,32 @@ void jsonToSwOp(const json& j, FmSwOp& op) {
     g("SLY",op.SLY); g("SLR",op.SLR); g("SLI",op.SLI);
 }
 
+// SysExによるSwPatchパラメータオーバーライド用のマージ実装
+// (2026年7月新設)。mergeHwPatchFromJson()と同じ設計方針(既存targetへの
+// 差分マージ、"ops"はnull/{}要素をスキップ、id/nameは対象外)。
+// JSONのキー名はsaveSwBankJson()が出力するSwBankファイル形式と同じ。
+static void mergeSwPatchFromJson(const json& j, SwPatch& target) {
+    if (j.contains("sw")) {
+        const auto& sw = j["sw"];
+        auto g8 = [&](const char* k, uint8_t& v){ if(sw.contains(k)) v=sw[k].get<uint8_t>(); };
+        g8("LWF",target.sw.LWF); g8("LFS",target.sw.LFS); g8("LFM",target.sw.LFM);
+        g8("LFD",target.sw.LFD); g8("LFR",target.sw.LFR); g8("LFI",target.sw.LFI);
+        if (sw.contains("depth_cents"))
+            target.sw.depthCents = static_cast<int16_t>(sw["depth_cents"].get<int>());
+    }
+    if (j.contains("ops") && j["ops"].is_array()) {
+        const auto& opsArr = j["ops"];
+        for (int i = 0; i < MAX_HW_OPS && i < static_cast<int>(opsArr.size()); ++i) {
+            const auto& oj = opsArr[i];
+            if (oj.is_null()) continue;                // null = スキップ
+            if (oj.is_object() && oj.empty()) continue; // {} = スキップ
+            jsonToSwOp(oj, target.swOp[i]);
+        }
+    }
+    if (j.contains("fine_transpose"))
+        target.fineTranspose = static_cast<int16_t>(j["fine_transpose"].get<int>());
+}
+
 json toneLayerToJson(const ToneLayer& l) {
     return json{
         {"voice_patch_type",l.voicePatchType},
@@ -809,6 +835,25 @@ bool PatchManager::mergeHwPatchFromJsonText(const std::string& jsonText, HwPatch
         return false;
     }
     mergeHwPatchFromJson(j, target);
+    return true;
+}
+
+// SwPatch版。詳細はmergeHwPatchFromJsonText()参照。
+bool PatchManager::mergeSwPatchFromJsonText(const std::string& jsonText, SwPatch& target,
+                                             std::string* errorOut) const
+{
+    json j;
+    try {
+        j = json::parse(jsonText);
+    } catch (const std::exception& e) {
+        if (errorOut) *errorOut = std::string("JSON parse error: ") + e.what();
+        return false;
+    }
+    if (!j.is_object()) {
+        if (errorOut) *errorOut = "JSON root must be an object";
+        return false;
+    }
+    mergeSwPatchFromJson(j, target);
     return true;
 }
 
