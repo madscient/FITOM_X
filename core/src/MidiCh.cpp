@@ -104,6 +104,9 @@ void CInstCh::setup(PatchManager* pm, CFITOM* fitom)
 void CInstCh::progChange(uint8_t prog)
 {
     programNo_ = prog;
+    // NRPN 96,1による物理チャンネル固定は、プログラムチェンジ受信で
+    // 都度解除される(applyPhyChOverride参照)。
+    phyCh_ = 127;
     if (!patchMgr_ || !fitom_) return;
 
     ResolvedPatch resolved;
@@ -627,6 +630,9 @@ void CInstCh::setForceDamp(bool fd)
 void CInstCh::bankSelMSB(uint8_t msb)
 {
     bankSelM_ = msb;
+    // NRPN 96,1による物理チャンネル固定は、バンクセレクト受信で
+    // 都度解除される(applyPhyChOverride参照)。
+    phyCh_ = 127;
     // MSB が変わったら prog を再ロード (旧挙動)
     // progChange(programNo_);  // 必要に応じて有効化
 }
@@ -634,6 +640,7 @@ void CInstCh::bankSelMSB(uint8_t msb)
 void CInstCh::bankSelLSB(uint8_t lsb)
 {
     bankSelL_ = lsb;
+    phyCh_ = 127;
 }
 
 void CInstCh::setBendRange(uint8_t range)
@@ -685,10 +692,37 @@ void CInstCh::setRPNRegister(uint16_t reg, uint16_t val)
 
 void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 {
-    // 旧 NRPN 定義を踏襲
     switch (reg) {
-    case 0x3001: phyCh_ = static_cast<uint8_t>(val & 0x7F); break;
+    case 0x3001:
+        // valはCC#6(Data Entry MSB)<<7 | CC#38(Data Entry LSB)。
+        // このNRPNはMSBのみを使う(2026年7月、条件付き発動へ再設計。
+        // 以前はLSB側を参照していたが、DAW等が通常MSBのみを送るため
+        // 事実上機能していなかった)。
+        applyPhyChOverride(static_cast<uint8_t>(val >> 7));
+        break;
     default: break;
+    }
+}
+
+// NRPN 96,1 (0x3001) + Data Entry MSB受信時の物理チャンネル固定。
+// 詳細な条件はMidiCh.hの宣言コメント参照。
+void CInstCh::applyPhyChOverride(uint8_t requestedCh)
+{
+    phyCh_ = 127; // まず解除(新たな受信のたびに都度クリアする仕様)
+
+    if (!mono_) return;                        // モノフォニックのみ対象
+    if (bankSelM_ == 0) return;                 // 直接モードのみ対象
+    if (resolver_.layerCount() == 0) return;    // 有効なデバイス未選択
+
+    const auto* rl = resolver_.layer(0);
+    if (!rl || rl->deviceIndex < 0 || !fitom_) return;
+    ISoundDevice* dev = fitom_->getDevice(rl->deviceIndex);
+    if (!dev) return;
+
+    // dev->getChCount()はCSpanDevice(複数チップの束ね)の場合、既に
+    // 合算後のチャンネル数を返す。
+    if (requestedCh < dev->getChCount()) {
+        phyCh_ = requestedCh;
     }
 }
 
@@ -698,16 +732,24 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 //  各パラメータの「1ステップ」は、対応するRPN/NRPNのデータエントリー
 //  (CC#6/#38)が実際にどのビット位置を参照するかに合わせている:
 //  bendRange_はMSBのみ(1ステップ=1)、tuning_/coarseTune_は14bit値
-//  そのものだがMSB単位で変化させるのが自然なため1ステップ=128、
-//  phyCh_はLSBのみを参照する実装のため1ステップ=1。
+//  そのものだがMSB単位で変化させるのが自然なため1ステップ=128。
+//  NRPN 96,1(物理チャンネル固定)は1ステップ=1だが、
+//  applyPhyChOverride()の条件判定(モノ/直接モード/範囲)を毎回
+//  経由する点が他と異なる(詳細はcase 0x3001のコメント参照)。
 // ----------------------------------------------------------------
 void CInstCh::dataIncrement(uint16_t reg, bool isNrpn)
 {
     if (isNrpn) {
         switch (reg) {
-        case 0x3001:
-            phyCh_ = static_cast<uint8_t>(std::min<int>(static_cast<int>(phyCh_) + 1, 127));
+        case 0x3001: {
+            // applyPhyChOverride()の条件判定(モノ/直接モード/範囲)を
+            // 経由させるため、直接phyCh_を書き換えず現在値を起点に
+            // +1した値で再度条件判定させる。未発動中(phyCh_==127)なら
+            // 0から開始する。
+            int base = (phyCh_ != 127) ? static_cast<int>(phyCh_) : -1;
+            applyPhyChOverride(static_cast<uint8_t>(std::min(base + 1, 126)));
             break;
+        }
         default: break;
         }
         return;
@@ -735,9 +777,14 @@ void CInstCh::dataDecrement(uint16_t reg, bool isNrpn)
 {
     if (isNrpn) {
         switch (reg) {
-        case 0x3001:
-            phyCh_ = static_cast<uint8_t>(std::max<int>(static_cast<int>(phyCh_) - 1, 0));
+        case 0x3001: {
+            // applyPhyChOverride()の条件判定を経由させるため、直接
+            // phyCh_を書き換えず現在値を起点に-1した値で再度判定させる。
+            // 未発動中(phyCh_==127)なら0のまま(それ以上下げない)。
+            int base = (phyCh_ != 127) ? static_cast<int>(phyCh_) : 0;
+            applyPhyChOverride(static_cast<uint8_t>(std::max(base - 1, 0)));
             break;
+        }
         default: break;
         }
         return;
