@@ -902,19 +902,23 @@ void MidiProcessor::processSysEx()
 // (拡張ID形式)。将来実装用のスタブのみ。呼び出し時点でsysexBuf_[0..2]が
 // 00H 48H 01Hであることは呼び出し元(processSysEx)で確認済み。
 // sysexBuf_[3]以降、sysexPt_までがメーカー固有のペイロード。
-// SysEx(private, manufacturer 00H 48H 01H)によるHwPatchパラメータ
-// オーバーライド。プロトコル:
-//   [3]   sub-cmd (0x01固定、将来の拡張用に予約)
+// SysEx(private, manufacturer 00H 48H 01H)によるHwPatch/SwPatch
+// パラメータオーバーライド。プロトコル:
+//   [3]   sub-cmd (0x01=HwPatch / 0x02=SwPatch)
 //   [4]   target-type (0x00=MIDIチャンネル / 0x01=プリセットバンク直接編集)
-//   [5..] target-addr (target-typeにより可変長、下記参照)
+//   [5..] target-addr (sub-cmd・target-typeにより可変長、下記参照)
 //   [layerOffset]   layer (対象ToneLayerインデックス。target-type=0x01では無視)
 //   [jsonOffset..]  JSONペイロード(ASCII、オーバーライドしたい
 //                   フィールドのみを持つオブジェクト)
 //
 // target-addr:
-//   target-type=0x00: [5]=MIDIチャンネル(0-15)                    (1byte)
-//   target-type=0x01: [5]=VoicePatchType [6]=HwBankインデックス
-//                      [7]=HwProg番号                               (3byte)
+//   target-type=0x00(チャンネル、sub-cmd共通): [5]=MIDIチャンネル(0-15)  (1byte)
+//   target-type=0x01(バンク) sub-cmd=0x01(HwPatch):
+//     [5]=VoicePatchType [6]=HwBankインデックス [7]=HwProg番号            (3byte)
+//   target-type=0x01(バンク) sub-cmd=0x02(SwPatch):
+//     [5]=SwBankインデックス [6]=SwProg番号                              (2byte)
+//     (SwBankはHwBankと異なりチップ族に依存しない単一の番号空間のため
+//      VoicePatchTypeを指定する必要がない)
 void MidiProcessor::processPrivateSysEx()
 {
     if (sysexPt_ < 5) {
@@ -922,25 +926,28 @@ void MidiProcessor::processPrivateSysEx()
         return;
     }
     const uint8_t subCmd = sysexBuf_[3];
-    if (subCmd != 0x01) {
+    if (subCmd != 0x01 && subCmd != 0x02) {
         FITOM_LOG_DEBUG("SysEx: private sub-cmd=0x" << std::hex << (int)subCmd
             << std::dec << " unhandled");
         return;
     }
+    const bool isHw = (subCmd == 0x01); // false = SwPatch(sub-cmd 0x02)
 
     const uint8_t targetType = sysexBuf_[4];
     size_t addrLen;
-    if (targetType == 0x00)      addrLen = 1; // ch
-    else if (targetType == 0x01) addrLen = 3; // voicePatchType, hwBank, hwProg
-    else {
-        FITOM_LOG_DEBUG("SysEx: HwPatch override target-type=0x" << std::hex << (int)targetType
+    if (targetType == 0x00) {
+        addrLen = 1; // ch (HwPatch/SwPatch共通)
+    } else if (targetType == 0x01) {
+        addrLen = isHw ? 3 : 2; // HwPatch: voicePatchType+hwBank+hwProg / SwPatch: swBank+swProg
+    } else {
+        FITOM_LOG_DEBUG("SysEx: patch override target-type=0x" << std::hex << (int)targetType
             << std::dec << " unhandled");
         return;
     }
 
     const size_t layerOffset = 5 + addrLen;
     if (sysexPt_ < layerOffset + 1) {
-        FITOM_LOG_DEBUG("SysEx: HwPatch override message too short (missing layer byte)");
+        FITOM_LOG_DEBUG("SysEx: patch override message too short (missing layer byte)");
         return;
     }
     const uint8_t layer = sysexBuf_[layerOffset];
@@ -951,48 +958,78 @@ void MidiProcessor::processPrivateSysEx()
     if (targetType == 0x00) {
         const uint8_t ch = sysexBuf_[5];
         if (ch >= 16) {
-            FITOM_LOG_WARN("SysEx: HwPatch override invalid channel=" << (int)ch);
+            FITOM_LOG_WARN("SysEx: patch override invalid channel=" << (int)ch);
             return;
         }
         IMidiCh* midicch = channels_[ch].get();
         if (!midicch) return;
-        if (!midicch->mergeHwPatchOverride(layer, jsonText)) {
-            FITOM_LOG_WARN("SysEx: HwPatch override (channel) failed ch=" << (int)ch
-                << " layer=" << (int)layer);
+        const bool ok = isHw ? midicch->mergeHwPatchOverride(layer, jsonText)
+                              : midicch->mergeSwPatchOverride(layer, jsonText);
+        if (!ok) {
+            FITOM_LOG_WARN("SysEx: " << (isHw ? "HwPatch" : "SwPatch")
+                << " override (channel) failed ch=" << (int)ch << " layer=" << (int)layer);
         }
         return;
     }
 
     // targetType == 0x01: プリセットバンク直接編集
     if (!parent_) return;
-    const uint8_t voicePatchType = sysexBuf_[5];
-    const uint8_t hwBank         = sysexBuf_[6];
-    const uint8_t hwProg         = sysexBuf_[7];
-
     PatchManager& pm = parent_->getPatchManager();
-    const uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    HwBank* bank = pm.hwRegistry().findMutable(group, hwBank);
+
+    if (isHw) {
+        const uint8_t voicePatchType = sysexBuf_[5];
+        const uint8_t hwBank         = sysexBuf_[6];
+        const uint8_t hwProg         = sysexBuf_[7];
+
+        const uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+        HwBank* bank = pm.hwRegistry().findMutable(group, hwBank);
+        if (!bank) {
+            FITOM_LOG_WARN("SysEx: HwPatch override (bank) target not found: voicePatchType=0x"
+                << std::hex << (int)voicePatchType << std::dec << " hwBank=" << (int)hwBank);
+            return;
+        }
+        if (hwProg >= BANK_PROG_SIZE) {
+            FITOM_LOG_WARN("SysEx: HwPatch override (bank) hwProg out of range: " << (int)hwProg);
+            return;
+        }
+        HwPatch& target = bank->patches[hwProg];
+        if (!target.isValid()) {
+            // このSysExは既存プリセットの編集専用であり、空きスロットから
+            // 新規パッチを作る用途ではない(id/nameを設定する手段が
+            // この経路には無いため、マージしても発見不能な音色になる)。
+            FITOM_LOG_WARN("SysEx: HwPatch override (bank) target slot is empty (hwBank="
+                << (int)hwBank << " hwProg=" << (int)hwProg << "), ignored");
+            return;
+        }
+        std::string err;
+        if (!pm.mergeHwPatchFromJsonText(jsonText, target, &err)) {
+            FITOM_LOG_WARN("SysEx: HwPatch override (bank) JSON parse failed: " << err);
+        }
+        return;
+    }
+
+    // sub-cmd=0x02(SwPatch)、targetType=0x01(バンク直接編集)
+    const uint8_t swBank = sysexBuf_[5];
+    const uint8_t swProg = sysexBuf_[6];
+
+    SwBank* bank = pm.swRegistry().findMutable(swBank);
     if (!bank) {
-        FITOM_LOG_WARN("SysEx: HwPatch override (bank) target not found: voicePatchType=0x"
-            << std::hex << (int)voicePatchType << std::dec << " hwBank=" << (int)hwBank);
+        FITOM_LOG_WARN("SysEx: SwPatch override (bank) target not found: swBank=" << (int)swBank);
         return;
     }
-    if (hwProg >= BANK_PROG_SIZE) {
-        FITOM_LOG_WARN("SysEx: HwPatch override (bank) hwProg out of range: " << (int)hwProg);
+    if (swProg >= BANK_PROG_SIZE) {
+        FITOM_LOG_WARN("SysEx: SwPatch override (bank) swProg out of range: " << (int)swProg);
         return;
     }
-    HwPatch& target = bank->patches[hwProg];
+    SwPatch& target = bank->patches[swProg];
     if (!target.isValid()) {
-        // このSysExは既存プリセットの編集専用であり、空きスロットから
-        // 新規パッチを作る用途ではない(id/nameを設定する手段が
-        // この経路には無いため、マージしても発見不能な音色になる)。
-        FITOM_LOG_WARN("SysEx: HwPatch override (bank) target slot is empty (hwBank="
-            << (int)hwBank << " hwProg=" << (int)hwProg << "), ignored");
+        FITOM_LOG_WARN("SysEx: SwPatch override (bank) target slot is empty (swBank="
+            << (int)swBank << " swProg=" << (int)swProg << "), ignored");
         return;
     }
     std::string err;
-    if (!pm.mergeHwPatchFromJsonText(jsonText, target, &err)) {
-        FITOM_LOG_WARN("SysEx: HwPatch override (bank) JSON parse failed: " << err);
+    if (!pm.mergeSwPatchFromJsonText(jsonText, target, &err)) {
+        FITOM_LOG_WARN("SysEx: SwPatch override (bank) JSON parse failed: " << err);
     }
 }
 

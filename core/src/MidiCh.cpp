@@ -114,6 +114,7 @@ void CInstCh::progChange(uint8_t prog)
     swBankOverride_ = -1;
     swProgOverride_ = -1;
     clearHwPatchOverrides();
+    clearSwPatchOverrides();
     clearToneLayerOverrides();
     if (!patchMgr_ || !fitom_) return;
 
@@ -302,6 +303,14 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         if (swBankOverride_ >= 0 && patchMgr_) {
             const SwPatch* overridden = patchMgr_->resolveSwPatch(swBankOverride_, swProgOverride_);
             if (overridden) baseSwPatch = overridden;
+        }
+        // SysEx(target-type=0x00, sub-cmd=0x02)によるSwPatchパラメータ
+        // オーバーライドが有効なら、上記までで決まったbaseSwPatchより
+        // 優先する(NRPN96,2/3によるバンク/プログラム丸ごとの差し替え
+        // より、SysExによるフィールド単位の上書きの方が具体的な指定
+        // であるため)。
+        if (swPatchOverrideActive_[li]) {
+            baseSwPatch = &swPatchOverride_[li];
         }
 
         // CC#76/78(ソフトウェアLFO Rate/Delay)の演奏時上書きがあれば、
@@ -1344,6 +1353,53 @@ bool CInstCh::mergeHwPatchOverride(uint8_t layer, const std::string& jsonText)
 void CInstCh::clearHwPatchOverrides()
 {
     hwPatchOverrideActive_.fill(false);
+}
+
+// SysEx(private, 00H 48H 01H, sub-cmd 0x02, target-type 0x00)による
+// SwPatchパラメータオーバーライド。mergeHwPatchOverride()と対になる
+// 実装(発音中ノートへの即時プッシュが無い点のみ異なる、詳細は
+// MidiCh.hのswPatchOverride_コメント参照)。
+bool CInstCh::mergeSwPatchOverride(uint8_t layer, const std::string& jsonText)
+{
+    if (layer >= MAX_TONE_LAYERS) return false;
+
+    {
+        std::string trimmed;
+        for (char c : jsonText) {
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') trimmed += c;
+        }
+        if (trimmed == "{}") {
+            swPatchOverrideActive_[layer] = false;
+            return true;
+        }
+    }
+
+    if (!patchMgr_) return false;
+
+    if (!swPatchOverrideActive_[layer]) {
+        const auto* rl = resolver_.layer(layer);
+        if (rl && rl->swPatch) {
+            swPatchOverride_[layer] = *rl->swPatch;
+        } else {
+            swPatchOverride_[layer] = SwPatch{};
+        }
+    }
+
+    std::string err;
+    if (!patchMgr_->mergeSwPatchFromJsonText(jsonText, swPatchOverride_[layer], &err)) {
+        FITOM_LOG_WARN("CInstCh ch=" << (int)ch_ << " layer=" << (int)layer
+            << ": SwPatch override JSON parse failed: " << err);
+        return false;
+    }
+    swPatchOverrideActive_[layer] = true;
+    // 発音中のノートへの即時反映手段が無いため、次のノートオンから
+    // 反映される(CC#76/78のRate/Delay上書きと同じ制約)。
+    return true;
+}
+
+void CInstCh::clearSwPatchOverrides()
+{
+    swPatchOverrideActive_.fill(false);
 }
 
 // ================================================================

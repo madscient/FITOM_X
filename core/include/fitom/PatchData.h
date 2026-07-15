@@ -415,6 +415,12 @@ public:
         auto it = banks_.find(bankNo);
         return (it != banks_.end()) ? &it->second : nullptr;
     }
+    // SysExによるプリセットバンク直接編集(target-type=0x01)用の
+    // 可変アクセサ(2026年7月新設)。
+    SwBank* findMutable(int bankNo) {
+        auto it = banks_.find(bankNo);
+        return (it != banks_.end()) ? &it->second : nullptr;
+    }
     bool hasBank(int bankNo) const { return banks_.count(bankNo) > 0; }
 
     const SwPatch* resolve(int bankNo, int prog) const {
