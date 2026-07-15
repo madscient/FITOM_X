@@ -164,12 +164,13 @@ if(FITOM_GUI_IMGUI)
     endif()
     add_subdirectory(third_party/glfw)
 
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/imgui/CMakeLists.txt")
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/imgui/imgui.cpp")
         message(FATAL_ERROR
-            "third_party/imgui が見つかりません(third_party/imgui/CMakeLists.txt はFITOM_X側で追加したラッパー)。\n"
+            "third_party/imgui が見つかりません(素のimguiリポジトリを配置してください。\n"
+            "  ビルドラッパーは third_party/imgui_cmake/ 側にあります)。\n"
             "  git submodule add https://github.com/ocornut/imgui.git third_party/imgui")
     endif()
-    add_subdirectory(third_party/imgui)
+    add_subdirectory(third_party/imgui_cmake)
 
     add_subdirectory(gui/bridge)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/fitom_gui/CMakeLists.txt")

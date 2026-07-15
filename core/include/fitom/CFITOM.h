@@ -133,6 +133,9 @@ public:
     MidiProcessor* getMidiProcessor(uint8_t idx) {
         return (idx < MAX_MPUS && processors_[idx]) ? processors_[idx].get() : nullptr;
     }
+    // MPU(16chの処理単位)の総数。GUI等、外部から件数を知る必要がある
+    //箇所向け(2026年7月新設)。
+    static constexpr int getMpuCount() { return MAX_MPUS; }
 
     // ─── タイマー・ポーリング ────────────────────────────────────
     void timerCallback(uint32_t tick);
