@@ -5,7 +5,7 @@
 Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャしたプロジェクト。
 
 - バックエンド（FM エンジン / HW I/F / MIDI）を DLL プラグインに分離
-- GUI とコアを別プロセスに分離（GUI は将来 Qt6 で実装予定）
+- GUI(`apps/fitom_gui`, Dear ImGui)は `gui/bridge`(FITOMBridge)経由で同一プロセス内から fitom_core を利用
 - Windows / Linux / macOS のクロスプラットフォームビルド対応
 - C++17 / CMake 3.20+ / vcpkg
 
@@ -15,10 +15,10 @@ Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャ
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                 GUI / アプリケーション層 (別プロセス)             │
-│         Qt6 (予定) / MFC shim (移行期) / CLI                   │
+│              GUI / アプリケーション層 (同一プロセス)               │
+│         apps/fitom_gui (Dear ImGui) / apps/fitom_cli            │
 └────────────────────────────┬───────────────────────────────────┘
-                             │ FITOMBridge API
+                             │ gui/bridge (FITOMBridge)
 ┌────────────────────────────▼───────────────────────────────────┐
 │                   fitom_core  (static lib)                     │
 │  CFITOM / CInstCh / CRhythmCh / PatchManager / Config ...     │
@@ -108,6 +108,9 @@ SCC 波形テーブルは `*.sccwave.json` で管理し、`FmHwOp::WS` フィー
 
 ```
 FITOM_X/
+├── apps/
+│   ├── fitom_cli/          # CLI アプリケーション
+│   └── fitom_gui/          # Dear ImGui GUI アプリケーション
 ├── backends/
 │   ├── midi_alsa/          # ALSA MIDI バックエンド DLL (Linux)
 │   └── midi_wms/           # Windows MIDI Services バックエンド DLL
@@ -129,7 +132,11 @@ FITOM_X/
 │   ├── include/fitom/      # 公開ヘッダ
 │   └── src/                # 実装（新設計: *_new.cpp）
 ├── docs/                   # 設計ドキュメント
-├── gui/mfc_shim/           # MFC GUI ブリッジ（移行期）
+├── gui/
+│   └── bridge/             # GUI ブリッジ（UIフレームワーク非依存、apps/fitom_gui 等から利用）
+├── legacy/                 # 旧実装（ビルド対象外、参照用に保管）
+│   ├── include/fitom/
+│   └── src/
 ├── plugin_sdk/
 │   └── include/fitom/      # DLL プラグイン C API
 │       ├── IFmEnginePlugin.h
@@ -207,7 +214,7 @@ cmake --build --preset macos-release
 | `FITOM_BUILD_BACKEND_HWIF` | ON | HW I/F バックエンド DLL |
 | `FITOM_BUILD_BACKEND_MIDI_WMS` | OFF | Windows MIDI Services バックエンド（Windows のみ）|
 | `FITOM_BUILD_BACKEND_MIDI_ALSA` | OFF | ALSA MIDI バックエンド（Linux のみ）|
-| `FITOM_GUI_MFC` | OFF | MFC GUI shim（Windows のみ）|
+| `FITOM_GUI_IMGUI` | OFF | Dear ImGui GUI（`gui/bridge` + `apps/fitom_gui`）|
 | `FITOM_GUI_QT` | OFF | Qt6 GUI（実装予定）|
 | `FITOM_BUILD_TESTS` | ON | Catch2 テスト |
 
