@@ -114,6 +114,7 @@ void CInstCh::progChange(uint8_t prog)
     swBankOverride_ = -1;
     swProgOverride_ = -1;
     clearHwPatchOverrides();
+    clearToneLayerOverrides();
     if (!patchMgr_ || !fitom_) return;
 
     ResolvedPatch resolved;
@@ -241,12 +242,28 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
     // 判定に使う)。
     const uint32_t thisSeq = ++noteSeq_;
 
-    for (int li = 0; li < resolver_.layerCount(); ++li) {
-        const auto* rl = resolver_.layer(li);
+    for (int li = 0; li < MAX_TONE_LAYERS; ++li) {
+        // NRPN97,*によるToneLayerオーバーライド(デバイス/HwPatch選択の
+        // 差し替え、patchActive)が有効なら、ネイティブパッチが元々
+        // このレイヤーを持っているかどうかに関わらずそちらを使う
+        // (ネイティブパッチが1レイヤーしか定義していなくても、
+        // オーバーライドで2つ目以降のレイヤーを追加できる)。
+        auto& lov = layerOverride_[li];
+        const auto* rl = (li < resolver_.layerCount()) ? resolver_.layer(li) : nullptr;
+        if (lov.patchActive && lov.resolved.layerCount > 0) {
+            rl = &lov.resolved.layers[0];
+        }
         if (!rl || !rl->layer || !rl->layer->isActive()) continue;
-        if (!rl->layer->inRange(note)) continue;
 
-        int transposed = rl->layer->transposedNote(note);
+        // レイヤー固有パラメータ: 個別オーバーライドがあればそちらを
+        // 優先し、無ければ(patchActiveなら上記resolved由来の、そうで
+        // なければネイティブの)ToneLayerの値をそのまま使う。
+        const uint8_t effRangeLo = lov.noteRangeLoActive ? lov.noteRangeLo : rl->layer->noteRangeLo;
+        const uint8_t effRangeHi = lov.noteRangeHiActive ? lov.noteRangeHi : rl->layer->noteRangeHi;
+        if (note < effRangeLo || note > effRangeHi) continue;
+
+        const int8_t effTranspose = lov.transposeActive ? lov.transpose : rl->layer->transpose;
+        int transposed = static_cast<int>(note) + effTranspose;
         // SwPatch.fineTranspose(HwPatch由来の演奏特性の一部、
         // セント単位・±1200)を加算する。ToneLayer.transpose(半音単位、
         // ネイティブパッチのレイヤー固有パラメータ)とは独立した概念で、
@@ -357,15 +374,18 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // コントローラ状態を適用
         // ────────────────────────────────────────────────────────
 
-        // ボリューム・エクスプレッション (レイヤーのオフセット加味)
-        int adjVol = static_cast<int>(volume_) + rl->layer->volumeOffset;
+        // ボリューム・エクスプレッション (レイヤーのオフセット加味。
+        // NRPN97,*で個別上書きされていればそちらを使う)
+        const int8_t effVolumeOffset = lov.volumeOffsetActive ? lov.volumeOffset : rl->layer->volumeOffset;
+        int adjVol = static_cast<int>(volume_) + effVolumeOffset;
         adjVol = std::clamp(adjVol, 0, 127);
         dev->setVolume(devCh, static_cast<uint8_t>(adjVol), false);
         dev->setExpression(devCh, expression_, false);
         dev->setSustain(devCh, sustain_, false);
 
-        // パン (レイヤーオフセット加味, -64..+63 に正規化)
-        int adjPan = static_cast<int>(panpot_) - 64 + rl->layer->panOffset;
+        // パン (レイヤーオフセット加味, -64..+63 に正規化。同上)
+        const int8_t effPanOffset = lov.panOffsetActive ? lov.panOffset : rl->layer->panOffset;
+        int adjPan = static_cast<int>(panpot_) - 64 + effPanOffset;
         adjPan = std::clamp(adjPan, -64, 63);
         dev->setPanpot(devCh, static_cast<int8_t>(adjPan), false);
 
@@ -747,6 +767,14 @@ void CInstCh::setRPNRegister(uint16_t reg, uint16_t val)
 
 void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 {
+    // NRPN 97,n (0x3080-0x309F): ToneLayerオーバーライド。
+    // 「ネイティブパッチバンクが選択されているチャンネル」(通常モード、
+    // bankSelM_==0)でのみ有効。直接モードのチャンネルでは何もしない。
+    if (reg >= 0x3080 && reg <= 0x309F) {
+        applyToneLayerOverride(reg, val);
+        return;
+    }
+
     switch (reg) {
     case 0x3001:
         // valはCC#6(Data Entry MSB)<<7 | CC#38(Data Entry LSB)。
@@ -765,6 +793,67 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
         // チェンジ受信まで有効。
         swBankOverride_ = pendingSwBankOverride_;
         swProgOverride_ = static_cast<int8_t>(val >> 7);
+        break;
+    default: break;
+    }
+}
+
+// NRPN 97,n (0x3080-0x309F): ToneLayerオーバーライド。
+// layer = (reg-0x3080)/8、param = (reg-0x3080)%8。
+// 詳細な仕様はMidiCh.hのToneLayerOverrideコメント参照。
+void CInstCh::applyToneLayerOverride(uint16_t reg, uint16_t val)
+{
+    // ネイティブパッチバンクが選択されていないチャンネルでは何もしない。
+    if (bankSelM_ != 0) return;
+    if (!patchMgr_ || !fitom_) return;
+
+    const uint16_t offset = reg - 0x3080;
+    const uint8_t layer = static_cast<uint8_t>(offset / 8);
+    const uint8_t param  = static_cast<uint8_t>(offset % 8);
+    if (layer >= MAX_TONE_LAYERS) return;
+
+    auto& lov = layerOverride_[layer];
+    const uint8_t msb = static_cast<uint8_t>(val >> 7);
+
+    switch (param) {
+    case 0: // voice_patch_type (保持のみ)
+        lov.pendingVoicePatchType = msb;
+        break;
+    case 1: // hwbank (保持のみ)
+        lov.pendingHwBank = msb;
+        break;
+    case 2: { // hwprog: 受信時に0/1とセットで確定・上書き
+        lov.resolved = patchMgr_->resolveDirect(
+            lov.pendingVoicePatchType, lov.pendingHwBank, msb,
+            fitom_->getConfig(), lov.directStorage);
+        lov.patchActive = lov.resolved.isValid();
+        if (!lov.patchActive) {
+            FITOM_LOG_WARN("CInstCh ch=" << (int)ch_ << " layer=" << (int)layer
+                << ": ToneLayer override resolveDirect failed (voicePatchType=0x"
+                << std::hex << (int)lov.pendingVoicePatchType << std::dec
+                << " hwBank=" << (int)lov.pendingHwBank << " hwProg=" << (int)msb << ")");
+        }
+        break;
+    }
+    case 3: // transpose (即時反映、次のノートオンから)
+        lov.transpose = static_cast<int8_t>(static_cast<int>(msb) - 64);
+        lov.transposeActive = true;
+        break;
+    case 4: // note range lo
+        lov.noteRangeLo = msb;
+        lov.noteRangeLoActive = true;
+        break;
+    case 5: // note range hi
+        lov.noteRangeHi = msb;
+        lov.noteRangeHiActive = true;
+        break;
+    case 6: // volume offset
+        lov.volumeOffset = static_cast<int8_t>(static_cast<int>(msb) - 64);
+        lov.volumeOffsetActive = true;
+        break;
+    case 7: // pan offset
+        lov.panOffset = static_cast<int8_t>(static_cast<int>(msb) - 64);
+        lov.panOffsetActive = true;
         break;
     default: break;
     }
