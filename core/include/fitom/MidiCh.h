@@ -366,6 +366,21 @@ private:
     int16_t  lfoDepthOverrideCents_ = -2000;
     uint8_t  phyCh_      = 127;
 
+    // NRPN 96,2(パフォーマンスバンクセレクト)/96,3(パフォーマンス
+    // プログラムセレクト)。このチャンネルが使うSwPatch(演奏特性)を、
+    // 現在選択中のHwPatch(音色)本来の参照先とは無関係に、明示的に
+    // 指定したバンク/プログラムへ差し替える。値はDataEntry MSBのみ
+    // 使う(0x3001等と同じ規約)。
+    // pendingSwBankOverride_はNRPN96,2受信時に一時保存されるだけで、
+    // まだ確定しない。NRPN96,3受信時に、その時点のpendingSwBankOverride_
+    // とNRPN96,3自身の値(DataEntry MSB)を組にして確定させる
+    // (setNRPNRegister参照)。
+    int8_t   pendingSwBankOverride_ = -1;
+    // 確定した上書き値。-1=上書きなし(HwPatch本来の参照先を使う)。
+    // 次のプログラムチェンジ受信まで有効(progChange()でクリアされる)。
+    int8_t   swBankOverride_ = -1;
+    int8_t   swProgOverride_ = -1;
+
     // ─── パッチ管理 ────────────────────────────────────────────────
     PatchManager*  patchMgr_  = nullptr;
     CFITOM*        fitom_     = nullptr;
