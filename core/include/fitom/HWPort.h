@@ -25,6 +25,7 @@ class HWPluginInstance {
 public:
     using PFN_GetName    = const char*  (FITOM_HWP_CALL*)();
     using PFN_Init       = HWResult     (FITOM_HWP_CALL*)(const char*);
+    using PFN_Shutdown   = void         (FITOM_HWP_CALL*)();
     using PFN_Enumerate  = const char*  (FITOM_HWP_CALL*)();
     using PFN_FreeString = void         (FITOM_HWP_CALL*)(const char*);
     using PFN_Open       = HWResult     (FITOM_HWP_CALL*)(const char*, HWHandle*);
@@ -51,6 +52,12 @@ public:
     //    HW_ERR_OPEN_FAILED=デバイス/ストリーム起動失敗)。
     HWResult                  init(const std::string& profilePath) const;
 
+    // HWPlugin_Shutdown() を呼ぶ(エクスポートされていないプラグインでは
+    // 何もしない)。二重呼び出しを避けるため、内部で一度だけ実行する
+    // ガードを持つ(HWPluginRegistry::closeAll()から呼ばれる想定だが、
+    // 万一複数回呼ばれても安全)。
+    void shutdown() const;
+
     PFN_FreeString  FreeString = nullptr;
     PFN_Open        Open       = nullptr;
     PFN_Close       Close      = nullptr;
@@ -66,9 +73,11 @@ public:
 private:
     HWPluginInstance() = default;
     PluginLoader   loader_;
-    PFN_GetName    GetName_   = nullptr;
-    PFN_Init       Init_      = nullptr;
-    PFN_Enumerate  Enumerate_ = nullptr;
+    PFN_GetName    GetName_     = nullptr;
+    PFN_Init       Init_        = nullptr;
+    PFN_Shutdown   Shutdown_    = nullptr;   // optional: 未エクスポートならnullptr
+    PFN_Enumerate  Enumerate_   = nullptr;
+    mutable bool   shutdownDone_ = false;
 };
 
 // -------------------------------------------------------
@@ -91,6 +100,23 @@ public:
                          const std::filesystem::path& profilePath = {});
 
     std::shared_ptr<HWPluginInstance> get(const std::string& name);
+
+    // 登録済みの全プラグインに対してshutdown()(HWPlugin_Shutdown、
+    // エクスポートされていれば)を呼んだ上で、保持しているshared_ptrを
+    // 解放する。呼び出し元(HWPluginInstanceを他に保持していないことが
+    // 前提)は、これによりプラグインが実際にアンロードされる
+    // (参照カウントが0になった時点で~PluginLoader()がFreeLibrary/
+    // dlcloseを呼ぶ)。
+    // CFITOM::exit()等、明示的なシャットダウンシーケンスの中で、
+    // プロセスの静的破棄が始まるより前に呼ぶことを想定している
+    // (詳細はHWPlugin_Shutdownの宣言コメント参照)。
+    void closeAll() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& [name, inst] : entries_) {
+            if (inst) inst->shutdown();
+        }
+        entries_.clear();
+    }
 
 private:
     std::mutex mutex_;

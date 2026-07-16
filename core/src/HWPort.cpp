@@ -35,10 +35,22 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
     // 呼び出し側は必ずnullptrチェックすること)。
     self->GetLatencySamples = l.symOptional<PFN_GetLatencySamples>("HWPlugin_GetLatencySamples");
     self->SetDelaySamples   = l.symOptional<PFN_SetDelaySamples  >("HWPlugin_SetDelaySamples");
+    // HWPlugin_Shutdown (2026年7月新設): 未エクスポートのプラグインとの
+    // 後方互換のためoptional。詳細はIHWPlugin.hの宣言コメント参照。
+    self->Shutdown_          = l.symOptional<PFN_Shutdown        >("HWPlugin_Shutdown");
 
     FITOM_LOG_INFO("HWPlugin loaded: " << self->name()
         << " from " << dllPath.string());
     return self;
+}
+
+void HWPluginInstance::shutdown() const
+{
+    if (shutdownDone_) return; // 二重実行防止
+    shutdownDone_ = true;
+    if (!Shutdown_) return;    // 未エクスポート(旧プラグイン)なら何もしない
+    FITOM_LOG_INFO("HWPlugin shutting down: " << name());
+    Shutdown_();
 }
 
 std::string HWPluginInstance::name() const
