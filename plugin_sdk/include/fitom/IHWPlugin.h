@@ -69,6 +69,28 @@ FITOM_HWP_API const char* FITOM_HWP_CALL HWPlugin_GetName();
 // 初期化前に他の関数を呼んだ場合の動作は未定義（実装は失敗を返すこと）。
 FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Init(const char* profile_path);
 
+// プラグイン全体を安全に停止する(2026年7月新設、任意実装)。
+// HWPlugin_Init成功後、プロセス終了前にFITOM_X側が一度だけ呼ぶ。
+// オーディオストリーム等、プラグインが内部で保持するバックグラウンド
+// スレッドを、この関数呼び出しの中で同期的に停止・joinすること。
+//
+// 背景: HWPlugin_Closeは個別ハンドル単位の解放のみを行う契約であり、
+// プラグイン全体で共有するリソース(例: RtAudioストリームとその
+// コールバックスレッド)を止める手段が無かった。その結果、ストリームの
+// 停止がC++の静的デストラクタ実行(プロセス終了時、DLLアンロードと
+// 前後する暗黙のタイミング)任せになり、Windows環境でローダーロックに
+// 起因するデッドロック・フリーズを引き起こすことがある
+// (FreeLibrary/dlcloseがDLL内部のスレッド停止処理と競合するため)。
+//
+// この関数をエクスポートしないプラグインとの後方互換のため、FITOM_X側
+// はシンボルが見つからない場合は単に呼び出しをスキップする(GetProcAddress/
+// dlsymの結果がnullptrなら無視、詳細はHWPluginInstance::load()参照)。
+// 実装側は、この関数が呼ばれないまま(古いFITOM_X等から)プロセスが
+// 終了するケースにも耐えられるよう、static/global デストラクタでの
+// フォールバック停止処理自体は残しておくことを推奨する
+// (ただし通常経路ではこちらが先に呼ばれ、フォールバックには到達しない)。
+FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Shutdown();
+
 // ─── デバイス列挙 ────────────────────────────────────────────────────────────
 // 接続デバイスを JSON 文字列で返す (呼び出し元は HWPlugin_FreeString で解放)
 // 失敗時は nullptr

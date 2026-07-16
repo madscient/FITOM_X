@@ -82,6 +82,45 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 | `HWPlugin_Open` | `HWResult (const char* params_json, HWHandle* out)` | デバイスを開く |
 | `HWPlugin_Close` | `void (HWHandle)` | デバイスを閉じてリソースを解放する |
 
+### プラグイン全体のシャットダウン(2026年7月新設、任意実装だが強く推奨)
+
+| 関数 | シグネチャ | 説明 |
+|---|---|---|
+| `HWPlugin_Shutdown` | `void ()` | プラグイン全体を安全に停止する。プロセス終了前にFITOM_X側が一度だけ呼ぶ |
+
+**背景・なぜ必要か**
+
+`HWPlugin_Close`はハンドル単位(`HWPlugin_Open`で開いた1つのデバイス)の解放のみを行う契約です。しかし、`RtAudio`のストリームのように**プラグイン全体で1つだけ共有するリソース**(バックグラウンドのオーディオコールバックスレッドを持つ)は、個々の`HWPlugin_Close`呼び出しでは止まりません。
+
+この関数が実装されていない場合、ストリームの停止はC++の静的デストラクタ(グローバル/staticオブジェクトの破棄)任せになります。この破棄は、プロセス終了時にDLLのアンロード(`FreeLibrary`/`dlclose`)と前後する、暗黙的なタイミングで走ります。**この状態でオーディオスレッドの停止・join処理を行うと、Windowsではローダーロックに起因するデッドロック(アプリがフリーズし、Ctrl+Cも効かなくなる)を引き起こすことがあります。**
+
+**実装要件**
+
+- `HWPlugin_Init`が成功した後、FITOM_Xがプロセスを終了する前に**一度だけ**呼ばれます(`HWPlugin_Open`/`HWPlugin_Close`の呼び出し回数・順序とは独立)。
+- この関数の中で、オーディオストリームを**同期的に**(呼び出しから戻った時点で完全に停止・スレッドがjoin済みの状態になるまで)停止してください。`RtAudio`であれば`stopStream()`→`closeStream()`が該当します。
+- 呼び出しは通常のメインスレッドのコンテキストで行われます(`DllMain`/`DLL_PROCESS_DETACH`の中ではありません)。ロック取得やスレッドjoin等、`DllMain`内では避けるべき操作をこの関数の中では安全に行えます。
+- 冪等性は不要です(FITOM_X側で二重呼び出しをガードしています)。
+- **未実装でも動作します**(FITOM_X側は`GetProcAddress`/`dlsym`でこの関数を探し、見つからなければ何もせずスキップします)。ただし未実装のままだと、上記のフリーズ問題が解消されません。
+
+**実装例(RtAudioを使う場合)**
+
+```cpp
+// グローバル/staticなRtAudioインスタンスを想定
+static RtAudio* g_audio = nullptr;
+
+FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Shutdown()
+{
+    if (g_audio && g_audio->isStreamOpen()) {
+        if (g_audio->isStreamRunning()) {
+            g_audio->stopStream();
+        }
+        g_audio->closeStream();
+    }
+}
+```
+
+**エクスポート**:他の`HWPlugin_*`関数と同様に、`.def`ファイル(または`__declspec(dllexport)`)でエクスポートしてください。
+
 **`params_json` フォーマット（物理 HW）:**
 
 ```json
@@ -223,6 +262,7 @@ DLL は addr の解釈のみ実装すればよい。
 | `HWPlugin_Open`, `HWPlugin_Close`, `HWPlugin_Reset` | 初期化・終了フェーズのみ。スレッドセーフ不要 |
 | `HWPlugin_GetLatencySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
 | `HWPlugin_SetDelaySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
+| `HWPlugin_Shutdown` | 終了フェーズに一度だけ、メインスレッドから呼ばれる。**呼び出しから戻るまでに、内部のバックグラウンドスレッド(オーディオコールバック等)を完全に停止・joinし終えていること**(詳細は「プラグイン全体のシャットダウン」節参照) |
 
 ---
 

@@ -365,7 +365,19 @@ int main(int argc, char** argv)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("FITOM_X");
+        // OSウィンドウ(GLFW)いっぱいに、タイトルバー/枠/リサイズハンドル
+        // 無しでImGuiのルートウィンドウを敷き詰める。単一画面のアプリ
+        // なので、GLFWのウィンドウ枠と別にImGui側の入れ子ウィンドウ枠
+        // (いわゆるMDI風の二重フレーム)を表示する必要が無いため。
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(viewport->WorkSize);
+        constexpr ImGuiWindowFlags rootFlags =
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+        ImGui::Begin("FITOM_X_Root", nullptr, rootFlags);
         if (!coreReady) {
             if (profilePath.empty()) {
                 ImGui::TextUnformatted(

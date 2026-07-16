@@ -187,6 +187,18 @@ void CFITOM::exit(bool /*save*/)
 
     stopTimerThread();
     allNoteOff();
+
+    // HWプラグイン(オーディオストリーム等のバックグラウンドスレッドを
+    // 内部で持つ可能性がある)を、プロセスの静的破棄が始まるより前に
+    // 明示的にシャットダウンする。config_->getHWPluginRegistry()の
+    // 参照が0になった時点でDLLがアンロードされるが、それより前に
+    // HWPlugin_Shutdown()(エクスポートされていれば)を呼んでおくことで、
+    // DLLアンロード時のスレッド停止処理が暗黙の静的破棄タイミングに
+    // 依存しないようにする(Windowsでのローダーロック起因のフリーズを
+    // 避けるため。2026年7月、詳細はIHWPlugin.hのHWPlugin_Shutdown宣言
+    // コメント参照)。
+    if (config_) config_->getHWPluginRegistry().closeAll();
+
     FITOM_LOG_INFO("FITOM exited");
 }
 
