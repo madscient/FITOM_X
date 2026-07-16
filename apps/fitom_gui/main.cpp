@@ -280,7 +280,7 @@ void renderKeyboardViewPlaceholder()
     using C = MonitorColumns;
     ImGui::SetCursorPosX(0.0f);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-    ImGui::BeginChild("kbview", ImVec2(C::total, 22.0f), ImGuiChildFlags_Border);
+    ImGui::BeginChild("kbview", ImVec2(C::total, 22.0f), ImGuiChildFlags_Borders);
     ImGui::TextDisabled("<Keyboard view (128 notes)> (次段階で実装)");
     ImGui::EndChild();
     ImGui::PopStyleColor();

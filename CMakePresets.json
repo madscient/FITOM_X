@@ -46,6 +46,38 @@
       }
     },
     {
+      "name": "windows-vs2026-x64",
+      "displayName": "Windows (VS2026 / x64)",
+      "inherits": "base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "cacheVariables": {
+        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
+        "FITOM_BUILD_BACKEND_HWIF": "ON",
+        "FITOM_BUILD_BACKEND_MIDI_WMS": "OFF",
+        "FITOM_GUI_MFC": "OFF",
+        "FITOM_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "windows-vs2026-x64-vcpkg",
+      "displayName": "Windows (VS2026 / x64 / vcpkg で boost・json を取得)",
+      "inherits": "windows-vs2026-x64",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "FITOM_USE_VCPKG_JSON": "ON"
+      }
+    },
+    {
+      "name": "windows-vs2026-x64-gui-imgui",
+      "displayName": "Windows (VS2026 / x64 / Dear ImGui GUI)",
+      "inherits": "windows-vs2026-x64",
+      "cacheVariables": {
+        "FITOM_GUI_IMGUI": "ON"
+      }
+    },
+    {
       "name": "linux-ninja",
       "displayName": "Linux (Ninja / Clang or GCC)",
       "inherits": "base",
@@ -89,6 +121,16 @@
       "configuration": "Debug"
     },
     {
+      "name": "windows-vs2026-release",
+      "configurePreset": "windows-vs2026-x64",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-vs2026-debug",
+      "configurePreset": "windows-vs2026-x64",
+      "configuration": "Debug"
+    },
+    {
       "name": "linux-release",
       "configurePreset": "linux-ninja"
     },
@@ -112,6 +154,14 @@
     {
       "name": "windows-test",
       "configurePreset": "windows-vs2022-x64",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-vs2026-test",
+      "configurePreset": "windows-vs2026-x64",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true
