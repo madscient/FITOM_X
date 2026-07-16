@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <string>
 #include <filesystem>
+#include <array>
 
 #if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
@@ -273,34 +274,137 @@ void renderMonitorDataRow(const FITOMChannelMonitor& mon)
     }
 }
 
-// キーボードビューの場所は次段階で実装。ここでは高さ確保のための
-// プレースホルダのみ描画する。
-void renderKeyboardViewPlaceholder()
+// ─── キーボードビュー(128ノート)+発光エフェクト ────────────────────
+// 実際の鍵盤の形(白鍵/黒鍵の幅の違い等)は再現せず、128ノートを均等幅の
+// 列として並べ、黒鍵に相当する列は背が低い/暗い色にすることで簡易的に
+// 鍵盤らしく見せる(このビューは演奏用ではなくモニター用のため)。
+struct KeyGlowState {
+    uint8_t note      = 0xFF; // 0xFF=現在発光対象なし
+    float   brightness = 0.0f; // 0-1、ノートオン時のベロシティ由来
+    float   releasedAt = -1.0f; // 発音が止まった時刻(ImGui::GetTime()基準)。
+                                 // -1の間はまだ発音中(フェード開始前)。
+};
+
+bool isBlackKeyNote(int note)
+{
+    int p = note % 12;
+    return p == 1 || p == 3 || p == 6 || p == 8 || p == 10;
+}
+
+void renderKeyboardView(const FITOMChannelMonitor& mon, KeyGlowState& glow, float now)
 {
     using C = MonitorColumns;
+    constexpr float kHeight    = 20.0f;
+    constexpr int   kNumNotes  = 128;
+    constexpr float kFadeSec   = 0.25f; // ノートオフ後、発光が消えるまでの時間
+
+    // 発音中なら常に最新の状態(ノート・ベロシティ)に更新し、
+    // フェード状態(releasedAt)をリセットする。発音が止まった瞬間
+    // (sounding: true→false)を検出したら、その時刻を記録してフェード
+    // を開始する。
+    if (mon.sounding && mon.lastNote != 0xFF) {
+        glow.note       = mon.lastNote;
+        glow.brightness = static_cast<float>(mon.velocity) / 127.0f;
+        glow.releasedAt = -1.0f;
+    } else if (glow.note != 0xFF && glow.releasedAt < 0.0f) {
+        glow.releasedAt = now;
+    }
+
+    float glowAlpha = 0.0f;
+    if (glow.note != 0xFF) {
+        if (glow.releasedAt < 0.0f) {
+            glowAlpha = glow.brightness;
+        } else {
+            float t = (now - glow.releasedAt) / kFadeSec;
+            if (t >= 1.0f) {
+                glow.note = 0xFF; // フェード完了。以後は発光無し。
+            } else {
+                glowAlpha = glow.brightness * (1.0f - t);
+            }
+        }
+    }
+
     ImGui::SetCursorPosX(0.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-    ImGui::BeginChild("kbview", ImVec2(C::total, 22.0f), ImGuiChildFlags_Borders);
-    ImGui::TextDisabled("<Keyboard view (128 notes)> (次段階で実装)");
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float keyWidth = C::total / static_cast<float>(kNumNotes);
+
+    for (int n = 0; n < kNumNotes; ++n) {
+        const bool  black = isBlackKeyNote(n);
+        const float x0 = origin.x + static_cast<float>(n) * keyWidth;
+        const float x1 = x0 + keyWidth - 1.0f; // 1px の隙間で列を区切る
+        const float y0 = origin.y;
+        const float y1 = origin.y + (black ? kHeight * 0.6f : kHeight);
+
+        ImU32 col = black ? IM_COL32(24, 24, 28, 255) : IM_COL32(220, 220, 214, 255);
+        if (glow.note == n && glowAlpha > 0.001f) {
+            // ベロシティ(明るさ)に応じて赤→オレンジ→黄色寄りに変化させる。
+            const int g = static_cast<int>(120 + 135 * glowAlpha);
+            const int b = static_cast<int>(40  * (1.0f - glowAlpha));
+            col = IM_COL32(255, g, b, 255);
+        }
+        dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), col);
+    }
+
+    ImGui::Dummy(ImVec2(C::total, kHeight));
 }
 
 // MIDIモニター バンド。ルート画面に常時表示する主要コンテンツ。
-// 現状はMPU0・CH1のみ(次段階で全16ch・複数MPU切替に拡張する)。
+// MPU(16chの処理単位、現状最大4面)を`<`/`>`ボタンで切り替えられる。
 void renderMidiMonitorBand(FITOMBridge& bridge)
 {
-    auto monitors = bridge.getChannelMonitors(0);
-    ImGui::TextDisabled("<MIDI port name>");
+    using C = MonitorColumns;
+
+    static int mpuIndex = 0;
+    static std::array<KeyGlowState, 16> keyGlow{};
+
+    int mpuCount = bridge.getMpuCount();
+    if (mpuCount <= 0) mpuCount = 1;
+    if (mpuIndex >= mpuCount) mpuIndex = 0;
+
+    // ポート名ラベルと切替ボタン(右上)。
+    auto midiInputs = bridge.getMidiInputs();
+    std::string portName;
+    for (const auto& m : midiInputs) {
+        if (m.index == mpuIndex) { portName = m.name; break; }
+    }
+    if (!portName.empty()) {
+        ImGui::Text("<%s>", portName.c_str());
+    } else {
+        ImGui::TextDisabled("<MIDI port name>");
+    }
+    ImGui::SameLine(C::total - 44.0f);
+    ImGui::BeginDisabled(mpuCount <= 1);
+    if (ImGui::ArrowButton("##mpu_prev", ImGuiDir_Left)) {
+        mpuIndex = (mpuIndex - 1 + mpuCount) % mpuCount;
+        keyGlow.fill(KeyGlowState{}); // 別ポートの残像を持ち越さない
+    }
+    ImGui::SameLine();
+    if (ImGui::ArrowButton("##mpu_next", ImGuiDir_Right)) {
+        mpuIndex = (mpuIndex + 1) % mpuCount;
+        keyGlow.fill(KeyGlowState{});
+    }
+    ImGui::EndDisabled();
+
     renderMonitorHeader();
     ImGui::Separator();
-    if (!monitors.empty()) {
-        renderMonitorDataRow(monitors[0]);
-    } else {
+
+    auto monitors = bridge.getChannelMonitors(mpuIndex);
+    const float now = static_cast<float>(ImGui::GetTime());
+
+    if (monitors.empty()) {
         FITOMChannelMonitor placeholder;
         renderMonitorDataRow(placeholder);
+        ImGui::NewLine(); // SameLine()チェーンの末尾のままだと次の描画が
+                           // 同じ行に重なってしまうため、明示的に改行する
+        renderKeyboardView(placeholder, keyGlow[0], now);
+    } else {
+        for (size_t i = 0; i < monitors.size() && i < keyGlow.size(); ++i) {
+            renderMonitorDataRow(monitors[i]);
+            ImGui::NewLine();
+            renderKeyboardView(monitors[i], keyGlow[i], now);
+        }
     }
-    renderKeyboardViewPlaceholder();
 }
 
 } // namespace
