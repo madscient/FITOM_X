@@ -28,6 +28,11 @@ else()
     option(FITOM_BUILD_BACKEND_MIDI_WINMM "WinMM MIDI バックエンド DLL" OFF)
 endif()
 option(FITOM_BUILD_BACKEND_MIDI_ALSA "ALSA MIDI バックエンド DLL"                 OFF)  # Linux のみ
+# 名前付きパイプ(Windows)/UNIXドメインソケット(Linux/macOS)経由の内部専用
+# MIDIバックエンド。外部プロセス(例: 別プロジェクトのパッチエディタ)から
+# ローカルのみでFITOM_Xへメッセージを送るための、クロスプラットフォームな
+# バックエンド。詳細はdocs/plugin-midi-pipe.md参照。
+option(FITOM_BUILD_BACKEND_MIDI_PIPE "内部用MIDIパイプ バックエンド DLL (クロスプラットフォーム)" OFF)
 option(FITOM_GUI_IMGUI                "Dear ImGui GUI (apps/fitom_gui) をビルド"    OFF)
 option(FITOM_GUI_QT                  "Qt6 GUI をビルド"                           OFF)
 option(FITOM_BUILD_TESTS             "Catch2 テストをビルド"                       ON)
@@ -140,6 +145,9 @@ if(FITOM_BUILD_BACKEND_MIDI_ALSA)
         message(FATAL_ERROR "FITOM_BUILD_BACKEND_MIDI_ALSA は Linux のみ")
     endif()
     add_subdirectory(backends/midi_alsa)
+endif()
+if(FITOM_BUILD_BACKEND_MIDI_PIPE)
+    add_subdirectory(backends/midi_pipe)
 endif()
 
 # GUI
