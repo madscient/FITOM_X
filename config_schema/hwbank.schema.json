@@ -143,11 +143,11 @@
                   "maximum": 127,
                   "description": "Wave Select。チップにより意味・実際の値域が異なる(型は共通の7bit幅、2026年7月にmaximumを7→127へ拡大): OPL2=2bit(0-3)、OPL3/OPZ=3bit(0-7)、OPM=0固定、SCC/SCC+=7bit(0-127、波形メモリへの直接インデックス)、AY8930(EPSG)=4bit(0-15、デューティ比として転用、波形メモリとは無関係)。"
                 },
-                "FXV": {
+                "PDT": {
                   "type": "integer",
                   "minimum": -32768,
                   "maximum": 32767,
-                  "description": "疑似デチューン/拡張周波数オフセット用パラメータ(100/64セント単位、getFnumber()にそのまま渡せる)。2箇所で使われる: ①OPN ch2 FXモード(3rd channel special mode)専用。ext.DM0でモード選択(モード1/2=疑似デチューン/非整数倍率、モード3=0.1Hz単位の絶対周波数)。②OPL3(COPL3)の4OP疑似デチューン(op[0]/op[2]、2026年7月〜。旧FITOMのDT1+DT2ビット合成(±8192)より広いレンジ(±32767)を持つ、OPNのFXモードと共通の仕組み)。上記以外のチップ/チャンネルでは無視される。"
+                  "description": "疑似デチューン/拡張周波数オフセット用パラメータ(PDT = Pseudo DeTune。100/64セント単位、getFnumber()にそのまま渡せる)。2箇所で使われる: ①OPN ch2 FXモード(3rd channel special mode)専用。ext.FIXでモード選択(モード1/2=疑似デチューン/非整数倍率、モード3=0.1Hz単位の絶対周波数)。②OPL3(COPL3)の4OP疑似デチューン(op[0]/op[2]、2026年7月〜。旧FITOMのDT1+DT2ビット合成(±8192)より広いレンジ(±32767)を持つ、OPNのFXモードと共通の仕組み)。上記以外のチップ/チャンネルでは無視される。"
                 },
                 "REV": {
                   "type": "integer",
@@ -175,7 +175,7 @@
             "type": "object",
             "description": "チップ固有拡張パラメータ (OPZ / PSG 等)",
             "properties": {
-              "DM0": {
+              "FIX": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 3,

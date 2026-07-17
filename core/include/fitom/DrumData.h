@@ -53,7 +53,13 @@ struct DrumNote {
     // ─── 発音ノート ────────────────────────────────────────────────
     // Patch の ToneLayer.transpose は使わず、ここで絶対指定する
     uint8_t  playNote  = 60;  // 実際に発音する MIDI ノート番号
-    int16_t  fineTune  = 0;   // ファインチューニング [cents]
+    // ファインチューニング。ISoundDevice::setNoteFine()にそのまま渡す
+    // ため、centsではなくkfs単位(1半音=64ステップ、docs/terminology.md
+    // の「kfs」参照)。従来「[cents]」と誤記していたが、単位変換を一切
+    // 行わずsetNoteFine()へ渡している実装(MidiCh.cpp)に合わせて訂正
+    // (2026年7月、fromLegacyDrumMap()の旧DRUMMAP::fnum(kfs単位)からの
+    // 単純代入も参照)。値そのもの・フィールド名は変更なし。
+    int16_t  fineTune  = 0;   // ファインチューニング [kfs]
 
     // ─── パフォーマンスパッチ(SwPatch)参照の上書き ─────────────────
     // -1(無指定)の場合、そのノートが参照するHwPatch自身の

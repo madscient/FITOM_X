@@ -75,7 +75,7 @@
                   "minimum": -8192,
                   "maximum": 8191,
                   "default": 0,
-                  "description": "ファインチューニング [cents]。"
+                  "description": "ファインチューニング [kfs単位、1半音=64ステップ]。ISoundDevice::setNoteFine()にそのまま渡される値のため、centsではない(docs/terminology.mdの「kfs」参照)。"
                 },
                 "pan": {
                   "type": "integer",

@@ -18,7 +18,7 @@ HwBank (*.hwbank.json)  ← VoiceGroup (粗い分類, 9種) ごとに登録
   └── HwPatch [prog 0..127]
         ├── FmHwVoice hw    (FB / ALG / AMS / PMS / NFQ)
         ├── FmHwOp hwOp[4]  (AR/DR/SL/.../TL/KSR/.../MUL/DT1/DT2/AM/VIB/EGT/WS)
-        ├── FmChipExt ext   (REV / EGS / DM0 / DT3 / ALG_EXT / HWEP)
+        ├── FmChipExt ext   (REV / EGS / FIX / DT3 / ALG_EXT / HWEP)
         └── sw_bank / sw_prog → SwPatch への参照キー (2026年7月〜、-1=参照なし)
 ```
 

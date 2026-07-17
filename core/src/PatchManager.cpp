@@ -545,7 +545,7 @@ json hwOpToJson(const FmHwOp& op) {
     return json{
         {"AR",op.AR},{"DR",op.DR},{"SL",op.SL},{"SR",op.SR},{"RR",op.RR},
         {"TL",op.TL},{"KSR",op.KSR},{"KSL",op.KSL},
-        {"MUL",op.MUL},{"DT1",op.DT1},{"DT2",op.DT2},{"FXV",op.FXV},
+        {"MUL",op.MUL},{"DT1",op.DT1},{"DT2",op.DT2},{"PDT",op.PDT},
         {"AM",op.AM},{"VIB",op.VIB},{"EGT",op.EGT},{"WS",op.WS},
         {"REV",op.REV},{"EGS",op.EGS},{"DT3",op.DT3}
     };
@@ -555,7 +555,7 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
     g("AR",op.AR); g("DR",op.DR); g("SL",op.SL); g("SR",op.SR); g("RR",op.RR);
     g("TL",op.TL); g("KSR",op.KSR); g("KSL",op.KSL);
     g("MUL",op.MUL); g("DT1",op.DT1); g("DT2",op.DT2);
-    if (j.contains("FXV")) op.FXV = j["FXV"].get<int16_t>();
+    if (j.contains("PDT")) op.PDT = j["PDT"].get<int16_t>();
     g("AM",op.AM); g("VIB",op.VIB); g("EGT",op.EGT); g("WS",op.WS);
     g("REV",op.REV); g("EGS",op.EGS); g("DT3",op.DT3);
 }
@@ -618,7 +618,7 @@ json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
             {"FB",p.hw.FB},{"ALG",p.hw.ALG},{"AMS",p.hw.AMS},{"PMS",p.hw.PMS},{"NFQ",p.hw.NFQ},
             {"FB2",p.hw.FB2},
             {"ops",ops},
-            {"ext",json{{"DM0",p.ext.DM0},
+            {"ext",json{{"FIX",p.ext.FIX},
                         {"ALG_EXT",p.ext.ALG_EXT},{"HWEP",p.ext.HWEP},
                         {"target_voice_patch_type",p.ext.targetVoicePatchType},
                         {"rhythm_ch",p.ext.rhythmCh}}}
@@ -666,7 +666,7 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
         //  ext.* が正しく読み込まれていなかった)
         const auto& ex = j["ext"];
         auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
-        ge8("DM0",p.ext.DM0); ge8("ALG_EXT",p.ext.ALG_EXT);
+        ge8("FIX",p.ext.FIX); ge8("ALG_EXT",p.ext.ALG_EXT);
         ge8("target_voice_patch_type",p.ext.targetVoicePatchType);
         ge8("rhythm_ch",p.ext.rhythmCh);
         if (ex.contains("HWEP")) p.ext.HWEP = ex["HWEP"].get<uint16_t>();
@@ -699,7 +699,7 @@ static void mergeHwPatchFromJson(const json& j, HwPatch& target) {
     if (j.contains("ext")) {
         const auto& ex = j["ext"];
         auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
-        ge8("DM0",target.ext.DM0); ge8("ALG_EXT",target.ext.ALG_EXT);
+        ge8("FIX",target.ext.FIX); ge8("ALG_EXT",target.ext.ALG_EXT);
         ge8("target_voice_patch_type",target.ext.targetVoicePatchType);
         ge8("rhythm_ch",target.ext.rhythmCh);
         if (ex.contains("HWEP")) target.ext.HWEP = ex["HWEP"].get<uint16_t>();

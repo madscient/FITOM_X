@@ -51,7 +51,7 @@ public:
     // 必ずch2を払い出す (旧FITOM COPN::QueryCh 相当)。
     // fxCapable_=false (OPNA/OPN2後半サブチップ) の場合はこの判定自体を行わない。
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
-        if (fxCapable_ && patch && patch->ext.DM0 != 0) {
+        if (fxCapable_ && patch && patch->ext.FIX != 0) {
             const auto& s2 = chState_[2];
             bool avail = mode ? s2.isEmpty() : s2.isEnabled();
             return avail ? 2 : 0xFF;
@@ -132,11 +132,11 @@ protected:
         }
 
         // FXモード (3rd channel special mode): ch2専用、fxCapable_なチップのみ。
-        // ext.DM0 (0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数) で
+        // ext.FIX (0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数) で
         // モードを選択する。0以外ならFXモード有効(0x27 bit7)。
         if (fxCapable_ && ch == 2) {
             uint8_t cur = getReg(0x27) & 0x7F;
-            setReg(0x27, static_cast<uint8_t>(cur | (p.ext.DM0 != 0 ? 0x80 : 0)), true);
+            setReg(0x27, static_cast<uint8_t>(cur | (p.ext.FIX != 0 ? 0x80 : 0)), true);
         }
 
         updatePanpot(ch);
@@ -150,7 +150,7 @@ protected:
 
         // FXモード有効時 (ch2かつfxCapable_のみ): 4オペレータ独立のFnumberを書く
         const HwPatch& p = chState_[ch].hwPatch;
-        if (fxCapable_ && ch == 2 && p.ext.DM0 != 0 && !fn) {
+        if (fxCapable_ && ch == 2 && p.ext.FIX != 0 && !fn) {
             updateFxModeFreq(ch, p);
             return;
         }
@@ -173,13 +173,13 @@ protected:
         for (int op = 0; op < 4; ++op) {
             const FmHwOp& o = p.hwOp[op];
             ChState::Fnum fnum;
-            switch (p.ext.DM0) {
+            switch (p.ext.FIX) {
             case 1: // 疑似デチューン
             case 2: // 非整数倍率 (どちらもセントオフセットとして加算)
-                fnum = getFnumber(ch, o.FXV);
+                fnum = getFnumber(ch, o.PDT);
                 break;
             case 3: // 固定周波数 (0.1Hz単位)
-                fnum = getFnumberFromHz(static_cast<double>(o.FXV) / 10.0);
+                fnum = getFnumberFromHz(static_cast<double>(o.PDT) / 10.0);
                 break;
             default:
                 fnum = getFnumber(ch);

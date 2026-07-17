@@ -6,7 +6,7 @@
 //   - 独自 GetFnumber (KeyCode テーブル使用)
 //   - DT2 / NFQ / AMS / PMS (HW LFO)
 //   - HW LFO は LFORESOURCE で管理 (チップ全体で1リソース)
-//   - OPZ: WS / DT3 / REV / EGS / DM0 (FmChipExt)
+//   - OPZ: WS / DT3 / REV / EGS / FIX (FmChipExt)
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
@@ -96,11 +96,11 @@ protected:
                 : o.TL;
             setReg(static_cast<uint16_t>(0x60 + i * 8 + ch), tl);
 
-            // KSR / AR / DM0
-            const bool dm0 = (ex.DM0 != 0);
+            // KSR / AR / FIX
+            const bool fixFreq = (ex.FIX != 0);
             const uint8_t ar_opm = car_opm ? s.proc.velAR(kMap[i]) : (o.AR & 0x1F);
             setReg(static_cast<uint16_t>(0x80 + i * 8 + ch),
-                   ((o.KSR & 3) << 6) | (ar_opm >> 2) | (dm0 ? 0x20 : 0));
+                   ((o.KSR & 3) << 6) | (ar_opm >> 2) | (fixFreq ? 0x20 : 0));
 
             // AM / DR
             const uint8_t dr_opm = car_opm ? s.proc.velDR(kMap[i]) : (o.DR & 0x1F);
@@ -110,7 +110,7 @@ protected:
             // DT2 / SR (FmHwOp では SR = OPM の "D2R")
             const uint8_t sr_opm = car_opm ? s.proc.velSR(kMap[i]) : (o.SR & 0x1F);
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
-                   (dm0 ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm >> 2));
+                   (fixFreq ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm >> 2));
 
             // SL / RR
             const uint8_t sl_opm = car_opm ? s.proc.velSL(kMap[i]) : (o.SL & 0xF);
