@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <memory>
 
 // ─── デバイス情報 (GUI 表示用) ─────────────────────────────────────────────
 struct FITOMDeviceInfo {
@@ -129,12 +130,18 @@ public:
     bool savePatchBankFile(const std::string& path, int bankNo) const;
 
 private:
-    FITOMBridge() = default;
-    ~FITOMBridge() = default;
+    FITOMBridge();
+    ~FITOMBridge();
     FITOMBridge(const FITOMBridge&) = delete;
     FITOMBridge& operator=(const FITOMBridge&) = delete;
 
     bool initialized_ = false;
     std::string currentProfile_;
     StatusCb statusCb_;
+
+    // MIDI入力の実体(MidiPluginInstance/MidiInPort)は、このヘッダを
+    // UIフレームワーク非依存・コア型非依存に保つため、PIMPLで隠蔽する
+    // (定義はFITOMBridge.cpp側)。
+    struct MidiState;
+    std::unique_ptr<MidiState> midiState_;
 };

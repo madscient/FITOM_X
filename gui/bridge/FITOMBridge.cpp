@@ -7,12 +7,77 @@
 #include "fitom/PatchManager.h"
 #include "fitom/Log.h"
 #include "fitom/FnumUtils.h"
+#include "fitom/MidiManager.h"
 
 #include <nlohmann/json.hpp>
 #include <filesystem>
 
+#if defined(_WIN32)
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#elif defined(__linux__)
+#  include <unistd.h>
+#  include <climits>
+#elif defined(__APPLE__)
+#  include <mach-o/dyld.h>
+#  include <climits>
+#endif
+
 namespace fs = std::filesystem;
 using json   = nlohmann::json;
+
+// FITOMBridge::MidiState: MIDI入力の実体(PIMPL、詳細はFITOMBridge.hの
+// 宣言コメント参照)。
+struct FITOMBridge::MidiState {
+    std::shared_ptr<fitom::MidiPluginInstance> plugin;
+    std::vector<std::unique_ptr<fitom::MidiInPort>> ports;
+};
+
+FITOMBridge::FITOMBridge() : midiState_(std::make_unique<MidiState>()) {}
+FITOMBridge::~FITOMBridge() = default;
+
+namespace {
+
+// 実行ファイル自身のディレクトリを取得する(MIDIバックエンドDLLの
+// 相対パス解決に使う。apps/fitom_cli・apps/fitom_guiの同名ヘルパーと
+// 同じ実装)。取得できなければカレントディレクトリを返す。
+fs::path exeDir()
+{
+#if defined(_WIN32)
+    char buf[MAX_PATH] = {};
+    DWORD n = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    if (n > 0 && n < MAX_PATH) return fs::path(buf).parent_path();
+#elif defined(__linux__)
+    char buf[PATH_MAX] = {};
+    ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (n > 0) { buf[n] = '\0'; return fs::path(buf).parent_path(); }
+#elif defined(__APPLE__)
+    char buf[PATH_MAX] = {};
+    uint32_t size = sizeof(buf);
+    if (_NSGetExecutablePath(buf, &size) == 0) return fs::path(buf).parent_path();
+#endif
+    return fs::current_path();
+}
+
+// MIDIバックエンドDLLのパスを解決する(apps/fitom_cliのresolveMidiBackendPath
+// と同じ規則: プロファイル側で明示指定されていればそれを exeDir() 基準の
+// 相対パスとして解決、省略時はプラットフォームごとの既定ファイル名)。
+fs::path resolveMidiBackendPath(const std::string& configured)
+{
+    if (!configured.empty()) {
+        fs::path p = configured;
+        return p.is_relative() ? (exeDir() / p) : p;
+    }
+#if defined(_WIN32)
+    return exeDir() / "fitom_midi_winmm.dll";
+#elif defined(__linux__)
+    return exeDir() / "fitom_midi_alsa.so";
+#else
+    return exeDir() / "fitom_midi_backend";
+#endif
+}
+
+} // namespace
 
 FITOMBridge& FITOMBridge::instance() {
     static FITOMBridge inst;
@@ -59,6 +124,43 @@ bool FITOMBridge::init(const std::string& systemConfPath,
         if (statusCb_) statusCb_(msg);
     });
 
+    // MIDI入力を開く(apps/fitom_cliのmain.cppと同じ手順: バックエンド
+    // DLLをロードし、プロファイルのmidi_inputs[]で名前指定された各ポートを
+    // 開いて、対応するMPU(MidiProcessor)のreceiveByte()へ配線する)。
+    // 個別のポートのオープン失敗はログのみ出し、致命的エラーとしては
+    // 扱わない(他のポートは引き続き使えるようにするため)。
+    auto& fitomInst = fitom::CFITOM::instance();
+    auto& cfg2 = fitomInst.getConfig();
+    const int midiInCount = cfg2.getMidiInputCount();
+    if (midiInCount > 0) {
+        const fs::path midiBackendPath = resolveMidiBackendPath(cfg2.getMidiBackendDll());
+        try {
+            midiState_->plugin = fitom::MidiPluginInstance::load(midiBackendPath);
+            for (int i = 0; i < midiInCount; ++i) {
+                fitom::MidiProcessor* proc = fitomInst.getMidiProcessor(static_cast<uint8_t>(i));
+                if (!proc) {
+                    midiState_->ports.push_back(nullptr);
+                    continue;
+                }
+                const std::string portName = cfg2.getMidiInputName(i);
+                try {
+                    midiState_->ports.push_back(std::make_unique<fitom::MidiInPort>(
+                        midiState_->plugin, portName,
+                        [proc](const uint8_t* data, size_t len, uint64_t ts) {
+                            proc->receiveByte(data, len, ts);
+                        }));
+                } catch (const std::exception& e) {
+                    FITOM_LOG_ERR("FITOMBridge: MIDI入力 \"" << portName
+                        << "\" のオープンに失敗: " << e.what());
+                    midiState_->ports.push_back(nullptr);
+                }
+            }
+        } catch (const std::exception& e) {
+            FITOM_LOG_ERR("FITOMBridge: MIDIバックエンド読み込み失敗 ("
+                << midiBackendPath.string() << "): " << e.what());
+        }
+    }
+
     initialized_ = true;
     FITOM_LOG_INFO("FITOMBridge initialized");
     return true;
@@ -66,6 +168,10 @@ bool FITOMBridge::init(const std::string& systemConfPath,
 
 void FITOMBridge::exit() {
     if (!initialized_) return;
+    // MIDI入力を先に閉じる(コールバックが半分シャットダウン済みの
+    // CFITOMへ飛び込まないようにするため。apps/fitom_cliと同じ順序)。
+    midiState_->ports.clear();
+    midiState_->plugin.reset();
     fitom::CFITOM::instance().exit();
     initialized_ = false;
     FITOM_LOG_INFO("FITOMBridge exited");
