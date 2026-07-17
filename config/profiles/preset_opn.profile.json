@@ -23,7 +23,7 @@
   ],
   "banks": {
     "hw_banks": [
-      { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" }
+      { "group": "OPN", "bank": 0, "file": "../../banks/OPN/gm/necopn_gm.hwbank.json" }
     ],
     "patch_banks": [
       { "bank": 0, "file": "" }

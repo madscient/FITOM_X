@@ -17,19 +17,19 @@
       {
         "group": "OPN",
         "bank": 0,
-        "file": "banks/OPN/gm/necopn_gm.hwbank.json"
+        "file": "../../banks/OPN/gm/necopn_gm.hwbank.json"
       }
     ],
     "sw_banks": [
       {
         "bank": 0,
-        "file": "banks/sw/necopn_gm.swbank.json"
+        "file": "../../banks/sw/necopn_gm.swbank.json"
       }
     ],
     "patch_banks": [
       {
         "bank": 0,
-        "file": "banks/patches/necopn_gm.patchbank.json"
+        "file": "../../banks/patches/necopn_gm.patchbank.json"
       }
     ],
     "drum_banks": []
