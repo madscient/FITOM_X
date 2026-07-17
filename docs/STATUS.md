@@ -63,6 +63,7 @@
 | `backends/midi_wms/` | ✅ | Windows MIDI Services (C++/WinRT) |
 | `backends/midi_winmm/` | ✅ | クラシック WinMM API (ランタイム不要) |
 | `backends/midi_alsa/` | ✅ | ALSA MIDI |
+| `backends/midi_pipe/` | ✅ | 内部用MIDIパイプ (`fitom_midi_pipe`、名前付きパイプ/UNIXソケット、パッチエディタ連携用、既定OFF) |
 | `backends/hw_if/CMakeLists.txt` | ✅ | FitomIFTest submodule 統合 |
 
 ### GUI
@@ -71,7 +72,7 @@
 |---|---|---|
 | `gui/bridge/FITOMBridge.h` | ✅ | UIフレームワーク非依存のコアブリッジAPI |
 | `gui/bridge/FITOMBridge.cpp` | ✅ | ブリッジ実装 |
-| `apps/fitom_gui/` | 🚧 | Dear ImGui GUIアプリケーション(現状はブリッジとのリンク確認のみのプレースホルダ、ImGui本体・レンダラー未導入) |
+| `apps/fitom_gui/` | 🚧 | Dear ImGui + GLFW + OpenGL3 導入済み。ルート画面のMIDIモニターバンド(CH毎のBank/Program/Volume/Note/Device/Fnumber表示、MPU切替、128ノートキーボードビュー+発光エフェクト)を実装済み。デバイス一覧・パッチ一覧・パッチエディタ等、他画面への導線は未着手(該当描画関数は`[[maybe_unused]]`で温存) |
 
 ### 設定スキーマ・ドキュメント
 
@@ -90,7 +91,15 @@
 | `docs/config-design.md` | ✅ |
 | `docs/plugin-hwif.md` | ✅ |
 | `docs/plugin-midi.md` | ✅ |
+| `docs/plugin-midi-pipe.md` | ✅ |
 | `docs/midi-implementation-status.md` | ✅ |
+| `docs/terminology.md` | ✅ |
+| `docs/voice-parameter-reference.md` | ✅ |
+| `docs/manuals/midi-message-reference.md` | ✅ |
+| `docs/manuals/midi-implementation-chart.md` | ✅ |
+| `docs/manuals/hwpatch-reference.md` | ✅ |
+| `docs/manuals/swpatch-reference.md` | ✅ |
+| `docs/manuals/native-patch-reference.md` | ✅ |
 
 ---
 
@@ -127,6 +136,9 @@
 | リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `chip-driver-architecture.md` |
 | ADPCM RegMap 全面修正 (Y8950/OPNA/OPNB個別マップ、memory/panmaskフィールド追加) | ✅ | `chip-driver-architecture.md` |
 | OPLL Fnumberビットシフト修正・EGT/RR技法適用 | ✅ | `chip-driver-architecture.md` |
+| HWPlugin_Shutdown (未エクスポート時は何もしないオプショナルAPI、二重実行防止) | ✅ | `plugin-hwif.md` |
+| GUI MIDIモニターバンド (CH毎表示 + 128ノートキーボードビュー + 発光エフェクト) | ✅ | — |
+| 内部用MIDIパイプ (`fitom_midi_pipe`、パッチエディタ試聴連携) | ✅ | `plugin-midi-pipe.md` |
 
 ---
 
@@ -139,7 +151,8 @@
 - VoicePatchType 未実装チップ (MA3系列, SAA1099, AWM) のドライバ実装
 - OPL/OPL2/OPL3自体のリズムモード対応（現状OPLL系のみ対応。COPL_new.cppにリズム関連コードなし）
 - VoicePatchType 完全一致以外へのフォールバック（旧FITOMの互換リスト相当、将来実装予定）
-- GUI (Dear ImGui) 実装(`apps/fitom_gui`。現状はプレースホルダのみ、ImGui本体・レンダラー/ウィンドウバックエンドの導入から)
+- GUI (Dear ImGui) 実装の残り(`apps/fitom_gui`。MIDIモニターバンドは実装済み。デバイス一覧・パッチ一覧・音色エディタ等、他画面への導線が未着手)
+- GUI MIDIパイプ経由の音色試聴連携(`fitom_midi_pipe`側は実装済みだが、GUI側からのSysEx送出・パッチエディタ本体との結合は未着手)
 - OPZ の2系統LFOリソース対応（旧FITOMも未完成のため現状維持）
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ未完了
 
