@@ -157,6 +157,27 @@ bool FITOMConfig::loadSystemConf(const fs::path& path)
     }
 }
 
+std::string FITOMConfig::getLogLevel(const std::string& fallback) const
+{
+    if (systemConf_.contains("log") && systemConf_["log"].contains("level"))
+        return systemConf_["log"]["level"].get<std::string>();
+    return fallback;
+}
+
+std::string FITOMConfig::getLogFile(const std::string& fallback) const
+{
+    if (systemConf_.contains("log") && systemConf_["log"].contains("file"))
+        return systemConf_["log"]["file"].get<std::string>();
+    return fallback;
+}
+
+bool FITOMConfig::getLogConsole(bool fallback) const
+{
+    if (systemConf_.contains("log") && systemConf_["log"].contains("console"))
+        return systemConf_["log"]["console"].get<bool>();
+    return fallback;
+}
+
 // --- レガシー INI のロード（移行期互換） ----------------------
 
 bool FITOMConfig::loadLegacyIni(const fs::path& path)
@@ -338,7 +359,8 @@ void FITOMConfig::buildDevice(const json& dev)
             uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
             bool rhythmMode = dev.value("rhythm_mode", false);
             bool stereoPair = dev.value("stereo_pair", false);
-            pushDeviceEntries(label, deviceType, port, port2, 44100, extraSlot, rhythmMode, stereoPair);
+            int sampleRate = dev.value("sample_rate", 44100);
+            pushDeviceEntries(label, deviceType, port, port2, sampleRate, extraSlot, rhythmMode, stereoPair);
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
         }

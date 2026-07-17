@@ -152,8 +152,10 @@ typedef void (*MidiInCallback)(
 
 ## config 記述例
 
+プロファイル(`*.profile.json`)の `midi_backend.dll` で指定する:
+
 ```json
-"midi_plugin": {
+"midi_backend": {
   "dll": "fitom_midi_wms.dll"
 }
 ```

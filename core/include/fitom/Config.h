@@ -82,6 +82,13 @@ public:
     bool loadProfile(const std::filesystem::path& path, PatchManager* patchMgr = nullptr);
     bool loadLegacyIni(const std::filesystem::path& path);
 
+    // fitom.conf.json の log.* 設定を取り出す。loadSystemConf() 未実行、
+    // または該当フィールドが省略されている場合は fallback を返す
+    // (呼び出し側の従来デフォルト値をそのまま維持できるようにするため)。
+    std::string getLogLevel(const std::string& fallback)   const;
+    std::string getLogFile(const std::string& fallback)    const;
+    bool        getLogConsole(bool fallback)                const;
+
     // HWプラグイン(実機/エミュレータ問わず、IHWPluginを実装するDLL)を
     // 複数登録できる。実機かエミュレータかはFITOM本体では区別しない。
     HWPluginRegistry& getHWPluginRegistry();

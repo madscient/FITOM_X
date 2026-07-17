@@ -447,11 +447,15 @@ int main(int argc, char** argv)
 
     // FITOMBridge初期化。プロファイルはコマンドライン第1引数で指定する
     // (省略時はコア未初期化のまま、ウィンドウのみ表示する)。
+    // fitom.conf.json は実行ファイルと同じディレクトリにあれば読み込む
+    // (省略可能なシステム設定)。
     FITOMBridge& bridge = FITOMBridge::instance();
     const std::string profilePath = (argc >= 2) ? argv[1] : std::string();
+    const fs::path sysConfPath = exeDir() / "fitom.conf.json";
+    const std::string systemConfArg = fs::exists(sysConfPath) ? sysConfPath.string() : std::string();
     bool coreReady = false;
     if (!profilePath.empty()) {
-        coreReady = bridge.init("", profilePath);
+        coreReady = bridge.init(systemConfArg, profilePath);
     }
 
     while (!glfwWindowShouldClose(window)) {

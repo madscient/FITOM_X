@@ -123,8 +123,6 @@
         {
           "prog": 0,
           "name": "Strings 1",
-          "sw_bank": 0,
-          "sw_prog": 0,
           "poly": 0,
           "layers": [
             {
@@ -143,8 +141,6 @@
         {
           "prog": 1,
           "name": "Strings 2 (Split: OPM + DCSG bass)",
-          "sw_bank": 0,
-          "sw_prog": 1,
           "poly": 0,
           "layers": [
             {

@@ -23,7 +23,7 @@
     "boundary": {
       "type": "integer",
       "enum": [32, 256],
-      "description": "バウンダリ境界 [byte]。adpcm_packer のパラメータと一致させること。"
+      "description": "バウンダリ境界 [byte]。adpcm_packer のパラメータと一致させること。情報欄であり、FITOM_X自体はこの値を読み込んで保持するのみで、発音経路(entries[].start_offset/padded_sizeのみ参照)や整合性検証には使用しない(2026年7月時点)。"
     },
     "bin_file": {
       "type": "string",
@@ -58,7 +58,7 @@
           },
           "size": {
             "type": "integer", "minimum": 0,
-            "description": "エンコード後の ADPCM データサイズ [byte] (パディング前)"
+            "description": "エンコード後の ADPCM データサイズ [byte] (パディング前)。表示・記録用の情報欄であり、FITOM_X自体の発音経路では参照しない(実際に使われるのはstart_offset/padded_sizeのみ、2026年7月時点)。"
           },
           "padded_size": {
             "type": "integer", "minimum": 0,

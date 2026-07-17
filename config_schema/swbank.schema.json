@@ -95,38 +95,43 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 127,
-                  "description": "ベロシティ→AR感度 (将来)"
+                  "description": "ベロシティ→AR感度"
                 },
                 "VDR": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 127,
-                  "description": "ベロシティ→DR感度 (将来)"
+                  "description": "ベロシティ→DR感度"
                 },
                 "VSL": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 127
+                  "maximum": 127,
+                  "description": "ベロシティ→SL感度"
                 },
                 "VSR": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 127
+                  "maximum": 127,
+                  "description": "ベロシティ→SR感度"
                 },
                 "VRR": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 127
+                  "maximum": 127,
+                  "description": "ベロシティ→RR感度"
                 },
                 "VLD": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 127
+                  "maximum": 127,
+                  "description": "ベロシティ→ソフトLFO Depth感度 (未実装・予約。値を設定しても現状は反映されない)"
                 },
                 "VLR": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 127
+                  "maximum": 127,
+                  "description": "ベロシティ→ソフトLFO FadeIn感度 (未実装・予約。値を設定しても現状は反映されない)"
                 },
                 "SLW": {
                   "type": "integer",
