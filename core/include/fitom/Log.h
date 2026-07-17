@@ -33,10 +33,13 @@ BOOST_LOG_GLOBAL_LOGGER(fitomLogger,
 class Log {
 public:
     // アプリ起動時に一度だけ呼ぶ
-    // logFile: 空文字列でコンソールのみ
+    // logFile: 空文字列でファイル出力なし
     // minSeverity: "trace" / "debug" / "info" / "warning" / "error" / "fatal"
+    // console: false でコンソール(標準出力)へのログ出力を無効化する
+    //          (fitom.conf.json の log.console に対応)
     static void init(const std::string& minSeverity = "info",
-                     const std::filesystem::path& logFile = {});
+                     const std::filesystem::path& logFile = {},
+                     bool console = true);
 };
 
 } // namespace fitom

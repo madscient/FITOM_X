@@ -93,18 +93,19 @@ bool FITOMBridge::init(const std::string& systemConfPath,
 {
     if (initialized_) return true;
 
-    // Boost.Log 初期化
-    fitom::Log::init("info");
-
-    FITOM_LOG_INFO("FITOMBridge initializing...");
-
-    // システム設定とプロファイルをロード
+    // システム設定 (fitom.conf.json) を先に読み込み、その log.* 設定で
+    // Boost.Log を初期化する (省略時は従来通りの既定値 "info"を使う)。
     auto config   = std::make_unique<fitom::FITOMConfig>();
     auto patchMgr = std::make_unique<fitom::PatchManager>();
 
     if (!systemConfPath.empty()) {
         config->loadSystemConf(fs::path(systemConfPath));
     }
+    fitom::Log::init(config->getLogLevel("info"),
+                      config->getLogFile(""),
+                      config->getLogConsole(true));
+
+    FITOM_LOG_INFO("FITOMBridge initializing...");
     if (!profilePath.empty()) {
         config->loadProfile(fs::path(profilePath));
         currentProfile_ = profilePath;

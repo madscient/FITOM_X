@@ -20,7 +20,8 @@ namespace fitom {
 BOOST_LOG_GLOBAL_LOGGER_DEFAULT(fitomLogger,
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level>)
 
-void Log::init(const std::string& minSeverity, const std::filesystem::path& logFile)
+void Log::init(const std::string& minSeverity, const std::filesystem::path& logFile,
+               bool console)
 {
     namespace log   = boost::log;
     namespace expr  = boost::log::expressions;
@@ -49,11 +50,13 @@ void Log::init(const std::string& minSeverity, const std::filesystem::path& logF
         % log::trivial::severity
         % expr::smessage;
 
-    // コンソール出力
-    log::add_console_log(
-        std::cout,
-        kw::format = fmt,
-        kw::filter = log::trivial::severity >= minSev);
+    // コンソール出力 (log.console = false で無効化可能)
+    if (console) {
+        log::add_console_log(
+            std::cout,
+            kw::format = fmt,
+            kw::filter = log::trivial::severity >= minSev);
+    }
 
     // ファイル出力 (オプション)
     if (!logFile.empty()) {

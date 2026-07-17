@@ -224,14 +224,21 @@ int main(int argc, char** argv)
     }
     const std::string profilePath = argv[1];
 
-    // ログをファイルに出力する (画面は100ms間隔で全消去されるため、
-    // コンソールへの警告ログはすぐに消えて見えなくなってしまう。
-    // ファイルに残しておけば、原因調査時に後から確認できる)。
-    Log::init("debug", "fitom_cli.log");
-
     auto config   = std::make_unique<FITOMConfig>();
     auto patchMgr = std::make_unique<PatchManager>();
     PatchManager* pmPtr = patchMgr.get(); // init()への所有権移譲前に保持
+
+    // fitom.conf.json (実行ファイルと同じディレクトリにあれば読み込む。
+    // 省略可能なシステム設定のため、無くても継続する) の log.* で
+    // 既定のログ設定を上書きできるようにする。既定はファイルに出力する
+    // (画面は100ms間隔で全消去されるため、コンソールへの警告ログは
+    // すぐに消えて見えなくなってしまう。ファイルに残しておけば、
+    // 原因調査時に後から確認できる)。
+    fs::path sysConfPath = exeDir() / "fitom.conf.json";
+    if (fs::exists(sysConfPath)) config->loadSystemConf(sysConfPath);
+    Log::init(config->getLogLevel("debug"),
+              config->getLogFile("fitom_cli.log"),
+              config->getLogConsole(true));
 
     if (!config->loadProfile(profilePath, pmPtr)) {
         std::cerr << "プロファイル読み込み失敗: " << profilePath << "\n";

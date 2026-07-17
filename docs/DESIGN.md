@@ -94,17 +94,26 @@ MIDI メッセージは MIDI 1.0 バイト列で統一 (WMS の UMP 変換は DL
 
 ---
 
-## config.json の例
+## 設定ファイルの例
+
+システム設定(`fitom.conf.json`、省略可能)とプロファイル(`*.profile.json`)は
+別ファイルに分離されている。詳細は`docs/config-design.md`参照。
 
 ```json
+// fitom.conf.json (省略可能)
 {
   "log": {
     "level": "info",
     "file": "fitom.log"
-  },
-  "midi_plugin": {
-    "dll": "fitom_midi_wms.dll"
-  },
+  }
+}
+```
+
+```json
+// profiles/xxx.profile.json
+{
+  "profile_name": "スタジオ環境",
+  "midi_backend": { "dll": "fitom_midi_wms.dll" },
   "hw_plugins": [
     { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
       "profile": "fmhwif_profile.json",

@@ -2,13 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fitom-system-config",
   "title": "FITOM システム設定 (fitom.conf.json)",
-  "description": "通常運用では変更しない設定。管理者・開発者向け。プロファイルとは別ファイル。",
+  "description": "通常運用では変更しない設定。管理者・開発者向け。プロファイルとは別ファイル。実行ファイルと同じディレクトリに置かれていれば読み込まれる(省略可能、無ければ各アプリの既定値で動作する)。",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "log": {
       "type": "object",
-      "description": "ロギング設定",
+      "description": "ロギング設定。省略したフィールドは各アプリの既定値を使う(fitom_cli: level=debug/file=fitom_cli.log、fitom_gui: level=info/file=なし。いずれもconsole=trueが既定)。",
       "additionalProperties": false,
       "properties": {
         "level": {
@@ -21,91 +21,16 @@
             "error",
             "fatal"
           ],
-          "default": "info",
           "description": "最小ログレベル。通常は 'info'。問題調査時のみ 'debug' / 'trace' に変更する。"
         },
         "file": {
           "type": "string",
-          "default": "",
-          "description": "ログファイルパス。空文字列でコンソールのみ出力。ローテーションは 10MB 単位で行う。"
+          "description": "ログファイルパス。省略時・空文字列でファイル出力なし。ローテーションは 10MB 単位で行う。"
         },
         "console": {
           "type": "boolean",
           "default": true,
-          "description": "コンソール（標準エラー出力）にもログを出力するか。"
-        },
-        "_comment": {
-          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
-          "type": [
-            "string",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "plugins": {
-      "type": "object",
-      "description": "プラグイン DLL のパス設定。実行ファイルからの相対パスまたは絶対パスで指定する。",
-      "additionalProperties": false,
-      "properties": {
-        "midi_plugin": {
-          "type": "object",
-          "description": "MIDI バックエンドプラグイン設定。",
-          "additionalProperties": false,
-          "properties": {
-            "dll": {
-              "type": "string",
-              "examples": [
-                "fitom_midi_wms.dll",
-                "libfitom_midi_alsa.so"
-              ],
-              "description": "MIDI バックエンド DLL のパス。省略時は MIDI 入力なしで動作する。"
-            },
-            "_comment": {
-              "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
-              "type": [
-                "string",
-                "array"
-              ],
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "_comment": {
-          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
-          "type": [
-            "string",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "timing": {
-      "type": "object",
-      "description": "タイマー・ポーリング設定。",
-      "additionalProperties": false,
-      "properties": {
-        "timer_ms": {
-          "type": "integer",
-          "default": 1,
-          "minimum": 1,
-          "maximum": 10,
-          "description": "MIDI タイマー割り込み間隔 [ms]。通常は 1ms。"
-        },
-        "polling_interval_us": {
-          "type": "integer",
-          "default": 500,
-          "minimum": 100,
-          "maximum": 10000,
-          "description": "ハードウェアポーリングスレッドのスリープ間隔 [μs]。"
+          "description": "コンソール（標準出力）にもログを出力するか。"
         },
         "_comment": {
           "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
@@ -120,7 +45,7 @@
       }
     },
     "_comment": {
-      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。2026年7月: MIDIバックエンドDLLの指定はprofile.jsonのmidi_backend.dllに一本化されているため(こちらは重複かつ未実装だった)plugins.midi_pluginを廃止。timing.timer_ms/polling_interval_usも、前者はLFO/ポルタメントのレート換算テーブルが1msティック固定を前提にしており安全に可変化できないこと、後者はHWポーリングの責務がfitom_fmhwif.dll等のHWプラグイン側に移管済みでFITOM_X本体にポーリングスレッド自体が存在しないことから、実装のない設定項目として廃止した。",
       "type": [
         "string",
         "array"
@@ -136,15 +61,6 @@
         "level": "info",
         "file": "fitom.log",
         "console": true
-      },
-      "plugins": {
-        "midi_plugin": {
-          "dll": "fitom_midi_wms.dll"
-        }
-      },
-      "timing": {
-        "timer_ms": 1,
-        "polling_interval_us": 500
       }
     }
   ]
