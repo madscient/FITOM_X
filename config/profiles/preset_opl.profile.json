@@ -22,22 +22,22 @@
   ],
   "banks": {
     "hw_banks": [
-      { "group": "OPL3", "bank": 0, "file": "banks/OPL3/alsa/std_opl3.hwbank.json" },
-      { "group": "OPL3", "bank": 1, "file": "banks/OPL3/ma2_vma/GMmapFM4op.hwbank.json" },
-      { "group": "OPL3", "bank": 2, "file": "banks/OPL3/ma2_vma/Preset4OP.hwbank.json" },
-      { "group": "OPL2", "bank": 0, "file": "banks/OPL2/alsa/std_opl2.hwbank.json" },
-      { "group": "OPL2", "bank": 1, "file": "banks/OPL2/ma2_vma/01_Pno-Bell-OrgBank.hwbank.json" },
-      { "group": "OPL2", "bank": 2, "file": "banks/OPL2/ma2_vma/02_Gtr-BassBank.hwbank.json" },
-      { "group": "OPL2", "bank": 3, "file": "banks/OPL2/ma2_vma/03_Str-EnsembleBank.hwbank.json" },
-      { "group": "OPL2", "bank": 4, "file": "banks/OPL2/ma2_vma/04_Brs-Rd-PipeBank.hwbank.json" },
-      { "group": "OPL2", "bank": 5, "file": "banks/OPL2/ma2_vma/05_Lead-Pad-FXBank.hwbank.json" }
+      { "group": "OPL3", "bank": 0, "file": "../../banks/OPL3/alsa/std_opl3.hwbank.json" },
+      { "group": "OPL3", "bank": 1, "file": "../../banks/OPL3/ma2_vma/GMmapFM4op.hwbank.json" },
+      { "group": "OPL3", "bank": 2, "file": "../../banks/OPL3/ma2_vma/Preset4OP.hwbank.json" },
+      { "group": "OPL2", "bank": 0, "file": "../../banks/OPL2/alsa/std_opl2.hwbank.json" },
+      { "group": "OPL2", "bank": 1, "file": "../../banks/OPL2/ma2_vma/01_Pno-Bell-OrgBank.hwbank.json" },
+      { "group": "OPL2", "bank": 2, "file": "../../banks/OPL2/ma2_vma/02_Gtr-BassBank.hwbank.json" },
+      { "group": "OPL2", "bank": 3, "file": "../../banks/OPL2/ma2_vma/03_Str-EnsembleBank.hwbank.json" },
+      { "group": "OPL2", "bank": 4, "file": "../../banks/OPL2/ma2_vma/04_Brs-Rd-PipeBank.hwbank.json" },
+      { "group": "OPL2", "bank": 5, "file": "../../banks/OPL2/ma2_vma/05_Lead-Pad-FXBank.hwbank.json" }
     ],
     "patch_banks": [
       { "bank": 0, "file": "" }
     ],
     "drum_banks": [
-      { "group": "OPL3", "bank": 0, "file": "banks/drums/OPL3/alsa_drums.hwbank.json" },
-      { "group": "OPL2", "bank": 0, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
+      { "group": "OPL3", "bank": 0, "file": "../../banks/drums/OPL3/alsa_drums.hwbank.json" },
+      { "group": "OPL2", "bank": 0, "file": "../../banks/drums/OPL2/alsa_drums.hwbank.json" }
     ]
   }
 }

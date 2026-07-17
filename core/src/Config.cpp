@@ -125,14 +125,14 @@ bool FITOMConfig::loadProfile(const fs::path& path, PatchManager* patchMgr)
     }
     try {
         json j = json::parse(f, nullptr, true, true); // allow comments
-        // バンクファイルパスの解決基点は「プロファイルファイル自身の
-        // 親ディレクトリ」ではなく、カレントワーキングディレクトリとする。
-        // プロファイル内の "file" (例: "banks/OPN/gm/xxx.hwbank.json") は
-        // banks/ が config/ の兄弟ディレクトリ (= プロジェクトルート直下)
-        // にある前提で書かれており、config/profiles/ を基点にすると
-        // 誤ったパスになってしまう。空パスを渡すことで
-        // baseDir/file が実質 file (CWD相対) のまま解決されるようにする。
-        return buildFromProfile(j, patchMgr, std::filesystem::path{});
+        // バンクファイルパスの解決基点は「プロファイルファイル自身が
+        // 置かれているディレクトリ」とする。起動時のカレントワーキング
+        // ディレクトリを基点にすると、プロファイル/バンク一式をどこに
+        // 配置しても常に同じCWDから起動しない限り解決できず、ファイルの
+        // 配置階層が事実上固定されてしまうため。banks.*[].file
+        // (hw/sw/patch/drum/scc_wave/pcm) はここで得た絶対パスの
+        // 親ディレクトリを基点に解決される (loadDrumBanks参照)。
+        return buildFromProfile(j, patchMgr, path.parent_path());
     } catch (const json::exception& e) {
         FITOM_LOG_ERR("Profile parse error: " << e.what());
         return false;
@@ -969,25 +969,31 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
 {
     if (!j.contains("banks")) return;
     const auto& banks = j["banks"];
-    if (!banks.contains("drum_banks")) return;
 
     // drum_banks[]: プログラムチェンジ1つぶんずつ、独立したファイル
     // (*.drumkit.json) を割り当てる方式。1ファイルに全prog分を
     // 詰め込む旧方式は、ファイル肥大化のため廃止。
     // "bank"フィールドは持たない (ドラムバンクは常に固定バンク番号0。
     // CRhythmChはMIDI経由でのバンク切替をサポートしないため)。
-    for (const auto& entry : banks["drum_banks"]) {
-        int prog = entry.value("prog", -1);
-        std::string file = entry.value("file", "");
-        if (prog < 0 || prog >= 128 || file.empty()) {
-            FITOM_LOG_WARN("drum_banks: invalid 'prog' or missing 'file', skipping");
-            continue;
+    // drum_banks はスキーマ上省略可能 (banks.hw_banks 等とは独立) なので、
+    // 無くても以降の hw_banks/sw_banks/patch_banks/scc_wave_banks/pcm_banks
+    // の処理を打ち切ってはならない(以前はここで関数ごとreturnしており、
+    // drum_banksを省略したプロファイルは他の全バンク種別がロードされない
+    // というバグがあった)。
+    if (banks.contains("drum_banks")) {
+        for (const auto& entry : banks["drum_banks"]) {
+            int prog = entry.value("prog", -1);
+            std::string file = entry.value("file", "");
+            if (prog < 0 || prog >= 128 || file.empty()) {
+                FITOM_LOG_WARN("drum_banks: invalid 'prog' or missing 'file', skipping");
+                continue;
+            }
+
+            std::filesystem::path path = file;
+            if (path.is_relative()) path = baseDir / path;
+
+            pm.loadDrumKitJson(path, prog);
         }
-
-        std::filesystem::path path = file;
-        if (path.is_relative()) path = baseDir / path;
-
-        pm.loadDrumKitJson(path, prog);
     }
 
     // HW / SW / Patch バンクも同様に処理

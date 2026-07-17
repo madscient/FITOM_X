@@ -625,6 +625,28 @@ banks/
     00_general.patchbank.json
 ```
 
+### 相対パスの解決基点
+
+`banks.*[].file`(hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/
+pcm_banks)に書く相対パスは、**そのプロファイルファイル自身が置かれている
+ディレクトリ**を起点に解決される(起動時のカレントワーキングディレクトリ
+は無関係)。プロファイルとバンク一式をどこに配置しても、起動時のCWDに
+依存せず常に同じ結果になる。
+
+例えば `config/profiles/preset_opn.profile.json` からリポジトリルート直下の
+`banks/` を参照する場合は `"../../banks/OPN/gm/necopn_gm.hwbank.json"` の
+ように書く(`config/profiles/` は `banks/` の兄弟ではなく、2階層下にある
+ため)。プロファイルと同じディレクトリに `banks/` を置く運用であれば、
+単に `"banks/OPN/gm/xxx.hwbank.json"` のように書けばよい。
+
+なお `pcm_banks[].file` が指す `*.pcmbank.json` ファイル自身が持つ
+`adpcm_json`/`bin_file` 参照は、既に**そのpcmbankファイル自身の親
+ディレクトリ**を起点に解決される(`PatchManager::loadPcmBankJson()`)。
+今回の変更はこれと同じ「参照元ファイルの置き場所を起点にする」考え方を
+profile側の `banks.*[].file` 全種別にも揃えたものであり、`hw_plugins[].dll`
+/`midi_backend.dll`(実行ファイルのディレクトリが起点。`config-design.md`
+参照)とは解決基点が異なる点に注意。
+
 ---
 
 ## 旧 CFMBank / FMVOICE からの移行
