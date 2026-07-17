@@ -303,7 +303,7 @@ protected:
     static const uint8_t opmap[4];  // 4オペレータ分のスロットオフセット
     static const uint8_t carmsk[8]; // hw.ALG(3bit)値ごとのキャリアOPビットマスク
 
-    // 疑似デチューン(FXV由来)の計算結果キャッシュ。旧FITOM
+    // 疑似デチューン(PDT由来)の計算結果キャッシュ。旧FITOM
     // (OPL3.cpp)のPseudoDT1[ch]/PseudoDT2[ch]と同じ設計(2026年7月に
     // 復元)。基底クラスのupdateFnumber()が計算した通常のFnumが
     // updateFreq(ch,&fnum)という形で強制的に渡されてしまうため、
@@ -318,8 +318,8 @@ protected:
     void updateFnumber(uint8_t ch, bool forceWrite = true) override {
         if (ch < maxChs_) {
             const HwPatch& p = chState_[ch].hwPatch;
-            pseudoDT1_[ch] = getFnumber(ch, p.hwOp[0].FXV);
-            pseudoDT2_[ch] = getFnumber(ch, p.hwOp[2].FXV);
+            pseudoDT1_[ch] = getFnumber(ch, p.hwOp[0].PDT);
+            pseudoDT2_[ch] = getFnumber(ch, p.hwOp[2].PDT);
         }
         CSoundDevice::updateFnumber(ch, forceWrite);
     }
@@ -423,11 +423,11 @@ protected:
 
     void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
         // 疑似デチューン: op[0]/op[2] (各2OPペアの先頭オペレータ) の
-        // FXV フィールド(int16_t、100/64セント単位のオフセット)を使い、
+        // PDT フィールド(int16_t、100/64セント単位のオフセット)を使い、
         // 前半/後半ペアで別々のFnumberを計算する。OPNのFXモード
-        // (疑似デチューン、ext.DM0=1)と同じフィールド・同じ計算式を
+        // (疑似デチューン、ext.FIX=1)と同じフィールド・同じ計算式を
         // 共有する(2026年7月〜)。旧FITOM(OPL3.cpp)はDT1(<<7)とDT2を
-        // ビット合成した14bit値(±8192)を使っていたが、FXVは元々
+        // ビット合成した14bit値(±8192)を使っていたが、PDTは元々
         // 16bit(±32767)でより広いレンジを持ち、ビット合成も不要なため
         // こちらに一本化した。DT1/DT2は他チップと同じ「OPLでは0固定」
         // の状態に戻す。

@@ -11,7 +11,7 @@
 | SLF/SLW/SLD/SLY/SLR | FMOP | TimerCallBack (1ms) | SoundDev::UpdateOpLFO |
 | VTL/VAR/VDR/VSL/VSR/VRR/VLD/VLR | FMOP | NoteOn 時 | SoundDev::SetVelocity |
 | LFO/LWF/LFS/LFD/LFR/LDM/LDL | FMVOICE | TimerCallBack (1ms) | SoundDev::UpdateFnumber |
-| REV/EGS/DM0/DT3 | FMOP | UpdateVoice (OPZ のみ) | OPZ ドライバのみ |
+| REV/EGS/FIX/DT3 | FMOP | UpdateVoice (OPZ のみ) | OPZ ドライバのみ |
 
 ---
 
@@ -27,7 +27,7 @@ FmVoice
 │                           失われる問題があった)
 ├── FmSwVoice   sw          チャンネルソフト LFO (ピッチ変調)
 ├── FmSwOp      swOp[4]     オペレータソフトパラメータ (ベロシティ感度 + トレモロLFO)
-└── FmChipExt   ext         チップ固有拡張 (OPZ: DM0, PSG: HWEP, 共用: ALG_EXT)
+└── FmChipExt   ext         チップ固有拡張 (OPZ: FIX, PSG: HWEP, 共用: ALG_EXT)
 ```
 
 ---
@@ -95,8 +95,8 @@ OPZドライバは `FmVoice::hwOp[i]` の `REV/EGS/DT3` (2026年7月にFmChipExt
 から移設、オペレータ単位) を参照する。
 PSG系ドライバ (CPSGBase) は `ext.HWEP` (HW Envelope Period, 16bit) を参照する
 （AY-3-8910/YM2149 のレジスタ0x0B+0x0C、HW EG使用時のみ）。
-OPN の `COPN` (ch2のみ) は `ext.DM0` を「FXモード選択」(0=通常/1=疑似デチューン/
-2=非整数倍率/3=固定周波数) として流用する（OPZの用途とは無関係、`DM0`の
+OPN の `COPN` (ch2のみ) は `ext.FIX` を「FXモード選択」(0=通常/1=疑似デチューン/
+2=非整数倍率/3=固定周波数) として流用する（OPZの用途とは無関係、`FIX`の
 フィールド幅8bitの範囲で自由に解釈してよいという合意による）。
 OPN/OPM/OPL 等、上記以外の組み合わせでは `ext` を参照しない。
 
@@ -331,24 +331,24 @@ setReg(0x0D, hwOp[0].EGT & 0xF);      // Shape (CONT/ATT/ALT/HOLDのビット組
 `COPN`のch2専用機能。実機OPNの「4オペレータそれぞれに独立したF-numberを
 指定できるモード」（3rd channel special mode）を実装している。
 
-### 新規フィールド: `FmHwOp::FXV` (int16_t、オペレータ単位)
+### 新規フィールド: `FmHwOp::PDT` (int16_t、オペレータ単位)
 
 ```cpp
-int16_t FXV;
+int16_t PDT;
 ```
 
-`ext.DM0`（チャンネル単位、ch2全体で1モードを共有）で選択したモードに応じて
+`ext.FIX`（チャンネル単位、ch2全体で1モードを共有）で選択したモードに応じて
 解釈が変わる：
 
-| `ext.DM0` | モード | `FXV`の意味 |
+| `ext.FIX` | モード | `PDT`の意味 |
 |---|---|---|
 | 0 | 通常 (FXモード無効) | 未使用 |
-| 1 | 疑似デチューン | 100/64セント単位の符号付きオフセット (`getFnumber(ch, FXV)`) |
+| 1 | 疑似デチューン | 100/64セント単位の符号付きオフセット (`getFnumber(ch, PDT)`) |
 | 2 | 非整数倍率 | 100/64セント単位オフセット (倍率→セント換算。`1200×log2(倍率)`) |
-| 3 | 固定周波数 | 0.1Hz単位の絶対周波数 (`getFnumberFromHz(FXV/10.0)`) |
+| 3 | 固定周波数 | 0.1Hz単位の絶対周波数 (`getFnumberFromHz(PDT/10.0)`) |
 
 対数周波数空間では「セント単位の加算」＝「周波数の倍率」と等価なため、
-疑似デチューン・非整数倍率は同じ`FXV`型・同じ`getFnumber(ch,offset)`計算経路で
+疑似デチューン・非整数倍率は同じ`PDT`型・同じ`getFnumber(ch,offset)`計算経路で
 統一的に扱える。固定周波数モードのみ、ノート番号を無視して直接Hz値を指定する
 別経路 (`getFnumberFromHz`、新設) を使う。
 

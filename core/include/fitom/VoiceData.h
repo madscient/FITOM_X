@@ -18,7 +18,7 @@
 //     (D) チャンネル LFO … タイマーコールバックでピッチを周期変調する
 //                           SoundDev::TimerCallBack / UpdateFnumber が使う
 //
-//     (E) チップ拡張    … OPZ/OPP 固有の追加パラメータ (REV, EGS, DM0 等)
+//     (E) チップ拡張    … OPZ/OPP 固有の追加パラメータ (REV, EGS, FIX 等)
 //                          特定チップのドライバのみが使う
 //
 //   新設計:
@@ -109,20 +109,21 @@ struct FmHwOp {
     // フィールド幅は変更せず、解釈のみで対応する。0=デチューンなし。
     uint8_t DT2;
 
-    // 疑似デチューン/拡張周波数オフセット用パラメータ (100/64セント単位、
-    // getFnumber()にそのまま渡せる)。以下の2箇所で使われる:
-    //   OPN ch2 FXモード(3rd channel special mode)専用。ext.DM0
+    // 疑似デチューン/拡張周波数オフセット用パラメータ (PDT = Pseudo DeTune。
+    // 100/64セント単位、getFnumber()にそのまま渡せる)。以下の2箇所で
+    // 使われる:
+    //   OPN ch2 FXモード(3rd channel special mode)専用。ext.FIX
     //   (チャンネル単位、0=通常/1=疑似デチューン/2=非整数倍率/
     //   3=固定周波数)でモードを選択し、本フィールドの解釈が変わる。
-    //     モード1/2: 100/64セント単位の符号付きオフセット (getFnumber(ch,FXV))
-    //     モード3  : 0.1Hz単位の絶対周波数 (getFnumberFromHz(FXV/10.0))
+    //     モード1/2: 100/64セント単位の符号付きオフセット (getFnumber(ch,PDT))
+    //     モード3  : 0.1Hz単位の絶対周波数 (getFnumberFromHz(PDT/10.0))
     //   OPL3(COPL3)の4OP疑似デチューン(op[0]/op[2]、2026年7月〜)。
     //     旧FITOMはDT1(<<7)+DT2をビット合成した14bit値(±8192)を
-    //     使っていたが、FXVは元々16bit(±32767)でより広いレンジを持ち、
+    //     使っていたが、PDTは元々16bit(±32767)でより広いレンジを持ち、
     //     ビット合成も不要なためこちらに統一した(OPNのFXモードと同じ
     //     フィールド・同じ計算式を共有する)。
     // 上記以外のチップ/チャンネルでは無視される。0=無効。
-    int16_t FXV;
+    int16_t PDT;
 
     // ─── AM・VIB ──────────────────────────────────────────────────
     uint8_t AM;   // AM enable:   1bit
@@ -150,7 +151,7 @@ struct FmHwOp {
 
     constexpr FmHwOp() noexcept
         : AR(31), DR(0), SL(0), SR(0), RR(7), TL(0)
-        , KSR(0), KSL(0), MUL(1), DT1(0), DT2(0), FXV(0)
+        , KSR(0), KSL(0), MUL(1), DT1(0), DT2(0), PDT(0)
         , AM(0), VIB(0), EGT(0), WS(0)
         , REV(0), EGS(0), DT3(0) {}
 };
@@ -186,11 +187,13 @@ struct FmHwVoice {
 struct FmChipExt {
     // OPZ (YM2414) / OPN (ch2 FXモード) 共用。REV/EGS/DT3は2026年7月に
     // FmHwOp(オペレータ単位)へ移設した(この4番目のフィールドのみ
-    // チャンネル単位で正しいため、こちらは残す)。
+    // チャンネル単位で正しいため、こちらは残す)。FIX = Fixed frequency
+    // (OPNの用途に由来する名称。OPZ側は流用のため必ずしも「固定周波数」を
+    // 意味しないが、フィールド自体を分けるほどの独立性はない)。
     // OPZ: Osc fixed freq flag (ノイズORフラグ、1bit)。
     // OPN: ch2 FXモード種別 (0=通常/1=疑似デチューン/2=非整数倍率/
     //      3=固定周波数)。
-    uint8_t DM0;
+    uint8_t FIX;
 
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
     uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise / OPLL preset選択 /
@@ -233,7 +236,7 @@ struct FmChipExt {
     uint8_t rhythmCh;
 
     constexpr FmChipExt() noexcept
-        : DM0(0), ALG_EXT(0), HWEP(0), targetVoicePatchType(0), rhythmCh(0xFF) {}
+        : FIX(0), ALG_EXT(0), HWEP(0), targetVoicePatchType(0), rhythmCh(0xFF) {}
 };
 
 // ================================================================
@@ -405,10 +408,10 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
         h.REV = s.REV;
         h.EGS = s.EGS;
         h.DT3 = s.DT3;
-        // DM0のみチャンネル単位のまま(ext.DM0)。旧形式もOP単位で
-        // DM0を持っていたが、意味的にチャンネル共通の値のため
-        // op[0]の値を代表として使う。
-        if (i == 0) dst.ext.DM0 = s.DM0;
+        // DM0(旧FMOP側のフィールド名)のみチャンネル単位のまま
+        // (ext.FIX)。旧形式もOP単位でDM0を持っていたが、意味的に
+        // チャンネル共通の値のためop[0]の値を代表として使う。
+        if (i == 0) dst.ext.FIX = s.DM0;
 
         // SW (オペレータ)
         auto& w  = dst.swOp[i];
@@ -457,7 +460,7 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
 
         d.REV = h.REV;
         d.EGS = h.EGS;
-        d.DM0 = src.ext.DM0;
+        d.DM0 = src.ext.FIX;
         d.DT3 = h.DT3;
 
         d.VTL = w.VTL;  d.VAR = w.VAR;  d.VDR = w.VDR;
