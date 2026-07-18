@@ -101,6 +101,16 @@ public:
     std::string getSwPatchJson(int bankNo, int prog) const;
     bool        setSwPatchJson(int bankNo, int prog, const std::string& json);
 
+    // 指定チャンネル(mpuIndex/ch)が現在選択している(CC#0/#32/プログラム
+    // チェンジの値、未受信なら初期値=PatchBank0/Prog0扱い)HwPatchに
+    // ついて、その元になった *.hwbank.json のファイルパスとprog番号を
+    // 解決する。発音履歴(ノートオン)には依存しない。外部パッチエディタ
+    // (FITOM_patch_editor)をキオスクモードで起動する際の引数として使う
+    // 想定。解決できない場合(リズムチャンネル、AWM等HwBankを使わない
+    // 音色、対応するHwBankが見つからない等)はfalseを返す。
+    bool resolveChannelHwPatch(int mpuIndex, int ch,
+                                std::string& outHwBankFile, int& outProgNo) const;
+
     // ─── マスターボリューム ──────────────────────────────────────────────
     void    setMasterVolume(uint8_t vol);
     uint8_t getMasterVolume() const;
