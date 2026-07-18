@@ -125,6 +125,12 @@ public:
     virtual uint8_t  getLastNote()    const { return 0xFF; }
     virtual uint8_t  getProgramNo()   const { return 0xFF; }
     virtual uint16_t getBankNo()      const { return 0; }
+    // CC#0(バンクセレクトMSB): モード選択子。0=通常モード(getBankNo()が
+    // PatchBank番号)/0x01-0x6F=直接モード(この値自体がVoicePatchType、
+    // getBankNo()がそのVoicePatchType用HwBankインデックス)。詳細は
+    // CInstChのbankSelM_コメント参照。CRhythmCh等、この概念を持たない
+    // チャンネル種別は既定の0のままでよい。
+    virtual uint8_t  getBankSelMSB()  const { return 0; }
     virtual uint8_t  getVolume()      const { return 127; }
     virtual uint8_t  getExpression()  const { return 127; }
     virtual uint8_t  getPanpot()      const { return 64; }
@@ -243,6 +249,7 @@ public:
     uint8_t  getLastNote()   const override;
     uint8_t  getProgramNo()  const override { return programNo_; }
     uint16_t getBankNo()     const override { return bankSelL_; }
+    uint8_t  getBankSelMSB() const override { return bankSelM_; }
     uint8_t  getVolume()     const override { return volume_; }
     uint8_t  getExpression() const override { return expression_; }
     uint8_t  getPanpot()     const override { return panpot_; }

@@ -70,7 +70,7 @@
 |---|---|---|
 | `gui/bridge/FITOMBridge.h` | ✅ | UIフレームワーク非依存のコアブリッジAPI |
 | `gui/bridge/FITOMBridge.cpp` | ✅ | ブリッジ実装 |
-| `apps/fitom_gui/` | 🚧 | Dear ImGui + GLFW + OpenGL3 導入済み。ルート画面のMIDIモニターバンド(CH毎のBank/Program/Volume/Note/Device/Fnumber表示、MPU切替、128ノートキーボードビュー+発光エフェクト)を実装済み。デバイス一覧・パッチ一覧・パッチエディタ等、他画面への導線は未着手(該当描画関数は`[[maybe_unused]]`で温存) |
+| `apps/fitom_gui/` | 🚧 | Dear ImGui + GLFW + OpenGL3 導入済み。ルート画面のMIDIモニターバンド(CH毎のBank/Program/Volume/Note/Device/Fnumber表示、MPU切替、128ノートキーボードビュー+発光エフェクト)を実装済み。Bank/Program表示のダブルクリックで外部パッチエディタ(別リポジトリ`FITOM_patch_editor`、実行ファイルは`fitom_gui`と同じディレクトリに配置想定)をキオスクモード(`<profile.json> <hwbank-file> <prog>`)で子プロセス起動する機能を実装済み(パッチエディタ未検出・起動失敗時はImGuiモーダルでエラー表示。実機での起動確認は未実施、下記STATUS.md注記参照)。デバイス一覧・パッチ一覧等、他画面への導線は未着手(該当描画関数は`[[maybe_unused]]`で温存) |
 
 ### 設定スキーマ・ドキュメント
 
@@ -151,6 +151,7 @@
 - OPL/OPL2/OPL3自体のリズムモード対応（現状OPLL系のみ対応。COPL_new.cppにリズム関連コードなし）
 - VoicePatchType 完全一致以外へのフォールバック（旧FITOMの互換リスト相当、将来実装予定）
 - GUI (Dear ImGui) 実装の残り(`apps/fitom_gui`。MIDIモニターバンドは実装済み。デバイス一覧・パッチ一覧・音色エディタ等、他画面への導線が未着手)
+- 外部パッチエディタ起動機能(ダブルクリック→キオスクモード起動)は実装済みだが、実機での動作確認(実際にダブルクリックしてパッチエディタが開くこと)は未実施。発音履歴(ChState/ノートオン)には依存せず、`CInstCh::progChange()`と同じ`PatchManager::resolve()`/`resolveDirect()`をチャンネルの現在のCC#0/#32/プログラムチェンジ値でその場で再実行する設計にしたため、ノートオン自体は不要になったが、それでも`PatchManager::resolveTriple()`がVoiceGroup照合のために`devices[]`から一致するデバイスを線形探索するため、プロファイルの`devices[]`に対応するHWプラグインDLLが実際にロードできていないと(`Config::buildDevice()`がHWプラグイン未登録時に早期returnし`DeviceEntry`自体を作らないため)解決に失敗する。HWプラグインDLL(FitomEmuIF等)が用意できない開発環境ではこの経路を検証できない(コード上の妥当性は`PatchManager::jsonToHwPatch()`/`resolve()`/`resolveDirect()`等のソース確認で担保)
 - GUI MIDIパイプ経由の音色試聴連携(`fitom_midi_pipe`側は実装済みだが、GUI側からのSysEx送出・パッチエディタ本体との結合は未着手)
 - OPZ の2系統LFOリソース対応（旧FITOMも未完成のため現状維持）
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ未完了

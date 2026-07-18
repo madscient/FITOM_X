@@ -292,7 +292,6 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
     if (!processor) return result;
 
     auto& pm = fitomInst.getPatchManager();
-    auto& cfg = fitomInst.getConfig();
 
     for (int ch = 0; ch < 16; ++ch) {
         fitom::IMidiCh* midich = processor->getChannel(static_cast<uint8_t>(ch));
@@ -329,7 +328,11 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         uint8_t devCh  = midich->getLastDevCh();
         mon.deviceIndex = (devIdx == 0xFF) ? -1 : static_cast<int>(devIdx);
         if (devIdx != 0xFF && devCh != 0xFF) {
-            auto* dev = cfg.getDevice(devIdx);
+            // ISoundDeviceの実体はCFITOMが所有する(Config::devices_[i].device
+            // は生成されるだけで一度も代入されない。設計上の分離は
+            // CFITOM::initDevices()のコメント参照)。fitomInst.getDevice()を
+            // 使うこと(cfg.getDevice()は常にnullptrを返す)。
+            auto* dev = fitomInst.getDevice(devIdx);
             if (dev) {
                 mon.deviceName = dev->getDescriptor();
                 const auto* cs = dev->getChState(devCh);
@@ -347,6 +350,73 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         result.push_back(mon);
     }
     return result;
+}
+
+bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch,
+                                         std::string& outHwBankFile, int& outProgNo) const
+{
+    if (!initialized_) return false;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return false;
+    if (ch < 0 || ch >= 16) return false;
+
+    auto& fitomInst = fitom::CFITOM::instance();
+    auto* processor = fitomInst.getMidiProcessor(static_cast<uint8_t>(mpuIndex));
+    if (!processor) return false;
+
+    fitom::IMidiCh* midich = processor->getChannel(static_cast<uint8_t>(ch));
+    // リズムチャンネルはCC#0/#32を無視し、ノート単位で複数のHwPatchを
+    // 使いうる(単一の「現在のパッチ」という概念が無い)ため対象外とする。
+    if (!midich || midich->isRhythm()) return false;
+
+    auto& pm  = fitomInst.getPatchManager();
+    auto& cfg = fitomInst.getConfig();
+
+    // 発音履歴(ChState/ノートオン)には依存しない。CInstCh::progChange()が
+    // 実際に行っているのと同じ解決(resolve()/resolveDirect())を、
+    // このチャンネルの「現在のCC#0/#32/プログラムチェンジ値」でその場で
+    // 再実行する。progChangeを一度も受信していないチャンネルでも、
+    // これらのメンバは初期値(0)のまま公開されるため、「未受信なら
+    // 初期値(PatchBank0/Prog0)扱い」を自然に満たす。
+    const uint8_t bankSelMSB = midich->getBankSelMSB();
+    const uint8_t bankNoLsb  = static_cast<uint8_t>(midich->getBankNo());
+    const uint8_t progNo     = midich->getProgramNo();
+
+    fitom::ResolvedPatch resolved;
+    fitom::Patch directStorage; // resolveDirect()使用時のみ参照される
+    if (bankSelMSB == 0) {
+        // 通常モード: bankNoLsb = PatchBank番号、progNo = Patch番号
+        resolved = pm.resolve(static_cast<int>(bankNoLsb), static_cast<int>(progNo), cfg);
+    } else if (bankSelMSB <= 0x6F) {
+        // 直接モード: bankSelMSB自体がVoicePatchType、bankNoLsb = HwBank
+        // インデックス、progNo = HwProgそのもの
+        resolved = pm.resolveDirect(bankSelMSB, bankNoLsb, progNo, cfg, directStorage);
+    } else {
+        return false; // 0x70(内蔵リズム専用バンク)等、本機能の対象外
+    }
+
+    if (!resolved.isValid() || resolved.layerCount <= 0) return false;
+    const fitom::ResolvedLayer& rl = resolved.layers[0];
+    if (!rl.hwPatch) return false; // AWM等HwBankを使わない音色、または解決失敗
+
+    // HwPatch::id = (bank_no << 16) | prog_no (PatchData.h参照)
+    const int bankNo = static_cast<int>(rl.hwPatch->id >> 16);
+    const int prog   = static_cast<int>(rl.hwPatch->id & 0xFFFFu);
+
+    // deviceType はプロファイルのdevices[]メタデータ(FITOMConfig側)から
+    // 得る。ISoundDeviceの実体(CFITOM::getDevice())は問わない
+    // (resolveTriple()自身がこのメタデータだけでVoiceGroup照合している
+    // ため、実体の有無に依存させる必要が無い。実機HWプラグイン未接続の
+    // 環境でも解決できるようにするため意図的にこちらを使う)。
+    const uint32_t  deviceType = cfg.getDeviceType(rl.deviceIndex);
+    const uint8_t   vpt        = fitom::FITOMConfig::deviceTypeToVoicePatchType(deviceType);
+    const uint32_t  group      = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(vpt);
+
+    const fitom::HwBank* bank = pm.hwRegistry().find(group, bankNo);
+    if (!bank || bank->filename.empty()) return false;
+
+    outHwBankFile = bank->filename;
+    outProgNo     = prog;
+    return true;
 }
 
 // ================================================================
