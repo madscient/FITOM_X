@@ -87,11 +87,12 @@ struct FmHwOp {
                   // 通常のADSR。RRはキーオフ時にのみ適用)を表す。
                   // OPL/OPL2/OPL3/OPLL共通: パーカッシブモード時、
                   // 実機RRレジスタにはRRの代わりにSRの値(4bit変換)を
-                  // 書く。OPLLはこの反映を updateVoice(初期値、常にRR)
-                  // ではなく updateKey(キーオン/キーオフ毎に動的に
-                  // 再書き込み)で行う点がOPL系と異なるが、最終的な
-                  // 変換規則自体は共通(2026年7月に確認・訂正)。詳細は
-                  // docs/voice-parameter-reference.md参照。
+                  // 書く。OPL/OPL2/OPL3/OPLLいずれも updateKey(キーオン/
+                  // キーオフ毎)で動的に切り替える(updateVoice側の初期
+                  // 書き込みは、直後のkeyOn/keyOff処理で即座に上書きされる
+                  // 暫定値に過ぎない。2026年7月、「OPLLのみupdateKey」という
+                  // 誤った記述を訂正)。詳細はdocs/voice-parameter-reference.md
+                  // 参照。
     uint8_t RR;   // Release Rate:   4bit
     uint8_t TL;   // Total Level:    7bit (OPL は6bit / 上位1bit無視)
 
