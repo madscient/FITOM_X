@@ -1,0 +1,12 @@
+@startuml
+actor User
+participant FITOM_X
+participant PatchEditor
+
+User -> FITOM_X: double-click patch in MIDI monitor
+FITOM_X -> PatchEditor: execute as kiosk mode
+PatchEditor -> FITOM_X: connect to FITOM_X with named pipe
+FITOM_X -> PatchEditor: assign MIDI channel with sysex
+PatchEditor -> FITOM_X: send CC#0/CC#32/Prog.chg for target patch
+
+@enduml
