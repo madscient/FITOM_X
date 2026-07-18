@@ -6,8 +6,17 @@
 // フォームなMIDIバックエンド。名前付きパイプ(Windows)/UNIXドメイン
 // ソケット(Linux/macOS)を使う。
 //
-// MIDI Outは現状未実装(このバックエンドの用途は「外部プロセス→FITOM_X」
-// の一方向のみ)。MidiPlugin_OpenOutは常にMIDI_ERR_NOT_FOUNDを返す。
+// 複数クライアント対応(2026年7月〜): 最大16本(内部パイプMPUの16ch分)
+// まで同時接続を受け付ける。接続ごとに専用スレッドで処理し、接続
+// 確立直後、読み取りを始める前にFITOM_X側からチャンネル割り当てを
+// プライベートSysExで通知する(sub-cmd 0x03、docs/plugin-midi-pipe.md
+// 参照)。クライアント側はMIDIチャンネルを自分で選ばず、この通知を
+// 待ってから送信を開始する。空きチャンネルが無い場合は接続を即座に
+// 切る。
+//
+// MIDI Outは上記のチャンネル割り当て通知の一往復のみ実装しており、
+// それ以外の汎用送信(MidiPlugin_Send/OpenOut)は引き続き未実装
+// (このバックエンドの主用途は「外部プロセス→FITOM_X」の受信側)。
 //
 // デバイス列挙は固定の1エントリ(kDeviceName)のみを返す。実際の接続先
 // (パイプ名/ソケットパス)はkPipeName/kSocketPathで固定されており、
@@ -19,7 +28,11 @@
 
 #include <string>
 #include <thread>
+#include <vector>
 #include <atomic>
+#include <mutex>
+#include <bitset>
+#include <algorithm>
 #include <cstring>
 
 #if defined(_WIN32)
@@ -34,6 +47,7 @@
 namespace {
 
 constexpr const char* kDeviceName = "FITOM Internal Pipe";
+constexpr int         kMaxClients = 16; // 内部パイプMPUの16ch分
 
 #if defined(_WIN32)
 constexpr const char* kPipeName = "\\\\.\\pipe\\FITOM_X_MIDI";
@@ -44,37 +58,77 @@ constexpr const char* kSocketPath = "/tmp/fitom_x_midi.sock";
 } // namespace
 
 struct MidiInDevice {
-    std::thread        thread;
+    std::thread        acceptThread;
+    std::vector<std::thread> workers; // 接続ごとの処理スレッド
     std::atomic<bool>  running { false };
     MidiInCallback     callback = nullptr;
     void*              userData = nullptr;
+
+    // stateMutex が以下すべてを保護する:
+    //   leasedChannels / activeHandles(Win) / activeFds(POSIX)
+    std::mutex         stateMutex;
+    std::bitset<kMaxClients> leasedChannels;
 #if defined(_WIN32)
-    HANDLE pipe = INVALID_HANDLE_VALUE;
+    HANDLE listenPipe = INVALID_HANDLE_VALUE; // 未使用(互換のため残置)
+    std::vector<HANDLE> activeHandles;
 #else
     int listenFd = -1;
-    int clientFd = -1;
+    std::vector<int> activeFds;
 #endif
+
+    // 空きチャンネル(0-kMaxClients-1)を1つ確保する。無ければ-1。
+    int acquireChannel() {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        for (int ch = 0; ch < kMaxClients; ++ch) {
+            if (!leasedChannels.test(static_cast<size_t>(ch))) {
+                leasedChannels.set(static_cast<size_t>(ch));
+                return ch;
+            }
+        }
+        return -1;
+    }
+    void releaseChannel(int ch) {
+        if (ch < 0) return;
+        std::lock_guard<std::mutex> lock(stateMutex);
+        leasedChannels.reset(static_cast<size_t>(ch));
+    }
 
     ~MidiInDevice() {
         running.store(false);
 #if defined(_WIN32)
-        // ConnectNamedPipe/ReadFileでブロックしているスレッドを起こすため、
-        // ハンドルを閉じる(CancelIoExの方が丁寧だが、対象OS世代を広く
-        // カバーするため単純にCloseHandleで代替する)。
-        if (pipe != INVALID_HANDLE_VALUE) {
-            HANDLE h = pipe;
-            pipe = INVALID_HANDLE_VALUE;
-            CloseHandle(h);
+        // ConnectNamedPipe/ReadFileでブロックしている全スレッドを起こす
+        // ため、生存中の全ハンドルを閉じる。以後、各スレッドが自分の
+        // ハンドルをclaimHandleForClose()経由でクローズしようとしても
+        // (既にここでリストから除去済みのため)falseが返り二重closeは
+        // 起きない。
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            for (HANDLE h : activeHandles) CloseHandle(h);
+            activeHandles.clear();
         }
 #else
-        // accept()/read()でブロックしているスレッドを起こす。
-        if (clientFd >= 0) shutdown(clientFd, SHUT_RDWR);
+        // accept()/read()でブロックしている全スレッドを起こす。
+        // shutdown()はfd番号自体は無効にしないため、直後の再accept()
+        // によるfd番号の再利用と競合しない。
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            for (int fd : activeFds) shutdown(fd, SHUT_RDWR);
+        }
         if (listenFd >= 0) shutdown(listenFd, SHUT_RDWR);
 #endif
-        if (thread.joinable()) thread.join();
+        if (acceptThread.joinable()) acceptThread.join();
+        // acceptThreadの終了後は新規ワーカーが増えないため、ここから先は
+        // workersへの安全な走査・joinができる。
+        for (auto& t : workers) if (t.joinable()) t.join();
+
 #if !defined(_WIN32)
-        if (clientFd >= 0) close(clientFd);
-        if (listenFd >= 0) close(listenFd);
+        // 上記でclose済みのはずだが、念のための安全網。
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            for (int fd : activeFds) ::close(fd);
+            activeFds.clear();
+        }
+        if (listenFd >= 0) ::close(listenFd);
         ::unlink(kSocketPath);
 #endif
     }
@@ -82,47 +136,127 @@ struct MidiInDevice {
 
 namespace {
 
+// チャンネル割り当て通知(FITOM_X → クライアント、接続直後に1回のみ)。
+// F0 00 48 01 03 <ch> F7 (マニュファクチャラID 00 48 01 は既存の
+// HwPatch/SwPatchパラメータオーバーライドSysExと共通。sub-cmd 0x01/0x02
+// は使用済みのため 0x03 を新設。詳細はdocs/plugin-midi-pipe.md参照)
+void buildChannelAnnounce(uint8_t (&out)[7], int ch)
+{
+    out[0] = 0xF0; out[1] = 0x00; out[2] = 0x48; out[3] = 0x01;
+    out[4] = 0x03; out[5] = static_cast<uint8_t>(ch); out[6] = 0xF7;
+}
+
 #if defined(_WIN32)
 
-// 接続→切断を繰り返す想定(パッチエディタ側が起動/終了するたびに
-// 繋ぎ直す)。1本のパイプインスタンスで、接続が切れたら次の接続を
-// 待ち直す。
-void midiInThread(MidiInDevice* dev)
+// hがactiveHandles内にまだ存在すれば除去してtrueを返す(=このスレッドが
+// CloseHandleする責任を持つ)。既に無ければfalse(デストラクタ側が
+// 既に処理済み/処理中のため、二重closeを避けて何もしない)。
+bool claimHandleForClose(MidiInDevice* dev, HANDLE h)
 {
+    std::lock_guard<std::mutex> lock(dev->stateMutex);
+    auto it = std::find(dev->activeHandles.begin(), dev->activeHandles.end(), h);
+    if (it == dev->activeHandles.end()) return false;
+    dev->activeHandles.erase(it);
+    return true;
+}
+
+void connectionWorker(MidiInDevice* dev, HANDLE h, int ch)
+{
+    uint8_t announce[7];
+    buildChannelAnnounce(announce, ch);
+    DWORD written = 0;
+    WriteFile(h, announce, sizeof(announce), &written, nullptr);
+
     uint8_t buf[4096];
+    DWORD n = 0;
+    while (dev->running.load() &&
+           ReadFile(h, buf, sizeof(buf), &n, nullptr) && n > 0) {
+        dev->callback(buf, n, 0, dev->userData);
+    }
+
+    if (claimHandleForClose(dev, h)) {
+        DisconnectNamedPipe(h);
+        CloseHandle(h);
+    }
+    dev->releaseChannel(ch);
+}
+
+// 新しいパイプインスタンスを作って接続を待つ→繋がったらチャンネルを
+// 確保してワーカースレッドへ引き渡す→次のインスタンスへ、を繰り返す。
+void acceptThreadFunc(MidiInDevice* dev)
+{
     while (dev->running.load()) {
         HANDLE h = CreateNamedPipeA(
             kPipeName,
-            PIPE_ACCESS_INBOUND,
+            PIPE_ACCESS_DUPLEX, // チャンネル割り当て通知の書き込みに必要
             PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-            1,      // 同時接続は1本のみ
-            0, 4096,
+            PIPE_UNLIMITED_INSTANCES, // 実際の上限はkMaxClients(下記)
+            4096, 4096,
             0, nullptr);
         if (h == INVALID_HANDLE_VALUE) break;
-        dev->pipe = h;
+
+        {
+            std::lock_guard<std::mutex> lock(dev->stateMutex);
+            dev->activeHandles.push_back(h);
+        }
 
         BOOL connected = ConnectNamedPipe(h, nullptr)
             ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
-        if (!dev->running.load()) { CloseHandle(h); break; }
 
-        if (connected) {
-            DWORD n = 0;
-            while (dev->running.load() &&
-                   ReadFile(h, buf, sizeof(buf), &n, nullptr) && n > 0) {
-                dev->callback(buf, n, 0, dev->userData);
+        if (!dev->running.load() || !connected) {
+            if (claimHandleForClose(dev, h)) {
+                CloseHandle(h);
             }
+            if (!dev->running.load()) break;
+            continue;
         }
-        DisconnectNamedPipe(h);
-        CloseHandle(h);
-        dev->pipe = INVALID_HANDLE_VALUE;
+
+        int ch = dev->acquireChannel();
+        if (ch < 0) {
+            // 空きチャンネルなし(kMaxClients本すでに接続中): 即座に切る
+            if (claimHandleForClose(dev, h)) {
+                DisconnectNamedPipe(h);
+                CloseHandle(h);
+            }
+            continue;
+        }
+
+        dev->workers.emplace_back(connectionWorker, dev, h, ch);
     }
 }
 
-#else
+#else // POSIX
+
+bool claimFdForClose(MidiInDevice* dev, int fd)
+{
+    std::lock_guard<std::mutex> lock(dev->stateMutex);
+    auto it = std::find(dev->activeFds.begin(), dev->activeFds.end(), fd);
+    if (it == dev->activeFds.end()) return false;
+    dev->activeFds.erase(it);
+    return true;
+}
+
+void connectionWorker(MidiInDevice* dev, int fd, int ch)
+{
+    uint8_t announce[7];
+    buildChannelAnnounce(announce, ch);
+    ::write(fd, announce, sizeof(announce));
+
+    uint8_t buf[4096];
+    ssize_t n;
+    while (dev->running.load() &&
+           (n = ::read(fd, buf, sizeof(buf))) > 0) {
+        dev->callback(buf, static_cast<size_t>(n), 0, dev->userData);
+    }
+
+    if (claimFdForClose(dev, fd)) {
+        ::close(fd);
+    }
+    dev->releaseChannel(ch);
+}
 
 void midiInThread(MidiInDevice* dev)
 {
-    uint8_t buf[4096];
     while (dev->running.load()) {
         sockaddr_un clientAddr{};
         socklen_t addrLen = sizeof(clientAddr);
@@ -131,15 +265,19 @@ void midiInThread(MidiInDevice* dev)
             if (!dev->running.load()) break;
             continue; // shutdown()以外の理由でaccept失敗した場合は単に再試行
         }
-        dev->clientFd = fd;
+        if (!dev->running.load()) { ::close(fd); break; }
 
-        ssize_t n;
-        while (dev->running.load() &&
-               (n = ::read(fd, buf, sizeof(buf))) > 0) {
-            dev->callback(buf, static_cast<size_t>(n), 0, dev->userData);
+        int ch = dev->acquireChannel();
+        if (ch < 0) {
+            ::close(fd); // 空きチャンネルなし(kMaxClients本すでに接続中)
+            continue;
         }
-        ::close(fd);
-        dev->clientFd = -1;
+
+        {
+            std::lock_guard<std::mutex> lock(dev->stateMutex);
+            dev->activeFds.push_back(fd);
+        }
+        dev->workers.emplace_back(connectionWorker, dev, fd, ch);
     }
 }
 
@@ -165,7 +303,8 @@ FITOM_MIDIP_API const char* FITOM_MIDIP_CALL MidiPlugin_EnumerateIn() {
 }
 
 FITOM_MIDIP_API const char* FITOM_MIDIP_CALL MidiPlugin_EnumerateOut() {
-    // MIDI Out(FITOM_X → 外部プロセス方向)は現状未実装。
+    // MIDI Out(汎用送信)は現状未実装。チャンネル割り当て通知のみ、
+    // 接続受け入れ側(MidiPlugin_OpenIn)が内部で直接書き込む。
     nlohmann::json arr = nlohmann::json::array();
     const std::string s = arr.dump();
     char* buf = new char[s.size() + 1];
@@ -201,7 +340,7 @@ FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_OpenIn(
     addr.sun_family = AF_UNIX;
     std::strncpy(addr.sun_path, kSocketPath, sizeof(addr.sun_path) - 1);
     if (::bind(dev->listenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0 ||
-        ::listen(dev->listenFd, 1) < 0) {
+        ::listen(dev->listenFd, kMaxClients) < 0) {
         ::close(dev->listenFd);
         delete dev;
         return MIDI_ERR_OPEN_FAILED;
@@ -209,7 +348,11 @@ FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_OpenIn(
 #endif
 
     dev->running.store(true);
-    dev->thread = std::thread(midiInThread, dev);
+#if defined(_WIN32)
+    dev->acceptThread = std::thread(acceptThreadFunc, dev);
+#else
+    dev->acceptThread = std::thread(midiInThread, dev);
+#endif
 
     *out_handle = reinterpret_cast<MidiInHandle>(dev);
     return MIDI_OK;

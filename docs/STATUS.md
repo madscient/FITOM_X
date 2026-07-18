@@ -61,7 +61,7 @@
 | ファイル | 状態 | 内容 |
 |---|---|---|
 | `backends/midi_rtmidi/` | ✅ | RtMidi (Windows/Linux/macOS共通、2026年7月に旧midi_wms/midi_winmm/midi_alsaの3実装から統合) |
-| `backends/midi_pipe/` | ✅ | 内部用MIDIパイプ (`fitom_midi_pipe`、名前付きパイプ/UNIXソケット、パッチエディタ連携用、既定OFF) |
+| `backends/midi_pipe/` | ✅ | 内部用MIDIパイプ (`fitom_midi_pipe`、名前付きパイプ/UNIXソケット、パッチエディタ連携用、既定OFF)。最大16本まで同時接続対応(2026年7月〜、接続ごとに専用スレッド)。接続確立直後、チャンネル割り当てをプライベートSysEx(sub-cmd 0x03)で通知し、クライアント側は自分でチャンネルを選ばない設計に変更(複数パッチエディタインスタンス同時起動時の衝突回避)。詳細は`plugin-midi-pipe.md`参照 |
 | `backends/hw_if/CMakeLists.txt` | ✅ | FitomIFTest submodule 統合 |
 
 ### GUI
@@ -137,6 +137,7 @@
 | HWPlugin_Shutdown (未エクスポート時は何もしないオプショナルAPI、二重実行防止) | ✅ | `plugin-hwif.md` |
 | GUI MIDIモニターバンド (CH毎表示 + 128ノートキーボードビュー + 発光エフェクト) | ✅ | — |
 | 内部用MIDIパイプ (`fitom_midi_pipe`、パッチエディタ試聴連携) | ✅ | `plugin-midi-pipe.md` |
+| 内部用MIDIパイプの多接続化(最大16本+接続直後のチャンネル自動割り当てSysEx) | ✅ | `plugin-midi-pipe.md` |
 | MIDIバックエンドDLLをRtMidi単一実装へ統合 (旧midi_wms/midi_winmm/midi_alsaの3実装廃止、SysEx未対応だった既存欠陥を解消、macOS対応を新規追加) | ✅ | `plugin-midi.md` |
 
 ---
