@@ -400,16 +400,16 @@
     },
     "midi_backend": {
       "type": "object",
-      "description": "MIDI入力バックエンドDLL(WinMM/ALSA等)の指定。省略時はプラットフォーム既定(Windows: fitom_midi_winmm、Linux: fitom_midi_alsa)を実行ファイルと同じディレクトリから探索する。",
+      "description": "MIDI入力バックエンドDLL(RtMidi、Windows/Linux/macOS共通実装)の指定。省略時はプラットフォーム既定(fitom_midi_rtmidi.dll/.so/.dylib)を実行ファイルと同じディレクトリから探索する。",
       "additionalProperties": false,
       "properties": {
         "dll": {
           "type": "string",
           "description": "MIDIバックエンドDLLのファイル名またはパス。相対パスの場合は実行ファイルのディレクトリを基点とする。",
           "examples": [
-            "fitom_midi_winmm.dll",
-            "fitom_midi_alsa.so",
-            "fitom_midi_wms.dll"
+            "fitom_midi_rtmidi.dll",
+            "fitom_midi_rtmidi.so",
+            "fitom_midi_rtmidi.dylib"
           ]
         },
         "_comment": {

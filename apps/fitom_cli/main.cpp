@@ -9,8 +9,8 @@
 //   fitom_cli <profile.json>
 //
 // MIDIバックエンドDLLのパスは profile の "midi_backend.dll" で指定する。
-// 省略時はプラットフォーム既定 (Windows: fitom_midi_winmm、
-// Linux: fitom_midi_alsa) を実行ファイルと同じディレクトリから探索する。
+// 省略時はプラットフォーム既定 (fitom_midi_rtmidi.dll/.so/.dylib) を
+// 実行ファイルと同じディレクトリから探索する。
 // 接続する MIDI 入力デバイス名一覧は profile の "midi_inputs" 配列を使う。
 //
 // Prog名・Device名の解決はこのCLI側 (プロファイル/PatchManagerを保持する
@@ -80,9 +80,11 @@ fs::path resolveMidiBackendPath(const std::string& configured) {
         return p.is_relative() ? (exeDir() / p) : p;
     }
 #if defined(_WIN32)
-    return exeDir() / "fitom_midi_winmm.dll";
+    return exeDir() / "fitom_midi_rtmidi.dll";
+#elif defined(__APPLE__)
+    return exeDir() / "fitom_midi_rtmidi.dylib";
 #elif defined(__linux__)
-    return exeDir() / "fitom_midi_alsa.so";
+    return exeDir() / "fitom_midi_rtmidi.so";
 #else
     return exeDir() / "fitom_midi_backend";
 #endif

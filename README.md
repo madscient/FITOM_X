@@ -7,7 +7,7 @@ Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャ
 - バックエンド（FM エンジン / HW I/F / MIDI）を DLL プラグインに分離
 - GUI(`apps/fitom_gui`, Dear ImGui)は `gui/bridge`(FITOMBridge)経由で同一プロセス内から fitom_core を利用
 - Windows / Linux / macOS のクロスプラットフォームビルド対応
-- C++17 / CMake 3.20+ / vcpkg
+- C++17 / CMake 3.24+ / vcpkg
 
 ---
 
@@ -28,11 +28,11 @@ Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャ
 │  MidiManager            ─── MIDI DLL        (IMidiPlugin)     │
 └────────────────────────────────────────────────────────────────┘
          │                         │
-  ┌──────▼──────┐         ┌────────▼────────┐
-  │ FM Engine   │         │  MIDI Backend    │
-  │ YMEngine.dll│         │  fitom_midi_wms  │
-  │ AYEngine.dll│         │  fitom_midi_alsa │
-  └─────────────┘         └─────────────────┘
+  ┌──────▼──────┐         ┌──────────────────┐
+  │ FM Engine   │         │  MIDI Backend     │
+  │ YMEngine.dll│         │  fitom_midi_rtmidi│
+  │ AYEngine.dll│         │  (Win/Linux/macOS)│
+  └─────────────┘         └──────────────────┘
 ```
 
 ### 音声データフロー
@@ -112,8 +112,7 @@ FITOM_X/
 │   ├── fitom_cli/          # CLI アプリケーション
 │   └── fitom_gui/          # Dear ImGui GUI アプリケーション
 ├── backends/
-│   ├── midi_alsa/          # ALSA MIDI バックエンド DLL (Linux)
-│   └── midi_wms/           # Windows MIDI Services バックエンド DLL
+│   └── midi_rtmidi/        # RtMidi MIDI バックエンド DLL (Windows/Linux/macOS共通)
 ├── config/
 │   ├── fitom.conf.json     # システム設定（ログ・プラグインパス・バッファサイズ）
 │   └── profiles/           # ユーザープロファイルサンプル
@@ -155,14 +154,15 @@ FITOM_X/
 | 項目 | 要件 |
 |---|---|
 | C++ 標準 | C++17 |
-| CMake | 3.20 以上 |
+| CMake | 3.24 以上 (RtMidi MIDIバックエンドの要求バージョン) |
 | パッケージマネージャ | vcpkg (manifest モード) |
 | Boost | 1.71 以上 (asio / thread / log / format / interprocess) |
 | nlohmann/json | vcpkg 経由 |
 | RtAudio | `extern/rtaudio/` に submodule として配置（任意）|
 | libftdi1 | HW I/F バックエンド使用時（vcpkg 経由）|
 
-Windows MIDI Services バックエンドのみ C++20 と WMS SDK が別途必要です。
+MIDIバックエンド(`backends/midi_rtmidi/`)は[RtMidi](https://github.com/thestk/rtmidi)を
+`third_party/rtmidi` に git submodule として使用します(`git submodule update --init --recursive`)。
 
 ---
 
@@ -212,8 +212,7 @@ cmake --build --preset macos-release
 |---|---|---|
 | `FITOM_BUILD_BACKEND_FMENGINE` | ON | FM エンジンバックエンド DLL |
 | `FITOM_BUILD_BACKEND_HWIF` | ON | HW I/F バックエンド DLL |
-| `FITOM_BUILD_BACKEND_MIDI_WMS` | OFF | Windows MIDI Services バックエンド（Windows のみ）|
-| `FITOM_BUILD_BACKEND_MIDI_ALSA` | OFF | ALSA MIDI バックエンド（Linux のみ）|
+| `FITOM_BUILD_BACKEND_MIDI_RTMIDI` | ON | RtMidi MIDI バックエンド DLL（Windows/Linux/macOS共通）|
 | `FITOM_GUI_IMGUI` | OFF | Dear ImGui GUI（`gui/bridge` + `apps/fitom_gui`）|
 | `FITOM_GUI_QT` | OFF | Qt6 GUI（実装予定）|
 | `FITOM_BUILD_TESTS` | ON | Catch2 テスト |
@@ -224,18 +223,11 @@ cmake --build --preset macos-release
 
 ### `fitom.conf.json` — システム設定（管理者向け）
 
-ログレベル、プラグイン DLL のパス、RtAudio バッファサイズなど、環境依存の設定を記述します。
+ログレベル等、環境依存の設定を記述します(省略可能)。
 
 ```json
 {
-  "log":     { "level": "info", "file": "fitom.log" },
-  "plugins": {
-    "fm_engine_dir": "engines",
-    "hw_plugin":    { "dll": "fitom_hw.dll" },
-    "midi_plugin":  { "dll": "fitom_midi_wms.dll" }
-  },
-  "audio":   { "api": "auto", "buffer_frames": 512 },
-  "timing":  { "timer_ms": 1 }
+  "log": { "level": "info", "file": "fitom.log", "console": true }
 }
 ```
 
@@ -275,7 +267,7 @@ cmake --build --preset macos-release
 
 **`IHWPlugin.h`** — HW I/F DLL。SPFM 等の物理デバイスへのアクセスを `HWPlugin_Write` / `HWPlugin_Read` としてフラット化した C API です。アドレスの上位8bit が a_high（ポート番号）として扱われ、`SplitPort` 経由で 2 ポートチップのアドレス振り分けを自動的に行います。
 
-**`IMidiPlugin.h`** — MIDI バックエンド DLL。WMS / ALSA / CoreMIDI を共通インターフェースで抽象化し、MIDI 1.0 バイト列で統一します。
+**`IMidiPlugin.h`** — MIDI バックエンド DLL。RtMidi(WinMM / ALSA / CoreMIDI)を共通インターフェースで抽象化し、MIDI 1.0 バイト列で統一します。
 
 ---
 

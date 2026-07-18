@@ -19,7 +19,6 @@
       "cacheVariables": {
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
-        "FITOM_BUILD_BACKEND_MIDI_WMS": "OFF",
         "FITOM_GUI_MFC": "OFF",
         "FITOM_BUILD_TESTS": "ON"
       }
@@ -35,17 +34,6 @@
       }
     },
     {
-      "name": "windows-vs2022-x64-wms",
-      "displayName": "Windows (VS2022 / x64 / Windows MIDI Services)",
-      "inherits": "windows-vs2022-x64",
-      "cacheVariables": {
-        "FITOM_BUILD_BACKEND_MIDI_WMS": "ON",
-        "MIDI2_SDK_INCLUDE": "",
-        "MIDI2_WINMD": "",
-        "MIDI2_RUNTIME_DLL": ""
-      }
-    },
-    {
       "name": "windows-vs2026-x64",
       "displayName": "Windows (VS2026 / x64)",
       "inherits": "base",
@@ -54,7 +42,6 @@
       "cacheVariables": {
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
-        "FITOM_BUILD_BACKEND_MIDI_WMS": "OFF",
         "FITOM_GUI_MFC": "OFF",
         "FITOM_BUILD_TESTS": "ON"
       }
@@ -85,7 +72,6 @@
         "CMAKE_BUILD_TYPE": "Release",
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
-        "FITOM_BUILD_BACKEND_MIDI_ALSA": "ON",
         "FITOM_BUILD_TESTS": "ON"
       }
     },

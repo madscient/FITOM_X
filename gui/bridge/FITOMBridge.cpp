@@ -69,9 +69,11 @@ fs::path resolveMidiBackendPath(const std::string& configured)
         return p.is_relative() ? (exeDir() / p) : p;
     }
 #if defined(_WIN32)
-    return exeDir() / "fitom_midi_winmm.dll";
+    return exeDir() / "fitom_midi_rtmidi.dll";
+#elif defined(__APPLE__)
+    return exeDir() / "fitom_midi_rtmidi.dylib";
 #elif defined(__linux__)
-    return exeDir() / "fitom_midi_alsa.so";
+    return exeDir() / "fitom_midi_rtmidi.so";
 #else
     return exeDir() / "fitom_midi_backend";
 #endif

@@ -3,19 +3,5 @@
     "level":   "info",
     "file":    "fitom.log",
     "console": true
-  },
-  "plugins": {
-    "fm_engine_dir": "engines",
-    "hw_plugin":   { "dll": "fitom_hw.dll" },
-    "midi_plugin": { "dll": "fitom_midi_wms.dll" }
-  },
-  "audio": {
-    "api":             "auto",
-    "buffer_frames":   512,
-    "output_channels": 2
-  },
-  "timing": {
-    "timer_ms":            1,
-    "polling_interval_us": 500
   }
 }
