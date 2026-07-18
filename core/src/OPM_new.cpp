@@ -97,26 +97,34 @@ protected:
             setReg(static_cast<uint16_t>(0x60 + i * 8 + ch), tl);
 
             // KSR / AR / FIX
+            // 実機YM2151のレジスタ$80-$9Fは KS(2bit,bit7-6) | AR(5bit,bit4-0)
+            // で、bit5は未使用(FITOM独自のfixFreqフラグに転用)。ar_opm/
+            // dr_opm/sr_opmは既に0-31(5bit)のFmHwOp共通ドメインの値のため、
+            // 追加のシフトは不要(2026年7月、誤って">>2"していたバグを修正。
+            // 実機の5bit幅の下位2bitが常に0になり、AR/DR/SRの実効解像度が
+            // 8段階にまで劣化していた)。
             const bool fixFreq = (ex.FIX != 0);
             const uint8_t ar_opm = car_opm ? s.proc.velAR(kMap[i]) : (o.AR & 0x1F);
             setReg(static_cast<uint16_t>(0x80 + i * 8 + ch),
-                   ((o.KSR & 3) << 6) | (ar_opm >> 2) | (fixFreq ? 0x20 : 0));
+                   ((o.KSR & 3) << 6) | (ar_opm & 0x1F) | (fixFreq ? 0x20 : 0));
 
             // AM / DR
             const uint8_t dr_opm = car_opm ? s.proc.velDR(kMap[i]) : (o.DR & 0x1F);
             setReg(static_cast<uint16_t>(0xA0 + i * 8 + ch),
-                   ((o.AM & 1) << 7) | (dr_opm >> 2));
+                   ((o.AM & 1) << 7) | (dr_opm & 0x1F));
 
             // DT2 / SR (FmHwOp では SR = OPM の "D2R")
             const uint8_t sr_opm = car_opm ? s.proc.velSR(kMap[i]) : (o.SR & 0x1F);
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
-                   (fixFreq ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm >> 2));
+                   (fixFreq ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm & 0x1F));
 
-            // SL / RR
+            // SL / RR: 実機レジスタ$E0-$FFは D1L(4bit,bit7-4) | RR(4bit,bit3-0)。
+            // sl_opm/rr_opmは既に0-15(4bit)のためシフト不要(同上、">>3"で
+            // 1bitにまで劣化していたバグを修正)。
             const uint8_t sl_opm = car_opm ? s.proc.velSL(kMap[i]) : (o.SL & 0xF);
             const uint8_t rr_opm = car_opm ? s.proc.velRR(kMap[i]) : (o.RR & 0xF);
             setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
-                   ((sl_opm >> 3) << 4) | (rr_opm >> 3));
+                   ((sl_opm & 0xF) << 4) | (rr_opm & 0xF));
         }
 
         // ch7: ノイズ有効チェック (ALG_EXT bit = 1 → NFQ を設定)
@@ -170,9 +178,9 @@ protected:
         for (int i = 0; i < 4; ++i) {
             if (!isCarrier(ch, kMap[i])) continue; // モジュレータは対象外
             const FmHwOp& o = p.hwOp[kMap[i]];
-            uint8_t rr = s.sustain ? 4 : (o.RR >> 3);
+            uint8_t rr = s.sustain ? 4 : (o.RR & 0xF);
             setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
-                   static_cast<uint8_t>(((o.SL >> 3) << 4) | (rr & 0xF)));
+                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | (rr & 0xF)));
         }
     }
 
@@ -187,7 +195,7 @@ protected:
             if (!isCarrier(ch, kMap[i])) continue; // モジュレータは対象外
             const FmHwOp& o = p.hwOp[kMap[i]];
             setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
-                   static_cast<uint8_t>(((o.SL >> 3) << 4) | 0xF)); // RR=15
+                   static_cast<uint8_t>(((o.SL & 0xF) << 4) | 0xF)); // RR=15
         }
         noteOff(ch);
     }
@@ -203,7 +211,7 @@ protected:
             for (int i = 0; i < 4; ++i) {
                 const FmHwOp& o = p.hwOp[kMap[i]];
                 setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
-                       static_cast<uint8_t>(((o.SL >> 3) << 4) | 0xF));
+                       static_cast<uint8_t>(((o.SL & 0xF) << 4) | 0xF));
             }
         }
         if (!keyOn) updateSustain(ch);
