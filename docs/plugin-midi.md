@@ -1,16 +1,20 @@
 # MIDI プラグイン要件定義
 
 **対象ヘッダ**: `plugin_sdk/include/fitom/IMidiPlugin.h`  
-**実装バリアント**: Windows MIDI Services (`fitom_midi_wms.dll`) / ALSA (`fitom_midi_alsa.so`)  
+**実装**: RtMidi (`fitom_midi_rtmidi.dll` / `.so` / `.dylib`、Windows/Linux/macOS共通の単一実装)  
 **プラグイン種別**: MIDI 入出力（同時ロードは 1 DLL のみ）
 
 ---
 
 ## 概要
 
-WinMM・Windows MIDI Services・ALSA・CoreMIDI などの MIDI 実装の差異を  
+WinMM・ALSA・CoreMIDI などの MIDI 実装の差異を  
 FITOM コアから完全に隠蔽するプラグイン。  
-コアは MIDI 1.0 バイト列のみを扱い、プロトコル変換（UMP ↔ MIDI 1.0 等）は DLL 内部で行う。
+コアは MIDI 1.0 バイト列のみを扱う。実装は [RtMidi](https://github.com/thestk/rtmidi)
+(`third_party/rtmidi`、git submodule)に委譲し、Windows/Linux/macOSを1つの
+DLLソースでカバーする(旧実装はWindows MIDI Services/WinMM/ALSAをそれぞれ
+個別のDLLとしてハンドロールしていたが、2026年7月にRtMidiベースの単一実装へ
+統合した)。
 
 ---
 
@@ -20,7 +24,7 @@ FITOM コアから完全に隠蔽するプラグイン。
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
-| `MidiPlugin_GetName` | `const char* ()` | プラグイン名を返す。例: `"WindowsMIDIServices"`, `"ALSA"` |
+| `MidiPlugin_GetName` | `const char* ()` | プラグイン名を返す。例: `"RtMidi"` |
 
 ### デバイス列挙
 
@@ -98,55 +102,42 @@ typedef void (*MidiInCallback)(
 | `MIDI_ERR_NOT_FOUND` | -1 | 指定デバイスが見つからない |
 | `MIDI_ERR_OPEN_FAILED` | -2 | デバイスのオープンに失敗 |
 | `MIDI_ERR_IO` | -3 | 送受信エラー |
-| `MIDI_ERR_UNAVAILABLE` | -4 | プラグイン自体が使用不可（WMS Runtime 未インストール等） |
+| `MIDI_ERR_UNAVAILABLE` | -4 | 対応するMIDI APIが利用不可（未対応OS等） |
 
 ---
 
-## Windows MIDI Services 実装固有の要件と制約
+## RtMidi 実装固有の要件と制約
+
+**実装ファイル**: `backends/midi_rtmidi/src/MidiRtMidi.cpp`
 
 ### ビルド環境
-- Visual Studio 2022 以上（C++/WinRT のプロジェクション生成に使用）
-- Windows SDK 10.0.20348 以上
-- NuGet パッケージ（ローカルフィード経由）:
-  - `Microsoft.Windows.Devices.Midi2`
-  - `Microsoft.Windows.CppWinRT`
-- **C++20** で記述（コア本体の C++17 とは独立して問題ない）
-- **64bit のみ**（x86/ARM32 は非対応）
-
-### 実行時要件
-- [Windows MIDI Services Runtime](https://github.com/microsoft/MIDI/releases) の別途インストールが必要
-- 未インストール時は `MidiPlugin_OpenIn` / `MidiPlugin_OpenOut` が `MIDI_ERR_UNAVAILABLE` を返す
-- この場合 FITOM コアは警告ログを出力し、MIDI 入力なしで起動を継続する
-
-### UMP 変換
-- WMS は全メッセージを UMP (Universal MIDI Packet) で処理する
-- MIDI 1.0 デバイスからの UMP32 (Type 2) → MIDI 1.0 バイト列に DLL 内で変換する
-- `MidiPlugin_Send` では MIDI 1.0 バイト列 → UMP32 に変換して送信する
-- `timestamp_ns` が 0 以外の場合、WMS のスケジュール送信機能を使用する
-
-### マルチクライアント
-- WMS はネイティブにマルチクライアントをサポートする
-- 複数アプリが同一デバイスに接続しても競合しない
-
----
-
-## ALSA 実装固有の要件と制約
-
-### ビルド環境
-- Linux のみ
-- `libasound2-dev`（`alsa/asoundlib.h`）
+- [RtMidi](https://github.com/thestk/rtmidi) 本体を `third_party/rtmidi` に git submodule として配置する
+  (`git submodule update --init --recursive`)
+- RtMidi自身が `cmake_minimum_required(VERSION 3.24)` を要求するため、
+  ビルド環境側も CMake 3.24 以上が必要
+- RtMidiは静的リンクする(`fitom_midi_rtmidi.dll`/`.so`/`.dylib` 単体で完結し、
+  追加のランタイムDLLインストールは不要)
+- プラットフォームAPI選択はRtMidi側が自動判定する: Windows→WinMM、
+  Linux→ALSA、macOS→CoreMIDI（いずれもコンパイル時に決まり、実行時の
+  切り替えはない）
 
 ### デバイス名フォーマット
-- ALSA シーケンサのクライアント名とポート名を `:` で連結した文字列を使用する
-- 例: `"Midi Through:Midi Through Port-0"`, `"JUNO-DS:JUNO-DS MIDI 1"`
+- `RtMidiIn::getPortName()` / `RtMidiOut::getPortName()` が返す文字列を
+  そのまま使う。フォーマットはプラットフォームのMIDI API依存
+  (例: Windows/macOSはデバイス名そのもの、LinuxのALSAシーケンサは
+  `"クライアント名:ポート名"`)
 
 ### タイムスタンプ
-- ALSA シーケンサはイベントのタイムスタンプを提供するが精度はカーネルスケジューラに依存する
-- `timestamp_ns` に設定できる場合はそうする。困難な場合は `0` を渡してよい
+- `MidiPlugin_OpenIn` のコールバックに渡される `timestamp_ns` は常に `0`
+  (不明)を返す。RtMidiのコールバックは「前回イベントからの相対デルタ秒」
+  しか提供せず、`IMidiPlugin.h` が要求する絶対受信タイムスタンプには
+  変換できないため
+- `MidiPlugin_Send` の `timestamp_ns` はスケジュール送信機構が無いため無視し、
+  常に即時送信として扱う
 
-### `MidiPlugin_Send` の `timestamp_ns`
-- ALSA シーケンサはスケジュール送信をサポートするが実装は任意
-- `timestamp_ns = 0` 以外を受け取った場合、即時送信として扱っても構わない
+### SysEx
+- `RtMidiIn::ignoreTypes(false, ...)` / `RtMidiOut::sendMessage()` により、
+  通常メッセージと同じAPIでSysExを一塊のまま送受信できる
 
 ---
 
@@ -156,7 +147,7 @@ typedef void (*MidiInCallback)(
 
 ```json
 "midi_backend": {
-  "dll": "fitom_midi_wms.dll"
+  "dll": "fitom_midi_rtmidi.dll"
 }
 ```
 

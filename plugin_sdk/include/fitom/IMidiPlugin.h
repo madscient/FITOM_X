@@ -4,15 +4,10 @@
 // MIDI バックエンド DLL が実装・エクスポートする C API。
 //
 // ─── 設計原則 ────────────────────────────────────────────────────────────────
-//   WinMM / Windows MIDI Services / ALSA / CoreMIDI 等の差異を完全に隠蔽する。
-//   MIDI メッセージは生バイト列 (MIDI 1.0 形式) でやり取りする。
-//   Windows MIDI Services の UMP (Universal MIDI Packet) は DLL 側で変換する。
-//
-// ─── Windows MIDI Services の注意点 ─────────────────────────────────────────
-//   WMS SDK は C++/WinRT が必要なため、ビルドは backends/midi_wms/ で完結させ、
-//   コア側には一切の WinRT 依存を持ち込まない。
-//   WMS バックエンド DLL は 64bit のみ・Runtime 要インストール。
-//   Runtime 未インストール環境では HWPlugin_Open が HW_ERR_NOT_FOUND を返す。
+//   WinMM / ALSA / CoreMIDI 等プラットフォーム固有MIDI実装の差異を完全に
+//   隠蔽する。MIDI メッセージは生バイト列 (MIDI 1.0 形式) でやり取りする。
+//   実装は backends/midi_rtmidi/ (RtMidiベース、Windows/Linux/macOS共通の
+//   単一DLL) を参照。
 //
 // ─── コールバック ────────────────────────────────────────────────────────────
 //   受信データはコールバック関数で通知する (ポーリングモデルは提供しない)。
@@ -43,7 +38,7 @@ typedef enum MidiResult {
     MIDI_ERR_NOT_FOUND   = -1,
     MIDI_ERR_OPEN_FAILED = -2,
     MIDI_ERR_IO          = -3,
-    MIDI_ERR_UNAVAILABLE = -4,  // WMS Runtime 未インストール等
+    MIDI_ERR_UNAVAILABLE = -4,  // 対応するMIDI APIが利用不可(未対応OS等)
 } MidiResult;
 
 // MIDI デバイスの不透明ハンドル
@@ -66,7 +61,7 @@ extern "C" {
 #endif
 
 // ─── プラグイン情報 ──────────────────────────────────────────────────────────
-// "WinMM", "WindowsMIDIServices", "ALSA", "CoreMIDI" 等
+// "RtMidi" 等
 FITOM_MIDIP_API const char* FITOM_MIDIP_CALL MidiPlugin_GetName();
 
 // ─── デバイス列挙 ────────────────────────────────────────────────────────────
@@ -98,7 +93,8 @@ FITOM_MIDIP_API void FITOM_MIDIP_CALL MidiPlugin_CloseOut(MidiOutHandle handle);
 
 // data: MIDI 1.0 バイト列
 // timestamp_ns: 送信予約タイムスタンプ [ナノ秒]。0 = 即時送信。
-//               WMS 以外のバックエンドでは 0 として扱う。
+//               現行実装(RtMidiベース)はスケジュール送信機構を持たず、
+//               常に即時送信として扱う。
 FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_Send(
     MidiOutHandle handle,
     const uint8_t* data, size_t len,

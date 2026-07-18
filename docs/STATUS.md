@@ -60,9 +60,7 @@
 
 | ファイル | 状態 | 内容 |
 |---|---|---|
-| `backends/midi_wms/` | ✅ | Windows MIDI Services (C++/WinRT) |
-| `backends/midi_winmm/` | ✅ | クラシック WinMM API (ランタイム不要) |
-| `backends/midi_alsa/` | ✅ | ALSA MIDI |
+| `backends/midi_rtmidi/` | ✅ | RtMidi (Windows/Linux/macOS共通、2026年7月に旧midi_wms/midi_winmm/midi_alsaの3実装から統合) |
 | `backends/midi_pipe/` | ✅ | 内部用MIDIパイプ (`fitom_midi_pipe`、名前付きパイプ/UNIXソケット、パッチエディタ連携用、既定OFF) |
 | `backends/hw_if/CMakeLists.txt` | ✅ | FitomIFTest submodule 統合 |
 
@@ -139,6 +137,7 @@
 | HWPlugin_Shutdown (未エクスポート時は何もしないオプショナルAPI、二重実行防止) | ✅ | `plugin-hwif.md` |
 | GUI MIDIモニターバンド (CH毎表示 + 128ノートキーボードビュー + 発光エフェクト) | ✅ | — |
 | 内部用MIDIパイプ (`fitom_midi_pipe`、パッチエディタ試聴連携) | ✅ | `plugin-midi-pipe.md` |
+| MIDIバックエンドDLLをRtMidi単一実装へ統合 (旧midi_wms/midi_winmm/midi_alsaの3実装廃止、SysEx未対応だった既存欠陥を解消、macOS対応を新規追加) | ✅ | `plugin-midi.md` |
 
 ---
 

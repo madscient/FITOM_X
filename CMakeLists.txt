@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 project(FITOM VERSION 2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -19,15 +19,11 @@ endif()
 #  ビルドオプション
 # -------------------------------------------------------
 option(FITOM_BUILD_BACKEND_HWIF      "HW I/F バックエンド DLL をビルド"           ON)
-option(FITOM_BUILD_BACKEND_MIDI_WMS  "Windows MIDI Services バックエンド DLL"     OFF)  # Win のみ・WMS SDK 要
-# クラシック WinMM API (ランタイム不要、Windows全バージョンで動作)。
-# FITOM_BUILD_BACKEND_MIDI_WMS(要WinRT/Runtime)とは別物、通常はこちらを使う。
-if(WIN32)
-    option(FITOM_BUILD_BACKEND_MIDI_WINMM "WinMM MIDI バックエンド DLL" ON)
-else()
-    option(FITOM_BUILD_BACKEND_MIDI_WINMM "WinMM MIDI バックエンド DLL" OFF)
-endif()
-option(FITOM_BUILD_BACKEND_MIDI_ALSA "ALSA MIDI バックエンド DLL"                 OFF)  # Linux のみ
+# RtMidi (third_party/rtmidi) によるクロスプラットフォームMIDIバックエンド。
+# Windows(WinMM API)/Linux(ALSA)/macOS(CoreMIDI)を1つのDLLでカバーする。
+# 旧 midi_wms(Windows MIDI Services) / midi_winmm(WinMM直叩き) /
+# midi_alsa(ALSA直叩き) の3バックエンドを統合したもの。
+option(FITOM_BUILD_BACKEND_MIDI_RTMIDI "RtMidi MIDI バックエンド DLL (クロスプラットフォーム)" ON)
 # 名前付きパイプ(Windows)/UNIXドメインソケット(Linux/macOS)経由の内部専用
 # MIDIバックエンド。外部プロセス(例: 別プロジェクトのパッチエディタ)から
 # ローカルのみでFITOM_Xへメッセージを送るための、クロスプラットフォームな
@@ -128,23 +124,8 @@ if(FITOM_BUILD_BACKEND_HWIF)
             " FitomIFTest の共有ライブラリを別途ビルドして配置してください。")
     endif()
 endif()
-if(FITOM_BUILD_BACKEND_MIDI_WMS)
-    if(NOT WIN32)
-        message(FATAL_ERROR "FITOM_BUILD_BACKEND_MIDI_WMS は Windows のみ")
-    endif()
-    add_subdirectory(backends/midi_wms)
-endif()
-if(FITOM_BUILD_BACKEND_MIDI_WINMM)
-    if(NOT WIN32)
-        message(FATAL_ERROR "FITOM_BUILD_BACKEND_MIDI_WINMM は Windows のみ")
-    endif()
-    add_subdirectory(backends/midi_winmm)
-endif()
-if(FITOM_BUILD_BACKEND_MIDI_ALSA)
-    if(NOT UNIX OR APPLE)
-        message(FATAL_ERROR "FITOM_BUILD_BACKEND_MIDI_ALSA は Linux のみ")
-    endif()
-    add_subdirectory(backends/midi_alsa)
+if(FITOM_BUILD_BACKEND_MIDI_RTMIDI)
+    add_subdirectory(backends/midi_rtmidi)
 endif()
 if(FITOM_BUILD_BACKEND_MIDI_PIPE)
     add_subdirectory(backends/midi_pipe)
