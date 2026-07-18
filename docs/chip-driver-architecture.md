@@ -151,13 +151,22 @@ COPL3_2 : CSpanDevice                  (内部にCOPL2×2、2OP残余6ch)
 実際には使用しないようにした。
 
 - **4OPモード**：`COPL3`は各ポートch0-2(3ch×2ポート=6ch)を4OP専用として使用。
-  `hw.ALG`(bit0-1のみ使用)が{bit0:前半ペアCON, bit1:後半ペアCON}を直接表現し、
-  4OP結合有効化フラグ(ConnectionSEL)は`ext.ALG_EXT`に分離して持つ(2026年7月に
-  訂正。以前`hw.ALG`のbit2をConnectionSELとして誤って扱っており、実際には
-  `COPL3::updateKey`がこのフラグを一切参照していなかった)。`ext.ALG_EXT`が
-  1の場合、または常にキーオフ時は、前半・後半ペア両方に同時にキーオン/オフを
-  送る。0の場合、キーオン時は前半ペアのみに送る(旧FITOM OPL3.cppの
-  `voice->AL & 0x08`相当を復元)。`carmsk[8]`テーブルでキャリア判定。
+  `hw.ALG`(3bit全体をパック値として使用)が{bit0:前半ペアCON, bit1:後半ペアCON,
+  bit2:ConnectionSEL(4OP結合有効化)}を直接表現する(2026年7月、パッチエディタの
+  ALG接続図表示を単一パラメータに一元化するため、一時`ext.ALG_EXT`に分離して
+  いたConnectionSELを`hw.ALG`へ再統合。分離していた間、`COPL3::updateVoice`の
+  0x104(CONNECTIONSEL)レジスタ書き込みと`carmsk[8]`テーブルは`hw.ALG`のbit2を
+  参照し続けており、`COPL3::updateKey`だけが`ext.ALG_EXT`を見るという内部
+  不整合が生じていたため、`hw.ALG`側への統合で解消した)。
+  実機YMF262データシート(B0-B8レジスタ節)は「4OP結合中、後半チャンネル
+  自身のBxレジスタ(Key-On/Block/F-Number)は無視され、前半チャンネルの
+  値のみが4オペレータ全体に使われる」と明記している。したがって`hw.ALG`の
+  bit2が立っている場合(4OP結合)はキーオンを前半ペアのみに送れば足り、
+  bit2が0(前半・後半が独立2OPペア×2)の場合こそ両方に送る必要がある
+  (キーオフ時は後片付けのため常に両方送る)。2026年7月、この条件が実機
+  仕様と逆になっていたバグ(旧FITOM OPL3.cppの`voice->AL & 0x08`相当を
+  条件そのまま復元していたが、legacyのbit3は本コードのConnectionSELビット
+  とは別物だった)を発見・修正した。`carmsk[8]`テーブルでキャリア判定。
   `COPL3_2`は残りch6-8(3ch×2ポート)を2OPとして使用（`enableCh`でch0-5を無効化）。
 - **疑似デチューン**：`hwOp[0]/[2].PDT`(int16_t、100/64セント単位)を前半/後半
   ペアそれぞれの`getFnumber(ch,offset)`オフセットとして使用。OPNのFXモード

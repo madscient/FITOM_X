@@ -39,7 +39,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 7,
-            "description": "Algorithm。OPN/OPM: 3bit。OPL: 1bit。OPL3: bit0=CON1(前半ペア接続)/bit1=CON2(後半ペア接続)、bit2は未使用。4OP結合有効化フラグ(ConnectionSEL)はext.ALG_EXTに分離して持つ(2026年7月に訂正)。"
+            "description": "Algorithm。OPN/OPM: 3bit。OPL: 1bit。OPL3: bit0=CON1(前半ペア接続)/bit1=CON2(後半ペア接続)/bit2=ConnectionSEL(4OP結合有効化)。3bit全体を1つのパック値として扱う(パッチエディタ側のALG接続図表示を単一パラメータに一元化するため)。"
           },
           "AMS": {
             "type": "integer",
@@ -185,7 +185,7 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 1,
-                "description": "ALG拡張ビット。OPM: noise有効化。OPLL: preset音色選択。OPL3: ConnectionSEL(4OP結合有効化、2026年7月に参照漏れを訂正)。いずれも1bit。"
+                "description": "ALG拡張ビット。OPM: noise有効化(ch7専用)。OPLL: preset音色選択。OPL3では使用しない(ConnectionSELはALGのbit2に統合済み、ALGフィールドの説明参照)。いずれも1bit。"
               },
               "HWEP": {
                 "type": "integer",

@@ -544,12 +544,23 @@ protected:
         uint16_t reg_b2 = static_cast<uint16_t>(rop + 0xB0 + pairCh(ch));
         uint8_t b1cur = getReg(reg_b1) & 0xDF;
         setReg(reg_b1, static_cast<uint8_t>(b1cur | (keyOn ? 0x20 : 0)), true);
-        // ConnectionSEL(ext.ALG_EXT、4OP結合有効化ビット)が立っている場合、
-        // または キーオフ時(後片付けのため常に両方送る)のみ、後半ペアにも
-        // キーオンを送る。旧FITOM(OPL3.cpp)の
-        // `if ((voice->AL & 0x08) || !keyon)` を復元したもの
-        // (2026年7月、一時的にこの条件を撤廃していたのを訂正)。
-        if ((p.ext.ALG_EXT & 1) || !keyOn) {
+        // 実機YMF262データシート(B0-B8レジスタ節)の記述:
+        // 「In four-operator mode only the register value of Operators 1
+        //  and 2 is used, value of Operators 3 and 4 in this register is
+        //  ignored. In other words: one channel uses only one frequency,
+        //  block and KEY-ON value at a time, regardless whether it is a
+        //  two- or four-operator channel.」
+        // つまりConnectionSEL(hw.ALG bit2)=1(4OP結合)の間、後半チャンネル
+        // 自身のB3レジスタ(Key-On含む)はハードウェアに無視されるため、
+        // 前半チャンネルのKey-Onだけで4オペレータ全てが動作する。逆に
+        // ConnectionSEL=0(独立2OP×2)の場合は両チャンネルのKey-Onが
+        // それぞれ独立に意味を持つため、後半ペアも鳴らしたいなら明示的に
+        // Key-Onを送る必要がある(2026年7月、この条件が逆になっていた
+        // 実装バグを発見・修正。旧FITOM(OPL3.cpp)の
+        // `if ((voice->AL & 0x08) || !keyon)` をそのまま復元していたが、
+        // legacyのbit3は本コードのConnectionSELビットとは別物で、
+        // 実機仕様に照らすと条件そのものが逆だった)。
+        if (!(alValue(ch) & 0x04) || !keyOn) {
             uint8_t b2cur = getReg(reg_b2) & 0xDF;
             setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
         }

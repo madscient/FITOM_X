@@ -163,11 +163,27 @@ struct FmHwOp {
 struct FmHwVoice {
     uint8_t FB;   // Feedback:    3bit
     uint8_t ALG;  // Algorithm: 3bit (OPN/OPM: 3bit / OPL: 1bit /
-                  // OPL3: bit0=CON1(前半ペア接続)/bit1=CON2(後半ペア接続)、
-                  // bit2は未使用。4OP結合有効化フラグ(ConnectionSEL)は
-                  // ext.ALG_EXTに分離して持つ(2026年7月に訂正。以前
-                  // このコメントに「OPL3:4bit」「hw.ALG bit2=
-                  // ConnectionSEL」という誤った記述があった)。
+                  // OPL3: bit0=CON1(前半ペア接続)/bit1=CON2(後半ペア接続)/
+                  // bit2=ConnectionSEL(4OP結合有効化)。3bit全体を1つの
+                  // パック値として扱う(2026年7月、パッチエディタでの
+                  // ALGビジュアル化(接続図)を単一パラメータに一元化する
+                  // ため、ConnectionSELをext.ALG_EXTへ分離していたのを
+                  // 再度hw.ALGへ統合。分離していた間、COPL3::
+                  // updateVoice()の0x104レジスタ書き込み・carmsk[8]
+                  // テーブルは既にhw.ALG bit2をConnectionSELとして
+                  // 参照し続けており、COPL3::updateKeyだけがext.ALG_EXT
+                  // を見るという内部不整合が生じていた)。
+                  //
+                  // 【重要】ConnectionSEL=1(4OP結合)の間、実機YMF262は
+                  // 後半チャンネル自身のBxレジスタ(Key-On/Block/F-Number
+                  // すべて)を無視し、前半チャンネルの値のみを4オペレータ
+                  // 全体に使う(データシートB0-B8節: "one channel uses
+                  // only one frequency, block and KEY-ON value at a time,
+                  // regardless whether it is a two- or four-operator
+                  // channel")。したがってCOPL3::updateKeyが後半ペアへも
+                  // Key-Onを送る必要があるのはConnectionSEL=0(独立2OP×2)
+                  // の場合のみであり、1の場合ではない(2026年7月、この
+                  // 条件が実機仕様と逆になっていたバグを発見・修正)。
     uint8_t AMS;  // AM Sensitivity:  2bit (OPM のみ / 他: 0固定)
     uint8_t PMS;  // PM Sensitivity:  3bit (OPM のみ / 他: 0固定)
     uint8_t NFQ;  // Noise Frequency: 5bit (OPM/OPZ: ノイズ周波数 / 他: 0固定)
@@ -197,9 +213,11 @@ struct FmChipExt {
     uint8_t FIX;
 
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
-    uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise / OPLL preset選択 /
-                      // OPL3 ConnectionSEL(4OP結合有効化、2026年7月に
-                      // COPL3::updateKeyでの参照漏れを訂正))
+    uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise(ch7専用) / OPLL preset選択)。
+                      // OPL3のConnectionSEL(4OP結合有効化)はhw.ALG bit2に
+                      // 統合済みのため、OPL3はこのフィールドを参照しない
+                      // (2026年7月、一時的にここへ分離していたのをhw.ALG
+                      // へ戻した。上記hw.ALGのコメント参照)。
 
     // AY-3-8910 / YM2149 (PSG) 固有
     // HW Envelope Period: レジスタ 0x0B(Fine)+0x0C(Coarse) に対応する
