@@ -556,11 +556,17 @@ private:
             for (const auto& l : layers) if (l.isActive()) return true;
             return false;
         }
-        void stopAll() {
+        // owner: ボイススティールで devCh が別の発音(別MIDIチャンネル/別ノート)に
+        // 再利用されていないか isChOwnedBy() で確認してから解放する
+        // (releaseSostenutoNotes()と同じパターン。確認せず呼ぶと、既に
+        //  再利用されている devCh 上の別ノートを誤って停止させてしまう)。
+        void stopAll(const IMidiCh* owner) {
             for (auto& l : layers) {
                 if (l.isActive()) {
-                    l.dev->noteOff(l.devCh);
-                    l.dev->releaseCh(l.devCh);
+                    if (l.dev->isChOwnedBy(l.devCh, owner)) {
+                        l.dev->noteOff(l.devCh);
+                        l.dev->releaseCh(l.devCh);
+                    }
                     l = LayerSlot{};
                 }
             }
