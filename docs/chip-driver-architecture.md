@@ -24,6 +24,21 @@ ISoundDevice (抽象インターフェース)
 `CMultiDevice`/`CSpanDevice`/`CUnison`は`MultiDevice.h`にヘッダーとして実装されており、
 チップドライバ側（`OPN2_new.cpp`/`OPL_new.cpp`等）から`#include`して直接継承できる。
 
+### Fnumberテーブルとnoteoffsetの二重適用に関する既知の注意点
+
+`CSoundDevice`のコンストラクタは`FnumRegistry::instance().getTable(fnumType,
+master, divide, noteOffset_)`で`fnumTable_`を生成する際、`noteOffset_`を
+テーブル生成式`(offset+i)/768`に**既に焼き込んでいる**。したがって基底クラス
+`CSoundDevice::getFnumber()`(および同じ`fnumTable_`を参照する`CAdPcmBase`系の
+`getFnumber()`)が実行時に`s.lastNote*64`へさらに`noteOffset_`由来の項を
+加算するのは二重適用であり、block(オクターブ)が数オクターブ分ズレるバグと
+なる(2026年7月に発見・修正。ノート48(C3)入力でBlk=0固定になる不具合として
+表面化した)。`COPM::getFnumber()`のように`fnumTable_`を使わず独自テーブル
+(KeyCode等)で計算するチップドライバは、実行時に`noteOffset_`相当の値を
+加算する設計で問題ない(ただしその場合は`* 64`であり`* 64 / 12`のような
+半音→セント変換の再スケーリングは不要。`noteOffset_`は既にテーブル
+インデックス単位＝100/64セント単位で渡されているため)。
+
 ### ISoundDeviceで新設した主要メソッド（本来チップ固有だがpublic化したもの）
 
 | メソッド | 理由 |
