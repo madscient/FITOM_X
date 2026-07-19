@@ -10,6 +10,7 @@
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/VolumeUtils.h"
 #include "fitom/Log.h"
 #include <cmath>
 
@@ -92,7 +93,7 @@ protected:
             // TL (キャリアは effectiveTL、モジュレータは固定)
             const bool car_opm = isCarrier(ch, kMap[i]);
             const uint8_t tl = car_opm
-                ? s.proc.effectiveTL(kMap[i])
+                ? effTLToReg(s.proc.effectiveTL(kMap[i]))
                 : o.TL;
             setReg(static_cast<uint16_t>(0x60 + i * 8 + ch), tl);
 
@@ -146,12 +147,12 @@ protected:
         for (int i = 0; i < 4; ++i) {
             if (!isCarrier(ch, kMap[i])) continue;
             setReg(static_cast<uint16_t>(0x60 + i * 8 + ch),
-                   s.proc.effectiveTL(kMap[i]));
+                   effTLToReg(s.proc.effectiveTL(kMap[i])));
         }
     }
 
-    void updateTL(uint8_t ch, uint8_t op, uint8_t tl) override {
-        setReg(static_cast<uint16_t>(0x60 + kMap[op] * 8 + ch), tl);
+    void updateTL(uint8_t ch, uint8_t op, uint8_t effTL) override {
+        setReg(static_cast<uint16_t>(0x60 + kMap[op] * 8 + ch), effTLToReg(effTL));
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
@@ -294,6 +295,15 @@ private:
     bool isCarrier(uint8_t ch, int op) const {
         uint8_t alg = chState_[ch].hwPatch.hw.ALG & 7;
         return (kCarrierMask[alg] >> op) & 1;
+    }
+
+    // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
+    // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
+    // 減衰量空間 (0=最大音量,127=無音) のため、書き込み前に必ずこの変換
+    // (旧Linear2dB相当) を通す必要がある (2026年7月、この変換が欠落しており
+    // ベロシティ/ボリューム/エクスプレッションの効きが反転していたバグを修正)。
+    static uint8_t effTLToReg(uint8_t effTL) {
+        return fitom::linear2dB(effTL, RANGE96DB, STEP075DB, 7);
     }
 
     // masterTune_: note=69(A4) → KC=0x4C(oct4,A), KF=0 になる基準オフセット
