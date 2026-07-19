@@ -513,9 +513,11 @@ ChState::Fnum CSoundDevice::getFnumber(uint8_t ch, int16_t offset) const
     int16_t lfoOffset = s.proc.channelLfoActive() ? s.proc.channelLfoValue() : 0;
     int32_t totalOffset = static_cast<int32_t>(s.fineFreq) + offset + lfoOffset;
 
-    // noteOffset_ は -576 (= -12 note * 48 cents) が標準
+    // noteOffset_ は fnumTable_ 生成時 (コンストラクタの
+    // FnumRegistry::getTable(..., noteOffset_) 呼び出し) で既に
+    // テーブル自体へ焼き込み済みなので、ここで再度加算してはならない
+    // (二重適用によりオクターブ/blockが大きくずれるバグがあった)。
     int32_t index = static_cast<int32_t>(s.lastNote) * 64
-                    + (noteOffset_ * 64) / 12
                     + totalOffset;
     int oct = 0;
 

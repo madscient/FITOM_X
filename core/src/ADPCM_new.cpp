@@ -116,6 +116,12 @@ public:
     void updateTL(uint8_t, uint8_t, uint8_t) override {}
 
 protected:
+    // 旧FITOM CAdPcmBase::CAdPcmBase() が設定していた NoteOffset(-57,
+    // "origin note: O3A") 相当。noteOffset_ (= kNoteOffset 448/356) は
+    // fnumTable_ 生成用のテーブルオフセットであり別物なので、これと
+    // 混同して再利用してはならない。
+    static constexpr int kPitchOrigin = -57;
+
     size_t   maxMem_;
     size_t   usedMem_;
     uint8_t  parentDevId_;
@@ -275,7 +281,7 @@ protected:
 
         // 既存ロジックと全く同じ計算 (root_note=69固定相当、無変更)。
         int idx = static_cast<int>(s.lastNote) * 64
-                + (noteOffset_ * 64 / 12)
+                + (kPitchOrigin * 64)
                 + s.fineFreq + offset;
         ret.block = 0;
         uint16_t deltaN = const_cast<CYmDelta*>(this)->getDeltaN(idx, kNoteOffset);
@@ -551,7 +557,7 @@ protected:
         if (s.lastNote >= 128) return ret;
 
         int idx = static_cast<int>(s.lastNote) * 64
-                + (noteOffset_ * 64 / 12)
+                + (kPitchOrigin * 64)
                 + s.fineFreq + offset;
         ret.block = 0;
         uint16_t deltaN = const_cast<CAdPcmZ280*>(this)->getDeltaN(idx, kNoteOffset);
