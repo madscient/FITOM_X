@@ -132,3 +132,39 @@ TEST_CASE("FITOMConfig: system config defaults", "[config]")
     CHECK(cfg.getMasterVolume() == 100);
     CHECK(cfg.getMasterPitch()  == 440.0);
 }
+
+// OPNB(YM2610無印)はFM部がYM2612/YM2608と同じOPN2世代のコアを持つため、
+// OPN(YM2203)ではなくOPN2側のVoicePatchTypeに分類され、mergeSpannableDevices()
+// でOPN2/OPNA-FM/OPNBB-FMと束ねられる対象になるべき。(2026年7月、ステージング
+// 環境からの指摘で発覚した誤分類の修正: 以前はOPN(0x10)側に誤分類されており、
+// SSG/ADPCM-Aサブデバイスも自動生成されていなかった)
+TEST_CASE("FITOMConfig: DEVICE_OPNB classifies as VOICE_PATCH_OPN2, not VOICE_PATCH_OPN",
+          "[config]")
+{
+    CHECK(fitom::FITOMConfig::deviceTypeToVoicePatchType(DEVICE_OPNB) == VOICE_PATCH_OPN2);
+    // 純粋なOPN(YM2203)は引き続きOPN側のまま
+    CHECK(fitom::FITOMConfig::deviceTypeToVoicePatchType(DEVICE_OPN) == VOICE_PATCH_OPN);
+}
+
+// OPNB(YM2610無印)とOPNBB(YM2610B)は、SSG/ADPCM-A/ADPCM-Bのケーパビリティは
+// 共通で、FMチャンネル数(COPNBの実効4ch vs COPNAの6ch)のみが異なる。
+// そのためcomposite spec自体は両方ともFM+SSG+ADPCMA+ADPCMBの4サブデバイス
+// になるべき(OPNBのFM部だけがbaseDeviceType==DEVICE_OPNBでCOPNBにルーティング
+// される点が違い)。
+TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
+          "FM+SSG+ADPCMA+ADPCMB", "[config]")
+{
+    std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPNB, spec));
+    REQUIRE(spec.size() == 4);
+    CHECK(spec[0].deviceType == DEVICE_OPNB);
+    CHECK(spec[1].deviceType == DEVICE_SSG);
+    CHECK(spec[2].deviceType == DEVICE_ADPCMA);
+    CHECK(spec[3].deviceType == DEVICE_ADPCMB);
+
+    std::vector<fitom::FITOMConfig::SubDeviceSpec> specB;
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_2610B, specB));
+    REQUIRE(specB.size() == 4);
+    CHECK(specB[0].deviceType == DEVICE_2610B);
+    CHECK(specB[3].deviceType == DEVICE_ADPCMB);
+}

@@ -346,19 +346,34 @@ void CFITOM::initDevices()
                 IPort* sp       = config_->getDeviceSpanGroupPrimary(i, k);
                 IPort* spStereo = config_->getDeviceSpanGroupStereoPair(i, k);
                 if (!sp) continue;
-                auto subDev = createLeveledDevice(deviceType, sp, spStereo, sampleRate,
+                // 束ねられた物理チップは代表デバイス(deviceType)と同じ
+                // VoicePatchTypeだが、実装クラスが異なる場合がある
+                // (例: OPNB=COPNBはOPN2/OPNA=COPNAと同じVOICE_PATCH_OPN2だが
+                // ch0/ch3を無効化した別クラス)。代表のdeviceTypeを流用せず、
+                // このポート本来のdeviceTypeを使う。
+                uint32_t subDeviceType = config_->getDeviceSpanGroupDeviceType(i, k);
+                auto subDev = createLeveledDevice(subDeviceType, sp, spStereo, sampleRate,
                                                    nullptr, config_->getDeviceRhythmMode(i));
                 if (!subDev) {
                     FITOM_LOG_WARN("Device[" << i << "]: span sub-chip[" << k
                         << "] creation failed, skipped");
                     continue;
                 }
+                FITOM_LOG_INFO("Device[" << i << "]: span sub-chip[" << k << "]: "
+                    << subDev->getDescriptor());
                 spanDev->addDevice(subDev.get());
                 spanSubChips_.push_back(std::move(subDev));
             }
+            // getChCount()はチャンネルアドレス空間(enableCh(false)で無効化された
+            // chも含む、例: COPNBのch0/ch3)、getAvailableChs()は実際に発音可能な
+            // ch数。COPNBのように一部chが恒常的に無効化されているチップが束ねに
+            // 混ざると両者が乖離するため、両方をログに出す
+            // (2026年7月、ステージング環境からの指摘: 束ね合計chが実際の
+            //  発音可能数と食い違って見えると報告があった)。
             FITOM_LOG_INFO("Device[" << i << "]: " << config_->getDeviceLabel(i)
                 << " spanned across " << (spanCount + 1) << " physical chips ("
-                << (int)spanDev->getChCount() << "ch total)");
+                << (int)spanDev->getChCount() << "ch addressable, "
+                << (int)spanDev->getAvailableChs() << "ch available)");
             dev = std::move(spanDev);
         }
 

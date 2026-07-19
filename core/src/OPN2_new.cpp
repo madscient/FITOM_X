@@ -180,6 +180,44 @@ private:
 };
 
 // ================================================================
+//  COPNB: YM2610 (OPNB無印) FM部
+//
+//  実機YM2610のFM部は、YM2612/YM2608系(6ch)からADPCM制御回路のために
+//  各サブチップの先頭ch(port1側ch0、port2側ch0=グローバルch3)を差し引いた
+//  実効4ch構成 (有効なグローバルchは1,2,4,5)。旧FITOMはCOPN2から派生して
+//  同じch0/ch3を無効化する実装だったが、新実装ではOPNA相当のCOPNAが
+//  基底クラスに当たるため、これを派生する。
+//  SSG/ADPCM-AはFITOMConfig::resolveCompositeSpec()により、
+//  同一物理ポートを共有する別デバイスとして自動生成される
+//  (YM2610無印はADPCM-B用メモリ空間を持たないため生成しない。
+//   ADPCM-Bも持つYM2610BはDEVICE_2610B側=COPNAで扱う)。
+// ================================================================
+class COPNB : public COPNA {
+public:
+    explicit COPNB(IPort* port1, IPort* port2 = nullptr)
+        : COPNA(port1, port2, DEVICE_OPNB, 8000000)
+    {
+        disableUnusedChs();
+    }
+
+    std::string getDescriptor() const override { return "OPNB (YM2610) 4ch"; }
+
+    void init() override {
+        // COPNA::init()内のreset()で全ch(disable済みも含め)が再度
+        // 有効化されるため、その後に改めて無効化し直す
+        // (COPL3_2::initと同じパターン)。
+        COPNA::init();
+        disableUnusedChs();
+    }
+
+private:
+    void disableUnusedChs() {
+        enableCh(0, false); // port1側 ch0 (グローバルch0、実機に存在しない)
+        enableCh(3, false); // port2側 ch0 (グローバルch3、実機に存在しない)
+    }
+};
+
+// ================================================================
 //  COPNARhythm: YM2608 (OPNA) 内蔵リズム音源 (6パート: BD/SD/TOP/HH/TOM/RIM)
 //
 //  FM/SSG/ADPCM-Bとは独立したレジスタ体系:
@@ -243,6 +281,9 @@ std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster, bool fx
 
 std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int /*sr*/, IPort* p2) {
     return std::make_unique<COPNA>(p, p2, DEVICE_OPNA);
+}
+std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int /*sr*/, IPort* p2) {
+    return std::make_unique<COPNB>(p, p2);
 }
 std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int /*sr*/, IPort* p2) {
     return std::make_unique<COPN2>(p, p2, DEVICE_OPN2);
