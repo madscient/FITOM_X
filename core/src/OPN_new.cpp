@@ -12,6 +12,7 @@
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/VolumeUtils.h"
 #include "fitom/Log.h"
 
 namespace fitom {
@@ -103,7 +104,7 @@ protected:
 
             // TL (キャリアは effectiveTL を使用、モジュレータは固定)
             const uint8_t tl = car
-                ? s.proc.effectiveTL(op)
+                ? effTLToReg(s.proc.effectiveTL(op))
                 : o.TL;
             setReg(static_cast<uint16_t>(0x40 + reg), tl & 0x7F);
 
@@ -206,7 +207,7 @@ protected:
         const auto& s = chState_[ch];
         for (int op = 0; op < 4; ++op) {
             if (!isCarrier(ch, op)) continue;
-            uint8_t tl = s.proc.effectiveTL(op);
+            uint8_t tl = effTLToReg(s.proc.effectiveTL(op));
             setReg(static_cast<uint16_t>(0x40 + opSlot(ch, op)), tl & 0x7F);
         }
     }
@@ -214,9 +215,9 @@ protected:
     // ──────────────────────────────────────────────────────────────
     //  UpdateTL: 特定オペレータの TL のみ更新 (LFO タイマー用)
     // ──────────────────────────────────────────────────────────────
-    void updateTL(uint8_t ch, uint8_t op, uint8_t tl) override {
+    void updateTL(uint8_t ch, uint8_t op, uint8_t effTL) override {
         if (ch >= 3 || op >= 4) return;
-        setReg(static_cast<uint16_t>(0x40 + opSlot(ch, op)), tl & 0x7F);
+        setReg(static_cast<uint16_t>(0x40 + opSlot(ch, op)), effTLToReg(effTL) & 0x7F);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -297,6 +298,15 @@ private:
     bool isCarrier(uint8_t ch, int op) const {
         uint8_t alg = chState_[ch].hwPatch.hw.ALG & 7;
         return (kCarrierMask[alg] >> op) & 1;
+    }
+
+    // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
+    // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
+    // 減衰量空間 (0=最大音量,127=無音) のため、書き込み前に必ずこの変換
+    // (旧Linear2dB相当) を通す必要がある (2026年7月、この変換が欠落しており
+    // ベロシティ/ボリューム/エクスプレッションの効きが反転していたバグを修正)。
+    static uint8_t effTLToReg(uint8_t effTL) {
+        return fitom::linear2dB(effTL, RANGE96DB, STEP075DB, 7);
     }
 };
 

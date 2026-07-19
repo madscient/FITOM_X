@@ -15,6 +15,7 @@
 #include "fitom/MultiDevice.h"
 #include "fitom/IPort.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/VolumeUtils.h"
 #include "fitom/Log.h"
 #include <algorithm>
 
@@ -65,7 +66,17 @@ protected:
 
     // ビット幅変換ヘルパー
     static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit (上位4bit)
-    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit
+    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit (パッチ生TL用)
+
+    // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
+    // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
+    // 減衰量空間 (0=最大音量,63=無音、6bit) のため、書き込み前に必ずこの
+    // 変換 (旧Linear2dB相当) を通す必要がある (2026年7月、この変換が欠落
+    // しておりベロシティ/ボリューム/エクスプレッションの効きが反転していた
+    // バグを修正)。bw=6 のため tl6() によるビット幅縮小は不要。
+    static uint8_t effTLToReg(uint8_t effTL) {
+        return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
+    }
 
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
@@ -123,15 +134,15 @@ protected:
         for (int i = 0; i < 2; ++i) {
             if (!isCarrier(ch, i)) continue;
             uint8_t slot = kMap[ch];
-            uint8_t tl = tl6(s.proc.effectiveTL(i));
+            uint8_t tl = effTLToReg(s.proc.effectiveTL(i));
             setReg(static_cast<uint16_t>(0x40 + i * 3 + slot),
                    static_cast<uint8_t>((p.hwOp[i].KSL << 6) | tl), false);
         }
     }
 
-    void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
+    void updateTL(uint8_t ch, uint8_t op, uint8_t effTL) override {
         uint8_t slot = kMap[ch];
-        lev = std::min<uint8_t>(lev, 63);
+        uint8_t lev = std::min<uint8_t>(effTLToReg(effTL), 63);
         setReg(static_cast<uint16_t>(0x40 + op * 3 + slot), lev, false);
     }
 
@@ -336,7 +347,15 @@ protected:
         return (carmsk[alValue(ch)] & (1 << op)) != 0;
     }
     static uint8_t ar4(uint8_t v) { return v >> 1; } // 5bit → 4bit
-    static uint8_t tl6(uint8_t v) { return v >> 1; } // 7bit → 6bit
+    static uint8_t tl6(uint8_t v) { return v >> 1; } // 7bit → 6bit (パッチ生TL用)
+
+    // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
+    // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
+    // ため、書き込み前に必ずこの変換 (旧Linear2dB相当) を通す必要がある
+    // (2026年7月、この変換が欠落していたバグを修正。COPLと同様)。
+    static uint8_t effTLToReg(uint8_t effTL) {
+        return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
+    }
 
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
@@ -407,17 +426,17 @@ protected:
         for (int i = 0; i < 4; ++i) {
             if (!isCarrier(ch, i)) continue;
             uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
-            uint8_t tl = tl6(s.proc.effectiveTL(i));
+            uint8_t tl = effTLToReg(s.proc.effectiveTL(i));
             setReg(static_cast<uint16_t>(0x40 + slot),
                    static_cast<uint8_t>((p.hwOp[i].KSL << 6) | tl), false);
         }
     }
 
-    void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
+    void updateTL(uint8_t ch, uint8_t op, uint8_t effTL) override {
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
         uint16_t slot = static_cast<uint16_t>(rop + opmap[op] + dch);
-        lev = std::min<uint8_t>(lev, 63);
+        uint8_t lev = std::min<uint8_t>(effTLToReg(effTL), 63);
         setReg(static_cast<uint16_t>(0x40 + slot), lev, false);
     }
 
@@ -682,7 +701,15 @@ protected:
     static constexpr uint8_t kSlot[9] = {0, 1, 2, 8, 9, 10, 16, 17, 18};
 
     static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit
-    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit
+    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit (パッチ生TL用)
+
+    // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
+    // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
+    // ため、書き込み前に必ずこの変換 (旧Linear2dB相当) を通す必要がある
+    // (2026年7月、この変換が欠落していたバグを修正。COPLと同様)。
+    static uint8_t effTLToReg(uint8_t effTL) {
+        return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
+    }
 
     // 物理ch+オペレータindex1個分のレジスタを書き込む。carrier=trueなら
     // ベロシティ補正値(VoiceProcessor経由)を使う。単一オペレータ楽器は
@@ -762,13 +789,13 @@ protected:
             for (int i = 0; i < 2; ++i) {
                 bool carrier = (i == 1) || ((p.hw.ALG & 1) != 0);
                 if (!carrier) continue;
-                uint8_t tl = tl6(s.proc.effectiveTL(i));
+                uint8_t tl = effTLToReg(s.proc.effectiveTL(i));
                 setReg(static_cast<uint16_t>(0x40 + i * 3 + slot),
                        static_cast<uint8_t>((p.hwOp[i].KSL << 6) | tl), false);
             }
         } else {
             uint8_t opIdx = kRhythmOpIndex[ch];
-            uint8_t tl = tl6(s.proc.effectiveTL(0));
+            uint8_t tl = effTLToReg(s.proc.effectiveTL(0));
             setReg(static_cast<uint16_t>(0x40 + opIdx * 3 + slot),
                    static_cast<uint8_t>((p.hwOp[0].KSL << 6) | tl), false);
         }
