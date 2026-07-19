@@ -27,6 +27,13 @@ class ISoundDevice;
 struct PortGroup {
     std::shared_ptr<IPort> primary;
     std::shared_ptr<IPort> stereoPair;  // nullptr = モノラル単体
+    // このポートグループの本来のdeviceType (DEVICE_*)。VoicePatchType が
+    // 同じでも実装クラスが異なる場合がある(例: OPNB=COPNBはOPN2/OPNA=COPNA
+    // と同じVOICE_PATCH_OPN2だが、ch0/ch3を無効化した別クラス)ため、
+    // 代表デバイス(devices_[i].deviceType)を流用せず、このポートが元々
+    // 属していたDeviceEntry自身のdeviceTypeを保持する
+    // (CFITOM::initDevices()が各サブチップ生成時に参照する)。
+    uint32_t                deviceType = 0;
 };
 
 struct DeviceEntry {
@@ -114,6 +121,11 @@ public:
     int              getDeviceSpanGroupCount(int index) const;
     IPort*           getDeviceSpanGroupPrimary(int index, int k) const;
     IPort*           getDeviceSpanGroupStereoPair(int index, int k) const; // nullptr=モノラル
+    // k番目の追加ポートグループ本来のdeviceType (DEVICE_*)。VoicePatchType
+    // が代表デバイスと同じでも実装クラスが異なりうる(COPNB等)ため、
+    // CFITOM::initDevices() はサブチップ生成時に代表のdeviceTypeではなく
+    // こちらを使う。
+    uint32_t         getDeviceSpanGroupDeviceType(int index, int k) const;
 
     // リニアステレオ化 (CLinearPanDevice): このデバイス自身がステレオペア化
     // されている場合、相手(R側)のポートを返す。nullptr = モノラル単体。

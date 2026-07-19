@@ -37,7 +37,7 @@
 | `include/fitom/ISoundDevice.h` / `SoundDevImpl.cpp` | ✅ | CSoundDevice 共通実装 |
 | `OPN_new.cpp` | ✅ | COPN (YM2203, FXモード対応) |
 | `OPM_new.cpp` | ✅ | OPM / OPP / OPZ (REV/EGS対応) |
-| `OPN2_new.cpp` | ✅ | COPNA/COPN2 (CSpanDevice、6ch) / COPNARhythm |
+| `OPN2_new.cpp` | ✅ | COPNA/COPN2 (CSpanDevice、6ch) / COPNB (YM2610無印、ch0/ch3無効化した実効4ch) / COPNARhythm |
 | `OPL_new.cpp` | ✅ | OPL/OPL2/COPL3(4OPモード)/COPL3_2(2OP、CSpanDevice) |
 | `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm |
 | `PSG_new.cpp` | ✅ | SSG/DCSG/SCC (CPSGBaseはSW-EG/SW-LFO共通化のみ) |
@@ -139,6 +139,7 @@
 | 内部用MIDIパイプ (`fitom_midi_pipe`、パッチエディタ試聴連携) | ✅ | `plugin-midi-pipe.md` |
 | 内部用MIDIパイプの多接続化(最大16本+接続直後のチャンネル自動割り当てSysEx) | ✅ | `plugin-midi-pipe.md` |
 | MIDIバックエンドDLLをRtMidi単一実装へ統合 (旧midi_wms/midi_winmm/midi_alsaの3実装廃止、SysEx未対応だった既存欠陥を解消、macOS対応を新規追加) | ✅ | `plugin-midi.md` |
+| OPNB(YM2610無印)の誤分類修正 (VOICE_PATCH_OPNからOPN2側へ、COPNB新設でSSG/ADPCM-Aサブデバイス自動生成・実効4ch化に対応。ステージング環境からの指摘で発覚) | ✅ | `chip-driver-architecture.md` |
 
 ---
 

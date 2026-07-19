@@ -502,11 +502,16 @@ bool FITOMConfig::getDeviceRhythmMode(int index) const {
 uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 {
     switch (deviceType) {
-    case DEVICE_OPN:  case DEVICE_OPNB: case DEVICE_OPNC:
+    case DEVICE_OPN:  case DEVICE_OPNC:
         return VOICE_PATCH_OPN;
     case DEVICE_OPN2: case DEVICE_OPN2C: case DEVICE_OPN2L:
-    case DEVICE_OPNA: case DEVICE_OPN3L:
+    case DEVICE_OPNA: case DEVICE_OPN3L: case DEVICE_OPNB:
     case DEVICE_2610B: case DEVICE_F286: case DEVICE_OPN3:
+        // OPNB(YM2610)のFM部はYM2612/YM2608と同じOPN2世代のFMコアを持つ
+        // (ch0/ch3を無効化した4ch構成、COPNB参照)。VoicePatchType上は
+        // OPN2互換として扱う(2026年7月、以前はOPN(YM2203)側=0x10に誤分類
+        // されており、FITOMdefine.hのVOICE_PATCH_OPN2コメント自体には
+        // 元々YM2610/YM2610Bが含まれていたのに実装が追随していなかった)。
         return VOICE_PATCH_OPN2;
 
     case DEVICE_OPM:  return VOICE_PATCH_OPM;
@@ -780,8 +785,12 @@ void FITOMConfig::mergeSpannableDevices()
             Key keyJ = makeKey(devices_[j]);
             if (!(keyI == keyJ)) continue;
 
-            // devices_[j] (モノラルまたはステレオペア済み) を devices_[i] に統合する
-            devices_[i].spanGroups.push_back({devices_[j].port, devices_[j].stereoPairPort});
+            // devices_[j] (モノラルまたはステレオペア済み) を devices_[i] に統合する。
+            // devices_[j]自身のdeviceTypeを保持する(VoicePatchTypeが同じでも
+            // 実装クラスが異なる場合があるため、代表devices_[i]のdeviceTypeを
+            // 流用してはならない。CFITOM::initDevices()参照)。
+            devices_[i].spanGroups.push_back(
+                {devices_[j].port, devices_[j].stereoPairPort, devices_[j].deviceType});
             for (auto& g : devices_[j].spanGroups) devices_[i].spanGroups.push_back(g);
             merged[j] = true;
             FITOM_LOG_INFO("mergeSpannableDevices: '" << devices_[j].label
@@ -818,6 +827,13 @@ IPort* FITOMConfig::getDeviceSpanGroupStereoPair(int index, int k) const {
     return sg[k].stereoPair.get();
 }
 
+uint32_t FITOMConfig::getDeviceSpanGroupDeviceType(int index, int k) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return DEVICE_NONE;
+    const auto& sg = devices_[index].spanGroups;
+    if (k < 0 || k >= static_cast<int>(sg.size())) return DEVICE_NONE;
+    return sg[k].deviceType;
+}
+
 IPort* FITOMConfig::getDeviceStereoPairPort(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return nullptr;
     return devices_[index].stereoPairPort.get();
@@ -840,10 +856,22 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         outSpec.push_back({DEVICE_OPNA_RHY,     "-RHYTHM", false, true});
         return true;
 
+    case DEVICE_OPNB:
+        // OPNB (YM2610無印): FM本体(COPNB、実効4ch) + SSG + ADPCM-A + ADPCM-B。
+        // YM2610無印とYM2610Bの違いはFMチャンネル数(4ch vs 6ch)のみで、
+        // SSG/ADPCM-A/ADPCM-Bのケーパビリティ自体は共通(2026年7月、
+        // ステージング環境からの指摘で訂正: 以前は無印にADPCM-B用メモリ
+        // 空間が無いという誤った前提でADPCM-Bを生成していなかった)。
+        outSpec.push_back({baseDeviceType, "-FM",     true,  false});
+        outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
+        outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", false, false});
+        outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
+        return true;
+
     case DEVICE_2610B:
-        // OPNB/OPNBB (YM2610/YM2610B): FM本体 + SSG + ADPCM-A + ADPCM-B。
-        // YM2610無印は ADPCM-B のメモリ空間が無いが (実質OPNA兼用扱い)、
-        // ここでは新しい YM2610B (2610B) 系のみ ADPCM-B も併せて生成する。
+        // OPNBB (YM2610B): FM本体(6ch) + SSG + ADPCM-A + ADPCM-B。
+        // 無印(DEVICE_OPNB)とはFMチャンネル数のみが異なる(COPNAをそのまま
+        // 6chフル構成で使う点がOPNBのCOPNB(実効4ch)との違い)。
         outSpec.push_back({baseDeviceType, "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
         outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", false, false});

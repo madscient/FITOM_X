@@ -13,6 +13,7 @@ namespace fitom {
 
 std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2 = nullptr);
 std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2 = nullptr);
 std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int sr, IPort* p2 = nullptr);
 std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int sr, IPort* p2 = nullptr);
@@ -68,9 +69,14 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
 
     switch (deviceType) {
     case DEVICE_OPN:
-    case DEVICE_OPNB:
     case DEVICE_OPNC:
         return createCOPN(port, sampleRate);
+
+    case DEVICE_OPNB:
+        // YM2610無印: COPNA相当の6ch構成からch0/ch3を無効化した実効4ch
+        // (COPNB参照)。extraPort が nullptr の場合 COPNA 内部で
+        // OffsetPort を生成する。
+        return createCOPNB(port, sampleRate, extraPort);
 
     case DEVICE_OPNA:
     case DEVICE_2610B:
@@ -146,8 +152,9 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     switch (t) {
     case DEVICE_OPM: case DEVICE_OPP: case DEVICE_OPZ: return 8;
     case DEVICE_OPNA: case DEVICE_OPN2: case DEVICE_OPN2C:
-    case DEVICE_OPN2L: case DEVICE_OPN3:                 return 6;
-    case DEVICE_OPN: case DEVICE_OPNB: case DEVICE_OPNC: return 3;
+    case DEVICE_OPN2L: case DEVICE_OPN3: case DEVICE_2610B: return 6;
+    case DEVICE_OPN: case DEVICE_OPNC:                   return 3;
+    case DEVICE_OPNB:                                    return 4; // ch0/ch3無効化後の実効ch数(COPNB参照)
     case DEVICE_OPL: case DEVICE_OPL2:
     case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: case DEVICE_OPLLX: return 9;
     case DEVICE_OPLL_RHY:                                  return 5;
@@ -178,13 +185,12 @@ bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatc
 {
     switch (deviceType) {
     case DEVICE_OPN:
-    case DEVICE_OPNB:
     case DEVICE_OPNC:
         return copnAcceptsFallback(sourceVoicePatchType, patch);
 
     case DEVICE_OPN2: case DEVICE_OPN2C: case DEVICE_OPN2L:
-    case DEVICE_OPNA: case DEVICE_OPN3L: case DEVICE_2610B:
-    case DEVICE_F286: case DEVICE_OPN3:
+    case DEVICE_OPNA: case DEVICE_OPN3L: case DEVICE_OPNB:
+    case DEVICE_2610B: case DEVICE_F286: case DEVICE_OPN3:
         return copn2AcceptsFallback(sourceVoicePatchType, patch);
 
     case DEVICE_OPM: case DEVICE_OPP:
