@@ -216,6 +216,24 @@ void renderMonitor(CFITOM& fitom, PatchManager& pm,
     std::fflush(stdout);
 }
 
+// MIDI入力のオープン失敗時、原因調査用にバックエンドが実際に列挙する
+// ポート名一覧を出す(findPortByNameは完全一致のみで検索するため、
+// profile側の指定名がずれていないか/デバイスが接続されているかを
+// その場で確認できるようにする)。
+void printAvailableMidiInPorts(const MidiPluginInstance& plugin) {
+    auto names = plugin.enumerateIn();
+    if (names.empty()) {
+        std::cerr << "利用可能なMIDI入力ポートがありません\n";
+        return;
+    }
+    std::cerr << "利用可能なMIDI入力ポート: ";
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (i) std::cerr << ", ";
+        std::cerr << "\"" << names[i] << "\"";
+    }
+    std::cerr << "\n";
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -296,6 +314,7 @@ int main(int argc, char** argv)
                 } catch (const std::exception& e) {
                     std::cerr << "MIDI入力 \"" << midiInNames[i]
                               << "\" のオープンに失敗: " << e.what() << "\n";
+                    printAvailableMidiInPorts(*midiPlugin);
                     midiPorts.push_back(nullptr);
                     openFailed[i] = true;
                 }
