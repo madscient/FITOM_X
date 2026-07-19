@@ -1066,6 +1066,29 @@ uint8_t CInstCh::getLastDevCh() const
     return 0xFF;
 }
 
+std::vector<ActiveNoteInfo> CInstCh::getActiveNotes() const
+{
+    std::vector<ActiveNoteInfo> result;
+    for (const auto& h : notes_) {
+        if (!h.isValid()) continue;
+        // 複数レイヤーが同じノート番号を共有する場合は1件に集約する
+        // (キーボードビューはノート単位で発光させるため)。
+        bool dup = false;
+        for (const auto& r : result) {
+            if (r.note == h.note) { dup = true; break; }
+        }
+        if (dup) continue;
+
+        uint8_t vel = 0;
+        if (h.dev) {
+            const auto* cs = h.dev->getChState(h.devCh);
+            if (cs) vel = cs->velocity;
+        }
+        result.push_back({ h.note, vel });
+    }
+    return result;
+}
+
 // ----------------------------------------------------------------
 //  内部ヘルパー
 // ----------------------------------------------------------------
@@ -1688,6 +1711,24 @@ uint8_t CRhythmCh::getLastDevCh() const
         if (l.isActive()) return l.devCh;
     }
     return 0xFF;
+}
+
+std::vector<ActiveNoteInfo> CRhythmCh::getActiveNotes() const
+{
+    std::vector<ActiveNoteInfo> result;
+    for (int n = 0; n < 128; ++n) {
+        if (!noteSlots_[n].anyActive()) continue;
+        uint8_t vel = 0;
+        for (const auto& l : noteSlots_[n].layers) {
+            if (l.isActive() && l.dev) {
+                const auto* cs = l.dev->getChState(l.devCh);
+                if (cs) vel = cs->velocity;
+                break;
+            }
+        }
+        result.push_back({ static_cast<uint8_t>(n), vel });
+    }
+    return result;
 }
 
 // ----------------------------------------------------------------
