@@ -353,9 +353,17 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             // モノ: 同一レイヤーの最初のノートを奪う
             for (int hi = 0; hi < MAX_NOTES; ++hi) {
                 if (notes_[hi].isValid() && notes_[hi].layerIdx == li) {
-                    devCh = notes_[hi].devCh;
-                    prevNote = notes_[hi].note;   // ポルタメント用に記録
-                    if (!legato_) dev->noteOff(devCh);
+                    // ボイススティールで devCh が既に別の発音(別MIDIチャンネル等)に
+                    // 奪われていないか確認する。奪われていれば直接再利用できない
+                    // ため(assignCh()を経由しないここでの直接再利用はownerを
+                    // 更新しないので、確認せず使うと所有権が食い違ったまま
+                    // 別ownerのchを書き換えてしまう)、devCh=0xFFのままにして
+                    // 下のallocChWithFallback経路にフォールバックさせる。
+                    if (notes_[hi].dev && notes_[hi].dev->isChOwnedBy(notes_[hi].devCh, this)) {
+                        devCh = notes_[hi].devCh;
+                        prevNote = notes_[hi].note;   // ポルタメント用に記録
+                        if (!legato_) dev->noteOff(devCh);
+                    }
                     leaveNote(hi);
                     break;
                 }
@@ -501,7 +509,10 @@ void CInstCh::noteOff(uint8_t note)
             // notes_[] のエントリは残したまま、pendingRelease だけ立てる。
             h.pendingRelease = true;
         } else {
-            if (h.dev) {
+            // ボイススティールで devCh が別の発音(別MIDIチャンネル/別ノート)に
+            // 再利用されていないか確認してから解放する
+            // (releaseSostenutoNotes()と同じパターン)。
+            if (h.dev && h.dev->isChOwnedBy(h.devCh, this)) {
                 h.dev->noteOff(h.devCh);
                 // releaseCh は noteOff に内包済み。別途呼び出し不要。
             }
@@ -519,7 +530,9 @@ void CInstCh::allNoteOff()
     for (int hi = MAX_NOTES - 1; hi >= 0; --hi) {
         auto& h = notes_[hi];
         if (!h.isValid()) continue;
-        if (h.dev) {
+        // ボイススティールで devCh が別の発音に再利用されていないか確認
+        // してから解放する(releaseSostenutoNotes()と同じパターン)。
+        if (h.dev && h.dev->isChOwnedBy(h.devCh, this)) {
             h.dev->noteOff(h.devCh);   // releaseCh は noteOff に内包済み
         }
         leaveNote(hi);   // sostenutoHeld/pendingRelease も同時にクリアされる
@@ -536,7 +549,9 @@ void CInstCh::allSoundOff()
     for (int hi = MAX_NOTES - 1; hi >= 0; --hi) {
         auto& h = notes_[hi];
         if (!h.isValid()) continue;
-        if (h.dev) {
+        // ボイススティールで devCh が別の発音に再利用されていないか確認
+        // してから解放する(releaseSostenutoNotes()と同じパターン)。
+        if (h.dev && h.dev->isChOwnedBy(h.devCh, this)) {
             h.dev->forceDamp(h.devCh);
         }
         leaveNote(hi);   // sostenutoHeld/pendingRelease も同時にクリアされる
@@ -1131,7 +1146,8 @@ void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice*
     // (notes_[0])が使っていたデバイスチャンネルを正しく解放してから
     // 上書きする(2026年7月修正: 以前はnoteOff()を呼ばずに上書きして
     // おり、デバイスチャンネルが解放されないまま迷子になっていた)。
-    if (notes_[0].dev) notes_[0].dev->noteOff(notes_[0].devCh);
+    if (notes_[0].dev && notes_[0].dev->isChOwnedBy(notes_[0].devCh, this))
+        notes_[0].dev->noteOff(notes_[0].devCh);
     notes_[0].layerIdx = static_cast<uint8_t>(layerIdx);
     notes_[0].devCh    = devCh;
     notes_[0].note     = note;
@@ -1180,7 +1196,9 @@ void CInstCh::stealOldestNoteIfNeeded()
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (h.isValid() && h.note == stealNote) {
-            if (h.dev) h.dev->noteOff(h.devCh);
+            // ボイススティールで devCh が別の発音に再利用されていないか確認
+            // してから解放する(releaseSostenutoNotes()と同じパターン)。
+            if (h.dev && h.dev->isChOwnedBy(h.devCh, this)) h.dev->noteOff(h.devCh);
             leaveNote(hi);
         }
     }
@@ -1497,7 +1515,7 @@ void CRhythmCh::noteOn(uint8_t midiNote, uint8_t vel)
 void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
 {
     // 既発音を停止（同一ノートを上書き）
-    noteSlots_[midiNote].stopAll();
+    noteSlots_[midiNote].stopAll(this);
 
     // チョークグループ: 同一グループの他のノートが発音中なら強制ダンプ
     // する(例: クローズ/オープンハイハット)。ハードウェアのチャンネル
@@ -1506,7 +1524,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
     if (currentPatch_) {
         const auto* group = currentPatch_->findChokeGroup(midiNote);
         if (group) {
-            for (uint8_t n : *group) noteSlots_[n].stopAll();
+            for (uint8_t n : *group) noteSlots_[n].stopAll(this);
         }
     }
 
@@ -1669,12 +1687,12 @@ void CRhythmCh::noteOff(uint8_t midiNote)
     if (!slots.anyActive()) return;
     // gateTime > 0 のノートは NoteOff を無視（ゲートタイムで自動停止）
     if (slots.gateRem > 0) return;
-    slots.stopAll();
+    slots.stopAll(this);
 }
 
 void CRhythmCh::allNoteOff()
 {
-    for (auto& slots : noteSlots_) slots.stopAll();
+    for (auto& slots : noteSlots_) slots.stopAll(this);
 }
 
 void CRhythmCh::resetAllCtrl()
@@ -1744,7 +1762,7 @@ void CRhythmCh::timerCallback(uint32_t /*tick*/)
         if (slots.gateRem > 0) {
             --slots.gateRem;
             if (slots.gateRem == 0) {
-                slots.stopAll();
+                slots.stopAll(this);
                 continue;
             }
         }

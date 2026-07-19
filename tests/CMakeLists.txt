@@ -21,6 +21,7 @@ include(Catch)
 add_executable(fitom_tests
     test_plugin_loader.cpp
     test_config.cpp
+    test_soundevice_freq.cpp
 )
 
 target_link_libraries(fitom_tests

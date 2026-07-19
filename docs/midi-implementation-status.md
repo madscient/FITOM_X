@@ -217,6 +217,26 @@ NoteOff:   sostenutoHeld なノートは実際の noteOff() を呼ばず
 
 ---
 
+## ボイススティール後の devCh 所有権確認 (2026年7月修正)
+
+デバイス側のチャンネルはMIDIチャンネルをまたいで共有されるため(同一チップに
+複数MIDIチャンネルの音色を割り当てた場合等)、`findBestCh()`の強制奪取
+(allowSteal、score=1)は元のownerに通知せずチャンネルを奪う。このため、
+`notes_[]`/`noteSlots_[]`側のエントリを保持したまま後から`noteOff()`する
+経路は、全て`ISoundDevice::isChOwnedBy(devCh, this)`でそのチャンネルが
+まだ自分の発音のままかを確認してから解放する必要がある(確認せず呼ぶと、
+既に別MIDIチャンネル/別ノートに奪われたチャンネル上の発音を誤って
+停止させてしまう)。Sostenutoの`releaseSostenutoNotes()`は元々この
+チェックを行っていたが、通常の`CInstCh::noteOff()`/`allNoteOff()`/
+`allSoundOff()`/`stealOldestNoteIfNeeded()`/モノフォニックの
+同一レイヤー内スティール、および`CRhythmCh::NoteSlots::stopAll()`には
+このチェックが欠落しており、ラウンドロビンでチャンネルが別MIDIチャンネル
+に再利用された直後に元のチャンネルへNoteOffが来ると、奪った側の
+新しい発音を誤って止めてしまう欠陥があった。全経路に同じチェックを
+追加して統一した。
+
+---
+
 ## Legato (CC#68) / Portamento (CC#65) の仕様
 
 **両方ともモノフォニックチャンネル専用。ポリフォニックチャンネルでは無反応。**

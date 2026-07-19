@@ -156,11 +156,19 @@ protected:
         }
 
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        // MSB 書き込み後に LSB 書き込み (OPN の仕様)
+        // MSB 書き込み後に LSB 書き込み (OPN の仕様)。
+        // 2026年7月: 一時的にLSB→MSBの順に入れ替えて実機検証したところ、
+        // 症状が悪化した(最初のノートオンが発音しない、以降は不正な
+        // 音程になる)ため、MSB→LSBの順に戻した。ラッチ機構がどちらの
+        // 書き込みで確定するかは実機検証で再度切り分け中(docs/
+        // chip-driver-architecture.md セクション7参照)。
+        // forceWrite=true: 前回と同じ値でも必ず実際に書き込む
+        // (regBak_のシャドウとチップ/エミュレータ側の内部状態が
+        // 何らかの理由でズレていても正しく反映されるようにするため)。
         setReg(static_cast<uint16_t>(0xA4 + ch),
-               (fnum.block << 3) | ((fnum.fnum >> 8) & 0x7));
+               (fnum.block << 3) | ((fnum.fnum >> 8) & 0x7), true);
         setReg(static_cast<uint16_t>(0xA0 + ch),
-               fnum.fnum & 0xFF);
+               fnum.fnum & 0xFF, true);
     }
 
     // FXモード時、4オペレータそれぞれに独立したFnumberを書く。
@@ -185,8 +193,8 @@ protected:
                 fnum = getFnumber(ch);
                 break;
             }
-            setReg(kFnumHiReg[op], static_cast<uint8_t>((fnum.block << 3) | ((fnum.fnum >> 8) & 0x7)));
-            setReg(kFnumLoReg[op], static_cast<uint8_t>(fnum.fnum & 0xFF));
+            setReg(kFnumHiReg[op], static_cast<uint8_t>((fnum.block << 3) | ((fnum.fnum >> 8) & 0x7)), true);
+            setReg(kFnumLoReg[op], static_cast<uint8_t>(fnum.fnum & 0xFF), true);
         }
     }
 

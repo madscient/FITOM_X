@@ -412,3 +412,43 @@ OPL系(`coplAcceptsFallback`)が`VOICE_PATCH_OPL3_2`方向を扱っていない
 欠落を発見・修正済み。他のファミリー(OPN/OPN2、OPM/OPZ/OPZ2、SSG/EPSG、
 OPLLファミリー)は監査の結果、既に全方向を正しくカバーしていることを
 確認した。
+
+## 7. OPN: updateFreq() は forceWrite=true 必須 (2026年7月修正、実機確認済み)
+
+**症状**: OPNプロファイルにて、あるチャンネルが一度発音した後、ラウンド
+ロビンで別のMIDIノートに再割り当てされた際、`ChState::lastNote`/
+`lastFnum`(GUIモニター表示にも使われる)は正しく新しいノートを示す
+のに、実際にチップから発音される音程が前のノートのままになる不具合が
+実機(FitomEmuIF/YMFMEngine)で報告された。
+
+**根本原因**: `CSoundDevice::setReg(reg, data, forceWrite=false)`は
+デフォルトで「`regBak_`(自チップ内のレジスタシャドウ)と前回書いた値が
+同じなら実書き込み自体を省略する」最適化を持つ。OPNの`updateFreq()`は
+F-number上位バイト(0xA4+ch、Block+Fnum上位3bit)・下位バイト(0xA0+ch)
+ともこの省略に任せていた(forceWrite省略=false)。C3→D3のように近い
+音程では上位バイトの値が一致することが多く(実機再現バグ発生時、
+両方ともBlock=4・上位3bit=2で完全一致していた)、このケースで上位
+バイトの書き込みが省略され、実際の発音周波数が更新されない不具合が
+発生していた。
+
+**検証の経緯**: 当初「MSB(上位)書き込みでFnumがラッチされるため、
+LSB(下位)を先に書く必要がある」という仮説で書き込み順序を
+LSB→MSBに入れ替えて検証したが、これは**誤りで、症状が悪化した**
+(最初のノートオンが無音、以降は不正な音程になる)。実際には元の
+MSB→LSBの順序が正しく、`forceWrite=true`を追加するだけで実機確認済み
+(2026年7月)。
+
+**修正**: `core/src/OPN_new.cpp`の`updateFreq()`/`updateFxModeFreq()`
+(FXモード)で、F-number上位・下位バイトの書き込みに`forceWrite=true`を
+明示指定した。書き込み順序(MSB→LSB)は変更していない。
+
+**スコープ**: 同じ理屈(regBak_のスキップ最適化とHW I/Fプラグイン側の
+実際の内部状態がズレるリスク)はOPM/OPLL/PSG/ADPCM等、F-number/周期を
+複数レジスタに分けて書く他のチップドライバにも当てはまり得るが、
+実機確認が取れているのはOPNのみのため、今回はOPNのみ修正した。他
+チップで同様の症状が確認された場合は、同じ修正(該当レジスタ書き込みへ
+`forceWrite=true`指定)を個別に適用・検証すること。OPL系
+(`OPL_new.cpp`/`OPL4.cpp`)は元々F-number上位バイト書き込みが
+`forceWrite=true`だった(B0レジスタにKONビットが同居し、キーオンの
+たびに値が変化するため、そもそもこの問題の影響を受けにくい構造でも
+ある)。
