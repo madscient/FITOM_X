@@ -148,12 +148,15 @@ protected:
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        // OPL: A0 = fnum[8:1], B0 = block[2:0] | fnum[9] | keyon
+        // OPL: A0 = fnum[8:1], B0 = block[2:0] | fnum[10:9] | keyon
+        // fnum>>9 は2bit(0-3)の値になり得るため、&1でマスクしてはならない
+        // (以前は&1でbit10側を静かに落としており、fnumが1024以上になる
+        // 音域でFnumberが実機へ正しく伝わらないバグとなっていた)。
         uint8_t b0cur = getReg(static_cast<uint16_t>(0xB0 + ch)) & 0x20;
         setReg(static_cast<uint16_t>(0xA0 + ch),
                static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
         setReg(static_cast<uint16_t>(0xB0 + ch),
-               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 2) | (fnum.fnum >> 9)), true);
     }
 
     void updatePanpot(uint8_t ch) override {
@@ -472,11 +475,11 @@ protected:
 
         uint8_t b1cur = getReg(reg_b1) & 0x20;
         setReg(reg_a1, static_cast<uint8_t>((fnum1.fnum >> 1) & 0xFF), true);
-        setReg(reg_b1, static_cast<uint8_t>(b1cur | ((fnum1.block & 7) << 2) | ((fnum1.fnum >> 9) & 1)), true);
+        setReg(reg_b1, static_cast<uint8_t>(b1cur | ((fnum1.block & 7) << 2) | (fnum1.fnum >> 9)), true);
 
         uint8_t b2cur = getReg(reg_b2) & 0x20;
         setReg(reg_a2, static_cast<uint8_t>((fnum2.fnum >> 1) & 0xFF), true);
-        setReg(reg_b2, static_cast<uint8_t>(b2cur | ((fnum2.block & 7) << 2) | ((fnum2.fnum >> 9) & 1)), true);
+        setReg(reg_b2, static_cast<uint8_t>(b2cur | ((fnum2.block & 7) << 2) | (fnum2.fnum >> 9)), true);
     }
 
     void updatePanpot(uint8_t ch) override {
@@ -812,7 +815,7 @@ protected:
         setReg(static_cast<uint16_t>(0xA0 + physCh),
                static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
         setReg(static_cast<uint16_t>(0xB0 + physCh),
-               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 2) | ((fnum.fnum >> 9) & 1)), true);
+               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 2) | (fnum.fnum >> 9)), true);
     }
 
     void updateKey(uint8_t ch, bool keyOn) override {
