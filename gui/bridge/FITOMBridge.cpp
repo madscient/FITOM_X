@@ -79,6 +79,25 @@ fs::path resolveMidiBackendPath(const std::string& configured)
 #endif
 }
 
+// MIDI入力のオープン失敗時、原因調査用にバックエンドが実際に列挙する
+// ポート名一覧をログへ出す(findPortByNameは完全一致のみで検索するため、
+// profile側の指定名がずれていないか/デバイスが接続されているかを
+// その場で確認できるようにする)。
+void logAvailableMidiInPorts(const fitom::MidiPluginInstance& plugin)
+{
+    auto names = plugin.enumerateIn();
+    if (names.empty()) {
+        FITOM_LOG_WARN("FITOMBridge: 利用可能なMIDI入力ポートがありません");
+        return;
+    }
+    std::string list;
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (i) list += ", ";
+        list += "\"" + names[i] + "\"";
+    }
+    FITOM_LOG_WARN("FITOMBridge: 利用可能なMIDI入力ポート: " << list);
+}
+
 } // namespace
 
 FITOMBridge& FITOMBridge::instance() {
@@ -109,7 +128,7 @@ bool FITOMBridge::init(const std::string& systemConfPath,
 
     FITOM_LOG_INFO("FITOMBridge initializing...");
     if (!profilePath.empty()) {
-        config->loadProfile(fs::path(profilePath));
+        config->loadProfile(fs::path(profilePath), patchMgr.get());
         currentProfile_ = profilePath;
     }
 
@@ -155,6 +174,7 @@ bool FITOMBridge::init(const std::string& systemConfPath,
                 } catch (const std::exception& e) {
                     FITOM_LOG_ERR("FITOMBridge: MIDI入力 \"" << portName
                         << "\" のオープンに失敗: " << e.what());
+                    logAvailableMidiInPorts(*midiState_->plugin);
                     midiState_->ports.push_back(nullptr);
                 }
             }
@@ -190,7 +210,7 @@ bool FITOMBridge::loadProfile(const std::string& path)
     fitom.allNoteOff();
 
     auto& cfg = fitom.getConfig();
-    bool ok = cfg.loadProfile(fs::path(path));
+    bool ok = cfg.loadProfile(fs::path(path), &fitom.getPatchManager());
     if (ok) {
         currentProfile_ = path;
         FITOM_LOG_INFO("Profile loaded: " << path);
