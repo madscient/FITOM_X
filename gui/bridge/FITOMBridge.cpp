@@ -367,6 +367,14 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
             }
         }
 
+        // キーボードビュー用: 現在発音中の全ノート(ポリフォニー)。
+        // 上のsounding判定(直近使用デバイスの単一ChStateのみを見る)とは
+        // 独立に、チャンネル側が把握している発音中ノート集合をそのまま
+        // 使う(soundingがfalseでも、他のノートが発音中の場合がある)。
+        for (const auto& an : midich->getActiveNotes()) {
+            mon.activeNotes.push_back({ an.note, an.velocity });
+        }
+
         result.push_back(mon);
     }
     return result;

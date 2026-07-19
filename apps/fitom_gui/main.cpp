@@ -300,12 +300,13 @@ struct MonitorColumns {
     static constexpr float volume   = 474.0f;
     static constexpr float note     = 544.0f;
     static constexpr float device   = 604.0f;
-    static constexpr float fnumber  = 694.0f;
-    static constexpr float total    = 880.0f; // キーボードビュー行の幅
+    static constexpr float fnumber  = 884.0f;
+    static constexpr float total    = 980.0f; // キーボードビュー行の幅
 
     // 各列の表示可能幅(次の列の開始位置との差分から、余白分を引く)
     static constexpr float bankWidth    = program - bank   - 8.0f;
     static constexpr float programWidth = volume  - program - 8.0f;
+    static constexpr float deviceWidth  = fnumber - device  - 8.0f;
 };
 
 void renderMonitorHeader()
@@ -411,25 +412,40 @@ void renderMonitorDataRow(FITOMBridge& bridge, int mpuIndex, const FITOMChannelM
 
     ImGui::SameLine(C::device);
     if (mon.sounding && !mon.deviceName.empty()) {
-        ImGui::Text("%d %s", mon.deviceIndex, mon.deviceName.c_str());
+        std::snprintf(buf, sizeof(buf), "%d %s", mon.deviceIndex, mon.deviceName.c_str());
+        textEllipsis(buf, C::deviceWidth);
     }
 
     ImGui::SameLine(C::fnumber);
     if (mon.sounding) {
         ImGui::Text("%d:%d", mon.fnumBlock, mon.fnum);
     }
+
+    // 行の末尾を常にSameLine()で終える。ImGui::ItemSize()は呼ばれる
+    // たびにwindow->DC.CurrLineSize.yを0にリセットし、SameLine()が
+    // PrevLineSizeから復元する仕組みのため、この行の最後の要素が
+    // 実際のアイテム(上のText、発音中のみ)かSameLine()呼び出しのみ
+    // (非発音時)かによって、直後にNewLine()を呼んだときの挙動が
+    // 変わってしまう(CurrLineSize==0の場合、NewLine()は「空行」と
+    // 誤認してFontSize分の余計な空行を挿入する)。ここで無条件に
+    // SameLine()を呼び、常に「復元済み」の状態で関数を抜けることで、
+    // 呼び出し側のNewLine()が発音状態に関わらず安定した挙動になる
+    // ようにする(発音中のみキーボードビューとの間に空行が挿入され、
+    // 以降の全チャンネルの表示位置がずれ下がる不具合の原因だった)。
+    ImGui::SameLine();
 }
 
 // ─── キーボードビュー(128ノート)+発光エフェクト ────────────────────
-// 実際の鍵盤の形(白鍵/黒鍵の幅の違い等)は再現せず、128ノートを均等幅の
-// 列として並べ、黒鍵に相当する列は背が低い/暗い色にすることで簡易的に
-// 鍵盤らしく見せる(このビューは演奏用ではなくモニター用のため)。
+// 本物の鍵盤と同じく、白鍵の幅が鍵盤全体のピッチを支配し、黒鍵は白鍵の
+// 隙間に重ねて描く(黒鍵の下にも白鍵の地色が続くため、発光していない
+// 範囲が不自然に暗くならない)。ノートオン中の全ノートを同時に発光させる
+// (和音を弾いても、後から鳴らしたノートだけが光る、ということはない)。
 struct KeyGlowState {
-    uint8_t note      = 0xFF; // 0xFF=現在発光対象なし
-    float   brightness = 0.0f; // 0-1、ノートオン時のベロシティ由来
-    float   releasedAt = -1.0f; // 発音が止まった時刻(ImGui::GetTime()基準)。
-                                 // -1の間はまだ発音中(フェード開始前)。
+    float brightness = 0.0f;  // 0-1、ノートオン時のベロシティ由来。0=消灯
+    float releasedAt = -1.0f; // 発音が止まった時刻(ImGui::GetTime()基準)。
+                               // -1の間はまだ発音中(フェード開始前)。
 };
+using ChannelGlow = std::array<KeyGlowState, 128>;
 
 bool isBlackKeyNote(int note)
 {
@@ -437,59 +453,100 @@ bool isBlackKeyNote(int note)
     return p == 1 || p == 3 || p == 6 || p == 8 || p == 10;
 }
 
-void renderKeyboardView(const FITOMChannelMonitor& mon, KeyGlowState& glow, float now)
+// 半音(0=C ... 11=B)から、その音が属する/直前の白鍵のオクターブ内
+// インデックス(C=0,D=1,E=2,F=3,G=4,A=5,B=6)を引く表。黒鍵の場合は
+// 直前の白鍵(例: C#→C、D#→D)のインデックスを返す。
+constexpr int kWhiteIndexInOctave[12] = { 0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6 };
+constexpr int kWhiteKeysPerOctave = 7;
+
+// 白鍵の通し番号(0始まり)。黒鍵の場合は「直前の白鍵」の通し番号を返す
+// (黒鍵はこの値+1の白鍵との境界に重ねて描く)。
+int whiteKeyOrdinal(int note)
+{
+    return (note / 12) * kWhiteKeysPerOctave + kWhiteIndexInOctave[note % 12];
+}
+
+void renderKeyboardView(const FITOMChannelMonitor& mon, ChannelGlow& glow, float now)
 {
     using C = MonitorColumns;
-    constexpr float kHeight    = 20.0f;
-    constexpr int   kNumNotes  = 128;
-    constexpr float kFadeSec   = 0.25f; // ノートオフ後、発光が消えるまでの時間
+    constexpr float kHeight              = 20.0f;
+    constexpr int   kNumNotes            = 128;
+    constexpr float kFadeSec             = 0.25f; // ノートオフ後、発光が消えるまでの時間
+    constexpr float kBlackKeyHeightRatio = 0.62f; // 白鍵に対する黒鍵の高さ比
+    constexpr float kBlackKeyWidthRatio  = 0.62f; // 白鍵に対する黒鍵の幅比
 
-    // 発音中なら常に最新の状態(ノート・ベロシティ)に更新し、
-    // フェード状態(releasedAt)をリセットする。発音が止まった瞬間
-    // (sounding: true→false)を検出したら、その時刻を記録してフェード
-    // を開始する。
-    if (mon.sounding && mon.lastNote != 0xFF) {
-        glow.note       = mon.lastNote;
-        glow.brightness = static_cast<float>(mon.velocity) / 127.0f;
-        glow.releasedAt = -1.0f;
-    } else if (glow.note != 0xFF && glow.releasedAt < 0.0f) {
-        glow.releasedAt = now;
+    // 現在発音中の全ノートを直接反映する。activeNotesに含まれるノートは
+    // 発音継続中としてフェードをキャンセルし、含まれなくなった時点で
+    // フェードを開始する(和音中の1音だけがノートオフされた場合も、
+    // そのノートだけが個別にフェードする)。
+    std::array<int, kNumNotes> activeVelocity;
+    activeVelocity.fill(-1);
+    for (const auto& an : mon.activeNotes) {
+        if (an.note < kNumNotes) activeVelocity[an.note] = an.velocity;
     }
-
-    float glowAlpha = 0.0f;
-    if (glow.note != 0xFF) {
-        if (glow.releasedAt < 0.0f) {
-            glowAlpha = glow.brightness;
-        } else {
-            float t = (now - glow.releasedAt) / kFadeSec;
-            if (t >= 1.0f) {
-                glow.note = 0xFF; // フェード完了。以後は発光無し。
-            } else {
-                glowAlpha = glow.brightness * (1.0f - t);
-            }
+    for (int n = 0; n < kNumNotes; ++n) {
+        KeyGlowState& g = glow[n];
+        if (activeVelocity[n] >= 0) {
+            g.brightness = static_cast<float>(activeVelocity[n]) / 127.0f;
+            g.releasedAt = -1.0f;
+        } else if (g.brightness > 0.0f && g.releasedAt < 0.0f) {
+            g.releasedAt = now;
         }
     }
+
+    // 発光の現在アルファ値を計算する。フェードが完了したノートは
+    // brightnessを0に戻し、以後は消灯状態として扱う。
+    auto glowAlphaFor = [&](int n) -> float {
+        KeyGlowState& g = glow[n];
+        if (g.brightness <= 0.0f) return 0.0f;
+        if (g.releasedAt < 0.0f) return g.brightness;
+        const float t = (now - g.releasedAt) / kFadeSec;
+        if (t >= 1.0f) {
+            g.brightness = 0.0f;
+            g.releasedAt = -1.0f;
+            return 0.0f;
+        }
+        return g.brightness * (1.0f - t);
+    };
+
+    auto colorForNote = [&](int n, ImU32 baseCol) -> ImU32 {
+        const float a = glowAlphaFor(n);
+        if (a <= 0.001f) return baseCol;
+        // ベロシティ(明るさ)に応じて赤→オレンジ→黄色寄りに変化させる。
+        const int g = static_cast<int>(120 + 135 * a);
+        const int b = static_cast<int>(40  * (1.0f - a));
+        return IM_COL32(255, g, b, 255);
+    };
 
     ImGui::SetCursorPosX(0.0f);
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const float keyWidth = C::total / static_cast<float>(kNumNotes);
 
+    // 白鍵の総数を数え、その幅を鍵盤全体のピッチの基準にする。
+    int whiteKeyCount = 0;
     for (int n = 0; n < kNumNotes; ++n) {
-        const bool  black = isBlackKeyNote(n);
-        const float x0 = origin.x + static_cast<float>(n) * keyWidth;
-        const float x1 = x0 + keyWidth - 1.0f; // 1px の隙間で列を区切る
-        const float y0 = origin.y;
-        const float y1 = origin.y + (black ? kHeight * 0.6f : kHeight);
+        if (!isBlackKeyNote(n)) ++whiteKeyCount;
+    }
+    const float whiteKeyWidth = C::total / static_cast<float>(whiteKeyCount);
 
-        ImU32 col = black ? IM_COL32(24, 24, 28, 255) : IM_COL32(220, 220, 214, 255);
-        if (glow.note == n && glowAlpha > 0.001f) {
-            // ベロシティ(明るさ)に応じて赤→オレンジ→黄色寄りに変化させる。
-            const int g = static_cast<int>(120 + 135 * glowAlpha);
-            const int b = static_cast<int>(40  * (1.0f - glowAlpha));
-            col = IM_COL32(255, g, b, 255);
-        }
-        dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), col);
+    // 白鍵を先に描画する(黒鍵の下敷きになる位置関係)。
+    for (int n = 0; n < kNumNotes; ++n) {
+        if (isBlackKeyNote(n)) continue;
+        const float x0 = origin.x + static_cast<float>(whiteKeyOrdinal(n)) * whiteKeyWidth;
+        const float x1 = x0 + whiteKeyWidth - 1.0f; // 1px の隙間で列を区切る
+        dl->AddRectFilled(ImVec2(x0, origin.y), ImVec2(x1, origin.y + kHeight),
+                           colorForNote(n, IM_COL32(220, 220, 214, 255)));
+    }
+
+    // 黒鍵は白鍵同士の境界に重ねて描く(実物の鍵盤と同じ配置)。
+    const float blackKeyWidth = whiteKeyWidth * kBlackKeyWidthRatio;
+    for (int n = 0; n < kNumNotes; ++n) {
+        if (!isBlackKeyNote(n)) continue;
+        const float boundary = origin.x + static_cast<float>(whiteKeyOrdinal(n) + 1) * whiteKeyWidth;
+        const float x0 = boundary - blackKeyWidth * 0.5f;
+        const float x1 = x0 + blackKeyWidth;
+        dl->AddRectFilled(ImVec2(x0, origin.y), ImVec2(x1, origin.y + kHeight * kBlackKeyHeightRatio),
+                           colorForNote(n, IM_COL32(24, 24, 28, 255)));
     }
 
     ImGui::Dummy(ImVec2(C::total, kHeight));
@@ -502,14 +559,23 @@ void renderMidiMonitorBand(FITOMBridge& bridge)
     using C = MonitorColumns;
 
     static int mpuIndex = 0;
-    static std::array<KeyGlowState, 16> keyGlow{};
+    static std::array<ChannelGlow, 16> keyGlow{};
 
+    auto midiInputs = bridge.getMidiInputs();
+
+    // ページ数はMAX_MPUS(コア側の固定上限、現状4)ではなく、実際に
+    // 設定されているMIDI入力ポート数に合わせる。未設定のMPUには
+    // 対応するMidiProcessorが存在せず(CFITOM::init参照)、空の
+    // プレースホルダー行しか表示できないため、意味の無いページに
+    // なってしまう。
     int mpuCount = bridge.getMpuCount();
+    if (!midiInputs.empty() && static_cast<int>(midiInputs.size()) < mpuCount) {
+        mpuCount = static_cast<int>(midiInputs.size());
+    }
     if (mpuCount <= 0) mpuCount = 1;
     if (mpuIndex >= mpuCount) mpuIndex = 0;
 
     // ポート名ラベルと切替ボタン(右上)。
-    auto midiInputs = bridge.getMidiInputs();
     std::string portName;
     for (const auto& m : midiInputs) {
         if (m.index == mpuIndex) { portName = m.name; break; }
@@ -523,12 +589,12 @@ void renderMidiMonitorBand(FITOMBridge& bridge)
     ImGui::BeginDisabled(mpuCount <= 1);
     if (ImGui::ArrowButton("##mpu_prev", ImGuiDir_Left)) {
         mpuIndex = (mpuIndex - 1 + mpuCount) % mpuCount;
-        keyGlow.fill(KeyGlowState{}); // 別ポートの残像を持ち越さない
+        keyGlow.fill(ChannelGlow{}); // 別ポートの残像を持ち越さない
     }
     ImGui::SameLine();
     if (ImGui::ArrowButton("##mpu_next", ImGuiDir_Right)) {
         mpuIndex = (mpuIndex + 1) % mpuCount;
-        keyGlow.fill(KeyGlowState{});
+        keyGlow.fill(ChannelGlow{});
     }
     ImGui::EndDisabled();
 

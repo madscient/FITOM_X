@@ -25,6 +25,14 @@ namespace fitom {
 class CFITOM;
 class PatchManager;
 
+// GUI モニタリング用: 現在発音中の1ノート(ポリフォニー表示向け)。
+// 同一ノート番号が複数レイヤーで鳴っていても、getActiveNotes()側で
+// ノート番号ごとに1件へ集約する(velocityは代表として先頭レイヤーの値)。
+struct ActiveNoteInfo {
+    uint8_t note;
+    uint8_t velocity;
+};
+
 // ================================================================
 //  IMidiCh: MIDI チャンネルインターフェース (旧 CMidiCh)
 // ================================================================
@@ -142,6 +150,10 @@ public:
     // FITOMConfig/PatchManager (プロファイル情報を保持) を使って解決する。
     virtual uint8_t  getLastDeviceIndex() const { return 0xFF; }
     virtual uint8_t  getLastDevCh()       const { return 0xFF; }
+    // 現在発音中の全ノート(キーボードビュー等、ポリフォニー表示向け)。
+    // ノート番号の昇順や発音順は規定しない。デフォルトは空(対応不要な
+    // チャンネル種別向け)。
+    virtual std::vector<ActiveNoteInfo> getActiveNotes() const { return {}; }
 
     virtual bool isInst()   const { return false; }
     virtual bool isRhythm() const { return false; }
@@ -258,6 +270,7 @@ public:
     uint8_t  getPoly()       const override { return poly_; }
     uint8_t  getLastDeviceIndex() const override;
     uint8_t  getLastDevCh()       const override;
+    std::vector<ActiveNoteInfo> getActiveNotes() const override;
     bool     isInst()        const override { return true; }
 
     // 現在のレイヤー数 (GUI モニタリング用)
@@ -520,6 +533,7 @@ public:
     // CFITOMは前方宣言のみのためMidiCh.cppに実装する。
     uint8_t  getLastDeviceIndex() const override;
     uint8_t  getLastDevCh()       const override;
+    std::vector<ActiveNoteInfo> getActiveNotes() const override;
 
     int activeNoteCount() const;
 

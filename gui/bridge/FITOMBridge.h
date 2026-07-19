@@ -36,6 +36,12 @@ struct FITOMPatchInfo {
     int         layerCount;
 };
 
+// ─── 発音中ノート情報 (キーボードビューのポリフォニー表示用) ──────────────
+struct FITOMActiveNote {
+    uint8_t note;
+    uint8_t velocity;
+};
+
 // ─── チャンネルモニター情報 (MIDIモニター画面用) ──────────────────────────
 // Bank/Prog/Volumeは発音の有無に関わらず常に現在値を反映する
 // (CC#0/#32、プログラムチェンジ受信のたびに更新される)。
@@ -62,6 +68,11 @@ struct FITOMChannelMonitor {
     int         deviceIndex = -1;
     uint8_t     fnumBlock = 0;
     uint16_t    fnum = 0;
+
+    // 現在発音中の全ノート(キーボードビューでの同時発光表示用)。
+    // Note/Fnumber等の他フィールドとは異なり、lastNoteだけでなく
+    // 同時に鳴っている全ノートを含む。soundingがfalseの間は空。
+    std::vector<FITOMActiveNote> activeNotes;
 };
 
 // ─── ブリッジクラス ─────────────────────────────────────────────────────────
