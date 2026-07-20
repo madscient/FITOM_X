@@ -88,10 +88,13 @@ protected:
             uint8_t slot = kMap[ch];
 
             // AM / VIB / EG type / KSR / MUL
+            // EGT: SR>0 (キーオン中も減衰させたい) なら percussive(1)、
+            // それ以外は non-percussive(0、キーオン中はSLで保持)。
+            // 実際のキーオン/オフ時はupdateKey()がこのbitを都度上書きする。
             setReg(static_cast<uint16_t>(0x20 + i * 3 + slot),
                    static_cast<uint8_t>(
                        ((o.AM  & 1) << 7) | ((o.VIB & 1) << 6) |
-                       ((o.SR > 0) ? 0 : 0x20) |    // EG type (SR>0 → sustain mode)
+                       ((o.SR > 0) ? 0x20 : 0) |    // EG type (SR>0 → percussive)
                        ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
 
             // KSL / TL (TL は updateVolExp で書くので、ここはモジュレータのみ)
@@ -219,10 +222,12 @@ protected:
 
         for (int i = 0; i < 2; ++i) {
             const FmHwOp& o = p.hwOp[i];
-            // EG type bit (bit5): keyon=0 で SR モードに切り替え
+            // EG type bit (bit5): キーオン中はEGT=1(percussive、RR位置に
+            // 書いたSRで減衰し続ける)、キーオフ時はEGT=0(non-percussive、
+            // RRレジスタ本来の値でリリースする)に切り替える。
             uint8_t cur = getReg(static_cast<uint16_t>(0x20 + i * 3 + slot)) & 0xDF;
             setReg(static_cast<uint16_t>(0x20 + i * 3 + slot),
-                   static_cast<uint8_t>(cur | (keyOn ? 0 : 0x20)), true);
+                   static_cast<uint8_t>(cur | (keyOn ? 0x20 : 0)), true);
 
             // SL/RR: キーオン中は SR、オフ中は RR
             // サステインペダルON時のRR=4固定は、キーオフ(リリース)時のみ適用する。
@@ -374,10 +379,13 @@ protected:
             bool car = isCarrier(ch, i);
 
             // AM/VIB/EGT/KSR/MUL
+            // EGT: SR>0 (キーオン中も減衰させたい) なら percussive(1)、
+            // それ以外は non-percussive(0)。実際のキーオン/オフ時は
+            // updateKey()がこのbitを都度上書きする。
             setReg(static_cast<uint16_t>(0x20 + slot),
                    static_cast<uint8_t>(
                        ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
-                       ((o.SR > 0) ? 0 : 0x20) |
+                       ((o.SR > 0) ? 0x20 : 0) |
                        ((o.KSR & 1) << 4) | (o.MUL & 0xF)), true);
 
             // KSL/TL (モジュレータのみ。キャリアはupdateVolExpで書く)
@@ -547,11 +555,12 @@ protected:
         for (int i = 0; i < 4; ++i) {
             const FmHwOp& o = p.hwOp[i];
             uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
-            // EGT: キーオフ時はRRレジスタをリリースレイトとして機能させるため
-            // EGT=1に切り替える (キーオン中は音色データのSR有無で決定済み)
+            // EGT: キーオン中はEGT=1(percussive、RR位置に書いたSRで
+            // 減衰し続ける)に切り替え、キーオフ時はEGT=0(non-percussive、
+            // RRレジスタ本来の値でリリースする)に戻す。
             uint8_t cur = getReg(static_cast<uint16_t>(0x20 + slot)) & 0xDF;
             setReg(static_cast<uint16_t>(0x20 + slot),
-                   static_cast<uint8_t>(cur | (keyOn ? 0 : 0x20)), true);
+                   static_cast<uint8_t>(cur | (keyOn ? 0x20 : 0)), true);
 
             static constexpr uint8_t kFallbackRR = 4;
             bool carrier = isCarrier(ch, i);
@@ -721,10 +730,12 @@ protected:
                             const VoiceProcessor& proc, bool carrier) {
         uint8_t slot = kSlot[physCh];
 
+        // EGT: SR>0 (RR位置に書くSRで減衰させたい) なら percussive(1)、
+        // それ以外は non-percussive(0)。
         setReg(static_cast<uint16_t>(0x20 + opIdx * 3 + slot),
                static_cast<uint8_t>(
                    ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
-                   ((o.SR > 0) ? 0 : 0x20) |
+                   ((o.SR > 0) ? 0x20 : 0) |
                    ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
 
         if (!carrier) {
