@@ -70,7 +70,7 @@
 |---|---|---|
 | `gui/bridge/FITOMBridge.h` | ✅ | UIフレームワーク非依存のコアブリッジAPI |
 | `gui/bridge/FITOMBridge.cpp` | ✅ | ブリッジ実装 |
-| `apps/fitom_gui/` | 🚧 | Dear ImGui + GLFW + OpenGL3 導入済み。ルート画面のMIDIモニターバンド(CH毎のBank/Program/Volume/Note/Device/Fnumber表示、MPU切替、128ノートキーボードビュー+発光エフェクト)を実装済み。Bank/Program表示のダブルクリックで外部パッチエディタ(別リポジトリ`FITOM_patch_editor`、実行ファイルは`fitom_gui`と同じディレクトリに配置想定)をキオスクモード(`<profile.json> <hwbank-file> <prog>`)で子プロセス起動する機能を実装済み(パッチエディタ未検出・起動失敗時はImGuiモーダルでエラー表示。実機での起動確認は未実施、下記STATUS.md注記参照)。デバイス一覧・パッチ一覧等、他画面への導線は未着手(該当描画関数は`[[maybe_unused]]`で温存) |
+| `apps/fitom_gui/` | 🚧 | Dear ImGui + GLFW + OpenGL3 導入済み。ルート画面のMIDIモニターバンド(CH毎のBank/Program/Volume/Note/Device/Fnumber表示、MPU切替、128ノートキーボードビュー+発光エフェクト)を実装済み。Bank/Program表示のダブルクリックで外部パッチエディタ(別リポジトリ`FITOM_patch_editor`、実行ファイルは`fitom_gui`と同じディレクトリに配置想定)をキオスクモード(`<profile.json> <hwbank-file> <prog>`)で子プロセス起動する機能を実装済み(パッチエディタ未検出・起動失敗時はImGuiモーダルでエラー表示。実機での起動確認は未実施、下記STATUS.md注記参照)。CH番号のシングルクリックでCH設定ダイアログ(`ChSettingsDialog`)を開き、Volume(CC#7)/Expression(CC#11)/リズム⇔インストゥルメント切替(CC#0特殊値)/Poly⇔Mono切替(CC#126/127)/パッチ選択を変更できる機能を実装済み。パッチ選択はCC#0→CC#32→Prog.chgの階層ブラウジングを行う`PatchPickerDialog`(直接デバイス選択モードも対応)、リズムチャンネルはドラムキットのフラット一覧を別途実装済み。適用ロジックはGUI側から`IMidiCh`のsetterを個別に叩かず、`FITOMBridge::sendControlChange`/`sendProgramChange`経由でコアの既存MIDI処理経路(`MidiProcessor::processControl`/`IMidiCh::progChange`)を再利用する方式(2026年7月)。デバイス一覧・パッチ一覧(フラット表示)等、他画面への導線は未着手(該当描画関数は`[[maybe_unused]]`で温存) |
 
 ### 設定スキーマ・ドキュメント
 
@@ -136,6 +136,7 @@
 | OPLL Fnumberビットシフト修正・EGT/RR技法適用 | ✅ | `chip-driver-architecture.md` |
 | HWPlugin_Shutdown (未エクスポート時は何もしないオプショナルAPI、二重実行防止) | ✅ | `plugin-hwif.md` |
 | GUI MIDIモニターバンド (CH毎表示 + 128ノートキーボードビュー + 発光エフェクト) | ✅ | — |
+| GUI CH設定ダイアログ + パッチピッカーダイアログ (Volume/Expression/リズム⇔インストゥルメント切替/Poly⇔Mono切替/CC#0→CC#32→Prog.chg階層ブラウジング。GUIからは`FITOMBridge`のMIDI送信メソッド経由でコアの既存MIDI処理経路を再利用) | ✅ | — |
 | 内部用MIDIパイプ (`fitom_midi_pipe`、パッチエディタ試聴連携) | ✅ | `plugin-midi-pipe.md` |
 | 内部用MIDIパイプの多接続化(最大16本+接続直後のチャンネル自動割り当てSysEx) | ✅ | `plugin-midi-pipe.md` |
 | MIDIバックエンドDLLをRtMidi単一実装へ統合 (旧midi_wms/midi_winmm/midi_alsaの3実装廃止、SysEx未対応だった既存欠陥を解消、macOS対応を新規追加) | ✅ | `plugin-midi.md` |

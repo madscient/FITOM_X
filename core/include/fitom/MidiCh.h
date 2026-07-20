@@ -145,6 +145,12 @@ public:
     virtual uint16_t getPitchBend()   const { return 8192; }
     virtual bool     getSustain()     const { return false; }
     virtual uint8_t  getPoly()        const { return 0; }
+    // CC#126(M=1)による真のモノフォニックモード中かどうか。
+    // getPoly()(パッチ由来のボイス数上限)とは独立した、CC#126/127
+    // による実行時モード切替の状態そのもの(GUI等で現在値を表示する
+    // 用途向け、2026年7月新設)。デフォルトはfalse(CRhythmCh等、
+    // モノ/ポリの概念を持たないチャンネル種別向け)。
+    virtual bool     isMonoMode()     const { return false; }
     // 直近に発音したノートが使用した devices[] インデックス / デバイス側ch。
     // 名前解決 (チップ名文字列・音色名) は行わない。呼び出し側が
     // FITOMConfig/PatchManager (プロファイル情報を保持) を使って解決する。
@@ -268,6 +274,7 @@ public:
     uint16_t getPitchBend()  const override { return pitchBend_; }
     bool     getSustain()    const override { return sustain_; }
     uint8_t  getPoly()       const override { return poly_; }
+    bool     isMonoMode()    const override { return mono_; }
     uint8_t  getLastDeviceIndex() const override;
     uint8_t  getLastDevCh()       const override;
     std::vector<ActiveNoteInfo> getActiveNotes() const override;

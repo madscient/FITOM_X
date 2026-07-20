@@ -64,6 +64,19 @@ public:
     // 既存の発音は全て停止してからチャンネルオブジェクト自体を差し替える。
     void switchChannelRole(uint8_t ch, bool toRhythm);
 
+    // GUI等から、生MIDIバイト列(receiveByte())を経由せず、構造化された
+    // 値で直接コントロールチェンジ/プログラムチェンジを送出する
+    // (2026年7月新設)。receiveByte()側のランニングステータス状態機械を
+    // 一切変更しないため、実際のMIDI入力と混在させても安全。
+    // processControl()と同じ経路(CC#0特殊値によるリズム/メロディ
+    // 動的切替を含む)を通るため、MIDI受信時と全く同じ挙動になる。
+    void sendControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
+        if (ch < 16) processControl(ch, cc, val);
+    }
+    void sendProgramChange(uint8_t ch, uint8_t prog) {
+        if (ch < 16 && channels_[ch]) channels_[ch]->progChange(prog);
+    }
+
 private:
     std::array<std::unique_ptr<IMidiCh>, 16>& channels_;
     CFITOM* parent_;
@@ -136,6 +149,19 @@ public:
     // MPU(16chの処理単位)の総数。GUI等、外部から件数を知る必要がある
     //箇所向け(2026年7月新設)。
     static constexpr int getMpuCount() { return MAX_MPUS; }
+
+    // GUI等から、指定MPU/chへ直接コントロールチェンジ/プログラムチェンジを
+    // 送出する(2026年7月新設、GUIのCH設定ダイアログ用)。timerCallback()
+    // 等と同じprocessMutex_でロックする(MidiProcessor::sendControlChange/
+    // sendProgramChange参照)。
+    void sendChannelControlChange(uint8_t mpuIndex, uint8_t ch, uint8_t cc, uint8_t val) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendControlChange(ch, cc, val);
+    }
+    void sendChannelProgramChange(uint8_t mpuIndex, uint8_t ch, uint8_t prog) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendProgramChange(ch, prog);
+    }
 
     // ─── タイマー・ポーリング ────────────────────────────────────
     void timerCallback(uint32_t tick);

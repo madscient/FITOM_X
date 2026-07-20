@@ -36,6 +36,12 @@ struct FITOMPatchInfo {
     int         layerCount;
 };
 
+// ─── バンク情報 (GUI のパッチピッカー、CC#32階層の選択肢用) ────────────────
+struct FITOMBankInfo {
+    int         bankNo;
+    std::string name;
+};
+
 // ─── 発音中ノート情報 (キーボードビューのポリフォニー表示用) ──────────────
 struct FITOMActiveNote {
     uint8_t note;
@@ -75,6 +81,20 @@ struct FITOMChannelMonitor {
     std::vector<FITOMActiveNote> activeNotes;
 };
 
+// ─── チャンネル設定情報 (CH設定ダイアログの初期値取得用) ────────────────────
+// getChannelMonitors()は毎フレーム全16ch分呼ばれるホットパスのため、
+// ダイアログを開いた時にだけ呼ぶ、この専用の軽量な取得関数を分ける
+// (2026年7月新設)。
+struct FITOMChannelSettings {
+    uint8_t  volume     = 100;
+    uint8_t  expression = 127;
+    bool     isRhythm   = false;
+    bool     monoMode   = false;
+    uint8_t  bankSelMSB = 0;   // CC#0 (0=通常モード, 1-0x6F=直接デバイス選択モード)
+    uint16_t bankNo     = 0;   // getBankNo()相当 (CC#32が意味する値)
+    uint8_t  progNo     = 0;
+};
+
 // ─── ブリッジクラス ─────────────────────────────────────────────────────────
 class FITOMBridge {
 public:
@@ -101,9 +121,31 @@ public:
     // mpuIndexが範囲外の場合は空配列を返す。常に16要素(ch0-15)。
     std::vector<FITOMChannelMonitor> getChannelMonitors(int mpuIndex) const;
 
+    // 指定チャンネルの現在設定値(CH設定ダイアログの初期値用、
+    // 2026年7月新設)。範囲外・未初期化の場合は既定値のFITOMChannelSettingsを返す。
+    FITOMChannelSettings getChannelSettings(int mpuIndex, int ch) const;
+
+    // ─── MIDI送信 (CH設定ダイアログのOKで使う、2026年7月新設) ────────────
+    // 生バイト列(receiveByte())を経由せず、コアのMIDI処理経路
+    // (MidiProcessor::processControl/IMidiCh::progChange)を直接呼ぶ。
+    // MIDI受信時と全く同じ挙動になる(CC#0特殊値によるリズム/メロディ
+    // 動的切替等も含む)。
+    void sendControlChange(int mpuIndex, int ch, uint8_t cc, uint8_t val);
+    void sendProgramChange(int mpuIndex, int ch, uint8_t prog);
+
     // ─── パッチ一覧 ──────────────────────────────────────────────────────
     std::vector<FITOMPatchInfo> getPatches(int bankNo) const;
     std::vector<std::string>    getPatchBankNames() const;
+
+    // ─── パッチピッカー用階層列挙 (2026年7月新設) ────────────────────────
+    // 通常モード(CC#0=0)のCC#32階層: 登録済みPatchBank番号一覧
+    std::vector<FITOMBankInfo>  getPatchBankList() const;
+    // 直接デバイス選択モードのCC#32階層: 指定VoicePatchType用HwBank番号一覧
+    std::vector<FITOMBankInfo>  getHwBankList(uint8_t voicePatchType) const;
+    // 直接デバイス選択モードのProg.chg階層: 指定HwBank内の有効パッチ一覧
+    std::vector<FITOMPatchInfo> getHwBankPatches(uint8_t voicePatchType, int hwBank) const;
+    // リズムチャンネルのProg.chg階層(バンク0固定、CC#0/#32は無関係): 有効なドラムキット一覧
+    std::vector<FITOMPatchInfo> getDrumPatches() const;
 
     // ─── 音色エディタ連携 ────────────────────────────────────────────────
     // HwPatch を JSON 文字列として取得 / 設定

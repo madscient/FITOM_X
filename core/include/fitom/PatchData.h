@@ -46,6 +46,7 @@
 //     HwBankRegistry::get(device_type, bank_no) が吸収する。
 
 #include "fitom/VoiceData.h"
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -266,6 +267,19 @@ public:
 
     // デバイス ID から VoiceGroup を解決 (旧 GetDeviceVoiceGroupMask 相当)
     static VoiceGroup groupFromDeviceId(uint32_t deviceId);
+
+    // 指定groupに登録済みのバンク番号一覧を昇順で返す(GUIのパッチピッカー
+    // ダイアログ向け、直接デバイス選択モードのCC#32階層列挙用、
+    // 2026年7月新設)。該当groupが未登録なら空を返す。
+    std::vector<int> listBankNumbers(VoiceGroup group) const {
+        std::vector<int> result;
+        auto it = banks_.find(group);
+        if (it == banks_.end()) return result;
+        result.reserve(it->second.size());
+        for (const auto& kv : it->second) result.push_back(kv.first);
+        std::sort(result.begin(), result.end());
+        return result;
+    }
 
     // HwPatch の解決:
     //   指定の group/bank/prog から HwPatch を返す。

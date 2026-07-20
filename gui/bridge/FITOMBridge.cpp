@@ -380,6 +380,52 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
     return result;
 }
 
+FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
+{
+    FITOMChannelSettings settings;
+    if (!initialized_) return settings;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return settings;
+    if (ch < 0 || ch >= 16) return settings;
+
+    auto& fitomInst = fitom::CFITOM::instance();
+    auto* processor = fitomInst.getMidiProcessor(static_cast<uint8_t>(mpuIndex));
+    if (!processor) return settings;
+
+    fitom::IMidiCh* midich = processor->getChannel(static_cast<uint8_t>(ch));
+    if (!midich) return settings;
+
+    settings.volume     = midich->getVolume();
+    settings.expression = midich->getExpression();
+    settings.isRhythm   = midich->isRhythm();
+    settings.monoMode   = midich->isMonoMode();
+    settings.bankSelMSB = midich->getBankSelMSB();
+    settings.bankNo     = midich->getBankNo();
+    settings.progNo     = midich->getProgramNo();
+    return settings;
+}
+
+// ================================================================
+//  MIDI送信 (CH設定ダイアログのOKで使う)
+// ================================================================
+
+void FITOMBridge::sendControlChange(int mpuIndex, int ch, uint8_t cc, uint8_t val)
+{
+    if (!initialized_) return;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return;
+    if (ch < 0 || ch >= 16) return;
+    fitom::CFITOM::instance().sendChannelControlChange(
+        static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch), cc, val);
+}
+
+void FITOMBridge::sendProgramChange(int mpuIndex, int ch, uint8_t prog)
+{
+    if (!initialized_) return;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return;
+    if (ch < 0 || ch >= 16) return;
+    fitom::CFITOM::instance().sendChannelProgramChange(
+        static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch), prog);
+}
+
 bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch,
                                          std::string& outHwBankFile, int& outProgNo) const
 {
@@ -477,6 +523,85 @@ std::vector<std::string> FITOMBridge::getPatchBankNames() const
 {
     // TODO: PatchManager に bank 名列挙を追加
     return {};
+}
+
+// ================================================================
+//  パッチピッカー用階層列挙
+// ================================================================
+
+std::vector<FITOMBankInfo> FITOMBridge::getPatchBankList() const
+{
+    std::vector<FITOMBankInfo> result;
+    if (!initialized_) return result;
+
+    auto& pm = fitom::CFITOM::instance().getPatchManager();
+    for (int bankNo : pm.listPatchBankNumbers()) {
+        FITOMBankInfo info;
+        info.bankNo = bankNo;
+        const auto* bank = pm.findPatchBank(bankNo);
+        if (bank) info.name = bank->name;
+        result.push_back(std::move(info));
+    }
+    return result;
+}
+
+std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) const
+{
+    std::vector<FITOMBankInfo> result;
+    if (!initialized_) return result;
+
+    auto& pm = fitom::CFITOM::instance().getPatchManager();
+    const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    for (int bankNo : pm.hwRegistry().listBankNumbers(group)) {
+        FITOMBankInfo info;
+        info.bankNo = bankNo;
+        const auto* bank = pm.hwRegistry().find(group, bankNo);
+        if (bank) info.name = bank->name;
+        result.push_back(std::move(info));
+    }
+    return result;
+}
+
+std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType, int hwBank) const
+{
+    std::vector<FITOMPatchInfo> result;
+    if (!initialized_) return result;
+
+    auto& pm = fitom::CFITOM::instance().getPatchManager();
+    const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    const auto* bank = pm.hwRegistry().find(group, hwBank);
+    if (!bank) return result;
+
+    for (int prog = 0; prog < fitom::BANK_PROG_SIZE; ++prog) {
+        const auto& p = bank->get(prog);
+        if (!p.isValid()) continue;
+        FITOMPatchInfo info;
+        info.bank       = hwBank;
+        info.prog       = prog;
+        info.name       = p.name;
+        info.layerCount = 1; // 直接デバイス選択モードは常に単層
+        result.push_back(std::move(info));
+    }
+    return result;
+}
+
+std::vector<FITOMPatchInfo> FITOMBridge::getDrumPatches() const
+{
+    std::vector<FITOMPatchInfo> result;
+    if (!initialized_) return result;
+
+    auto& pm = fitom::CFITOM::instance().getPatchManager();
+    for (int prog = 0; prog < fitom::BANK_PROG_SIZE; ++prog) {
+        const auto* dp = pm.drumRegistry().resolve(0, prog);
+        if (!dp) continue;
+        FITOMPatchInfo info;
+        info.bank       = 0;
+        info.prog       = prog;
+        info.name       = dp->name;
+        info.layerCount = 0; // ドラムキットには「レイヤー数」の概念が無い
+        result.push_back(std::move(info));
+    }
+    return result;
 }
 
 // ================================================================

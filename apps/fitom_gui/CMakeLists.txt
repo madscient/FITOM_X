@@ -6,6 +6,8 @@
 
 add_executable(fitom_gui
     main.cpp
+    ChSettingsDialog.cpp
+    PatchPickerDialog.cpp
 )
 
 target_link_libraries(fitom_gui
