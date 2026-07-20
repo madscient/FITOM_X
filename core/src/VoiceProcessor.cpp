@@ -281,14 +281,14 @@ void VoiceProcessor::reset() noexcept
 }
 
 void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
-                               const FmVoice& voice) noexcept
+                               const FmVoice& voice, uint8_t carrierMask) noexcept
 {
     lastVol_ = vol;
     lastExp_ = exp;
     lastVel_ = vel;
     noteOn_  = true;
 
-    recalcBaseTL(vol, exp, vel, voice);
+    recalcBaseTL(vol, exp, vel, voice, carrierMask);
 
     // ── VAR〜VRR: ベロシティ → EG パラメータ感度 ──────────────────────────────
     // 低ベロシティほど各パラメータを hw 設定値から補正する。
@@ -409,12 +409,12 @@ void VoiceProcessor::onNoteOff(uint16_t fadeout_ms) noexcept
 }
 
 bool VoiceProcessor::onVolumeChange(uint8_t vol, uint8_t exp,
-                                     const FmVoice& voice) noexcept
+                                     const FmVoice& voice, uint8_t carrierMask) noexcept
 {
     if (vol == lastVol_ && exp == lastExp_) return false;
     lastVol_ = vol;
     lastExp_ = exp;
-    recalcBaseTL(vol, exp, lastVel_, voice);
+    recalcBaseTL(vol, exp, lastVel_, voice, carrierMask);
     // effectiveTL を baseTL ベースに再計算（LFO オフセットは無視してリセット）
     for (int op = 0; op < 4; ++op) {
         effectiveTL_[op] = baseTL_[op];
@@ -443,7 +443,7 @@ VoiceProcessor::TickResult VoiceProcessor::onTick(const FmVoice& voice) noexcept
 }
 
 void VoiceProcessor::recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
-                                    const FmVoice& voice) noexcept
+                                    const FmVoice& voice, uint8_t carrierMask) noexcept
 {
     // vol のみを常時反映するマスターボリューム扱いとする (exp/vel は
     // 含めない、いずれも 127 固定で 0dB寄与のダミー値を渡す) — exp/vel
@@ -453,19 +453,17 @@ void VoiceProcessor::recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
     // 補正の対象に統合した)。
     const uint8_t evol = fitom::calcVolExpVel(vol, 127, 127);
 
-    // キャリアアルゴリズムマスク (OPM/OPN 基準)
-    // ALG 0-3: OP4 のみキャリア
-    // ALG 4:   OP2+OP4
-    // ALG 5-6: OP2+OP3+OP4
-    // ALG 7:   全OP キャリア
-    static const uint8_t carmsk[8] = {0x8,0x8,0x8,0x8,0xa,0xe,0xe,0xf};
-    const uint8_t alg  = voice.hw.ALG & 0x07;
-    const uint8_t mask = carmsk[alg];
+    // carrierMask: 呼び出し元 (CSoundDevice::isCarrierOp()) がチップ固有の
+    // 規則で計算した値。VoiceProcessor自身はhw.ALGの意味を知らない
+    // (2026年7月、ここをOPN/OPM専用の固定テーブルで自己判定しており、
+    // OPL/OPLL等でキャリアopの判定が常に外れ、vol/exp/vel/VTLが一切
+    // 反映されないバグを修正。詳細はVoiceProcessor.hのonNoteOn()コメント
+    // 参照)。
 
     for (int op = 0; op < 4; ++op) {
         uint8_t tl = voice.hwOp[op].TL;
 
-        if (mask & (1u << op)) {
+        if (carrierMask & (1u << op)) {
             // ── VTL: ベロシティ/エクスプレッション → TL 感度 ──────────────
             // VTL=0: 補正なし (vel/exp とも音量に一切影響しない)
             // vel/exp とも vol の影響を受けた evol ではなく単体の値

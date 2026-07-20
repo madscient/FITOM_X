@@ -28,6 +28,14 @@ const uint8_t CSoundDevice::kCarrierMask[8] = {
     0x08, 0x08, 0x08, 0x08, 0x0A, 0x0E, 0x0E, 0x0F
 };
 
+// デフォルト実装: OPN/OPM互換の標準8アルゴリズムテーブル。
+// キャリア規則が異なるチップ(OPL系2op/4op、OPLL等)はオーバーライドする。
+bool CSoundDevice::isCarrierOp(uint8_t ch, int op) const {
+    if (ch >= maxChs_ || op < 0 || op >= 4) return false;
+    const uint8_t alg = chState_[ch].hwPatch.hw.ALG & 0x07;
+    return (kCarrierMask[alg] >> op) & 1;
+}
+
 // ================================================================
 //  コンストラクタ / デストラクタ
 // ================================================================
@@ -231,7 +239,7 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
             dummy.sw = swPatch->sw;
             for (int i = 0; i < 4; ++i) dummy.swOp[i] = swPatch->swOp[i];
         }
-        s.proc.onNoteOn(s.volume, s.expression, vel, dummy);
+        s.proc.onNoteOn(s.volume, s.expression, vel, dummy, computeCarrierMask(ch));
         updateVoice(ch);
     } else if (samplePatch) {
         s.samplePatch = samplePatch;

@@ -64,6 +64,15 @@ protected:
     // 派生クラスがチップ名部分だけを差し替えるためのフック。
     virtual std::string chipLabel() const { return "OPLL (YM2413)"; }
 
+    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // OPLLはキャリアが常にop1固定(car_opll = (i==1)、updateVoice参照)。
+    // hw.ALGはOPLLではプリセット音色番号に転用されており、OPN/OPM用の
+    // デフォルト実装(hw.ALGを3bit8アルゴリズムとして解釈)とは無関係の
+    // ため、オーバーライドする。
+    bool isCarrierOp(uint8_t /*ch*/, int op) const override {
+        return op == 1;
+    }
+
     // OPLL 専用: プリセットか否かで UpdateVoice 挙動が変わる
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
