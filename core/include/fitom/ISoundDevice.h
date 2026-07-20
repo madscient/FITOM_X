@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <vector>
 
 namespace fitom {
 class SccWaveRegistry;   // fitom/SccWaveData.h
@@ -259,8 +260,6 @@ public:
 // ================================================================
 class CSoundDevice : public ISoundDevice {
 public:
-    static constexpr int MAX_CHS = 16;
-
     CSoundDevice(uint8_t deviceType, uint8_t maxChs, IPort* port,
                  int fnumMaster, int fnumDivide,
                  int noteOffset = -576,
@@ -369,7 +368,13 @@ protected:
     uint8_t         maxChs_;
     uint8_t         opCount_;
     IPort*          port_;
-    ChState         chState_[MAX_CHS];
+    // maxChs_と同数だけ確保する(コンストラクタでresize)。以前は
+    // 固定長配列ChState chState_[MAX_CHS]だったが、MAX_CHSより多い
+    // チャンネル数を要求するチップ(OPL4 AWM = 24ch)が現れた際に、
+    // 配列サイズとmaxChs_の値が食い違って範囲外アクセスするクラッシュ
+    // バグが発生した(2026年7月)。チップごとに実際に必要な数だけ確保する
+    // vectorにすることで、この種の不一致がそもそも起こり得ない設計にする。
+    std::vector<ChState> chState_;
     uint8_t*        regBak_;    // レジスタバックアップ
     size_t          regSize_;
 

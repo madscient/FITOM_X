@@ -429,28 +429,31 @@ public:
     // leftChip: Panpot=1(L)側の物理チップ、rightChip: Panpot=2(R)側
     CLinearPanDevice(ISoundDevice* leftChip, ISoundDevice* rightChip)
         : CUnison(leftChip, rightChip)
-    {
-        std::fill(std::begin(masterVolume_), std::end(masterVolume_), uint8_t{127});
-        std::fill(std::begin(masterPan_), std::end(masterPan_), int8_t{0});
-    }
+        // getChCount()(=chips_の最小ch数)分だけ確保する。以前は
+        // CSoundDevice::MAX_CHSとは無関係に独自定義した固定長16の
+        // 配列だったため、16chを超えるチップ(OPL4 AWM = 24ch)が将来
+        // CLinearPanDeviceで束ねられた場合、chState_と同種の範囲外
+        // アクセスが再発しうる作りだった(2026年7月、chState_のvector化
+        // に合わせて同じ問題を修正)。
+        , masterVolume_(getChCount(), uint8_t{127})
+        , masterPan_(getChCount(), int8_t{0})
+    {}
 
     void setVolume(uint8_t ch, uint8_t vol, bool update) override {
-        if (ch >= kMaxChs_ || chips_.size() < 2) return;
+        if (ch >= masterVolume_.size() || chips_.size() < 2) return;
         masterVolume_[ch] = vol;
         applyLinearPan(ch, update);
     }
 
     void setPanpot(uint8_t ch, int8_t pan, bool update) override {
-        if (ch >= kMaxChs_ || chips_.size() < 2) return;
+        if (ch >= masterPan_.size() || chips_.size() < 2) return;
         masterPan_[ch] = pan;
         applyLinearPan(ch, update);
     }
 
 private:
-    // CSoundDevice::MAX_CHS はスコープが異なるため、ここで独自に定義する。
-    static constexpr int kMaxChs_ = 16;
-    uint8_t masterVolume_[kMaxChs_];
-    int8_t  masterPan_[kMaxChs_];
+    std::vector<uint8_t> masterVolume_;
+    std::vector<int8_t>  masterPan_;
 
     // 旧FITOM CLinearPan::UpdatePanpot 完全移植。
     // panpot(int8_t, -64..63) を旧FITOMの0-127生値スケールに変換した上で、

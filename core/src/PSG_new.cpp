@@ -158,12 +158,17 @@ public:
                        noteOffset, fnumType, regSize)
     {
         opCount_ = numOps;
-        std::fill(lfoTL_, lfoTL_ + MAX_CHS, 64);
+        // chState_と同じ理由(2026年7月のOPL4 AWM範囲外アクセス修正)で、
+        // maxChs_と同数だけ確保するvectorにしている。固定長配列だと、
+        // 将来maxChs_がその配列の決め打ちサイズを超えるPSG系チップが
+        // 追加された場合に同種のバグを再発しうる。
+        lfoTL_.assign(maxChs_, 64);
+        envelopes_.resize(maxChs_);
     }
 
 protected:
-    uint8_t lfoTL_[MAX_CHS]; // ソフトLFO の基準TL (振幅変調用)
-    SoftEnvelope envelopes_[MAX_CHS]; // チャンネルごとのソフトウェアADSR
+    std::vector<uint8_t> lfoTL_; // ソフトLFO の基準TL (振幅変調用)
+    std::vector<SoftEnvelope> envelopes_; // チャンネルごとのソフトウェアADSR
 
     // PSG 系共通: キーオン/オフはソフトウェアエンベロープの起動/リリースのみ。
     // トーン/ノイズのミックスレジスタ (reg 0x07) はここでは操作しない
