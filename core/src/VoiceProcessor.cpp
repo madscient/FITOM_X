@@ -468,25 +468,25 @@ void VoiceProcessor::recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
         if (mask & (1u << op)) {
             // ── VTL: ベロシティ/エクスプレッション → TL 感度 ──────────────
             // VTL=0: 補正なし (vel/exp とも音量に一切影響しない)
-            // VTL=127: 最大感度 (vel=0 または exp=0 のとき TL を 127 まで
-            //          押し上げる)
-            // vel/exp とも vol の影響を受けた evol ではなく単体の不足分
-            // (127-vel, 127-exp) で行う (vol はマスターボリューム扱い、
-            // vel/exp はアーティキュレーション扱い)。2026年7月、
-            // expressionもvelと同じ扱いに統合し、VTLゲート付き補正の
-            // 対象にした。不足分は合算ではなく大きい方(より不足して
-            // いる方)を採用する — 合算(dB加算=線形乗算)だと両方が
-            // 中程度に下がっただけで急激に減衰してしまうため、単体の
-            // 最大感度(VTL満値時の効き)を保ったまま相乗効果を避ける。
+            // vel/exp とも vol の影響を受けた evol ではなく単体の値
+            // (低い方) で行う (vol はマスターボリューム扱い、vel/exp は
+            // アーティキュレーション扱い)。2026年7月、expressionもvelと
+            // 同じ扱いに統合し、VTLゲート付き補正の対象にした。低い方
+            // (より不足している方) を採用する — 両方を合算(dB加算=線形
+            // 乗算)すると、両方が中程度に下がっただけで単体時より
+            // 急激に減衰してしまうため。
+            //
+            // TLレジスタはdB空間(0.75dB/unit)のため、MIDI値の不足分を
+            // 単純に線形マッピングすると中〜高ベロシティ域でも急激に
+            // 減衰してしまう(例: VTL=80, vel=87 で -18.75dB)。vol/exp
+            // (calcVolExpVel)と同じ知覚カーブ(kGM2dB)をここでも経由させ、
+            // さらに最大変動幅をVTL/2に抑えることで、中〜高域はなだらか
+            // に、極端に弱い入力でのみ大きく減衰する自然な特性にした。
             const uint8_t vtl = voice.swOp[op].VTL;
             if (vtl > 0) {
-                // vel/exp が低いほど TL を増加（音量を下げる）
-                // delta の最大 = vtl (vel=0 または exp=0 のとき);
-                // vel=127 かつ exp=127 のとき delta=0
-                const int32_t velDeficit = 127 - static_cast<int32_t>(vel);
-                const int32_t expDeficit = 127 - static_cast<int32_t>(exp);
-                const int32_t deficit = std::max(velDeficit, expDeficit);
-                const int32_t delta = deficit * vtl / 127;
+                const uint8_t worst = std::min(vel, exp);
+                const double dB = fitom::kGM2dB[worst] * (static_cast<double>(vtl) / 254.0);
+                const int32_t delta = static_cast<int32_t>(std::lround(-dB / 0.75));
                 tl = static_cast<uint8_t>(
                     clamp(static_cast<int>(tl) + delta, 0, 127));
             }
