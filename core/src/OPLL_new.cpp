@@ -78,10 +78,13 @@ protected:
             for (int i = 0; i < 2; ++i) {
                 const FmHwOp& o = p.hwOp[i];
                 // AM/VIB/EG/KSR/MUL
+                // EGT: SR>0 (キーオン中も減衰させたい) なら percussive(1)、
+                // それ以外は non-percussive(0)。実際のキーオン/オフ時は
+                // updateKey()がこのbitを都度上書きする。
                 setReg(static_cast<uint16_t>(i),
                        static_cast<uint8_t>(
                            ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
-                           ((o.SR > 0) ? 0 : 0x20) |
+                           ((o.SR > 0) ? 0x20 : 0) |
                            ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
                 // AR / DR (キャリア=i:1 はベロシティ補正)
                 const bool car_opll = (i == 1);
@@ -178,11 +181,12 @@ protected:
         const HwPatch& p = s.hwPatch;
         bool preset = (p.ext.ALG_EXT & 1) != 0;
 
-        // EGT/RR動的書き換え (OPN/OPL3と同じ技法)。
+        // EGT/RR動的書き換え (OPL3と同じ技法)。
         // ユーザー音色のみ対象 (プリセット音色はROMのためEGパラメータ変更不可、
         // 旧FITOM COPLL::UpdateKey と同様)。
-        // キーオン中はSRをRR位置に書きEGT=0 (サスティンレイトとして機能)、
-        // キーオフ時はEGT=1に切り替えてRRレジスタをリリースレイトとして使う。
+        // キーオン中はEGT=1(percussive)に切り替えてSRをRR位置に書き、SRを
+        // キーオン中の減衰レイトとして機能させる。キーオフ時はEGT=0
+        // (non-percussive)に戻してRRレジスタ本来の値を書く。
         if (!preset) {
             for (int i = 0; i < 2; ++i) {
                 const FmHwOp& o = p.hwOp[i];
@@ -195,7 +199,7 @@ protected:
 
                 uint8_t egtCur = getReg(static_cast<uint16_t>(i)) & 0xDF;
                 setReg(static_cast<uint16_t>(i),
-                       static_cast<uint8_t>(egtCur | (useSR ? 0 : 0x20)), true);
+                       static_cast<uint8_t>(egtCur | (useSR ? 0x20 : 0)), true);
                 setReg(static_cast<uint16_t>(6 + i),
                        static_cast<uint8_t>(((sl & 0xF) << 4) | rrReg), true);
             }
