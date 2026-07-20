@@ -335,6 +335,27 @@ protected:
     // updateTL は public セクションに公開 (CRhythmCh のLFO処理用)
     virtual void updateFnumber(uint8_t ch, bool forceWrite = true);
 
+    // ─── キャリアオペレータ判定 ─────────────────────────────────────────
+    // op(0-3) がキャリア(音を出すオペレータ)かどうかを返す。
+    // VoiceProcessor::onNoteOn/onVolumeChange へ渡すキャリアマスクの計算に
+    // 使う (VoiceProcessor自身はhw.ALGの意味・キャリア規則を知らないため、
+    // チップドライバ側がこのメソッドで教える設計)。
+    // デフォルト実装はOPN/OPM互換の標準8アルゴリズムテーブル(kCarrierMask、
+    // hw.ALG&7で参照)。キャリア規則が異なるチップ(OPL系2op/4op、OPLL等)は
+    // オーバーライドすること (2026年7月、この判定がOPN/OPM専用のまま
+    // 全チップ共通で使われており、OPL/OPLL等でキャリアopがvol/exp/vel/VTLの
+    // 影響を一切受けないバグがあったため導入)。
+    virtual bool isCarrierOp(uint8_t ch, int op) const;
+
+    // isCarrierOp() を op=0-3 全てについて評価し、ビットマスクにまとめる
+    // (VoiceProcessor::onNoteOn/onVolumeChangeへそのまま渡せる形)。
+    uint8_t computeCarrierMask(uint8_t ch) const {
+        uint8_t mask = 0;
+        for (int op = 0; op < 4; ++op)
+            if (isCarrierOp(ch, op)) mask |= static_cast<uint8_t>(1u << op);
+        return mask;
+    }
+
     // ─── Fnum 計算 ──────────────────────────────────────────────────────
     virtual ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const; // offset: kfs単位
 

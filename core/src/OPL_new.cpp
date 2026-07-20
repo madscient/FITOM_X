@@ -64,6 +64,13 @@ protected:
         return (op == 1) || ((chState_[ch].hwPatch.hw.ALG & 1) != 0);
     }
 
+    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // OPN/OPM用のデフォルト実装(hw.ALGを3bit8アルゴリズムとして解釈)は
+    // OPLの1bit ALGと噛み合わないため、isCarrier()に委譲する。
+    bool isCarrierOp(uint8_t ch, int op) const override {
+        return op < 2 && isCarrier(ch, op);
+    }
+
     // ビット幅変換ヘルパー
     static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit (上位4bit)
     static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit (パッチ生TL用)
@@ -354,6 +361,14 @@ protected:
     bool isCarrier(uint8_t ch, int op) const {
         return (carmsk[alValue(ch)] & (1 << op)) != 0;
     }
+
+    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // OPL3の4opアルゴリズムはOPN/OPM用のデフォルトテーブルと異なる
+    // (carmsk[]参照)ため、isCarrier()に委譲する。
+    bool isCarrierOp(uint8_t ch, int op) const override {
+        return isCarrier(ch, op);
+    }
+
     static uint8_t ar4(uint8_t v) { return v >> 1; } // 5bit → 4bit
     static uint8_t tl6(uint8_t v) { return v >> 1; } // 7bit → 6bit (パッチ生TL用)
 
@@ -721,6 +736,14 @@ protected:
     // (2026年7月、この変換が欠落していたバグを修正。COPLと同様)。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
+    }
+
+    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // ch==4(BD)はCOPLと同じ2opキャリア規則。それ以外(単一オペレータ
+    // 楽器)はhwOp[0]のみを使い常にキャリア扱い(updateVoice参照)。
+    bool isCarrierOp(uint8_t ch, int op) const override {
+        if (ch == 4) return (op == 1) || ((chState_[ch].hwPatch.hw.ALG & 1) != 0);
+        return op == 0;
     }
 
     // 物理ch+オペレータindex1個分のレジスタを書き込む。carrier=trueなら

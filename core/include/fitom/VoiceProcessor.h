@@ -120,8 +120,17 @@ public:
     // exp:   MIDIエクスプレッション (0〜127)
     // vel:   MIDIベロシティ (0〜127)
     // voice: 適用するボイスデータ
+    // carrierMask: bit[i]=1 なら op[i] がキャリア (音を出すオペレータ)。
+    //   VoiceProcessorはチップ非依存のため、どのopがキャリアかを自力では
+    //   判定できない (hw.ALGの意味・ビット幅・キャリア規則はチップごとに
+    //   異なる: OPN/OPMは3bit8アルゴリズム、OPL(2op)は1bit、OPL3(4op)は
+    //   独自の8アルゴリズム、OPLLは常にop1固定 等)。呼び出し元
+    //   (CSoundDevice::isCarrierOp())がチップ固有の規則で計算した値を渡す。
+    //   (2026年7月、ここをOPN/OPM専用の固定テーブルで自己判定しており、
+    //   OPL/OPLL等でキャリアopがvol/exp/velの影響を一切受けないバグを
+    //   修正)。
     void onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
-                  const FmVoice& voice) noexcept;
+                  const FmVoice& voice, uint8_t carrierMask) noexcept;
 
     // ─── NoteOff 時に呼ぶ ─────────────────────────────────────────
     void onNoteOff(uint16_t fadeout_ms = 0) noexcept;
@@ -142,9 +151,10 @@ public:
 
     // ─── ボリューム/エクスプレッション変更時に呼ぶ ────────────────
     // チャンネルレベルが変化した場合に effectiveTL を再計算する。
+    // carrierMask: onNoteOn() と同じ意味。
     // 戻り値: true = TL が変化したのでチップへの書き込みが必要
     bool onVolumeChange(uint8_t vol, uint8_t exp,
-                        const FmVoice& voice) noexcept;
+                        const FmVoice& voice, uint8_t carrierMask) noexcept;
 
     // ─── タイマーティック (1ms ごと) ─────────────────────────────
     // 戻り値: needsFreqUpdate (チャンネル LFO) | needsTLUpdate (OP LFO)
@@ -215,7 +225,7 @@ private:
 
     // ─── 内部計算 ─────────────────────────────────────────────────
     void recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
-                      const FmVoice& voice) noexcept;
+                      const FmVoice& voice, uint8_t carrierMask) noexcept;
     void recalcOpLfo(int op, const FmVoice& voice) noexcept;
     void recalcChLfo(const FmVoice& voice) noexcept;
 

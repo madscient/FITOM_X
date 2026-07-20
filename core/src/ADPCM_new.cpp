@@ -116,6 +116,15 @@ public:
     void updateTL(uint8_t, uint8_t, uint8_t) override {}
 
 protected:
+    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // ADPCM系はFM合成のアルゴリズム概念を持たず、単一の"声"(op0相当)を
+    // 常にキャリア扱いする(updateVolExpのeffectiveTL(0)参照)。hw.ALGは
+    // ADPCM系パッチでは意味を持たないため、OPN/OPM用のデフォルト実装
+    // (hw.ALGを3bit8アルゴリズムとして解釈)に頼らずオーバーライドする。
+    bool isCarrierOp(uint8_t /*ch*/, int op) const override {
+        return op == 0;
+    }
+
     // 旧FITOM CAdPcmBase::CAdPcmBase() が設定していた NoteOffset(-57,
     // "origin note: O3A") 相当。noteOffset_ (= kNoteOffset 448/356) は
     // fnumTable_ 生成用のテーブルオフセットであり別物なので、これと
