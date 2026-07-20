@@ -20,8 +20,10 @@ class COPLL : public CSoundDevice {
 public:
     // mode: 0=トーンのみ (9ch), 1=リズムモード (6ch + リズム)
     // maxChs: 物理チャンネル数。VRC7 (リズム回路なし) は 6 を渡す。
-    //         CSoundDevice のコンストラクタが maxChs 以降のチャンネルを
-    //         自動的に disable() するため、getChCount() も正しく反映される。
+    //         chState_はmaxChs分しか確保されないため、ch6-8の無効化は
+    //         maxChs自体で打ち切る(VRC7のmaxChs=6は現状常にmode=0で
+    //         呼ばれるため実際には到達しないが、範囲外アクセス防止の
+    //         防御的チェックとして残す)。
     COPLL(IPort* port, int sampleRate, uint8_t mode = 0,
           uint8_t devId = DEVICE_OPLL, uint8_t maxChs = 9)
         : CSoundDevice(devId, maxChs, port,
@@ -34,8 +36,7 @@ public:
         opCount_ = 2;
         if (rhythmMode_) {
             // ch 6-8 をリズム専用として自動割り当て禁止
-            // (maxChs=6 の場合は既に disable 済みのため範囲外アクセスにならない)
-            for (int i = 6; i < 9 && i < MAX_CHS; ++i) chState_[i].disable();
+            for (int i = 6; i < 9 && i < maxChs_; ++i) chState_[i].disable();
         }
     }
 
@@ -54,7 +55,7 @@ public:
     void reset() override {
         CSoundDevice::reset();
         if (rhythmMode_) {
-            for (int i = 6; i < 9; ++i) chState_[i].disable();
+            for (int i = 6; i < 9 && i < maxChs_; ++i) chState_[i].disable();
         }
     }
 
@@ -264,9 +265,10 @@ protected:
 //  CVRC7 — OPLL からリズムチャンネルを削除した派生 (FS1001)
 //  制御ロジックは OPLL と同一だが、リズム音源回路自体が存在しないため
 //  楽音 6ch のみが有効。CSoundDevice に maxChs=6 を渡すことで
-//  getChCount() も正しく 6 を返し、ch 6-8 は自動的に disable される。
-//  リズム回路自体が存在しないため、rhythmMode は常に無効に固定する
-//  (呼び出し元から true が渡されても無視する)。
+//  getChCount() も正しく 6 を返し、chState_自体がch0-5の6要素しか
+//  持たなくなるため、ch 6-8 は物理的に存在しない(=常にアクセス不能)
+//  扱いになる。リズム回路自体が存在しないため、rhythmMode は常に
+//  無効に固定する(呼び出し元から true が渡されても無視する)。
 // ================================================================
 class CVRC7 : public COPLL {
 public:

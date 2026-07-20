@@ -478,3 +478,63 @@ MSB→LSBの順序が正しく、`forceWrite=true`を追加するだけで実機
 `forceWrite=true`だった(B0レジスタにKONビットが同居し、キーオンの
 たびに値が変化するため、そもそもこの問題の影響を受けにくい構造でも
 ある)。
+
+## 8. CSoundDevice::chState_ の固定長配列オーバーフロー (2026年7月修正)
+
+**症状**: `OPL4`を含むプロファイル(`emu_opl.profile.json`等)を`fitom_gui`で
+読み込むと、デバイス初期化完了直後に無言でクラッシュする(ログ出力なし、
+例外ダイアログも出ない`0xc0000005`アクセス違反)。Releaseビルドでのみ
+安定再現し、`RelWithDebInfo`ビルドでは再現しないなど、ビルド構成に
+よって発生有無が変わる不定動作だった。
+
+**根本原因**: `CSoundDevice`は各チャンネルの状態を`ChState
+chState_[MAX_CHS]`という固定長配列で保持しており、`MAX_CHS`は全チップ
+共通の定数(旧値16)だった。一方`OPL4`のAWM(PCM/波形メモリ)部ドライバ
+`COPL4AWM`(`core/src/OPL4.cpp`)は`CSoundDevice(DEVICE_OPL4AWM, 24, ...)`
+で**24ch**として構築される。コンストラクタは`maxChs_`に渡された値を
+クランプせずそのまま格納するため、`onMasterPitchChanged()`等の
+`for (ch=0; ch<maxChs_; ++ch)`ループが、実体16要素しかない
+`chState_`配列を範囲外(16〜23番目)まで読み書きしてしまうヒープ
+バッファオーバーフローだった。
+
+**調査の経緯**: Windowsイベントログ(Application Error)から
+`fitom_gui.exe`が複数ビルド・複数日にわたり同じ`0xc0000005`で繰り返し
+落ちていたことを確認。Releaseと同一の最適化フラグ(`/O2`)を保ったまま
+`/Zi /DEBUG`を追加して再ビルドし、`%LOCALAPPDATA%\CrashDumps`の自動
+ダンプと`dbghelp.dll`(P/Invoke経由)でクラッシュアドレスをシンボル化した
+結果、`fitom::CSoundDevice::onMasterPitchChanged`
+(`SoundDevImpl.cpp`の`chState_[ch].isActive()`)を指していた。
+
+**修正**: 応急処置として`MAX_CHS`を24に拡大する案もあったが、「今
+判明している最大値に追従するだけ」で将来より多chなチップが追加されれば
+同じ問題を再発する場当たり的な対処のため採用しなかった。代わりに
+`chState_`を`std::vector<ChState>`化し、コンストラクタで`maxChs_`と
+**ちょうど同じ数**だけ`resize`する設計に変更した(`MAX_CHS`定数自体を
+廃止)。配列サイズと`maxChs_`が食い違うという不変条件違反が構造的に
+起こり得なくなる。
+
+**同種パターンの横展開**: `MAX_CHS`を根拠にサイズを決めていた箇所を
+全面調査し、以下も同時に修正した(チップファミリー間の一貫性の原則に
+基づく):
+
+- `core/src/PSG_new.cpp`の`CPSGBase::lfoTL_`/`envelopes_`
+  (ソフトLFO基準TL・ソフトウェアADSR) — 同じ`MAX_CHS`依存の固定長配列
+  だったため、`chState_`と同様に`vector`化
+- `core/include/fitom/MultiDevice.h`の`CLinearPanDevice::masterVolume_`/
+  `masterPan_` — `CSoundDevice::MAX_CHS`とは別に独自定義していた
+  `kMaxChs_=16`という決め打ちサイズだった。現状16ch超のチップが
+  `CLinearPanDevice`で束ねられることはないが、潜在的に同種の脆弱性を
+  抱えていたため、束ねる2チップの`getChCount()`に基づいて動的にサイズを
+  決める`vector`に変更した
+- `core/src/OPLL_new.cpp`の`COPLL`(ch6-8をリズム専用に無効化する
+  ループ)は、固定長配列の余裕に暗黙に依存して`maxChs_`に対する境界
+  チェックを一切していなかった(コメントに「maxChs=6の場合は既に
+  disable済みのため範囲外アクセスにならない」と明記されていた)。
+  現状VRC7(maxChs=6)は常にリズムモード無効で呼ばれるため実害はない
+  防御的な修正だが、`i < maxChs_`のガードを追加した
+
+**教訓**: 「チップ固有の値を、全チップ共通の固定長配列サイズより
+小さく保つ」という暗黙の不変条件は、チップドライバの実装者に伝わり
+にくく、実際に3箇所で同種の脆弱性が見つかった。可能な限り「サイズと
+実際のチャンネル数を構造的に一致させる」設計(今回のvector化)を優先し、
+共有定数への依存は避けること。

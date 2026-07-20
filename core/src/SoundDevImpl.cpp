@@ -64,10 +64,8 @@ CSoundDevice::CSoundDevice(uint8_t deviceType, uint8_t maxChs, IPort* port,
         regBak_ = new uint8_t[regSize];
         std::memset(regBak_, 0, regSize);
     }
-    for (int i = 0; i < MAX_CHS; ++i) {
-        chState_[i].init();
-        if (i >= maxChs_) chState_[i].disable();
-    }
+    chState_.resize(maxChs_);
+    for (auto& s : chState_) s.init();
 }
 
 CSoundDevice::~CSoundDevice()
@@ -450,10 +448,7 @@ void CSoundDevice::setMasterVolume(uint8_t vol)
 
 void CSoundDevice::reset()
 {
-    for (int i = 0; i < MAX_CHS; ++i) {
-        chState_[i].init();
-        if (i >= maxChs_) chState_[i].disable();
-    }
+    for (auto& s : chState_) s.init();
     if (regBak_) std::memset(regBak_, 0, regSize_);
     priorCh_ = 0;
 }

@@ -140,6 +140,7 @@
 | 内部用MIDIパイプの多接続化(最大16本+接続直後のチャンネル自動割り当てSysEx) | ✅ | `plugin-midi-pipe.md` |
 | MIDIバックエンドDLLをRtMidi単一実装へ統合 (旧midi_wms/midi_winmm/midi_alsaの3実装廃止、SysEx未対応だった既存欠陥を解消、macOS対応を新規追加) | ✅ | `plugin-midi.md` |
 | OPNB(YM2610無印)の誤分類修正 (VOICE_PATCH_OPNからOPN2側へ、COPNB新設でSSG/ADPCM-Aサブデバイス自動生成・実効4ch化に対応。ステージング環境からの指摘で発覚) | ✅ | `chip-driver-architecture.md` |
+| `CSoundDevice::chState_`等、チャンネル数を固定長配列で持っていた箇所のvector化 (OPL4 AWM=24chがMAX_CHS=16固定配列を超えて範囲外アクセスするクラッシュを修正。`chState_`本体に加え`CPSGBase::lfoTL_`/`envelopes_`、`CLinearPanDevice::masterVolume_`/`masterPan_`も同種のためvector化。ステージング環境での「無言で強制終了」報告から発覚) | ✅ | `chip-driver-architecture.md` |
 
 ---
 
