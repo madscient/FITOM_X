@@ -294,14 +294,19 @@ void textEllipsis(const std::string& text, float maxWidth)
 }
 
 struct MonitorColumns {
-    static constexpr float ch       = 0.0f;
-    static constexpr float bank     = 34.0f;
-    static constexpr float program  = 254.0f;
-    static constexpr float volume   = 474.0f;
-    static constexpr float note     = 544.0f;
-    static constexpr float device   = 604.0f;
-    static constexpr float fnumber  = 884.0f;
-    static constexpr float total    = 980.0f; // キーボードビュー行の幅
+    // 左端の余白。文字がウィンドウ端にぴったり付いて見えるのを避ける
+    // (およそ半角2文字分)。
+    static constexpr float leftMargin = 24.0f;
+
+    static constexpr float ch       = leftMargin;
+    static constexpr float bank     = leftMargin + 34.0f;
+    static constexpr float program  = leftMargin + 254.0f;
+    static constexpr float volume   = leftMargin + 474.0f;
+    static constexpr float note     = leftMargin + 544.0f;
+    static constexpr float device   = leftMargin + 604.0f;
+    static constexpr float fnumber  = leftMargin + 884.0f;
+    static constexpr float keyboardWidth = 980.0f; // キーボードビュー自体の幅(左マージンを含まない)
+    static constexpr float total    = leftMargin + keyboardWidth; // 行全体の幅(ヘッダ右端・ボタン位置等の基準)
 
     // 各列の表示可能幅(次の列の開始位置との差分から、余白分を引く)
     static constexpr float bankWidth    = program - bank   - 8.0f;
@@ -518,7 +523,7 @@ void renderKeyboardView(const FITOMChannelMonitor& mon, ChannelGlow& glow, float
         return IM_COL32(255, g, b, 255);
     };
 
-    ImGui::SetCursorPosX(0.0f);
+    ImGui::SetCursorPosX(C::leftMargin);
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
@@ -527,7 +532,7 @@ void renderKeyboardView(const FITOMChannelMonitor& mon, ChannelGlow& glow, float
     for (int n = 0; n < kNumNotes; ++n) {
         if (!isBlackKeyNote(n)) ++whiteKeyCount;
     }
-    const float whiteKeyWidth = C::total / static_cast<float>(whiteKeyCount);
+    const float whiteKeyWidth = C::keyboardWidth / static_cast<float>(whiteKeyCount);
 
     // 白鍵を先に描画する(黒鍵の下敷きになる位置関係)。
     for (int n = 0; n < kNumNotes; ++n) {
@@ -549,7 +554,7 @@ void renderKeyboardView(const FITOMChannelMonitor& mon, ChannelGlow& glow, float
                            colorForNote(n, IM_COL32(24, 24, 28, 255)));
     }
 
-    ImGui::Dummy(ImVec2(C::total, kHeight));
+    ImGui::Dummy(ImVec2(C::keyboardWidth, kHeight));
 }
 
 // MIDIモニター バンド。ルート画面に常時表示する主要コンテンツ。
@@ -580,6 +585,7 @@ void renderMidiMonitorBand(FITOMBridge& bridge)
     for (const auto& m : midiInputs) {
         if (m.index == mpuIndex) { portName = m.name; break; }
     }
+    ImGui::SetCursorPosX(C::leftMargin);
     if (!portName.empty()) {
         ImGui::Text("<%s>", portName.c_str());
     } else {
@@ -638,7 +644,10 @@ int main(int argc, char** argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "FITOM_X", nullptr, nullptr);
+    // 高さ900: MIDIモニターバンド(16ch分、1chあたりデータ行+
+    // キーボードビューで約46px)が初期状態でスクロールバー無しに
+    // 収まる高さ(ヘッダ部分込みで約806px)に余裕を持たせた値。
+    GLFWwindow* window = glfwCreateWindow(1280, 900, "FITOM_X", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return 1;
