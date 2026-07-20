@@ -70,6 +70,15 @@ const PatchBank* PatchManager::findPatchBank(int bankNo) const
     return (it != patchBanks_.end()) ? &it->second : nullptr;
 }
 
+std::vector<int> PatchManager::listPatchBankNumbers() const
+{
+    std::vector<int> result;
+    result.reserve(patchBanks_.size());
+    for (const auto& kv : patchBanks_) result.push_back(kv.first);
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
 namespace {
 
 // ================================================================

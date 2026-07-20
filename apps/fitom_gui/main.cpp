@@ -10,6 +10,7 @@
 // (デバイス一覧・MIDI入力一覧は空)。
 
 #include "FITOMBridge.h"
+#include "ChSettingsDialog.h"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -367,13 +368,24 @@ void launchPatchEditorForChannel(FITOMBridge& bridge, int mpuIndex, int ch)
 
 // 1チャンネル分のデータ行(バンク/プログラム/ボリューム/ノート/デバイス/
 // Fnumber)を描画する。発音していない間はNote以降を空欄にする。
+// CH列はシングルクリックでCH設定ダイアログを開く。
 // Bank/Program列はダブルクリックで外部パッチエディタを起動できる。
-void renderMonitorDataRow(FITOMBridge& bridge, int mpuIndex, const FITOMChannelMonitor& mon)
+void renderMonitorDataRow(FITOMBridge& bridge, int mpuIndex, const FITOMChannelMonitor& mon,
+                           ChSettingsDialog& chDialog)
 {
     using C = MonitorColumns;
     char buf[64];
 
+    // CH列: 不可視Selectableでヒット領域を確保し、実テキストを重ねて
+    // 描画する(Bank/Program列と同じパターン)。
     ImGui::SetCursorPosX(C::ch);
+    const ImVec2 chAreaPos(ImGui::GetCursorPos());
+    const ImVec2 chAreaSize(C::bank - C::ch - 4.0f, ImGui::GetTextLineHeight());
+    const std::string chSelId = "##chsel" + std::to_string(mon.ch);
+    if (ImGui::Selectable(chSelId.c_str(), false, 0, chAreaSize)) {
+        chDialog.open(bridge, mpuIndex, mon.ch);
+    }
+    ImGui::SetCursorPos(chAreaPos);
     ImGui::Text("%d", mon.ch + 1);
 
     // Bank+Program列をまとめてダブルクリック検出領域にする。まず
@@ -565,6 +577,7 @@ void renderMidiMonitorBand(FITOMBridge& bridge)
 
     static int mpuIndex = 0;
     static std::array<ChannelGlow, 16> keyGlow{};
+    static ChSettingsDialog chDialog;
 
     auto midiInputs = bridge.getMidiInputs();
 
@@ -612,17 +625,22 @@ void renderMidiMonitorBand(FITOMBridge& bridge)
 
     if (monitors.empty()) {
         FITOMChannelMonitor placeholder;
-        renderMonitorDataRow(bridge, mpuIndex, placeholder);
+        renderMonitorDataRow(bridge, mpuIndex, placeholder, chDialog);
         ImGui::NewLine(); // SameLine()チェーンの末尾のままだと次の描画が
                            // 同じ行に重なってしまうため、明示的に改行する
         renderKeyboardView(placeholder, keyGlow[0], now);
     } else {
         for (size_t i = 0; i < monitors.size() && i < keyGlow.size(); ++i) {
-            renderMonitorDataRow(bridge, mpuIndex, monitors[i]);
+            renderMonitorDataRow(bridge, mpuIndex, monitors[i], chDialog);
             ImGui::NewLine();
             renderKeyboardView(monitors[i], keyGlow[i], now);
         }
     }
+
+    // CH設定ダイアログ本体(モーダル)。どのチャンネルがクリックされても
+    // ここで一箇所だけ描画する。パッチピッカー/ドラムキット選択は
+    // render()内部で入れ子描画される(ChSettingsDialog.h参照)。
+    chDialog.render(bridge);
 }
 
 } // namespace

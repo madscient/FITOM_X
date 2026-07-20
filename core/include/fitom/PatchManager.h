@@ -63,6 +63,9 @@ public:
     // パッチバンクの取得・登録
     PatchBank& getPatchBank(int bankNo);
     const PatchBank* findPatchBank(int bankNo) const;
+    // 登録済みのPatchBank番号一覧を昇順で返す(GUIのパッチピッカー
+    // ダイアログ向け、通常モードのCC#32階層列挙用、2026年7月新設)。
+    std::vector<int> listPatchBankNumbers() const;
 
     // ─── SysExによるHwPatchパラメータオーバーライド ────────────────
     // JSON文字列をパースし、targetへ差分マージする(存在するキーのみ
