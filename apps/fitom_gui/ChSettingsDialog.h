@@ -58,6 +58,10 @@ private:
     PatchPickerDialog picker_;
     bool              drumPickerPending_ = false;
     int               drumSelectedProg_  = -1;
+    // パッチピッカーを一度でも開いたか(試聴でチャンネル状態が変わって
+    // いる可能性があるかどうかの判定に使う。CH設定キャンセル時、これが
+    // falseなら試聴は一度も起きていないため復元メッセージの送信を省略する)。
+    bool              pickerEverOpened_  = false;
 
     // 現在のpatch_が指すパッチの表示名を解決する("<bank>:<prog> <name>"形式)。
     std::string currentPatchLabel(FITOMBridge& bridge) const;

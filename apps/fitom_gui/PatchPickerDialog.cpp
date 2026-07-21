@@ -52,15 +52,49 @@ const char* categoryLabel(uint8_t value)
     return "(不明なカテゴリ)";
 }
 
+// 試聴用の固定ノート(C4)とベロシティ。
+constexpr uint8_t kAuditionNote     = 60;
+constexpr uint8_t kAuditionVelocity = 100;
+
 } // namespace
 
-void PatchPickerDialog::open(const PatchSelection& current)
+void PatchPickerDialog::open(int mpuIndex, int ch, const PatchSelection& current)
 {
+    mpuIndex_         = mpuIndex;
+    ch_               = ch;
+    openedWith_       = current;
+    auditionSounding_ = false;
+
     openPending_  = true;
     level_        = Level::Program; // 要件通り、初期状態はProg.chg階層
     category_     = current.voicePatchType;
     bank_         = current.bankNo;
     selectedProg_ = current.progNo;
+}
+
+void PatchPickerDialog::auditionSelect(FITOMBridge& bridge, uint8_t voicePatchType, int bankNo, int progNo)
+{
+    stopAudition(bridge); // 前の試聴ノートが鳴っていれば止めてから切り替える
+    bridge.sendControlChange(mpuIndex_, ch_, 0, voicePatchType);
+    bridge.sendControlChange(mpuIndex_, ch_, 32, static_cast<uint8_t>(bankNo));
+    bridge.sendProgramChange(mpuIndex_, ch_, static_cast<uint8_t>(progNo));
+    bridge.sendNoteOn(mpuIndex_, ch_, kAuditionNote, kAuditionVelocity);
+    auditionSounding_ = true;
+}
+
+void PatchPickerDialog::stopAudition(FITOMBridge& bridge)
+{
+    if (!auditionSounding_) return;
+    bridge.sendNoteOff(mpuIndex_, ch_, kAuditionNote);
+    auditionSounding_ = false;
+}
+
+void PatchPickerDialog::restoreOriginal(FITOMBridge& bridge)
+{
+    stopAudition(bridge);
+    bridge.sendControlChange(mpuIndex_, ch_, 0, openedWith_.voicePatchType);
+    bridge.sendControlChange(mpuIndex_, ch_, 32, static_cast<uint8_t>(openedWith_.bankNo));
+    bridge.sendProgramChange(mpuIndex_, ch_, static_cast<uint8_t>(openedWith_.progNo));
 }
 
 void PatchPickerDialog::renderCategoryLevel()
@@ -106,7 +140,7 @@ void PatchPickerDialog::renderBankLevel(FITOMBridge& bridge)
     ImGui::EndChild();
 }
 
-bool PatchPickerDialog::renderProgramLevel(FITOMBridge& bridge, PatchSelection& out)
+void PatchPickerDialog::renderProgramLevel(FITOMBridge& bridge)
 {
     ImGui::Text("プログラムを選択してください: [%s] バンク%d", categoryLabel(category_), bank_);
     ImGui::BeginChild("##ppd_program", ImVec2(420.0f, 280.0f), true);
@@ -116,23 +150,29 @@ bool PatchPickerDialog::renderProgramLevel(FITOMBridge& bridge, PatchSelection& 
     if (patches.empty()) {
         ImGui::TextDisabled("(登録されているパッチがありません)");
     }
-    bool confirmed = false;
     for (const auto& p : patches) {
         char buf[128];
         std::snprintf(buf, sizeof(buf), "%d: %s", p.prog, p.name.c_str());
         const std::string selId = std::string(buf) + "##ppd_prog" + std::to_string(p.prog);
-        if (ImGui::Selectable(selId.c_str(), selectedProg_ == p.prog, ImGuiSelectableFlags_AllowDoubleClick)) {
+        ImGui::Selectable(selId.c_str(), selectedProg_ == p.prog);
+        // マウスボタンダウンでNote On、アップでNote Offにする(鍵盤を
+        // 押している間だけ鳴る動作、2026年7月)。IsItemActivated()/
+        // IsItemDeactivated()は、Selectable()の戻り値(クリック確定、
+        // 既定ではボタンアップ時にtrueになる)とは別に、ImGui内部の
+        // ActiveId(マウスダウンで設定されアップされるまで保持される)の
+        // 変化を直接見て判定するため、押下と離しをそれぞれ検出できる。
+        // (以前はダブルクリックでの即時確定も兼ねていたが、連打すると
+        // 試聴のNote Onと確定側のstopAudition()が競合し音が鳴らなくなる
+        // 不具合があったため、確定は下の「選択」ボタンに一本化済み)。
+        if (ImGui::IsItemActivated()) {
             selectedProg_ = p.prog;
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                out.voicePatchType = category_;
-                out.bankNo         = bank_;
-                out.progNo         = selectedProg_;
-                confirmed = true;
-            }
+            auditionSelect(bridge, category_, bank_, selectedProg_);
+        }
+        if (ImGui::IsItemDeactivated()) {
+            stopAudition(bridge);
         }
     }
     ImGui::EndChild();
-    return confirmed;
 }
 
 bool PatchPickerDialog::render(FITOMBridge& bridge, PatchSelection& out)
@@ -147,6 +187,7 @@ bool PatchPickerDialog::render(FITOMBridge& bridge, PatchSelection& out)
     if (ImGui::BeginPopupModal("パッチ選択", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         if (level_ != Level::Category) {
             if (ImGui::Button("↑ 上へ")) {
+                stopAudition(bridge); // 一覧を離れるので試聴ノートは止める
                 level_        = (level_ == Level::Program) ? Level::Bank : Level::Category;
                 selectedProg_ = -1;
             }
@@ -161,7 +202,7 @@ bool PatchPickerDialog::render(FITOMBridge& bridge, PatchSelection& out)
             renderBankLevel(bridge);
             break;
         case Level::Program:
-            if (renderProgramLevel(bridge, out)) confirmed = true;
+            renderProgramLevel(bridge);
             break;
         }
 
@@ -176,10 +217,16 @@ bool PatchPickerDialog::render(FITOMBridge& bridge, PatchSelection& out)
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (ImGui::Button("キャンセル", ImVec2(120.0f, 0.0f))) {
+            // 試聴で変わってしまったチャンネルの状態をopen()時点へ戻す。
+            restoreOriginal(bridge);
             ImGui::CloseCurrentPopup();
         }
 
-        if (confirmed) ImGui::CloseCurrentPopup();
+        if (confirmed) {
+            // 確定した音色は試聴中のものと同じなので、値は戻さずノートだけ止める。
+            stopAudition(bridge);
+            ImGui::CloseCurrentPopup();
+        }
         ImGui::EndPopup();
     }
     return confirmed;

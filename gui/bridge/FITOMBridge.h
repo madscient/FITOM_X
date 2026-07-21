@@ -135,6 +135,9 @@ public:
     // 動的切替等も含む)。
     void sendControlChange(int mpuIndex, int ch, uint8_t cc, uint8_t val);
     void sendProgramChange(int mpuIndex, int ch, uint8_t prog);
+    // パッチピッカーの音色試聴用(2026年7月新設)。
+    void sendNoteOn(int mpuIndex, int ch, uint8_t note, uint8_t vel);
+    void sendNoteOff(int mpuIndex, int ch, uint8_t note);
 
     // ─── パッチ一覧 ──────────────────────────────────────────────────────
     std::vector<FITOMPatchInfo> getPatches(int bankNo) const;

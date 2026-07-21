@@ -326,19 +326,30 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         mon.expression = midich->getExpression();
         mon.panpot   = midich->getPanpot();
 
-        // バンク名・パッチ名の解決。ネイティブモード(PatchBank)と
-        // リズムチャンネル(DrumPatchBank)とで参照先が異なる。
-        // 解決できない場合(直接モード等)は空文字のままにし、GUI側で
-        // 数値表示にフォールバックする。
+        // バンク名・パッチ名の解決。ネイティブモード(PatchBank)・
+        // 直接デバイス選択モード(HwBankRegistry)・リズムチャンネル
+        // (DrumPatchBank)とで参照先が異なる。解決できない場合は空文字の
+        // ままにし、GUI側で数値表示にフォールバックする。
+        const uint8_t bankSelMSB = midich->getBankSelMSB();
         if (mon.isRhythm) {
             const auto* dp = pm.drumRegistry().resolve(mon.bankNo, mon.progNo);
             if (dp) mon.progName = dp->name;
-        } else {
+        } else if (bankSelMSB == 0) {
             const auto* bank = pm.findPatchBank(mon.bankNo);
             if (bank) {
                 mon.bankName = bank->name;
                 const auto& p = bank->get(mon.progNo);
                 if (p.isValid()) mon.progName = p.name;
+            }
+        } else if (bankSelMSB <= 0x6F) {
+            // 直接デバイス選択モード(2026年7月修正: 以前はここが未対応で
+            // 常に数値フォールバック表示になっていた)。
+            const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(bankSelMSB);
+            const auto* hwBank = pm.hwRegistry().find(group, mon.bankNo);
+            if (hwBank) {
+                mon.bankName = hwBank->name;
+                const auto& hp = hwBank->get(mon.progNo);
+                if (hp.isValid()) mon.progName = hp.name;
             }
         }
 
@@ -427,6 +438,24 @@ void FITOMBridge::sendProgramChange(int mpuIndex, int ch, uint8_t prog)
     if (ch < 0 || ch >= 16) return;
     fitom::CFITOM::instance().sendChannelProgramChange(
         static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch), prog);
+}
+
+void FITOMBridge::sendNoteOn(int mpuIndex, int ch, uint8_t note, uint8_t vel)
+{
+    if (!initialized_) return;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return;
+    if (ch < 0 || ch >= 16) return;
+    fitom::CFITOM::instance().sendChannelNoteOn(
+        static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch), note, vel);
+}
+
+void FITOMBridge::sendNoteOff(int mpuIndex, int ch, uint8_t note)
+{
+    if (!initialized_) return;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return;
+    if (ch < 0 || ch >= 16) return;
+    fitom::CFITOM::instance().sendChannelNoteOff(
+        static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch), note);
 }
 
 bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch,

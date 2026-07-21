@@ -76,6 +76,15 @@ public:
     void sendProgramChange(uint8_t ch, uint8_t prog) {
         if (ch < 16 && channels_[ch]) channels_[ch]->progChange(prog);
     }
+    // GUI等からの音色試聴用(2026年7月新設、パッチピッカーのプログラム
+    // 選択時のプレビュー再生)。processMessage()のNote On/Off分岐と同じ
+    // 呼び出しをそのまま行う。
+    void sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel) {
+        if (ch < 16 && channels_[ch]) channels_[ch]->noteOn(note, vel);
+    }
+    void sendNoteOff(uint8_t ch, uint8_t note) {
+        if (ch < 16 && channels_[ch]) channels_[ch]->noteOff(note);
+    }
 
 private:
     std::array<std::unique_ptr<IMidiCh>, 16>& channels_;
@@ -161,6 +170,15 @@ public:
     void sendChannelProgramChange(uint8_t mpuIndex, uint8_t ch, uint8_t prog) {
         std::lock_guard<std::mutex> lk(processMutex_);
         if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendProgramChange(ch, prog);
+    }
+    // GUI等からの音色試聴用(2026年7月新設)。
+    void sendChannelNoteOn(uint8_t mpuIndex, uint8_t ch, uint8_t note, uint8_t vel) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendNoteOn(ch, note, vel);
+    }
+    void sendChannelNoteOff(uint8_t mpuIndex, uint8_t ch, uint8_t note) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendNoteOff(ch, note);
     }
 
     // ─── タイマー・ポーリング ────────────────────────────────────
