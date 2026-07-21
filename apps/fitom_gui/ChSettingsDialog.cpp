@@ -13,6 +13,7 @@ void ChSettingsDialog::open(FITOMBridge& bridge, int mpuIndex, int ch)
 
     volume_     = initial_.volume;
     expression_ = initial_.expression;
+    panpot_     = initial_.panpot;
     isRhythm_   = initial_.isRhythm;
     mono_       = initial_.monoMode;
 
@@ -111,6 +112,7 @@ void ChSettingsDialog::applyAndClose(FITOMBridge& bridge)
     }
 
     bridge.sendControlChange(mpuIndex_, ch_, 7, static_cast<uint8_t>(volume_));
+    bridge.sendControlChange(mpuIndex_, ch_, 10, static_cast<uint8_t>(panpot_));
     bridge.sendControlChange(mpuIndex_, ch_, 11, static_cast<uint8_t>(expression_));
     if (mono_) {
         bridge.sendControlChange(mpuIndex_, ch_, 126, 1);
@@ -133,11 +135,11 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
         ImGui::Text("MPU%d CH%d", mpuIndex_, ch_ + 1);
         ImGui::Separator();
 
+        ImGui::Checkbox("リズムチャンネル (CC#0)", &isRhythm_);
         ImGui::SliderInt("ボリューム (CC#7)", &volume_, 0, 127);
 
-        ImGui::Checkbox("リズムチャンネル (CC#0)", &isRhythm_);
-
         ImGui::BeginDisabled(isRhythm_);
+        ImGui::SliderInt("パンポット (CC#10)", &panpot_, 0, 127);
         ImGui::SliderInt("エクスプレッション (CC#11)", &expression_, 0, 127);
         bool poly = !mono_;
         if (ImGui::RadioButton("ポリ (CC#127)", poly)) mono_ = false;
@@ -146,9 +148,7 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
         ImGui::EndDisabled();
 
         ImGui::Separator();
-        ImGui::TextUnformatted("パッチ選択:");
-        ImGui::TextUnformatted(currentPatchLabel(bridge).c_str());
-        if (ImGui::Button("変更...")) {
+        if (ImGui::Button("パッチ")) {
             if (isRhythm_) {
                 drumSelectedProg_ = patch_.progNo;
                 drumPickerPending_ = true;
@@ -156,6 +156,8 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
                 picker_.open(patch_);
             }
         }
+        ImGui::SameLine();
+        ImGui::TextUnformatted(currentPatchLabel(bridge).c_str());
 
         // パッチピッカー/ドラムキット選択は、この「CH設定」の
         // Begin/EndPopup区間の内側(真の入れ子)から描画する必要がある

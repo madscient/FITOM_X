@@ -49,6 +49,7 @@ private:
     // ローカル編集状態
     int             volume_     = 100;
     int             expression_ = 127;
+    int             panpot_     = 64;
     bool            isRhythm_   = false;
     bool            mono_       = false;
     PatchSelection  patch_;

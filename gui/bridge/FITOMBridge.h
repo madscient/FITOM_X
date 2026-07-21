@@ -63,6 +63,8 @@ struct FITOMChannelMonitor {
     std::string bankName;            // 解決できない場合は空文字
     std::string progName;            // 同上
     uint8_t     volume = 0;
+    uint8_t     expression = 0;
+    uint8_t     panpot = 0;
 
     bool        sounding = false;    // 現在発音中か
     uint8_t     lastNote = 0xFF;     // 0xFF=無し。発音中の場合、直近に
@@ -88,6 +90,7 @@ struct FITOMChannelMonitor {
 struct FITOMChannelSettings {
     uint8_t  volume     = 100;
     uint8_t  expression = 127;
+    uint8_t  panpot     = 64;
     bool     isRhythm   = false;
     bool     monoMode   = false;
     uint8_t  bankSelMSB = 0;   // CC#0 (0=通常モード, 1-0x6F=直接デバイス選択モード)
