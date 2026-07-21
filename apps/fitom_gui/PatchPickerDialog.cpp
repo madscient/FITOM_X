@@ -146,7 +146,7 @@ bool PatchPickerDialog::render(FITOMBridge& bridge, PatchSelection& out)
     ImGui::SetNextWindowSize(ImVec2(460.0f, 420.0f), ImGuiCond_Appearing);
     if (ImGui::BeginPopupModal("パッチ選択", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         if (level_ != Level::Category) {
-            if (ImGui::Button("< 戻る")) {
+            if (ImGui::Button("↑ 上へ")) {
                 level_        = (level_ == Level::Program) ? Level::Bank : Level::Category;
                 selectedProg_ = -1;
             }

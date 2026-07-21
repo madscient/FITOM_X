@@ -323,6 +323,8 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         mon.bankNo   = midich->getBankNo();
         mon.progNo   = midich->getProgramNo();
         mon.volume   = midich->getVolume();
+        mon.expression = midich->getExpression();
+        mon.panpot   = midich->getPanpot();
 
         // バンク名・パッチ名の解決。ネイティブモード(PatchBank)と
         // リズムチャンネル(DrumPatchBank)とで参照先が異なる。
@@ -396,6 +398,7 @@ FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
 
     settings.volume     = midich->getVolume();
     settings.expression = midich->getExpression();
+    settings.panpot     = midich->getPanpot();
     settings.isRhythm   = midich->isRhythm();
     settings.monoMode   = midich->isMonoMode();
     settings.bankSelMSB = midich->getBankSelMSB();
