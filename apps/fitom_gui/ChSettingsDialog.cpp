@@ -21,6 +21,7 @@ void ChSettingsDialog::open(FITOMBridge& bridge, int mpuIndex, int ch)
     patch_.bankNo         = static_cast<int>(initial_.bankNo);
     patch_.progNo         = initial_.progNo;
     patchChanged_         = false;
+    pickerEverOpened_     = false;
 
     openPending_ = true;
 }
@@ -136,11 +137,21 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
         ImGui::Separator();
 
         ImGui::Checkbox("リズムチャンネル (CC#0)", &isRhythm_);
-        ImGui::SliderInt("ボリューム (CC#7)", &volume_, 0, 127);
+        // Volume/Panpot/Expressionはドラッグ中(値が変わった瞬間)に
+        // 実際にCC#7/#10/#11を送り、その場で音を確認できるようにする
+        // (2026年7月新設、プレビュー再生)。最終的な値はOKでも改めて
+        // 送られる(applyAndClose参照)ため、ここでの送信はプレビュー専用。
+        if (ImGui::SliderInt("ボリューム (CC#7)", &volume_, 0, 127)) {
+            bridge.sendControlChange(mpuIndex_, ch_, 7, static_cast<uint8_t>(volume_));
+        }
 
         ImGui::BeginDisabled(isRhythm_);
-        ImGui::SliderInt("パンポット (CC#10)", &panpot_, 0, 127);
-        ImGui::SliderInt("エクスプレッション (CC#11)", &expression_, 0, 127);
+        if (ImGui::SliderInt("パンポット (CC#10)", &panpot_, 0, 127)) {
+            bridge.sendControlChange(mpuIndex_, ch_, 10, static_cast<uint8_t>(panpot_));
+        }
+        if (ImGui::SliderInt("エクスプレッション (CC#11)", &expression_, 0, 127)) {
+            bridge.sendControlChange(mpuIndex_, ch_, 11, static_cast<uint8_t>(expression_));
+        }
         bool poly = !mono_;
         if (ImGui::RadioButton("ポリ (CC#127)", poly)) mono_ = false;
         ImGui::SameLine();
@@ -153,7 +164,8 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
                 drumSelectedProg_ = patch_.progNo;
                 drumPickerPending_ = true;
             } else {
-                picker_.open(patch_);
+                pickerEverOpened_ = true;
+                picker_.open(mpuIndex_, ch_, patch_);
             }
         }
         ImGui::SameLine();
@@ -178,6 +190,24 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
         }
         ImGui::SameLine();
         if (ImGui::Button("キャンセル", ImVec2(120.0f, 0.0f))) {
+            // Volume/Panpot/Expressionはスライダー操作のたびにプレビュー
+            // 送信しているため、キャンセル時は元の値へ戻す。CC送信は
+            // 副作用が軽い(値を書き換えて出力レベルを再計算するだけ)ため、
+            // 変更の有無を問わず常に送り直す。
+            bridge.sendControlChange(mpuIndex_, ch_, 7, initial_.volume);
+            bridge.sendControlChange(mpuIndex_, ch_, 10, initial_.panpot);
+            bridge.sendControlChange(mpuIndex_, ch_, 11, initial_.expression);
+
+            // パッチピッカーでの試聴によってチャンネルの状態が変わって
+            // いる可能性があるため、開いたことがあれば元のCC#0/CC#32/
+            // Prog.chgを送り直して復元する(ピッカー自体のキャンセルでも
+            // 復元されるが、ピッカーを開いたままCH設定側をキャンセルされる
+            // 経路もあるため、こちらでも保険として行う)。
+            if (pickerEverOpened_) {
+                bridge.sendControlChange(mpuIndex_, ch_, 0, initial_.bankSelMSB);
+                bridge.sendControlChange(mpuIndex_, ch_, 32, static_cast<uint8_t>(initial_.bankNo));
+                bridge.sendProgramChange(mpuIndex_, ch_, initial_.progNo);
+            }
             ImGui::CloseCurrentPopup();
         }
 
