@@ -89,6 +89,15 @@ public:
     bool loadProfile(const std::filesystem::path& path, PatchManager* patchMgr = nullptr);
     bool loadLegacyIni(const std::filesystem::path& path);
 
+    // 現在のプロファイル状態をpathへ書き戻す(GUIのMIDIポート設定/
+    // システム設定ダイアログのOK確定用、2026年7月新設)。loadProfile()で
+    // 読み込んだJSON(profileJson_)をベースに、GUIから変更されうる
+    // フィールド(midi_inputs/master_volume/master_pitch)のみ現在値で
+    // 上書きする。devices/hw_plugins/banks等、他のフィールドはロード時の
+    // 内容がそのまま維持される。loadProfile()を一度も呼んでいない場合
+    // (profileJson_が空)は空のオブジェクトをベースに書き出す。
+    bool saveProfile(const std::filesystem::path& path) const;
+
     // fitom.conf.json の log.* 設定を取り出す。loadSystemConf() 未実行、
     // または該当フィールドが省略されている場合は fallback を返す
     // (呼び出し側の従来デフォルト値をそのまま維持できるようにするため)。
@@ -191,6 +200,12 @@ public:
 
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;
+    // 実行中にMIDI入力ポートの割り当てを丸ごと差し替える(GUIのMIDIポート
+    // 設定ダイアログ用、2026年7月新設)。namesの各要素がMPU 0,1,2...に
+    // 対応する。空文字列の要素は「未設定」を表す。呼び出し側(FITOMBridge)
+    // が実際のMIDIポートの開閉を行う責務を持ち、ここではConfigが保持する
+    // 名前一覧を更新するのみ。
+    void               setMidiInputNames(const std::vector<std::string>& names);
     // MIDIバックエンドDLLのパス (profile の midi_backend.dll)。
     // 未指定なら空文字列 (呼び出し側がプラットフォーム既定を使う)。
     const std::string& getMidiBackendDll()          const { return midiBackendDll_; }

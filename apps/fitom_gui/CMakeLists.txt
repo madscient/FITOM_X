@@ -8,6 +8,9 @@ add_executable(fitom_gui
     main.cpp
     ChSettingsDialog.cpp
     PatchPickerDialog.cpp
+    MidiPortSettingsDialog.cpp
+    SystemSettingsDialog.cpp
+    RegisterDumpWindow.cpp
 )
 
 target_link_libraries(fitom_gui

@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <unordered_map>
 
 namespace fitom {
 
@@ -124,8 +125,13 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
         FITOM_LOG_WARN("No MIDI inputs configured");
     }
 
-    // 各 MIDI 入力ポートに対して MidiProcessor を生成
-    for (int p = 0; p < MAX_MPUS && p < midiInputCount; ++p) {
+    // MPU(MAX_MPUS=4)は常に全面分生成する。実際にMIDIバイトが流れ込むか
+    // どうか(=物理/仮想MIDI入力ポートが割り当てられているか)はMidiProcessor
+    // の存在とは独立な関心事であるため(GUIのMIDIポート設定ダイアログから、
+    // 実行中に未割り当てのMPUへ新たにポートを割り当てられるようにするため、
+    // 2026年7月に変更。以前はconfig_->getMidiInputCount()分しか生成せず、
+    // 未設定のMPUにはMidiProcessor自体が存在しなかった)。
+    for (int p = 0; p < MAX_MPUS; ++p) {
         for (int ch = 0; ch < 16; ++ch) {
             // GM規格準拠: MIDI ch10 (0-indexed: ch9) は固定でリズムチャンネル。
             // (channel_mapは廃止。ポリフォニー数もデバイス依存のため
@@ -408,6 +414,80 @@ void CFITOM::initDevices()
     for (auto& dev : devices_) {
         if (dev) dev->onMasterPitchChanged(pitch);
     }
+
+    // レジスタダンプモニター用、物理チップ単位の一覧を構築する。
+    buildPhysicalChipList();
+}
+
+// ================================================================
+//  物理チップ列挙 (レジスタダンプモニター用)
+// ================================================================
+void CFITOM::buildPhysicalChipList()
+{
+    physicalChips_.clear();
+    // 同一HWPortを共有するデバイス(サブデバイス自動生成や、2ポートチップの
+    // port/port2)を1つの物理チップにまとめるためのdedupテーブル。
+    std::unordered_map<HWPort*, size_t> portToChip;
+
+    // primary(+secondary)を1つの物理チップとして登録する。
+    // primaryが既に登録済み(=兄弟デバイスが同じ物理ポートを共有している)
+    // 場合は何もしない(代表ラベルは最初に登録したデバイスのものを使う)。
+    auto registerChip = [&](HWPort* primary, HWPort* secondary,
+                             const std::string& label, uint32_t deviceType) {
+        if (!primary || portToChip.count(primary)) return;
+        size_t idx = physicalChips_.size();
+        PhysicalChipInfo info;
+        info.label        = label;
+        info.deviceType   = deviceType;
+        info.physicalName = primary->getPhysicalChipName();
+        info.port         = primary;
+        info.port2        = secondary;
+        physicalChips_.push_back(info);
+        portToChip[primary] = idx;
+        if (secondary) portToChip[secondary] = idx;
+    };
+
+    int n = config_->getDeviceCount();
+    for (int i = 0; i < n; ++i) {
+        auto* port  = dynamic_cast<HWPort*>(config_->getDevicePort(i));
+        auto* port2 = dynamic_cast<HWPort*>(config_->getDevicePort2(i));
+        registerChip(port, port2, config_->getDeviceLabel(i), config_->getDeviceType(i));
+
+        // 物理的にL/R固定配線されたステレオペア (CLinearPanDevice) の
+        // 相方(R側)も、独立した物理チップとして登録する。
+        auto* stereoPort = dynamic_cast<HWPort*>(config_->getDeviceStereoPairPort(i));
+        registerChip(stereoPort, nullptr,
+                     config_->getDeviceLabel(i) + " (stereo pair)",
+                     config_->getDeviceType(i));
+
+        // 同種デバイス自動束ね (spanGroups) の各要素も、それぞれ独立した
+        // 物理チップ(束ねられているのはCFITOM::initDevices()側のCSpanDevice
+        // 単位であり、物理チップとしては別々のためここでも個別に登録する)。
+        int spanCount = config_->getDeviceSpanGroupCount(i);
+        for (int k = 0; k < spanCount; ++k) {
+            auto* sp       = dynamic_cast<HWPort*>(config_->getDeviceSpanGroupPrimary(i, k));
+            auto* spStereo = dynamic_cast<HWPort*>(config_->getDeviceSpanGroupStereoPair(i, k));
+            uint32_t subType = config_->getDeviceSpanGroupDeviceType(i, k);
+            registerChip(sp, nullptr,
+                         config_->getDeviceLabel(i) + " (span " + std::to_string(k) + ")",
+                         subType);
+            registerChip(spStereo, nullptr,
+                         config_->getDeviceLabel(i) + " (span " + std::to_string(k) + " stereo pair)",
+                         subType);
+        }
+    }
+
+    FITOM_LOG_INFO("buildPhysicalChipList: " << physicalChips_.size() << " physical chip(s)");
+}
+
+std::vector<uint8_t> CFITOM::getPhysicalChipRegisterDump(int index) const
+{
+    if (index < 0 || index >= static_cast<int>(physicalChips_.size())) return {};
+    const auto& info = physicalChips_[index];
+    std::vector<uint8_t> result(info.port2 ? 0x200 : 0x100, 0);
+    if (info.port)  info.port->getShadowRegRange(0x000, result.data(), 0x100);
+    if (info.port2) info.port2->getShadowRegRange(0x000, result.data() + 0x100, 0x100);
+    return result;
 }
 
 // ================================================================
