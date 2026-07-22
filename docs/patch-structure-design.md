@@ -606,6 +606,42 @@ VoiceGroup（粗い分類、9種）は `HwBankRegistry` の検索キーとして
 データフォーマット・パラメータ範囲の分類に使う。VoicePatchType（27種）は
 バンク単位のタグとして、実際に解決されたデバイスとの整合性検証に使う。
 
+### pcm_banks の group (2026年7月新設)
+
+ADPCM-B/ADPCM-A/PCM-D8 (`VOICE_GROUP_PCM`) は `isSampleBasedVoicePatchType()`
+の対象であり、AWMと同じ`SampleZonePatch`スキーマ(HwPatch/`ops[]`は使わない、
+本書「サンプルベース音源系(0x50-0x54)」節参照)で扱われる。そのため通常の
+`hw_banks` + 手書きの `*.hwbank.json` とは別に、`banks.pcm_banks[]` エントリ
+だけで完結させることができる。`pcm_banks[].group` (任意、`ADPCMB`/`ADPCMA`/
+`PCMD8`) を指定すると:
+
+1. `CFITOM::initDevices()` が、そのVoicePatchTypeに一致するPCMデバイスへ
+   このバンク番号を `setPcmRegistry()` で自動的に割り当てる
+   (`PcmBankRegistry::findBankNoForVoicePatchType()`)。以前は全PCM
+   デバイスがバンク番号0を決め打ちで共有しており、コーデックの異なる
+   複数のPCMバンク(ADPCM-A用/ADPCM-B用等)を同一プロファイル内で
+   併用できなかった。
+2. `PatchManager::loadPcmBankJson()` が、参照先の `*.pcmbank.json` が
+   持つ `entries[]`(adpcm_packer出力由来、各エントリに`name`と
+   `root_note`を持つ)から、`prog`=エントリ番号のnamed patch
+   (`zones`は`key_min/max`・`vel_min/max`ともフル範囲の1件のみ、
+   `wave_index`=同じエントリ番号、`root_note`=エントリの`root_note`、
+   省略時69)を自動合成し、`*.samplezonebank.json`経由で読み込んだ場合と
+   同じ`SampleZoneBankRegistry`(同一のバンク番号。こちらはHwBankRegistry
+   と異なりVoiceGroupによる多重化を行わないフラットな名前空間)へ登録
+   する。これにより、`*.samplezonebank.json`を別途手書きしなくても、
+   パッチピッカー等から個々のPCMサンプルを通常のProgram Change経由で
+   選択できる。
+
+`group`を省略した場合は波形データ(バイナリ+エントリオフセット)の登録
+のみを行い、バンク番号0への決め打ち割り当て・named patch自動合成の
+どちらも行わない(既存プロファイルとの後方互換)。
+
+```json
+// profile.json の pcm_banks[]
+{ "group": "ADPCMA", "bank": 1, "file": "banks/PCM/pss680/pss680_opnb.pcmbank.json" }
+```
+
 ---
 
 ## バンクファイル管理の推奨ディレクトリ構成

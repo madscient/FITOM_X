@@ -133,6 +133,116 @@ TEST_CASE("FITOMConfig: system config defaults", "[config]")
     CHECK(cfg.getMasterPitch()  == 440.0);
 }
 
+TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
+          "synthesizes named patches from entries[]", "[config][pcm]")
+{
+    // *.pcmbank.jsonにgroupを指定すると、①CFITOM::initDevices()が
+    // 対応デバイスへこのバンク番号を自動的に割り当てられるようになり
+    // (PcmBankRegistry::findBankNoForVoicePatchType())、②entries[]の
+    // 各サンプルからProgram Change経由で選択できるnamed patchが
+    // sampleRegistry()側に自動合成される(ADPCM-B/ADPCM-A/PCMD8はAWMと
+    // 同じSampleZonePatchスキーマを使うため、hwRegistry()ではない。
+    // *.samplezonebank.jsonの手書きは不要)。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_pcmbank_group";
+    fs::create_directories(dir);
+
+    json pcmbank = {
+        {"name",  "test adpcm-a bank"},
+        {"codec", "adpcm-a"},
+        {"entries", json::array({
+            {{"entry_no", 0}, {"name", "kick"}, {"root_note", 60},
+             {"start_offset", 0}, {"end_offset", 255}, {"size", 200}, {"padded_size", 256}},
+            {{"entry_no", 1}, {"name", "snare"},
+             {"start_offset", 256}, {"end_offset", 511}, {"size", 200}, {"padded_size", 256}}
+        })}
+    };
+    fs::path pcmbankPath = dir / "test.pcmbank.json";
+    { std::ofstream f(pcmbankPath); f << pcmbank.dump(2); }
+
+    json profile = {
+        {"profile_name", "pcm group test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"pcm_banks", json::array({
+                {{"group", "ADPCMA"}, {"bank", 7}, {"file", "test.pcmbank.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "pcmgroup.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    // ① バンク番号がvoicePatchTypeから逆引きできる
+    CHECK(pm.pcmRegistry().findBankNoForVoicePatchType(VOICE_PATCH_ADPCMA) == 7);
+
+    // ② entries[]からnamed patchが自動合成され、sampleRegistry()経由で見える
+    CHECK(pm.sampleRegistry().listBankNumbers(VOICE_PATCH_ADPCMA) == std::vector<int>{7});
+    const auto* sampleBank = pm.sampleRegistry().find(7);
+    REQUIRE(sampleBank != nullptr);
+    CHECK(sampleBank->voicePatchType == VOICE_PATCH_ADPCMA);
+
+    const auto& p0 = sampleBank->get(0);
+    REQUIRE(p0.isValid());
+    CHECK(std::string(p0.name) == "kick");
+    REQUIRE(p0.zones.size() == 1);
+    CHECK(p0.zones[0].waveIndex == 0);
+    CHECK(p0.zones[0].rootNote == 60); // entries[]で明示指定した値
+
+    const auto& p1 = sampleBank->get(1);
+    REQUIRE(p1.isValid());
+    CHECK(std::string(p1.name) == "snare");
+    REQUIRE(p1.zones.size() == 1);
+    CHECK(p1.zones[0].waveIndex == 1);
+    CHECK(p1.zones[0].rootNote == 69); // root_note省略時のデフォルト(A4)
+}
+
+TEST_CASE("FITOMConfig: pcm_banks[] without group keeps legacy behavior "
+          "(no bank routing, no patch synthesis)", "[config][pcm]")
+{
+    // groupを省略した場合は後方互換のため、①バンク番号の自動解決対象には
+    // ならず(findBankNoForVoicePatchTypeが-1)、②named patchの自動合成も
+    // 行われない(波形データの登録のみ)。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_pcmbank_nogroup";
+    fs::create_directories(dir);
+
+    json pcmbank = {
+        {"name",  "legacy adpcm-b bank"},
+        {"codec", "adpcm-b"},
+        {"entries", json::array({
+            {{"entry_no", 0}, {"name", "kick"},
+             {"start_offset", 0}, {"end_offset", 255}, {"size", 200}, {"padded_size", 256}}
+        })}
+    };
+    fs::path pcmbankPath = dir / "legacy.pcmbank.json";
+    { std::ofstream f(pcmbankPath); f << pcmbank.dump(2); }
+
+    json profile = {
+        {"profile_name", "pcm legacy test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"pcm_banks", json::array({
+                {{"bank", 3}, {"file", "legacy.pcmbank.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "pcmlegacy.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    CHECK(pm.pcmRegistry().findBankNoForVoicePatchType(VOICE_PATCH_ADPCMB) == -1);
+    const auto* bank = pm.pcmRegistry().find(3);
+    REQUIRE(bank != nullptr);
+    CHECK(bank->name == "legacy adpcm-b bank");
+
+    CHECK(pm.sampleRegistry().find(3) == nullptr);
+}
+
 // OPNB(YM2610無印)はFM部がYM2612/YM2608と同じOPN2世代のコアを持つため、
 // OPN(YM2203)ではなくOPN2側のVoicePatchTypeに分類され、mergeSpannableDevices()
 // でOPN2/OPNA-FM/OPNBB-FMと束ねられる対象になるべき。(2026年7月、ステージング

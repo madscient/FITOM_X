@@ -454,13 +454,25 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
             }
         } else if (bankSelMSB <= 0x6F) {
             // 直接デバイス選択モード(2026年7月修正: 以前はここが未対応で
-            // 常に数値フォールバック表示になっていた)。
-            const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(bankSelMSB);
-            const auto* hwBank = pm.hwRegistry().find(group, mon.bankNo);
-            if (hwBank) {
-                mon.bankName = hwBank->name;
-                const auto& hp = hwBank->get(mon.progNo);
-                if (hp.isValid()) mon.progName = hp.name;
+            // 常に数値フォールバック表示になっていた)。サンプルベース
+            // 音源系(ADPCM-B/ADPCM-A/PCMD8/AWM)はHwBankRegistryではなく
+            // SampleZoneBankRegistryを参照する(getHwBankList()等と同じ理由、
+            // 2026年7月追加修正)。
+            if (isSampleBasedVoicePatchType(bankSelMSB)) {
+                const auto* sampleBank = pm.sampleRegistry().find(mon.bankNo);
+                if (sampleBank) {
+                    mon.bankName = sampleBank->name;
+                    const auto& sp = sampleBank->get(mon.progNo);
+                    if (sp.isValid()) mon.progName = sp.name;
+                }
+            } else {
+                const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(bankSelMSB);
+                const auto* hwBank = pm.hwRegistry().find(group, mon.bankNo);
+                if (hwBank) {
+                    mon.bankName = hwBank->name;
+                    const auto& hp = hwBank->get(mon.progNo);
+                    if (hp.isValid()) mon.progName = hp.name;
+                }
             }
         }
 
@@ -694,6 +706,23 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
     if (!initialized_) return result;
 
     auto& pm = fitom::CFITOM::instance().getPatchManager();
+
+    // サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM)はHwBankRegistryでは
+    // なくSampleZoneBankRegistryを参照する(PatchManager::resolveDirect()の
+    // isSampleBasedVoicePatchType分岐と同じ、2026年7月修正。以前はここが
+    // 常にhwRegistry()を見ており、対象チップのバンク一覧が常に空になる
+    // 不具合があった)。
+    if (isSampleBasedVoicePatchType(voicePatchType)) {
+        for (int bankNo : pm.sampleRegistry().listBankNumbers(voicePatchType)) {
+            FITOMBankInfo info;
+            info.bankNo = bankNo;
+            const auto* bank = pm.sampleRegistry().find(bankNo);
+            if (bank) info.name = bank->name;
+            result.push_back(std::move(info));
+        }
+        return result;
+    }
+
     const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
     for (int bankNo : pm.hwRegistry().listBankNumbers(group)) {
         FITOMBankInfo info;
@@ -711,6 +740,25 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
     if (!initialized_) return result;
 
     auto& pm = fitom::CFITOM::instance().getPatchManager();
+
+    // サンプルベース音源系: getHwBankList()と同じ理由でSampleZoneBankRegistry
+    // を参照する。
+    if (isSampleBasedVoicePatchType(voicePatchType)) {
+        const auto* bank = pm.sampleRegistry().find(hwBank);
+        if (!bank) return result;
+        for (int prog = 0; prog < fitom::BANK_PROG_SIZE; ++prog) {
+            const auto& p = bank->get(prog);
+            if (!p.isValid()) continue;
+            FITOMPatchInfo info;
+            info.bank       = hwBank;
+            info.prog       = prog;
+            info.name       = p.name;
+            info.layerCount = 1; // 直接デバイス選択モードは常に単層
+            result.push_back(std::move(info));
+        }
+        return result;
+    }
+
     const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
     const auto* bank = pm.hwRegistry().find(group, hwBank);
     if (!bank) return result;

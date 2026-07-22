@@ -1632,7 +1632,8 @@ bool PcmBank::loadBinary(const std::filesystem::path& basePath)
     return true;
 }
 
-bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo)
+bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo,
+                                    uint8_t voicePatchType)
 {
     reportProgress("Loading PCM Bank: " + path.string());
     std::ifstream f(path);
@@ -1641,11 +1642,12 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
     try {
         json j = json::parse(f, nullptr, true, true);
         auto& bank = pcmReg_.getOrCreate(bankNo);
-        bank.name       = j.value("name",   "");
-        bank.codec      = j.value("codec",  "adpcm-b");
-        bank.sampleRate = j.value("sample_rate", 0u);
-        bank.boundary   = j.value("boundary",    256u);
-        bank.binPath    = j.value("bin_file",    "");
+        bank.name           = j.value("name",   "");
+        bank.codec          = j.value("codec",  "adpcm-b");
+        bank.sampleRate     = j.value("sample_rate", 0u);
+        bank.boundary       = j.value("boundary",    256u);
+        bank.binPath        = j.value("bin_file",    "");
+        bank.voicePatchType = voicePatchType;
 
         const std::filesystem::path baseDir = path.parent_path();
 
@@ -1675,6 +1677,7 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
                         e.size        = ej.value("size",         0u);
                         e.paddedSize  = paddedSize;
                         e.endOffset   = e.startOffset + paddedSize - 1;
+                        e.rootNote    = static_cast<uint8_t>(ej.value("root_note", 69u));
                         bank.setEntry(entryNo, e);
                         FITOM_LOG_DEBUG("PCM entry[" << (int)entryNo
                             << "]: '" << e.name
@@ -1710,6 +1713,7 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
                 e.endOffset   = ej.value("end_offset",   0u);
                 e.size        = ej.value("size",         0u);
                 e.paddedSize  = ej.value("padded_size",  0u);
+                e.rootNote    = static_cast<uint8_t>(ej.value("root_note", 69u));
                 bank.setEntry(static_cast<uint8_t>(no), e);
             }
         }
@@ -1721,6 +1725,42 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
             << "' codec=" << bank.codec
             << " sr=" << bank.sampleRate
             << " (" << bank.binData.size() << " bytes)");
+
+        // voicePatchType指定時: entries[]から個別選択可能なnamed patchを
+        // 自動合成し、sampleRegistry()側にも登録する。ADPCM-B/ADPCM-A/
+        // PCMD8はAWMと同じSampleZonePatchスキーマを使い(HwPatch/ops[]は
+        // 使わない、PatchManager::resolveDirect()のisSampleBasedVoicePatchType
+        // 分岐/PatchData.hのSampleZone関連コメント参照)、パッチピッカー等が
+        // 参照する経路もsampleRegistry()側のみのため、*.samplezonebank.jsonを
+        // 別途手書きしなくても、このpcmbank.json(adpcm_packer出力)自体を
+        // 唯一の情報源としてProgram Change経由の音色選択に反映できるように
+        // する。ノート範囲・ベロシティ範囲は全域固定の単一ゾーン
+        // (waveIndex=エントリ番号、rootNote=adpcm_packer出力の"root_note"、
+        // 省略時69=A4)とする。
+        if (voicePatchType != VOICE_PATCH_NONE) {
+            auto& sampleBank = sampleReg_.getOrCreate(bankNo);
+            sampleBank.name           = bank.name;
+            sampleBank.filename       = path.string();
+            sampleBank.voicePatchType = voicePatchType;
+            int synthCount = 0;
+            for (int i = 0; i < PCM_MAX_ENTRIES; ++i) {
+                const PcmEntry& e = bank.getEntry(static_cast<uint8_t>(i));
+                if (!e.isValid()) continue;
+                SampleZonePatch p;
+                p.id = (static_cast<uint32_t>(bankNo) << 16) | static_cast<uint32_t>(i);
+                std::strncpy(p.name, e.name, sizeof(p.name) - 1);
+                SampleZone z;
+                z.waveIndex = static_cast<uint16_t>(i);
+                z.rootNote  = e.rootNote;
+                p.zones.push_back(z);
+                sampleBank.set(i, p);
+                ++synthCount;
+            }
+            FITOM_LOG_INFO("PCM Bank: auto-synthesized SampleZoneBank '" << sampleBank.name
+                << "' (" << synthCount << " patch(es)) voicePatchType=0x"
+                << std::hex << (int)voicePatchType);
+        }
+
         return true;
     } catch (const std::exception& e) {
         FITOM_LOG_ERR("PCM Bank parse error: " << e.what());

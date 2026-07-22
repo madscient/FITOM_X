@@ -382,6 +382,15 @@
               "file": {
                 "type": "string",
                 "description": "*.pcmbank.json のパス。"
+              },
+              "group": {
+                "type": "string",
+                "enum": [
+                  "ADPCMB",
+                  "ADPCMA",
+                  "PCMD8"
+                ],
+                "description": "任意。このPCMバンクが対象とするVoicePatchType。指定すると、①CFITOM::initDevices()が一致するVoicePatchTypeのPCMデバイスへこのバンク番号を自動的に割り当てるようになり(省略時は全PCMデバイスがbank0を共有する後方互換動作のまま)、②entries[]の各サンプルが、パッチピッカー等で選択可能なnamed patchとして自動的にHwBankRegistry側にも公開される(*.hwbank.jsonを別途手書きする必要はない、PatchManager::loadPcmBankJson()参照)。異なるコーデックのPCMバンクを複数併用する場合は指定必須(省略のままだと2つ目以降のバンクが無視される)。"
               }
             }
           }

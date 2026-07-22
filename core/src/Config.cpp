@@ -1138,7 +1138,25 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
             if (file.empty()) continue;
             std::filesystem::path path = file;
             if (path.is_relative()) path = baseDir / path;
-            pm.loadPcmBankJson(path, bankNo);
+
+            // "group"(任意): ADPCMB/ADPCMA/PCMD8等、このPCMバンクが対象と
+            // するVoicePatchType。指定すると、①CFITOM::initDevices()が
+            // 対応デバイスへこのバンク番号を自動的に割り当てるようになり
+            // (従来はbankNo=0固定で、複数のPCMバンクを併用できなかった)、
+            // ②entries[]の各サンプルがパッチピッカーで選択可能なnamed
+            // patchとして自動的にhwRegistry()へ公開される
+            // (PatchManager::loadPcmBankJson()参照)。省略時は従来通り
+            // 波形データの登録のみ行う(後方互換)。
+            uint8_t voicePatchType = VOICE_PATCH_NONE;
+            if (e.contains("group")) {
+                std::string groupStr = e["group"].get<std::string>();
+                voicePatchType = FITOMConfig::stringToVoicePatchType(groupStr);
+                if (voicePatchType == VOICE_PATCH_NONE) {
+                    FITOM_LOG_WARN("pcm_banks: unknown group \"" << groupStr
+                        << "\" in " << file << " — falling back to legacy (unrouted) load");
+                }
+            }
+            pm.loadPcmBankJson(path, bankNo, voicePatchType);
         }
     }
 }

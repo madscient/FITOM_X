@@ -284,28 +284,25 @@ SSGと同じ基本的な意味論に加え、拡張機能を持ちます。
 
 ---
 
-## 14. ADPCM-B / ADPCM-A / PCM-D8
+## 14. ADPCM-B / ADPCM-A / PCM-D8 / AWM(サンプルベース音源系共通)
 
-| フィールド | 範囲 | 内容 |
-|---|---|---|
-| `ops[0].WS` | 0–127 | PCM波形バンク内のエントリ番号 |
-
----
-
-## 15. AWM(YMF278+YRW801、OPL4のPCM部)
-
-**AWMは専用のデータ形式(SampleZonePatch)を使い、HwPatchの`ops[]`は一切使いません。** 「1プログラム=複数の鍵盤域(キーゾーン)への波形マッピング」という、FMオペレータ型のパラメータとは本質的に異なる形のデータのためです。
+**これらのチップはいずれも専用のデータ形式(SampleZonePatch)を使い、HwPatchの`ops[]`は一切使いません。** 「1プログラム=複数の鍵盤域(キーゾーン)への波形/サンプルマッピング」という、FMオペレータ型のパラメータとは本質的に異なる形のデータのためです(`isSampleBasedVoicePatchType()`、`PatchManager::resolveDirect()`のADPCM/AWM共通分岐)。
 
 | フィールド(`zones[]`の各要素) | 内容 |
 |---|---|
 | `key_min` / `key_max` | このゾーンが適用されるMIDIノート範囲 |
 | `vel_min` / `vel_max` | ベロシティレイヤー範囲(省略時0–127=無制限) |
-| `wave_index` | 内蔵ROM波形の番号 |
+| `wave_index` | チップ側のROM/PCM波形番号(チップ依存の生値)。AWMなら内蔵ROM波形の番号、ADPCM-B/ADPCM-A/PCM-D8ならPCM波形バンク(`*.pcmbank.json`)内のエントリ番号 |
+| `root_note` | 録音時の基準ノート(MIDI note番号)。ピッチ可変のPCM系チップがノートからの相対ピッチシフト量を計算するのに使う。省略時69(A4) |
 
-ノートオン時、`zones[]`を先頭から探索し、ノート番号とベロシティの両方が範囲内に収まる最初のゾーンが使われます。専用のバンクファイル形式(`*.samplezonebank.json`)で記述します。
+ノートオン時、`zones[]`を先頭から探索し、ノート番号とベロシティの両方が範囲内に収まる最初のゾーンが使われます。専用のバンクファイル形式(`*.samplezonebank.json`)で記述するか、ADPCM-B/ADPCM-A/PCM-D8の場合は下記の自動合成を使えます。
+
+### ADPCM-B/ADPCM-A/PCM-D8: pcmbank.jsonからの自動合成
+
+個々のパッチ(`zones`が1件だけの最小限のSampleZonePatch、`wave_index`=PCM波形バンクのエントリ番号)は、`*.samplezonebank.json`を手書きしなくても自動生成できます。プロファイルの`banks.pcm_banks[]`エントリに`"group": "ADPCMB"` / `"ADPCMA"` / `"PCMD8"`を指定すると、参照先の`*.pcmbank.json`(`entries[]`、adpcm_packer出力由来)の各サンプルから、`prog`=エントリ番号・`name`=サンプル名・`zones[0].wave_index`=同じエントリ番号・`zones[0].root_note`=adpcm_packer出力の`root_note`(省略時69)というnamed patchを`PatchManager::loadPcmBankJson()`が自動的に合成し、通常の`*.samplezonebank.json`経由のパッチと同様にパッチピッカー(CC#0=ADPCM-B/ADPCM-A/PCM-D8)から選択・試聴できるようにします。`group`を省略した場合は波形データの登録のみが行われ、named patchは合成されません(後方互換)。
 
 ---
 
-## 16. `sw_bank` / `sw_prog`(パフォーマンスパッチ参照)
+## 15. `sw_bank` / `sw_prog`(パフォーマンスパッチ参照)
 
 すべてのHwPatchに共通のフィールドです。このHwPatch(音色)が「本来意図している」演奏特性([SwPatch リファレンス](./swpatch-reference.md)参照)を指定します。-1(省略時のデフォルト)は「参照なし」を意味します。ネイティブパッチ側(パッチ単位の`sw_bank`/`sw_prog`)で個別に指定されている場合は、そちらが優先されます。指定先が見つからない場合はパフォーマンスパッチが適用されないだけで、HwPatch自体の発音は妨げられません。
