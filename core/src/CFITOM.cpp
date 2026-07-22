@@ -390,8 +390,21 @@ void CFITOM::initDevices()
         }
 
         // B-3: PCM/ADPCM デバイスには PcmBankRegistry を注入して初期化する
-        // (非対応チップは空実装で無視される)
-        dev->setPcmRegistry(&patchMgr_->pcmRegistry(), 0);
+        // (非対応チップは空実装で無視される)。バンク番号は、このデバイスの
+        // VoicePatchType(ADPCM-B/ADPCM-A/PCM-D8)に一致するpcm_banks
+        // エントリ(profile.jsonでgroup指定されたもの)から逆引きする。
+        // 複数の異なるPCMバンク(コーデックの異なるADPCM-A用/ADPCM-B用等)を
+        // 同一プロファイル内で併用できるようにするため(2026年7月、
+        // 以前はbankNo=0固定で全PCMデバイスが同じバンクを共有しており、
+        // 2種目以降のPCMバンクが常に無視されていた不具合を修正)。
+        // 一致するバンクが無い場合は、従来通りbank0にフォールバックする
+        // (groupを指定しない旧来のpcm_banks記述との後方互換)。
+        {
+            uint8_t vpt = FITOMConfig::deviceTypeToVoicePatchType(deviceType);
+            int pcmBankNo = patchMgr_->pcmRegistry().findBankNoForVoicePatchType(vpt);
+            if (pcmBankNo < 0) pcmBankNo = 0;
+            dev->setPcmRegistry(&patchMgr_->pcmRegistry(), pcmBankNo);
+        }
         dev->initPcmData();
 
         FITOM_LOG_INFO("Device[" << i << "]: "

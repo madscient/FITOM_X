@@ -406,6 +406,21 @@ public:
     }
     bool hasBank(int bankNo) const { return banks_.count(bankNo) > 0; }
 
+    // voicePatchTypeが一致するバンク番号一覧を昇順で返す(GUIのパッチ
+    // ピッカーダイアログ向け、サンプルベース音源系(ADPCM-B/ADPCM-A/
+    // PCMD8/AWM)のCC#32階層列挙用、2026年7月新設)。SampleZoneBankRegistry
+    // 自体はHwBankRegistryと異なりVoiceGroupによる多重化を行わない
+    // (フラットなバンク番号空間)ため、この関数がvoicePatchTypeによる
+    // フィルタを担う。
+    std::vector<int> listBankNumbers(uint8_t voicePatchType) const {
+        std::vector<int> result;
+        for (const auto& kv : banks_) {
+            if (kv.second.voicePatchType == voicePatchType) result.push_back(kv.first);
+        }
+        std::sort(result.begin(), result.end());
+        return result;
+    }
+
     const SampleZonePatch* resolve(int bankNo, int prog) const {
         const SampleZoneBank* b = find(bankNo);
         if (!b) return nullptr;

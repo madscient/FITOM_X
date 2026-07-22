@@ -164,7 +164,20 @@ public:
     // *.pcmbank.json を読み込む
     // adpcm_json フィールドがあれば adpcm_packer の出力 JSON を参照して
     // entries[] を自動構築する
-    bool loadPcmBankJson(const std::filesystem::path& path, int bankNo);
+    // voicePatchType (VOICE_PATCH_ADPCMB/ADPCMA/PCMD8) を指定すると、
+    // ①CFITOM::initDevices()がこのバンク番号を対応デバイスへ自動的に
+    // 割り当てられるようになり(PcmBankRegistry::findBankNoForVoicePatchType()
+    // 参照)、②entries[]の各サンプル名から、パッチピッカー等で選択できる
+    // named patchをsampleRegistry()側に自動合成する(SampleZonePatch、
+    // zones[0].waveIndex=entry番号のキーゾーン全域1本をprog=entry番号
+    // として登録。ADPCM-B/ADPCM-A/PCMD8はHwPatchではなくAWMと同じ
+    // SampleZonePatchスキーマを使う、PatchData.hのSampleZone関連コメント
+    // 参照)。ADPCM/PCM系は個別の*.samplezonebank.jsonを手書きしなくても、
+    // pcmbank.json(adpcm_packer出力)を唯一の情報源として直接ピッカーに
+    // 反映できる、2026年7月新設。
+    // 省略時(0=VOICE_PATCH_NONE)は従来通り波形データの登録のみ行う。
+    bool loadPcmBankJson(const std::filesystem::path& path, int bankNo,
+                          uint8_t voicePatchType = 0);
     bool savePcmBankJson(const std::filesystem::path& path, int bankNo) const;
 
     // ─── SCC 波形バンク ──────────────────────────────────────────

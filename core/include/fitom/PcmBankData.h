@@ -61,6 +61,10 @@ struct PcmEntry {
     uint32_t size        = 0;   // ADPCM データサイズ [byte] (パディング前)
     uint32_t paddedSize  = 0;   // バウンダリ整列後サイズ [byte]
     uint8_t  entryNo     = 0;   // WS 番号 (0〜127)
+    // 録音時の基準ノート(adpcm_packer出力JSONの"root_note"、省略時69=A4。
+    // SampleZone::rootNoteへそのまま渡す用。PatchManager::loadPcmBankJson()
+    // がgroup指定時にnamed patchを自動合成する際に使う)。
+    uint8_t  rootNote    = 69;
 
     PcmEntry() noexcept { name[0] = '\0'; }
 
@@ -79,6 +83,15 @@ struct PcmBank {
     std::string codec;          // "adpcm-b" / "adpcm-a" / "pcmd8"
     uint32_t    sampleRate = 0; // ADPCM-B: 8000/16000/24000/32000
     uint32_t    boundary   = 0; // バウンダリ境界 [byte] (32 or 256)
+
+    // このバンクが対象とするVoicePatchType (VOICE_PATCH_ADPCMB/ADPCMA/
+    // PCMD8)。profile.jsonのpcm_banks[].groupから設定される
+    // (未指定時は0=VOICE_PATCH_NONE)。CFITOM::initDevices()が
+    // PCMデバイスへ割り当てるバンク番号をこの値から逆引きするために使う
+    // (PcmBankRegistry::findBankNoForVoicePatchType()参照)。また
+    // PatchManager::loadPcmBankJson()が、0以外の場合にこのバンクの
+    // entries[]から同じ内容のHwBank(named patch)を自動合成する際にも使う。
+    uint8_t     voicePatchType = 0;
 
     // エントリ (WS 番号 → PcmEntry)
     std::array<PcmEntry, PCM_MAX_ENTRIES> entries;
@@ -119,6 +132,18 @@ public:
     }
 
     bool hasBank(int bankNo) const { return banks_.count(bankNo) > 0; }
+
+    // voicePatchType (VOICE_PATCH_ADPCMB/ADPCMA/PCMD8) に一致する最初の
+    // バンク番号を返す (見つからなければ-1)。CFITOM::initDevices()が
+    // 各PCMデバイスに setPcmRegistry() で渡すバンク番号を、そのデバイスの
+    // VoicePatchTypeから解決するために使う。
+    int findBankNoForVoicePatchType(uint8_t vpt) const {
+        if (vpt == 0) return -1;
+        for (const auto& kv : banks_) {
+            if (kv.second.voicePatchType == vpt) return kv.first;
+        }
+        return -1;
+    }
 
     // エントリ番号 (WS) から PcmEntry を取得
     const PcmEntry* resolve(int bankNo, uint8_t entryNo) const {
