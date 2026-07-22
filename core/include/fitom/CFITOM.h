@@ -121,6 +121,29 @@ private:
 };
 
 // ================================================================
+//  PhysicalChipInfo: レジスタダンプモニター用、物理チップ単位の情報
+//  (2026年7月新設)
+//
+//  サブデバイス自動生成(例: OPNA→FM+SSG+ADPCM-B+Rhythm)で複数の論理
+//  ISoundDeviceが同一物理チップ(同一HWPort)を共有する場合も1エントリに
+//  まとめる。「どのHWPortの組が1つの物理チップか」は、FITOMConfigが
+//  保持するport/port2/stereoPairPort/spanGroupsの各ポートポインタの
+//  同一性から判定する(プロファイルのdevices[]/hw_plugins[]の記述内容が
+//  そのまま反映される。CFITOM::buildPhysicalChipList()参照)。
+// ================================================================
+struct PhysicalChipInfo {
+    std::string label;             // 代表デバイスのラベル(プロファイルのlabel)
+    uint32_t    deviceType = 0;    // 代表デバイスのdeviceType (DEVICE_*)
+    // hwifのparams_json(HWPlugin_Open()に渡した値)から組み立てた、実際の
+    // 物理/エミュレーターチップの識別名(例: "SPFM_TOWER COM3 slot0"、
+    // "YMEngine/OPNA")。labelとは異なりFITOM_X側で自由に付けられるもの
+    // ではなく、hwif接続情報そのものに由来する(HWPort::getPhysicalChipName()参照)。
+    std::string physicalName;
+    HWPort*     port  = nullptr;   // 1ポート目 (レジスタダンプの0x000-0x0FF)
+    HWPort*     port2 = nullptr;   // 2ポート目 (0x100-0x1FF)。nullptr = 1ポートチップ
+};
+
+// ================================================================
 //  CFITOM: コアシングルトン
 // ================================================================
 class CFITOM {
@@ -147,6 +170,19 @@ public:
 
     // CRhythmCh::NoteOn から呼ばれるドラムノート解決 (bankNo = CC#0 値)
     const DrumNote* getDrum(int bankNo, uint8_t prog, uint8_t midiNote) const;
+
+    // ─── 物理チップ列挙 (レジスタダンプモニター用、2026年7月新設) ─────────
+    int getPhysicalChipCount() const { return static_cast<int>(physicalChips_.size()); }
+    const PhysicalChipInfo* getPhysicalChipInfo(int index) const {
+        return (index >= 0 && index < static_cast<int>(physicalChips_.size()))
+            ? &physicalChips_[index] : nullptr;
+    }
+    // 指定物理チップの現在のレジスタ値を生バイト列で返す。1ポートなら
+    // 0x00-0xFF(256byte)、2ポートなら0x000-0x1FF(512byte、port2のレジスタを
+    // 0x100番地以降にpackする)。実チップからの読み出しAPIは存在しないため、
+    // FITOM_Xが最後に書き込んだ値をそのまま返す(HWPort::getShadowRegRange参照)。
+    // indexが範囲外の場合は空配列を返す。
+    std::vector<uint8_t> getPhysicalChipRegisterDump(int index) const;
 
     FITOMConfig& getConfig() const { return *config_; }
     PatchManager& getPatchManager() { return *patchMgr_; }
@@ -267,6 +303,13 @@ private:
     // (unique_ptr<ISoundDevice>) をここで保持し続ける必要がある
     // (CSpanDevice/CMultiDevice は生ポインタしか持たないため)。
     std::vector<std::unique_ptr<ISoundDevice>> spanSubChips_;
+
+    // 物理チップ単位の一覧 (レジスタダンプモニター用、2026年7月新設)。
+    // buildPhysicalChipList() が initDevices() の最後に構築する。
+    // HWPort自体の所有権はConfig側(shared_ptr<IPort>)にあるため、
+    // ここでは生ポインタのみを保持する。
+    std::vector<PhysicalChipInfo> physicalChips_;
+    void buildPhysicalChipList();
 
     // 1つの物理ポート(+extraPort)から ISoundDevice を生成する。
     // stereoPairPort が指定されていれば、そのポート用にもう1つ生成し、

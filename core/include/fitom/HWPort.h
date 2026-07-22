@@ -10,6 +10,7 @@
 #include "IPort.h"
 #include "PluginLoader.h"
 #include <fitom/IHWPlugin.h>
+#include <array>
 #include <memory>
 #include <string>
 #include <mutex>
@@ -149,9 +150,35 @@ public:
     uint32_t getLatencySamples() const;
     void     setDelaySamples(uint32_t delay_samples);
 
+    // ─── レジスタダンプモニター用シャドウレジスタ (2026年7月新設) ────────
+    // write()/writeBurst()で実際にHWPlugin_Write/WriteBlockへ渡した値を
+    // そのままミラーする「最後に書き込んだ値」のキャッシュ。IHWPluginには
+    // レジスタ読み出しAPIが無い(実チップの多くはそもそも読み出し不可)ため、
+    // 実チップの現在値ではなく、あくまでFITOM_X自身が最後に書き込んだ値を
+    // 返す点に注意。MIDI処理スレッドからの書き込みとGUI描画スレッドからの
+    // 読み出しが競合するため、mutexで保護する。
+    uint8_t getShadowReg(uint16_t addr) const;
+    // [startAddr, startAddr+len) の範囲を out にコピーする
+    // (startAddr+len が 0x10000 を超える分は 0 を返す)。
+    void    getShadowRegRange(uint16_t startAddr, uint8_t* out, size_t len) const;
+
+    // ─── 物理チップ名 (レジスタダンプモニター用、2026年7月新設) ──────────
+    // HWPlugin_Open() に渡したparams_json (docs/plugin-hwif.md記載の
+    // フォーマット。物理HWなら{type,serial/port,slot,...}、fitom_fmhwifなら
+    // {type:"FMHWIF",engine,chip,index,...})から、実際に接続されている
+    // 物理チップ/エミュレーターチップを表す人間可読な名前を組み立てて返す。
+    // これはプロファイルのdevices[].label(ユーザーが自由に付けたラベル)や
+    // deviceType(FITOM_Xの内部チップドライバ分類)とは異なる、hwif側の
+    // 識別情報そのものである。
+    std::string getPhysicalChipName() const;
+
 private:
     std::shared_ptr<HWPluginInstance> plugin_;
     HWHandle handle_ = nullptr;
+    std::string paramsJson_;   // HWPlugin_Open()に渡した生JSON(物理チップ名の組み立て用)
+
+    mutable std::mutex          shadowMutex_;
+    std::array<uint8_t, 0x10000> shadowRegs_{};
 };
 
 } // namespace fitom

@@ -3,6 +3,7 @@
 
 #include "fitom/HWPort.h"
 #include "fitom/Log.h"
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 
 namespace fitom {
@@ -129,6 +130,7 @@ std::shared_ptr<HWPluginInstance> HWPluginRegistry::get(const std::string& name)
 HWPort::HWPort(std::shared_ptr<HWPluginInstance> plugin,
                const std::string& paramsJson)
     : plugin_(std::move(plugin))
+    , paramsJson_(paramsJson)
 {
     assert(plugin_);
     HWResult r = plugin_->Open(paramsJson.c_str(), &handle_);
@@ -169,17 +171,25 @@ void HWPort::setDelaySamples(uint32_t delay_samples)
 void HWPort::write(uint16_t addr, uint16_t data)
 {
     plugin_->Write(handle_, addr, static_cast<uint8_t>(data));
+    std::lock_guard<std::mutex> lk(shadowMutex_);
+    shadowRegs_[addr] = static_cast<uint8_t>(data);
 }
 
 void HWPort::writeBurst(uint16_t startAddr, const uint8_t* data, std::size_t len)
 {
     // a_high != 0 の場合は Write() の逐次呼び出しにフォールバック
+    // (write()側でシャドウ更新も行われる)
     uint8_t a_high = static_cast<uint8_t>(startAddr >> 8);
     if (a_high != 0) {
         IPort::writeBurst(startAddr, data, len);
         return;
     }
     plugin_->WriteBlock(handle_, static_cast<uint8_t>(startAddr & 0xFF), data, len);
+    std::lock_guard<std::mutex> lk(shadowMutex_);
+    for (std::size_t i = 0; i < len; ++i) {
+        std::size_t addr = static_cast<std::size_t>(startAddr & 0xFF) + i;
+        if (addr < shadowRegs_.size()) shadowRegs_[addr] = data[i];
+    }
 }
 
 uint8_t HWPort::status()
@@ -190,6 +200,10 @@ uint8_t HWPort::status()
 void HWPort::reset()
 {
     plugin_->Reset(handle_, 10u);
+    // HWリセット後、実チップのレジスタは既定値(多くは0)に戻るため、
+    // シャドウ側もそれに合わせてクリアする。
+    std::lock_guard<std::mutex> lk(shadowMutex_);
+    shadowRegs_.fill(0);
 }
 
 std::string HWPort::getDesc()
@@ -210,6 +224,53 @@ int HWPort::getClock()
 int HWPort::getPanpot()
 {
     return plugin_->GetPanpot(handle_);
+}
+
+uint8_t HWPort::getShadowReg(uint16_t addr) const
+{
+    std::lock_guard<std::mutex> lk(shadowMutex_);
+    return shadowRegs_[addr];
+}
+
+void HWPort::getShadowRegRange(uint16_t startAddr, uint8_t* out, size_t len) const
+{
+    std::lock_guard<std::mutex> lk(shadowMutex_);
+    for (size_t i = 0; i < len; ++i) {
+        uint32_t addr = static_cast<uint32_t>(startAddr) + static_cast<uint32_t>(i);
+        out[i] = (addr < shadowRegs_.size()) ? shadowRegs_[addr] : 0;
+    }
+}
+
+std::string HWPort::getPhysicalChipName() const
+{
+    try {
+        auto j = nlohmann::json::parse(paramsJson_);
+        std::string type = j.value("type", "");
+
+        if (type == "FMHWIF") {
+            // fitom_fmhwif: {type:"FMHWIF", engine, chip, index, ...}
+            std::string engine = j.value("engine", "");
+            std::string chip   = j.value("chip", "");
+            std::string name = engine.empty() ? chip
+                              : chip.empty()   ? engine
+                                                : (engine + "/" + chip);
+            int index = j.value("index", 0);
+            if (index > 0) name += " #" + std::to_string(index);
+            return name.empty() ? "FMHWIF" : name;
+        }
+
+        // 物理HW: {type:"RE1"/"RE4"/"SPFM_TOWER"/"SPFM_LIGHT", serial or port, slot, ...}
+        std::string ident;
+        if (j.contains("serial")) ident = j.value("serial", "");
+        else if (j.contains("port")) ident = j.value("port", "");
+
+        std::string name = type;
+        if (!ident.empty()) name += " " + ident;
+        if (j.contains("slot")) name += " slot" + std::to_string(j.value("slot", 0));
+        return name.empty() ? "(unknown)" : name;
+    } catch (const std::exception&) {
+        return "(unknown)";
+    }
 }
 
 } // namespace fitom

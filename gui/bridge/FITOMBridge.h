@@ -42,6 +42,22 @@ struct FITOMBankInfo {
     std::string name;
 };
 
+// ─── 物理チップ情報 (レジスタダンプモニター用、2026年7月新設) ──────────────
+// サブデバイス自動生成(OPNA→FM+SSG+ADPCM-B等、同一物理チップを共有)や
+// 同種デバイス自動束ね(spanGroups)・リニアステレオ化(stereoPairPort)で
+// 生成される複数の論理デバイスは、物理チップ単位で1エントリにまとめられる
+// (CFITOM::buildPhysicalChipList()参照)。
+struct FITOMChipInfo {
+    int         index;
+    std::string label;         // 代表デバイスのラベル(プロファイルのlabel)
+    // hwif接続情報(HWPlugin_Open()のparams_json)から組み立てた物理チップ名
+    // (例: "SPFM_TOWER COM3 slot0"、"YMEngine/OPNA")。FITOM_X内部の
+    // チップドライバ分類(deviceType)ではなく、実際に接続されている
+    // 物理/エミュレーターチップそのものの識別名。
+    std::string physicalName;
+    bool        twoPort;       // true = レジスタダンプは0x000-0x1FF、false = 0x00-0xFF
+};
+
 // ─── 発音中ノート情報 (キーボードビューのポリフォニー表示用) ──────────────
 struct FITOMActiveNote {
     uint8_t note;
@@ -114,10 +130,45 @@ public:
     // ─── プロファイル切り替え ────────────────────────────────────────────
     bool loadProfile(const std::string& path);
     std::string currentProfilePath() const;
+    // 現在のプロファイル状態(MIDIポート設定/マスターボリューム・
+    // マスターピッチ)を、現在ロード中のプロファイルファイルへ書き戻す
+    // (MIDIポート設定ダイアログ/システム設定ダイアログのOK確定用、
+    // 2026年7月新設)。currentProfilePath()が空(プロファイル未指定で起動)
+    // の場合は何もせずfalseを返す。
+    bool saveCurrentProfile();
 
     // ─── デバイス情報 ────────────────────────────────────────────────────
     std::vector<FITOMDeviceInfo> getDevices() const;
+
+    // ─── レジスタダンプモニター (2026年7月新設) ────────────────────────
+    // 物理チップ単位の一覧。サブデバイス自動生成等で複数の論理デバイスが
+    // 同一物理チップを共有する場合も1エントリにまとまる。
+    std::vector<FITOMChipInfo> getHwChips() const;
+    // 指定物理チップの現在のレジスタ値を生バイト列で返す。1ポートなら
+    // 0x00-0xFF(256byte)、2ポートなら0x000-0x1FF(512byte、port2を0x100番地
+    // 以降にpack)。実チップからの読み出しAPIは存在しないため、FITOM_Xが
+    // 最後に書き込んだ値をそのまま返す。chipIndexが範囲外の場合は空配列。
+    std::vector<uint8_t> getHwChipRegisterDump(int chipIndex) const;
+    // MPU(getMpuCount()、現状4)分を常に返す(indexはMPU番号と一致)。
+    // 未割り当てのMPUはnameが空文字列になる(2026年7月、MIDIポート設定
+    // ダイアログ対応のため「設定済みの件数分だけ返す」旧仕様から変更)。
     std::vector<FITOMMidiInfo>   getMidiInputs() const;
+
+    // ─── MIDIポート設定 (MIDIモニターのポート名クリックで開くダイアログ用、
+    //     2026年7月新設) ──────────────────────────────────────────────────
+    // システムが現在列挙するMIDI入力ポート名の一覧。MIDIバックエンドDLLが
+    // 未ロード(プロファイルのmidi_inputsが元々0件だった等)の場合はここで
+    // 遅延ロードするため非const。ロード自体に失敗した場合は空配列を返す。
+    std::vector<std::string> getAvailableMidiInputPorts();
+    // MPU 0..getMpuCount()-1 に対応する、現在のMIDI入力ポート割り当て名
+    // (空文字列=未設定)を常にgetMpuCount()件で返す。
+    std::vector<std::string> getMidiInputPortAssignments() const;
+    // MIDI入力ポートの割り当てを丸ごと差し替える。既存の全ポートを一旦
+    // 閉じたうえで、namesで指定された名前のポートを開き直す(即時反映)。
+    // 併せてConfig側の設定(現在のプロファイル状態)も更新する。namesの
+    // 要素数はgetMpuCount()に満たなくてもよい(残りは未設定として扱う)。
+    // 重複チェック等のバリデーションは呼び出し側(GUI)の責務とする。
+    void setMidiInputPorts(const std::vector<std::string>& names);
 
     // ─── MIDIモニター (MPU=16chの処理単位。現状最大4面) ────────────────
     int getMpuCount() const;
@@ -213,4 +264,9 @@ private:
     // (定義はFITOMBridge.cpp側)。
     struct MidiState;
     std::unique_ptr<MidiState> midiState_;
+
+    // Config側の現在のMIDI入力ポート設定(getMidiInputCount()/
+    // getMidiInputName())に基づき、既存ポートを全て閉じてから開き直す
+    // (init()とsetMidiInputPorts()の共通処理、2026年7月新設)。
+    void reopenMidiPorts();
 };

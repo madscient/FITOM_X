@@ -125,6 +125,10 @@ bool FITOMConfig::loadProfile(const fs::path& path, PatchManager* patchMgr)
     }
     try {
         json j = json::parse(f, nullptr, true, true); // allow comments
+        // ロードした内容をそのまま保持しておく(saveProfile()が、GUIから
+        // 変更されないフィールド(devices/hw_plugins/banks等)をそのまま
+        // 維持して書き戻すためのベースにする。2026年7月新設)。
+        profileJson_ = j;
         // バンクファイルパスの解決基点は「プロファイルファイル自身が
         // 置かれているディレクトリ」とする。起動時のカレントワーキング
         // ディレクトリを基点にすると、プロファイル/バンク一式をどこに
@@ -289,6 +293,15 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                 << j["psg_fallback_chip"].get<std::string>()
                 << "'、デフォルト(SSG)を使用");
         }
+    }
+    // マスターボリューム・マスターピッチ(GUIのシステム設定ダイアログで
+    // 変更・書き戻しされる、2026年7月新設)。省略時は既定値(100/440.0Hz)
+    // を維持する。
+    if (j.contains("master_volume") && j["master_volume"].is_number_integer()) {
+        masterVolume_ = static_cast<uint8_t>(j["master_volume"].get<int>());
+    }
+    if (j.contains("master_pitch") && j["master_pitch"].is_number()) {
+        masterPitch_ = j["master_pitch"].get<double>();
     }
 
     // --- 音色バンク一式のロード (hw/sw/patch/drum/scc_wave/pcm) ---
@@ -456,6 +469,30 @@ const std::string& FITOMConfig::getMidiInputName(int index) const {
     static const std::string empty;
     if (index < 0 || index >= static_cast<int>(midiInputNames_.size())) return empty;
     return midiInputNames_[index];
+}
+
+void FITOMConfig::setMidiInputNames(const std::vector<std::string>& names) {
+    midiInputNames_ = names;
+}
+
+bool FITOMConfig::saveProfile(const std::filesystem::path& path) const {
+    json j = profileJson_.is_object() ? profileJson_ : json::object();
+
+    json midiInputs = json::array();
+    for (const auto& name : midiInputNames_) {
+        midiInputs.push_back(name);
+    }
+    j["midi_inputs"]   = midiInputs;
+    j["master_volume"] = static_cast<int>(masterVolume_);
+    j["master_pitch"]  = masterPitch_;
+
+    std::ofstream ofs(path);
+    if (!ofs) {
+        FITOM_LOG_ERR("FITOMConfig::saveProfile: ファイルを開けません: " << path.string());
+        return false;
+    }
+    ofs << j.dump(2) << std::endl;
+    return static_cast<bool>(ofs);
 }
 
 void FITOMConfig::setMasterVolume(uint8_t vol) { masterVolume_ = vol; }

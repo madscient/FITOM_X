@@ -11,6 +11,9 @@
 
 #include "FITOMBridge.h"
 #include "ChSettingsDialog.h"
+#include "MidiPortSettingsDialog.h"
+#include "SystemSettingsDialog.h"
+#include "RegisterDumpWindow.h"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -18,6 +21,7 @@
 #include <GLFW/glfw3.h> // システムOpenGLヘッダーも引き込む
 
 #include <cstdio>
+#include <cmath>
 #include <string>
 #include <filesystem>
 #include <array>
@@ -668,6 +672,48 @@ namespace
         ImGui::Dummy(ImVec2(C::keyboardWidth, kHeight));
     }
 
+    // 歯車アイコンボタン(システム設定ダイアログの入り口)。日本語フォント
+    // (NotoSansJP)のグリフ収録範囲に依存しないよう、ArrowButton等と同じ
+    // 考え方でImDrawListに直接ベクター描画する(歯型8枚+中心の穴)。
+    bool gearIconButton(const char *strId, float diameter)
+    {
+        ImGui::InvisibleButton(strId, ImVec2(diameter, diameter));
+        const bool clicked = ImGui::IsItemClicked();
+        const bool hovered = ImGui::IsItemHovered();
+        const bool active  = ImGui::IsItemActive();
+
+        ImDrawList *dl = ImGui::GetWindowDrawList();
+        const ImVec2 min = ImGui::GetItemRectMin();
+        const ImVec2 max = ImGui::GetItemRectMax();
+        const ImVec2 center((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
+
+        if (hovered || active)
+        {
+            const ImU32 bg = ImGui::GetColorU32(active ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered);
+            dl->AddRectFilled(min, max, bg, 3.0f);
+        }
+
+        const float radius = diameter * 0.4f;
+        const float toothDepth = radius * 0.35f;
+        const int teeth = 8;
+        const int totalPoints = teeth * 2;
+        constexpr float kPi = 3.14159265358979323846f; // imgui_internal.hのIM_PIに依存しないためのローカル定義
+        ImVec2 pts[totalPoints];
+        for (int i = 0; i < totalPoints; ++i)
+        {
+            const float angle = (2.0f * kPi * static_cast<float>(i)) / static_cast<float>(totalPoints);
+            const float r = (i % 2 == 0) ? radius : (radius - toothDepth);
+            pts[i] = ImVec2(center.x + r * cosf(angle), center.y + r * sinf(angle));
+        }
+        const ImU32 fg = ImGui::GetColorU32(active ? ImGuiCol_ButtonActive : ImGuiCol_Text);
+        dl->AddConvexPolyFilled(pts, totalPoints, fg);
+        // 中心の穴(背景色で塗り潰して視覚的にくり抜く)。
+        const ImU32 holeBg = ImGui::GetColorU32(ImGuiCol_WindowBg);
+        dl->AddCircleFilled(center, radius * 0.38f, holeBg, 16);
+
+        return clicked;
+    }
+
     // MIDIモニター バンド。ルート画面に常時表示する主要コンテンツ。
     // MPU(16chの処理単位、現状最大4面)を`<`/`>`ボタンで切り替えられる。
     void renderMidiMonitorBand(FITOMBridge &bridge)
@@ -677,25 +723,50 @@ namespace
         static int mpuIndex = 0;
         static std::array<ChannelGlow, 16> keyGlow{};
         static ChSettingsDialog chDialog;
+        static MidiPortSettingsDialog portDialog;
+        static SystemSettingsDialog systemDialog;
+        static RegisterDumpWindow regDumpWindow;
+        // MIDIモニター本体とレジスタダンプモニターは、ルート画面上で
+        // オルタネート表示(排他的に切り替え)する(2026年7月変更。以前は
+        // レジスタダンプモニターを別ウィンドウとして重ねて表示していた)。
+        static bool showRegisterDump = false;
 
         auto midiInputs = bridge.getMidiInputs();
 
-        // ページ数はMAX_MPUS(コア側の固定上限、現状4)ではなく、実際に
-        // 設定されているMIDI入力ポート数に合わせる。未設定のMPUには
-        // 対応するMidiProcessorが存在せず(CFITOM::init参照)、空の
-        // プレースホルダー行しか表示できないため、意味の無いページに
-        // なってしまう。
+        // MPU(MidiProcessor)はMAX_MPUS(コア側の固定上限、現状4)分が常に
+        // 存在する(CFITOM::init参照。2026年7月、MIDIポート設定ダイアログ
+        // から実行中に未割り当てのMPUへポートを割り当てられるよう変更した
+        // ため、以前あった「設定済みポート数にページ数を絞る」処理は
+        // 不要になった)。
         int mpuCount = bridge.getMpuCount();
-        if (!midiInputs.empty() && static_cast<int>(midiInputs.size()) < mpuCount)
-        {
-            mpuCount = static_cast<int>(midiInputs.size());
-        }
         if (mpuCount <= 0)
             mpuCount = 1;
         if (mpuIndex >= mpuCount)
             mpuIndex = 0;
 
-        // ポート名ラベルと切替ボタン(右上)。
+        // 歯車アイコン(左上)。システム設定ダイアログ(SystemSettingsDialog、
+        // マスターボリューム/マスターピッチ)の入り口。
+        const float gearSize = ImGui::GetTextLineHeight() + 4.0f;
+        ImGui::SetCursorPos(ImVec2(C::leftMargin, ImGui::GetCursorPosY()));
+        if (gearIconButton("##systemSettings", gearSize))
+        {
+            systemDialog.open(bridge);
+        }
+        ImGui::SameLine();
+
+        // レジスタダンプモニターとの切り替えボタン(歯車アイコンの隣)。
+        // MIDIモニター本体と排他的に表示が入れ替わる(オルタネート表示)。
+        if (ImGui::SmallButton(showRegisterDump ? "MIDI" : "REG"))
+        {
+            showRegisterDump = !showRegisterDump;
+        }
+        ImGui::SameLine();
+
+        // ポート名ラベルと切替ボタン(右上)。ラベル部分をクリックすると
+        // MIDIポート設定ダイアログ(MidiPortSettingsDialog)を開く
+        // (CH列/Bank+Program列と同じ、不可視Selectableでヒット領域を
+        // 確保してから実テキストを重ねて描画するパターン。
+        // renderMonitorDataRow参照)。
         std::string portName;
         for (const auto &m : midiInputs)
         {
@@ -705,7 +776,14 @@ namespace
                 break;
             }
         }
-        ImGui::SetCursorPosX(C::leftMargin);
+        const float portLabelStartX = ImGui::GetCursorPosX();
+        const ImVec2 portLabelPos(ImGui::GetCursorPos());
+        const ImVec2 portLabelSize(C::total - 44.0f - portLabelStartX, ImGui::GetTextLineHeight());
+        if (ImGui::Selectable("##midiportsel", false, 0, portLabelSize))
+        {
+            portDialog.open(bridge);
+        }
+        ImGui::SetCursorPos(portLabelPos);
         if (!portName.empty())
         {
             ImGui::Text("<%s>", portName.c_str());
@@ -729,27 +807,35 @@ namespace
         }
         ImGui::EndDisabled();
 
-        renderMonitorHeader();
-        ImGui::Separator();
-
-        auto monitors = bridge.getChannelMonitors(mpuIndex);
-        const float now = static_cast<float>(ImGui::GetTime());
-
-        if (monitors.empty())
+        if (showRegisterDump)
         {
-            FITOMChannelMonitor placeholder;
-            renderMonitorDataRow(bridge, mpuIndex, placeholder, chDialog);
-            ImGui::NewLine(); // SameLine()チェーンの末尾のままだと次の描画が
-                              // 同じ行に重なってしまうため、明示的に改行する
-            renderKeyboardView(placeholder, keyGlow[0], now);
+            ImGui::Separator();
+            regDumpWindow.render(bridge);
         }
         else
         {
-            for (size_t i = 0; i < monitors.size() && i < keyGlow.size(); ++i)
+            renderMonitorHeader();
+            ImGui::Separator();
+
+            auto monitors = bridge.getChannelMonitors(mpuIndex);
+            const float now = static_cast<float>(ImGui::GetTime());
+
+            if (monitors.empty())
             {
-                renderMonitorDataRow(bridge, mpuIndex, monitors[i], chDialog);
-                ImGui::NewLine();
-                renderKeyboardView(monitors[i], keyGlow[i], now);
+                FITOMChannelMonitor placeholder;
+                renderMonitorDataRow(bridge, mpuIndex, placeholder, chDialog);
+                ImGui::NewLine(); // SameLine()チェーンの末尾のままだと次の描画が
+                                  // 同じ行に重なってしまうため、明示的に改行する
+                renderKeyboardView(placeholder, keyGlow[0], now);
+            }
+            else
+            {
+                for (size_t i = 0; i < monitors.size() && i < keyGlow.size(); ++i)
+                {
+                    renderMonitorDataRow(bridge, mpuIndex, monitors[i], chDialog);
+                    ImGui::NewLine();
+                    renderKeyboardView(monitors[i], keyGlow[i], now);
+                }
             }
         }
 
@@ -757,6 +843,13 @@ namespace
         // ここで一箇所だけ描画する。パッチピッカー/ドラムキット選択は
         // render()内部で入れ子描画される(ChSettingsDialog.h参照)。
         chDialog.render(bridge);
+
+        // MIDIポート設定ダイアログ本体(モーダル)。
+        portDialog.render(bridge);
+
+        // システム設定ダイアログ本体(モーダル、マスターボリューム/
+        // マスターピッチ)。
+        systemDialog.render(bridge);
     }
 
 } // namespace

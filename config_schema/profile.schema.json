@@ -172,7 +172,7 @@
     },
     "midi_inputs": {
       "type": "array",
-      "description": "使用する MIDI 入力デバイス名の一覧。MidiPlugin_EnumerateIn() が返すデバイス名と一致させること。",
+      "description": "使用する MIDI 入力デバイス名の一覧。MidiPlugin_EnumerateIn() が返すデバイス名と一致させること。配列のindexがMPU番号(0-3、最大4)に対応する。空文字列の要素は「そのMPUには割り当てない」ことを表す(GUIのMIDIポート設定ダイアログで一部のMPUのみ設定した場合等、途中のindexが空になりうる)。",
       "items": {
         "type": "string"
       },
@@ -494,6 +494,20 @@
       ],
       "default": "SSG",
       "description": "PSG系共有バンク(voice_patch_type=0x40、SSG/EPSG/DCSG/SAA/SCC全チップが同じCC#0/バンク名前空間を共有する、2026年7月〜)において、個々のHwPatchエントリの対象チップ指定(targetVoicePatchType)が未設定(0)の場合に、どのチップ向けとして解決するかを指定する。省略時は'SSG'。hw_patchごとに明示的な対象チップが指定されている場合は、この設定よりそちらが優先される。"
+    },
+    "master_volume": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 127,
+      "default": 100,
+      "description": "マスターボリューム(全チャンネル共通の出力音量係数)。GUIのシステム設定ダイアログから変更可能。省略時は100。"
+    },
+    "master_pitch": {
+      "type": "number",
+      "minimum": 430.0,
+      "maximum": 450.0,
+      "default": 440.0,
+      "description": "マスターピッチ(基準A音のHz)。GUIのシステム設定ダイアログから変更可能。省略時は440.0。"
     }
   },
   "examples": [

@@ -6,7 +6,6 @@
 #include "fitom/Config.h"
 #include "fitom/PatchManager.h"
 #include "fitom/Log.h"
-#include "fitom/FnumUtils.h"
 #include "fitom/MidiManager.h"
 
 #include <nlohmann/json.hpp>
@@ -150,43 +149,72 @@ bool FITOMBridge::init(const std::string& systemConfPath,
     // DLLをロードし、プロファイルのmidi_inputs[]で名前指定された各ポートを
     // 開いて、対応するMPU(MidiProcessor)のreceiveByte()へ配線する)。
     // 個別のポートのオープン失敗はログのみ出し、致命的エラーとしては
-    // 扱わない(他のポートは引き続き使えるようにするため)。
-    auto& fitomInst = fitom::CFITOM::instance();
-    auto& cfg2 = fitomInst.getConfig();
-    const int midiInCount = cfg2.getMidiInputCount();
-    if (midiInCount > 0) {
-        const fs::path midiBackendPath = resolveMidiBackendPath(cfg2.getMidiBackendDll());
-        try {
-            midiState_->plugin = fitom::MidiPluginInstance::load(midiBackendPath);
-            for (int i = 0; i < midiInCount; ++i) {
-                fitom::MidiProcessor* proc = fitomInst.getMidiProcessor(static_cast<uint8_t>(i));
-                if (!proc) {
-                    midiState_->ports.push_back(nullptr);
-                    continue;
-                }
-                const std::string portName = cfg2.getMidiInputName(i);
-                try {
-                    midiState_->ports.push_back(std::make_unique<fitom::MidiInPort>(
-                        midiState_->plugin, portName,
-                        [proc](const uint8_t* data, size_t len, uint64_t ts) {
-                            proc->receiveByte(data, len, ts);
-                        }));
-                } catch (const std::exception& e) {
-                    FITOM_LOG_ERR("FITOMBridge: MIDI入力 \"" << portName
-                        << "\" のオープンに失敗: " << e.what());
-                    logAvailableMidiInPorts(*midiState_->plugin);
-                    midiState_->ports.push_back(nullptr);
-                }
-            }
-        } catch (const std::exception& e) {
-            FITOM_LOG_ERR("FITOMBridge: MIDIバックエンド読み込み失敗 ("
-                << midiBackendPath.string() << "): " << e.what());
-        }
-    }
+    // 扱わない(他のポートは引き続き使えるようにするため)。実処理は
+    // reopenMidiPorts()(GUIのMIDIポート設定ダイアログからの再設定とも
+    // 共通、2026年7月新設)に切り出した。
+    reopenMidiPorts();
 
     initialized_ = true;
     FITOM_LOG_INFO("FITOMBridge initialized");
     return true;
+}
+
+// Config側の現在のMIDI入力ポート設定(getMidiInputCount()/
+// getMidiInputName())に基づき、既存ポートを全て閉じてから開き直す
+// (init()とsetMidiInputPorts()の共通処理、2026年7月新設)。
+// 設定名が1件も無い場合はバックエンドDLL自体をロードしない
+// (init()の従来挙動を維持。オーディオデバイスと違い、MIDIバックエンドの
+// 読み込み自体に副作用は無いが、環境によってはDLLが存在しない場合もある
+// ため、不要な読み込みは避ける)。
+void FITOMBridge::reopenMidiPorts()
+{
+    auto& fitomInst = fitom::CFITOM::instance();
+    auto& cfg = fitomInst.getConfig();
+
+    // 既存ポートを先に閉じる(同名ポートの二重オープンを防ぐため)。
+    midiState_->ports.clear();
+
+    const int midiInCount = cfg.getMidiInputCount();
+    bool anyPortConfigured = false;
+    for (int i = 0; i < midiInCount; ++i) {
+        if (!cfg.getMidiInputName(i).empty()) { anyPortConfigured = true; break; }
+    }
+    if (!anyPortConfigured) {
+        midiState_->plugin.reset();
+        return;
+    }
+
+    if (!midiState_->plugin) {
+        const fs::path midiBackendPath = resolveMidiBackendPath(cfg.getMidiBackendDll());
+        try {
+            midiState_->plugin = fitom::MidiPluginInstance::load(midiBackendPath);
+        } catch (const std::exception& e) {
+            FITOM_LOG_ERR("FITOMBridge: MIDIバックエンド読み込み失敗 ("
+                << midiBackendPath.string() << "): " << e.what());
+            return;
+        }
+    }
+
+    for (int i = 0; i < fitom::CFITOM::getMpuCount(); ++i) {
+        fitom::MidiProcessor* proc = fitomInst.getMidiProcessor(static_cast<uint8_t>(i));
+        const std::string portName = (i < midiInCount) ? cfg.getMidiInputName(i) : std::string();
+        if (!proc || portName.empty()) {
+            midiState_->ports.push_back(nullptr);
+            continue;
+        }
+        try {
+            midiState_->ports.push_back(std::make_unique<fitom::MidiInPort>(
+                midiState_->plugin, portName,
+                [proc](const uint8_t* data, size_t len, uint64_t ts) {
+                    proc->receiveByte(data, len, ts);
+                }));
+        } catch (const std::exception& e) {
+            FITOM_LOG_ERR("FITOMBridge: MIDI入力 \"" << portName
+                << "\" のオープンに失敗: " << e.what());
+            logAvailableMidiInPorts(*midiState_->plugin);
+            midiState_->ports.push_back(nullptr);
+        }
+    }
 }
 
 void FITOMBridge::exit() {
@@ -220,6 +248,20 @@ bool FITOMBridge::loadProfile(const std::string& path)
 
 std::string FITOMBridge::currentProfilePath() const {
     return currentProfile_;
+}
+
+bool FITOMBridge::saveCurrentProfile()
+{
+    if (!initialized_ || currentProfile_.empty()) return false;
+
+    auto& cfg = fitom::CFITOM::instance().getConfig();
+    bool ok = cfg.saveProfile(fs::path(currentProfile_));
+    if (ok) {
+        FITOM_LOG_INFO("Profile saved: " << currentProfile_);
+    } else {
+        FITOM_LOG_ERR("FITOMBridge: プロファイルの保存に失敗: " << currentProfile_);
+    }
+    return ok;
 }
 
 // ================================================================
@@ -259,20 +301,89 @@ std::vector<FITOMDeviceInfo> FITOMBridge::getDevices() const
     return result;
 }
 
+std::vector<FITOMChipInfo> FITOMBridge::getHwChips() const
+{
+    std::vector<FITOMChipInfo> result;
+    if (!initialized_) return result;
+
+    auto& core = fitom::CFITOM::instance();
+    int n = core.getPhysicalChipCount();
+    for (int i = 0; i < n; ++i) {
+        const auto* info = core.getPhysicalChipInfo(i);
+        if (!info) continue;
+        FITOMChipInfo c;
+        c.index        = i;
+        c.label        = info->label;
+        c.physicalName = info->physicalName;
+        c.twoPort      = (info->port2 != nullptr);
+        result.push_back(c);
+    }
+    return result;
+}
+
+std::vector<uint8_t> FITOMBridge::getHwChipRegisterDump(int chipIndex) const
+{
+    if (!initialized_) return {};
+    return fitom::CFITOM::instance().getPhysicalChipRegisterDump(chipIndex);
+}
+
 std::vector<FITOMMidiInfo> FITOMBridge::getMidiInputs() const
 {
     std::vector<FITOMMidiInfo> result;
     if (!initialized_) return result;
 
     auto& cfg = fitom::CFITOM::instance().getConfig();
-    int n = cfg.getMidiInputCount();
-    for (int i = 0; i < n; ++i) {
+    const int midiInCount = cfg.getMidiInputCount();
+    // MPU(getMpuCount())分を常に返す。未設定のMPUはnameが空文字列になる
+    // (2026年7月、MIDIポート設定ダイアログでMPUごとの割り当てを一覧
+    // できるようにするため。以前はcfg.getMidiInputCount()件のみ返して
+    // いた)。
+    for (int i = 0; i < fitom::CFITOM::getMpuCount(); ++i) {
         FITOMMidiInfo info;
         info.index = i;
-        info.name  = cfg.getMidiInputName(i);
+        info.name  = (i < midiInCount) ? cfg.getMidiInputName(i) : std::string();
         result.push_back(info);
     }
     return result;
+}
+
+std::vector<std::string> FITOMBridge::getAvailableMidiInputPorts()
+{
+    if (!initialized_) return {};
+
+    if (!midiState_->plugin) {
+        auto& cfg = fitom::CFITOM::instance().getConfig();
+        const fs::path midiBackendPath = resolveMidiBackendPath(cfg.getMidiBackendDll());
+        try {
+            midiState_->plugin = fitom::MidiPluginInstance::load(midiBackendPath);
+        } catch (const std::exception& e) {
+            FITOM_LOG_ERR("FITOMBridge: MIDIバックエンド読み込み失敗 ("
+                << midiBackendPath.string() << "): " << e.what());
+            return {};
+        }
+    }
+    return midiState_->plugin->enumerateIn();
+}
+
+std::vector<std::string> FITOMBridge::getMidiInputPortAssignments() const
+{
+    std::vector<std::string> result;
+    if (!initialized_) return result;
+
+    auto& cfg = fitom::CFITOM::instance().getConfig();
+    const int midiInCount = cfg.getMidiInputCount();
+    for (int i = 0; i < fitom::CFITOM::getMpuCount(); ++i) {
+        result.push_back((i < midiInCount) ? cfg.getMidiInputName(i) : std::string());
+    }
+    return result;
+}
+
+void FITOMBridge::setMidiInputPorts(const std::vector<std::string>& names)
+{
+    if (!initialized_) return;
+
+    fitom::CFITOM::instance().getConfig().setMidiInputNames(names);
+    reopenMidiPorts();
 }
 
 // ================================================================
@@ -680,10 +791,14 @@ uint8_t FITOMBridge::getMasterVolume() const {
 }
 
 void   FITOMBridge::setMasterPitch(double hz) {
-    fitom::FnumRegistry::instance().setMasterPitch(hz);
+    // CFITOM::setMasterPitch()経由にする(FnumRegistry直叩きだと、
+    // Config側(config_->masterPitch_、プロファイル書き戻しの対象)の更新と
+    // 発音中チャンネルへのF-number即時反映[onMasterPitchChanged]が
+    // どちらも行われなかったバグを修正、2026年7月)。
+    if (initialized_) fitom::CFITOM::instance().setMasterPitch(hz);
 }
 double FITOMBridge::getMasterPitch() const {
-    return fitom::FnumRegistry::instance().getMasterPitch();
+    return initialized_ ? fitom::CFITOM::instance().getMasterPitch() : 440.0;
 }
 
 // ================================================================
