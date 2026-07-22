@@ -18,7 +18,7 @@ struct CategoryEntry {
 };
 
 constexpr CategoryEntry kCategories[] = {
-    { 0x00, "通常モード" },
+    { 0x00, "ネイティブ" },
     { 0x10, "OPN" },
     { 0x11, "OPN2" },
     { 0x19, "OPM" },
@@ -26,13 +26,13 @@ constexpr CategoryEntry kCategories[] = {
     { 0x1B, "OPZ2" },
     { 0x20, "OPL" },
     { 0x21, "OPL2" },
-    { 0x22, "OPL3(2オペレータモード)" },
-    { 0x23, "OPL内蔵リズム" },
+    { 0x22, "OPL3(2OP)" },
+    { 0x23, "OPL Rhythm" },
     { 0x28, "OPLL" },
     { 0x29, "OPLLP" },
     { 0x2A, "OPLLX" },
     { 0x2B, "VRC7" },
-    { 0x30, "OPL3(4オペレータモード)" },
+    { 0x30, "OPL3(4OP)" },
     { 0x40, "SSG" },
     { 0x41, "EPSG" },
     { 0x42, "DCSG" },
@@ -40,7 +40,7 @@ constexpr CategoryEntry kCategories[] = {
     { 0x48, "SCC" },
     { 0x51, "ADPCM-B" },
     { 0x52, "ADPCM-A" },
-    { 0x53, "PCM-D8" },
+    { 0x53, "PCMD8" },
     { 0x54, "AWM" },
 };
 
