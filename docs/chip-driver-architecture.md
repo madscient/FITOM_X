@@ -330,6 +330,31 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
   `kY8950_DeltaT`(YM3801)/`kOPNA_DeltaT`(YM2608)/`kOPNB_DeltaT`(YM2610/YM2610B)の
   3種類。旧FITOMの`REGMAP`構造体（`control1`〜`panmask`の16フィールド）を完全
   移植し、`memory`/`panmask`フィールドの欠落（以前の実装）を修正済み。
+  `RegMap`には`addrShift`フィールド（Start/Endアドレスレジスタの境界単位、
+  バイトオフセットを右シフトする量）もあり、OPNA/Y8950は2（4byte境界）、
+  OPNB/OPNBB(YM2610/2610B)は8（256byte境界、チップ回路仕様上の固定値で
+  control2の設定値には依存しない）。以前は全チップに4byte境界を固定で
+  使っていたためOPNB/OPNBBの再生アドレスが64倍ズレるバグがあった
+  （`AdpcmVoice::startAddr`/`length`はバイト単位で保持し、`registerVoice()`/
+  `updateVoice()`が`addrShift`で変換する）。
+- **DeltaN(Delta-N、ADPCM-Bの再生ピッチレジスタ)の基準周波数は固定16000Hz**：
+  `FnumUtils.h`の`FnumTableType::DeltaN`は他の型(Fnumber/TonePeriod)と違い
+  `masterPitch_`(A440チューニング、既定440Hz)ではなく、旧FITOMの
+  `Fnum.cpp::CFnumTable::GetDeltaN`以来の固定16000Hz基準を使う。`CYmDelta`の
+  `kNoteOffset`/`kPitchOrigin`定数がこの16000Hz基準にキャリブレーションされて
+  いるため。算出式は`delta_n=round(2^16*freq*divide/master)`
+  (`divide`=OPNA/OPNB用マスタークロック分周比144)で、`divide`の乗算が
+  欠落しているとC4のDeltaNが本来の約1/36という遅すぎる値になる。
+- **ADPCM-Bのcontrol2 bit7/6(pan_left/pan_right)は出力有効化ビットを兼ねる**：
+  両ビット0(センターパンのMIDI既定状態)だと実チップは演算結果を一切出力に
+  加算しない。`CSoundDevice::noteOn()`の`updatePanpot()`呼び出しはpanDirty
+  (前回値との差分)条件のため、MIDI側が明示的にパンCCを送らないと
+  「0→0で変化なし」と判定され一度も呼ばれない。そのため`CYmDelta`の
+  NoteOn処理は上位のdirtyフラグに関係なく`updatePanpot(ch)`を無条件に呼ぶ
+  （このチップ固有の対応、他デバイスのパンレジスタは追従不要）。
+- **`createCAdPcm()`のmasterクロックは`port->getClock()`を使う**：FM系チップ
+  ドライバ(`createCOPNA`等)と同様、DeltaN算出のmasterにはサンプルレート
+  ではなく実クロックを渡す(取得不可時のみサンプルレートにフォールバック)。
 - **`DEVICE_ADPCM`/`DEVICE_ADPCMB`/`DEVICE_ADPCMB_OPNA`の3分割**：旧FITOMは
   Y8950とOPNAの両方に`DEVICE_ADPCM`を共用していた（クラスが分かれていたため実害
   なし）が、新FITOMの単一ディスパッチ方式では区別が必要なため、

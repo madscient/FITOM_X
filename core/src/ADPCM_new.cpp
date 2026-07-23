@@ -22,8 +22,8 @@ namespace fitom {
 // ================================================================
 struct AdpcmVoice {
     char     name[32]   = {};
-    uint32_t startAddr  = 0;   // ビット単位
-    uint32_t length     = 0;   // ビット単位
+    uint32_t startAddr  = 0;   // バイト単位 (offset from start of PCM image)
+    uint32_t length     = 0;   // バイト単位
     uint32_t loopStart  = 0;   // offset from start
     uint32_t loopEnd    = 0;   // offset from start
 };
@@ -201,6 +201,16 @@ struct RegMap {
     uint8_t ctrl1init;
     uint8_t ctrl2init;
     uint8_t panmask;
+    // Start/Endアドレスレジスタのアドレッシング境界(バイトオフセットを
+    // 何bit右シフトしてレジスタ値にするか)。実チップのアドレス指定単位
+    // そのもの(ymfm adpcm_b_channel::address_shift()参照)。
+    // YM2608(OPNA)/Y8950は外部メモリのcontrol2依存(本FITOM_Xの実装は
+    // control2のROM/RAM・8bit DRAMビットを常に0にしか設定しないため
+    // 実質固定で2=4byte境界)。YM2610/YM2610B(OPNB)はチップ側の実装が
+    // 常に8=256byte境界固定(control2の値に関係なく固定)であり、OPNAと
+    // 混同すると再生アドレスが64倍ズレる(2026-07-24、実機ログで確認・
+    // 修正)。
+    uint8_t addrShift;
 };
 
 // YM2608 (OPNA) ADPCM-B レジスタマップ (旧FITOM CAdPcm2608 完全移植)
@@ -208,7 +218,8 @@ static const RegMap kOPNA_DeltaT = {
     /*control1*/0x00, /*control2*/0x01, /*startLSB*/0x02, /*startMSB*/0x03,
     /*endLSB*/0x04,   /*endMSB*/0x05,   /*limitLSB*/0x0c, /*limitMSB*/0x0d,
     /*memory*/0x08,   /*deltanLSB*/0x09,/*deltanMSB*/0x0a,/*volume*/0x0b,
-    /*flag*/0x10,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0xc0
+    /*flag*/0x10,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0xc0,
+    /*addrShift*/2
 };
 
 // Y8950 (YM3801) ADPCM レジスタマップ (旧FITOM CAdPcm3801 完全移植)
@@ -216,7 +227,8 @@ static const RegMap kY8950_DeltaT = {
     /*control1*/0x07, /*control2*/0x08, /*startLSB*/0x09, /*startMSB*/0x0a,
     /*endLSB*/0x0b,   /*endMSB*/0x0c,   /*limitLSB*/0xff, /*limitMSB*/0xff,
     /*memory*/0x0f,   /*deltanLSB*/0x10,/*deltanMSB*/0x11,/*volume*/0x12,
-    /*flag*/0x04,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0x00
+    /*flag*/0x04,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0x00,
+    /*addrShift*/2
 };
 
 // YM2610 (OPNB) ADPCM-B レジスタマップ (旧FITOM CAdPcm2610B 完全移植)
@@ -224,7 +236,8 @@ static const RegMap kOPNB_DeltaT = {
     /*control1*/0x10, /*control2*/0x11, /*startLSB*/0x12, /*startMSB*/0x13,
     /*endLSB*/0x14,   /*endMSB*/0x15,   /*limitLSB*/0xff, /*limitMSB*/0xff,
     /*memory*/0xff,   /*deltanLSB*/0x19,/*deltanMSB*/0x1a,/*volume*/0x1b,
-    /*flag*/0x1c,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0xc0
+    /*flag*/0x1c,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0xc0,
+    /*addrShift*/8
 };
 
 // ================================================================
@@ -245,33 +258,34 @@ public:
     std::string getDescriptor() const override { return "YMDeltaT (ADPCM-B) 1ch"; }
     void init() override {}
 
-    // offset(バイト単位、adpcm_packer出力のstart_offsetそのもの)を
-    // このチップのstart/endレジスタが扱うビット単位に変換して
-    // voices_[prog]へ登録するだけ。チップメモリへの書き込みは行わない
-    // (波形データは既にhwif側で配置済みという前提)。実際のStart/End
-    // アドレスレジスタへの反映はupdateVoice()がNoteOnのたびに行う。
+    // offset/length(バイト単位、adpcm_packer出力のstart_offset/padded_size
+    // そのもの)をそのままvoices_[prog]へ登録するだけ。チップメモリへの
+    // 書き込みは行わない(波形データは既にhwif側で配置済みという前提)。
+    // 実際のStart/Endアドレスレジスタへの反映はupdateVoice()がNoteOnの
+    // たびに行う(reg_.addrShiftビット右シフトしてレジスタ値にする。
+    // OPNA/Y8950=2=4byte境界、OPNB/OPNBB=8=256byte境界。旧実装は全チップに
+    // 4byte境界のシフト量を固定で使っており、OPNB/OPNBBの実際のシフト量
+    // (ymfm adpcm_b_channel側がチップ種別で固定8を使う)と食い違って
+    // 再生アドレスが64倍ズレていた。2026-07-24、実機ログで確認・修正)。
     //
-    // 注意: このチップのStart/Endアドレスレジスタは下位5bit(=バイト単位
-    // でのoffsetの下位2bit、4byte境界)を保持できない(updateVoice()の
-    // setReg(startLSB,(st>>5)&0xFF)等参照)。adpcm_packer側がboundary
-    // (pcmbank.json、32/256byte)に整列済みのオフセットを出力していれば
-    // 自動的に満たされるはずだが、万一4byte境界に整列していない場合は
-    // 無警告で下位ビットが切り捨てられ、再生アドレスが実際の配置位置と
-    // ずれてしまう。ここで検知して警告する(FITOM_X側で値を丸めて
-    // 誤魔化すことはしない。丸めるとhwif側が実際に配置したアドレスと
-    // 一致しなくなり、波形データの配置はhwif側の責務という設計方針に
-    // 反するため)。
+    // adpcm_packer側がboundary(pcmbank.json、32/256byte)に整列済みの
+    // オフセットを出力していれば自動的に満たされるはずだが、万一
+    // reg_.addrShift境界に整列していない場合は無警告で下位ビットが
+    // 切り捨てられ、再生アドレスが実際の配置位置とずれてしまう。ここで
+    // 検知して警告する(FITOM_X側で値を丸めて誤魔化すことはしない。
+    // 丸めるとhwif側が実際に配置したアドレスと一致しなくなり、波形データの
+    // 配置はhwif側の責務という設計方針に反するため)。
     void registerVoice(int prog, uint32_t offset, uint32_t length) override {
         if (prog < 0 || prog >= 128) return;
-        uint32_t st  = offset * 8;
-        uint32_t len = length * 8;
-        if ((st & 0x1F) != 0 || (len & 0x1F) != 0) {
+        uint32_t mask = (1u << reg_.addrShift) - 1;
+        if ((offset & mask) != 0 || (length & mask) != 0) {
             FITOM_LOG_WARN("CYmDelta: voice[" << prog << "] offset=" << offset
-                << " length=" << length << " is not aligned to a 4-byte boundary; "
+                << " length=" << length << " is not aligned to a "
+                << (1u << reg_.addrShift) << "-byte boundary; "
                 "Start/End address register will be truncated (adpcm_packer boundary設定を確認してください)");
         }
-        voices_[prog].startAddr = st;
-        voices_[prog].length    = len;
+        voices_[prog].startAddr = offset;
+        voices_[prog].length    = length;
         usedMem_ += length;
     }
 
@@ -317,14 +331,25 @@ protected:
         }
         int num = zone->waveIndex & 0x7F;
         if (num >= 0 && num < 128 && voices_[num].length) {
+            // st/edはバイト単位(registerVoice参照)。reg_.addrShiftビット
+            // 右シフトして、このチップの実際のアドレス指定単位に変換する
+            // (OPNA/Y8950=4byte単位、OPNB/OPNBB=256byte単位。旧実装は
+            // 全チップに4byte単位を固定で使っていたため、OPNB/OPNBBの
+            // 再生アドレスが64倍ズレていた。2026-07-24、実機ログで確認・修正)。
             uint32_t st = voices_[num].startAddr;
             uint32_t ed = st + voices_[num].length - 1;
-            setReg(reg_.startLSB, static_cast<uint8_t>((st >> 5) & 0xFF));
-            setReg(reg_.startMSB, static_cast<uint8_t>((st >> 13) & 0xFF));
-            setReg(reg_.endLSB,   static_cast<uint8_t>((ed >> 5) & 0xFF));
-            setReg(reg_.endMSB,   static_cast<uint8_t>((ed >> 13) & 0xFF));
-            if (reg_.limitLSB != 0xFF) setReg(reg_.limitLSB, static_cast<uint8_t>((ed >> 5) & 0xFF));
-            if (reg_.limitMSB != 0xFF) setReg(reg_.limitMSB, static_cast<uint8_t>((ed >> 13) & 0xFF));
+            uint32_t stReg = st >> reg_.addrShift;
+            uint32_t edReg = ed >> reg_.addrShift;
+            uint8_t startLSB = static_cast<uint8_t>(stReg & 0xFF);
+            uint8_t startMSB = static_cast<uint8_t>((stReg >> 8) & 0xFF);
+            uint8_t endLSB   = static_cast<uint8_t>(edReg & 0xFF);
+            uint8_t endMSB   = static_cast<uint8_t>((edReg >> 8) & 0xFF);
+            setReg(reg_.startLSB, startLSB);
+            setReg(reg_.startMSB, startMSB);
+            setReg(reg_.endLSB,   endLSB);
+            setReg(reg_.endMSB,   endMSB);
+            if (reg_.limitLSB != 0xFF) setReg(reg_.limitLSB, endLSB);
+            if (reg_.limitMSB != 0xFF) setReg(reg_.limitMSB, endMSB);
         }
     }
 
@@ -348,6 +373,21 @@ protected:
         if (ch >= maxChs_) return;
         stopPcm(); // 常に一旦停止
         if (keyOn) {
+            // 2026-07-24修正: control2のbit7/6(pan_left/pan_right)は
+            // ステレオ定位ではなく実質的な「出力有効化ビット」を兼ねる
+            // (ymfm adpcm_b_channel::output()参照: 両ビットとも0だと
+            // 演算結果が出力に一切加算されない=完全無音)。
+            // CSoundDevice::noteOn()はpanDirty(前回値との差分)が立った
+            // 場合のみupdatePanpot()を呼ぶが、panpotの初期値・既定値は
+            // 0(center)であり、MIDI側が明示的にパンCCを送らない限り
+            // 「0→0で変化なし」と判定されupdatePanpot()が一度も呼ばれない
+            // (volDirtyはnoteOnで強制trueにされるが、panDirtyは同様の
+            // 強制がされていない)。結果、control2が実チップのリセット値
+            // (0=両ビットOFF)のまま放置され、ADPCM-Bがセンターパンでは
+            // 恒久的に無音になっていた。他デバイスのパンレジスタと違い
+            // このチップは「毎ノートオンで確実に書く」必要があるため、
+            // 上位のdirtyフラグに関係なくここで無条件に呼ぶ。
+            updatePanpot(ch);
             setReg(reg_.flag,     0x1b);
             setReg(reg_.flag,     0x80);
             setReg(reg_.control1, 0xa0);
@@ -638,31 +678,43 @@ protected:
 
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType)
 {
+    // 2026-07-24: DeltaNテーブル生成の真因は FnumUtils.h の
+    // FnumRegistry::generateTable() 側にあった(FnumTableType::DeltaNケースで
+    // divideの乗算が丸ごと欠落しており、実チップの式 delta_n=round(2^16*freq*
+    // divide/master) になっていなかった)。そちらを修正したため、ここは
+    // OPNA/OPNB/OPN2等のFMチップドライバ(createCOPNA/createCOPNB/createCOPN2)
+    // と同様、port->getClock()(実クロック)をmasterとして使う。
+    // (一度はここをport->getClock()化する修正のみでFnumUtils.h側の式を
+    //  直さないまま試し、dn=3〜4という壊滅的な値になって差し戻した経緯が
+    //  あるが、原因はクロック取得の是非ではなくFnumUtils.h の式自体だった)
+    int clock = (p ? p->getClock() : 0);
+    if (clock <= 0) clock = sr; // 取得できない場合のみ従来通りsrにフォールバック
+
     switch (deviceType) {
     case DEVICE_PCMD8:
     case DEVICE_MA2:
-        return std::make_unique<CAdPcmZ280>(p, sr, 4 * 1024 * 1024); // 4MB
+        return std::make_unique<CAdPcmZ280>(p, clock, 4 * 1024 * 1024); // 4MB
     case DEVICE_MA1:
     case DEVICE_ADPCMB_Y8950:
         // Y8950 (YM3801) 内蔵ADPCM。DEVICE_ADPCMB_Y8950が正式な識別子
         // (2026年7月新設)。旧汎用識別子DEVICE_ADPCMは削除した
         // (動いていなかったコードとの互換性維持は不要と判断)。
         return std::make_unique<CYmDelta>(
-            deviceType, p, 0x20, sr, 72, 256 * 1024, DEVICE_Y8950,
+            deviceType, p, 0x20, clock, 72, 256 * 1024, DEVICE_Y8950,
             kY8950_DeltaT);
     case DEVICE_ADPCMB_OPNA:
         // OPNA(YM2608)内蔵ADPCM-B。fnumDivide=144はOPNA用マスタークロック分周比。
         return std::make_unique<CYmDelta>(
-            deviceType, p, 0x20, sr, 144, 256 * 1024, DEVICE_OPNA,
+            deviceType, p, 0x20, clock, 144, 256 * 1024, DEVICE_OPNA,
             kOPNA_DeltaT);
     case DEVICE_ADPCMB:
         // OPNB(YM2610/YM2610B)内蔵ADPCM-B。OPNAとはレジスタマップが異なる。
         return std::make_unique<CYmDelta>(
-            deviceType, p, 0x20, sr, 144, 256 * 1024, DEVICE_OPNB,
+            deviceType, p, 0x20, clock, 144, 256 * 1024, DEVICE_OPNB,
             kOPNB_DeltaT);
     case DEVICE_ADPCMA:
         // ADPCM-A (YM2610) は ADPCM-B (Delta-T) とは全く異なるレジスタ体系。
-        return std::make_unique<CAdPcm2610A>(p, sr, 1024 * 1024, DEVICE_OPNB); // 1MB
+        return std::make_unique<CAdPcm2610A>(p, clock, 1024 * 1024, DEVICE_OPNB); // 1MB
     default:
         return nullptr;
     }
