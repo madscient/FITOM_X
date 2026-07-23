@@ -121,6 +121,20 @@ private:
 };
 
 // ================================================================
+//  PhysicalChipSubDevice: 物理チップ1個を構成するサブデバイス1個分
+//  (チャンネルレベルメーター用、2026年7月新設)
+//
+//  サブデバイス自動生成(例: OPNA→FM+SSG+ADPCM-B、OPL3→4OP+2OP)で、
+//  1つの物理チップは複数の論理ISoundDeviceの集まりとして実装される。
+//  各要素がそのうちの1つを表す(表示順は生成順=devices[]の記述順)。
+// ================================================================
+struct PhysicalChipSubDevice {
+    ISoundDevice* device     = nullptr;
+    uint32_t      deviceType = 0;   // このサブデバイス自身のdeviceType (DEVICE_*)
+    uint8_t       chCount    = 0;   // このサブデバイスのチャンネル数
+};
+
+// ================================================================
 //  PhysicalChipInfo: レジスタダンプモニター用、物理チップ単位の情報
 //  (2026年7月新設)
 //
@@ -148,6 +162,27 @@ struct PhysicalChipInfo {
     // (deviceType別の既知のレジスタ空間サイズ)を併用して決める
     // (buildPhysicalChipList()参照)。
     uint32_t    dumpSize = 0x100;
+    // チャンネルレベルメーター用のサブデバイス内訳。buildPhysicalChipList()の
+    // メインループ(config_->getDeviceCount()の各エントリ)で見つかった
+    // サブデバイスのみを収録する。stereoPairPort/spanGroups経由で束ねられる
+    // 物理チップ(CLinearPanDevice/CSpanDeviceの内部でのみ扱われ、外部から
+    // 個々のサブチャンネル構成を安定して逆引きする手段が無い)は現状空のまま
+    // (既知の制限。必要になった場合は改めて対応する)。
+    std::vector<PhysicalChipSubDevice> subDevices;
+};
+
+// ================================================================
+//  PhysicalChipChannelState: チャンネルレベルメーター用、1チャンネル分の
+//  現在の発音状態(2026年7月新設)。
+//
+//  FITOM_Xは音声合成を行わないため実際の音量信号は存在しない。
+//  発音中か否か(ChState::isActive())とベロシティ(ChState::velocity)を
+//  組み合わせた疑似メーターとして扱う(既存のGUI鍵盤ビューの発光
+//  エフェクトと同じ考え方)。
+// ================================================================
+struct PhysicalChipChannelState {
+    bool    sounding = false;
+    uint8_t velocity = 0;
 };
 
 // ================================================================
@@ -190,6 +225,30 @@ public:
     // FITOM_Xが最後に書き込んだ値をそのまま返す(HWPort::getShadowRegRange参照)。
     // indexが範囲外の場合は空配列を返す。
     std::vector<uint8_t> getPhysicalChipRegisterDump(int index) const;
+
+    // 指定物理チップの全チャンネル分の現在の発音状態を、subDevices内の
+    // 並び順(サブデバイスの生成順→サブデバイス内はチャンネル番号順)で
+    // 返す。要素数は該当物理チップの全サブデバイスのchCount合計と一致する。
+    // indexが範囲外の場合は空配列を返す。
+    std::vector<PhysicalChipChannelState> getPhysicalChipChannelStates(int index) const;
+
+    // 指定deviceType(サブデバイス自身のdeviceType、PhysicalChipSubDevice::
+    // deviceType)のチャンネル名接頭辞を返す(例: DEVICE_SSG→"SSG"、
+    // DEVICE_OPL3→"4OP"、DEVICE_OPL3_2→"2OP"、DEVICE_OPL4AWM→"AWM"等)。
+    // チャンネルレベルメーターのラベルは呼び出し側で「接頭辞+(ch+1)」
+    // として組み立てる想定(例: "SSG"+1→"SSG1")。未登録のdeviceTypeは
+    // "CH"を返す(汎用フォールバック)。
+    static std::string getSubDeviceChannelPrefix(uint32_t deviceType);
+
+    // ─── 論理チップ単位のチャンネル状態 (チャンネルレベルメーターの
+    //     物理/論理表示切替用、2026年7月新設) ──────────────────────────
+    // getPhysicalChipChannelStates()が「同一物理ポートを共有する全サブ
+    // デバイスをまとめた」状態を返すのに対し、こちらはdevices[]の1エントリ
+    // (=1論理デバイス、サブデバイス自動生成で分割された場合は分割後の
+    // 1つ)単独のチャンネル状態をそのまま返す。deviceIndexはgetDevice()/
+    // getDeviceCount()と同じ添字(既存のgetDevices()の列挙と一致)。
+    // 範囲外・デバイス無しの場合は空配列を返す。
+    std::vector<PhysicalChipChannelState> getLogicalDeviceChannelStates(int deviceIndex) const;
 
     FITOMConfig& getConfig() const { return *config_; }
     PatchManager& getPatchManager() { return *patchMgr_; }

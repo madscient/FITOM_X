@@ -70,6 +70,48 @@ const DevMapEntry* findDevMap(uint32_t deviceId) {
     return nullptr;
 }
 
+// ================================================================
+//  サブデバイス種別 → チャンネル名接頭辞 (チャンネルレベルメーター用)
+//
+//  kDevMapとは目的が異なる(kDevMapはOPN2/OPN2C/OPN2L等を別名として
+//  区別するが、こちらは「見た目上どう呼ぶか」の分類なのでFM系を
+//  まとめて"FM"にする、等)ため、別テーブルとして持つ。
+// ================================================================
+struct ChannelPrefixEntry {
+    uint32_t    devid;
+    const char* prefix;
+};
+
+static const ChannelPrefixEntry kChannelPrefixMap[] = {
+    // FM系 (OPN/OPM/OPL/OPLL 各ファミリー) はまとめて "FM"
+    {DEVICE_OPN,     "FM"}, {DEVICE_OPN2,   "FM"}, {DEVICE_OPNA,   "FM"},
+    {DEVICE_OPNB,    "FM"}, {DEVICE_OPN2C,  "FM"}, {DEVICE_OPN2L,  "FM"},
+    {DEVICE_2610B,   "FM"},
+    {DEVICE_OPM,     "FM"}, {DEVICE_OPP,    "FM"}, {DEVICE_OPZ,    "FM"}, {DEVICE_OPZ2, "FM"},
+    {DEVICE_OPL,     "FM"}, {DEVICE_OPL2,   "FM"},
+    {DEVICE_OPLL,    "FM"}, {DEVICE_OPLL2,  "FM"}, {DEVICE_OPLLP,  "FM"},
+    {DEVICE_OPLLX,   "FM"}, {DEVICE_VRC7,   "FM"},
+    // OPL3は4OP/2OPの2つのサブデバイスに分かれる
+    {DEVICE_OPL3,    "4OP"},
+    {DEVICE_OPL3_2,  "2OP"},
+    // 内蔵リズム音源
+    {DEVICE_OPNA_RHY, "RHY"}, {DEVICE_OPL_RHY, "RHY"}, {DEVICE_OPLL_RHY, "RHY"},
+    // PSG系
+    {DEVICE_SSG,   "SSG"}, {DEVICE_DCSG, "DCSG"},
+    {DEVICE_SCC,   "SCC"}, {DEVICE_SCCP, "SCC"},
+    {DEVICE_SAA,   "SAA"},
+    // ADPCM/PCM系
+    {DEVICE_ADPCMA,       "PA"},
+    {DEVICE_ADPCMB,       "PB"},
+    {DEVICE_ADPCMB_OPNA,  "PB"},
+    {DEVICE_ADPCMB_Y8950, "PB"},
+    {DEVICE_ADPCM,        "PCM"},
+    {DEVICE_PCMD8,        "PCM"},
+    // AWM (サンプル音源)
+    {DEVICE_OPL4AWM, "AWM"},
+    {DEVICE_NONE, nullptr},
+};
+
 } // anonymous namespace
 
 // ================================================================
@@ -94,6 +136,13 @@ const std::string CFITOM::getDeviceNameFromId(uint32_t deviceId) {
 uint32_t CFITOM::getDeviceRegSize(uint32_t deviceId) {
     const auto* e = findDevMap(deviceId);
     return e ? e->regsize : 0;
+}
+
+std::string CFITOM::getSubDeviceChannelPrefix(uint32_t deviceType) {
+    for (int i = 0; kChannelPrefixMap[i].prefix != nullptr; ++i) {
+        if (kChannelPrefixMap[i].devid == deviceType) return kChannelPrefixMap[i].prefix;
+    }
+    return "CH";
 }
 
 uint32_t CFITOM::getDeviceIdFromName(const std::string& name) {
@@ -468,9 +517,13 @@ void CFITOM::buildPhysicalChipList()
     // primary(+secondary)を1つの物理チップとして登録する。
     // primaryが既に登録済み(=兄弟デバイスが同じ物理ポートを共有している)
     // 場合は何もしない(代表ラベルは最初に登録したデバイスのものを使う)。
+    // 戻り値: 登録した(または既存の)physicalChips_内のインデックス。
+    // primaryがnullptrの場合はSIZE_MAXを返す。
     auto registerChip = [&](HWPort* primary, HWPort* secondary,
-                             const std::string& label, uint32_t deviceType) {
-        if (!primary || portToChip.count(primary)) return;
+                             const std::string& label, uint32_t deviceType) -> size_t {
+        if (!primary) return static_cast<size_t>(-1);
+        auto it = portToChip.find(primary);
+        if (it != portToChip.end()) return it->second;
         size_t idx = physicalChips_.size();
         PhysicalChipInfo info;
         info.label        = label;
@@ -494,13 +547,31 @@ void CFITOM::buildPhysicalChipList()
         physicalChips_.push_back(info);
         portToChip[primary] = idx;
         if (secondary) portToChip[secondary] = idx;
+        return idx;
     };
 
     int n = config_->getDeviceCount();
     for (int i = 0; i < n; ++i) {
         auto* port  = dynamic_cast<HWPort*>(config_->getDevicePort(i));
         auto* port2 = dynamic_cast<HWPort*>(config_->getDevicePort2(i));
-        registerChip(port, port2, config_->getDeviceLabel(i), config_->getDeviceType(i));
+        size_t chipIdx = registerChip(port, port2, config_->getDeviceLabel(i), config_->getDeviceType(i));
+
+        // チャンネルレベルメーター用のサブデバイス内訳を記録する。
+        // stereoPairPort/spanGroupsで束ねられるデバイスは、devices_[i]が
+        // CLinearPanDevice/CSpanDeviceにラップされ、getChCount()が複数の
+        // 物理チップ分を合算してしまう(「1サブデバイス=1物理チップの
+        // 一部」という前提が崩れる)ため対象外とする
+        // (PhysicalChipInfo::subDevicesのコメント参照)。
+        if (chipIdx != static_cast<size_t>(-1)
+            && !config_->getDeviceStereoPairPort(i)
+            && config_->getDeviceSpanGroupCount(i) == 0
+            && i < static_cast<int>(devices_.size()) && devices_[i]) {
+            PhysicalChipSubDevice sd;
+            sd.device     = devices_[i].get();
+            sd.deviceType = config_->getDeviceType(i);
+            sd.chCount    = devices_[i]->getChCount();
+            physicalChips_[chipIdx].subDevices.push_back(sd);
+        }
 
         // 物理的にL/R固定配線されたステレオペア (CLinearPanDevice) の
         // 相方(R側)も、独立した物理チップとして登録する。
@@ -544,6 +615,45 @@ std::vector<uint8_t> CFITOM::getPhysicalChipRegisterDump(int index) const
         // HWPortへ直接(OPL3等)またはOffsetPort経由(OPNA/OPN2等、内部で
         // +0x100して同じportへ書く)で書き込んでいるため、一括で読み出せる。
         info.port->getShadowRegRange(0x000, result.data(), info.dumpSize);
+    }
+    return result;
+}
+
+std::vector<PhysicalChipChannelState> CFITOM::getPhysicalChipChannelStates(int index) const
+{
+    std::vector<PhysicalChipChannelState> result;
+    if (index < 0 || index >= static_cast<int>(physicalChips_.size())) return result;
+
+    for (const auto& sub : physicalChips_[index].subDevices) {
+        if (!sub.device) continue;
+        for (uint8_t ch = 0; ch < sub.chCount; ++ch) {
+            const ChState* cs = sub.device->getChState(ch);
+            PhysicalChipChannelState st;
+            if (cs) {
+                st.sounding = cs->isActive();
+                st.velocity = cs->velocity;
+            }
+            result.push_back(st);
+        }
+    }
+    return result;
+}
+
+std::vector<PhysicalChipChannelState> CFITOM::getLogicalDeviceChannelStates(int deviceIndex) const
+{
+    std::vector<PhysicalChipChannelState> result;
+    ISoundDevice* dev = getDevice(deviceIndex);
+    if (!dev) return result;
+
+    uint8_t chCount = dev->getChCount();
+    for (uint8_t ch = 0; ch < chCount; ++ch) {
+        const ChState* cs = dev->getChState(ch);
+        PhysicalChipChannelState st;
+        if (cs) {
+            st.sounding = cs->isActive();
+            st.velocity = cs->velocity;
+        }
+        result.push_back(st);
     }
     return result;
 }
