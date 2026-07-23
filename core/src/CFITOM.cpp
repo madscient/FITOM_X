@@ -261,6 +261,20 @@ void CFITOM::syncDeviceLatency()
 // MultiDev_new.cpp で定義される CLinearPanDevice 生成関数
 extern std::unique_ptr<ISoundDevice> createCLinearPanDevice(ISoundDevice* left, ISoundDevice* right);
 
+// ADPCM-A(YM2610/2610B)・ADPCM-B(YM2608=OPNA)は実チップ上「port2」
+// (アドレス0x100以降)に配置されるレジスタ体系のため、該当デバイスの
+// portを高位ポート側へ差し替える(ADPCM-B(YM2610/2610B)はこの対象外、
+// 低位ポートのままで正しい)。configuredPort2(プロファイルのextra_port
+// 等で明示された物理ポート)があればそれを使い、無ければ
+// OffsetPort(port,0x100)を自前で生成してoffsetPorts_で寿命管理する。
+IPort* CFITOM::resolveAdpcmHighPort(uint32_t deviceType, IPort* port, IPort* configuredPort2)
+{
+    if (deviceType != DEVICE_ADPCMB_OPNA && deviceType != DEVICE_ADPCMA) return port;
+    if (configuredPort2) return configuredPort2;
+    offsetPorts_.push_back(std::make_unique<OffsetPort>(port, 0x100));
+    return offsetPorts_.back().get();
+}
+
 std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     uint32_t deviceType, IPort* port, IPort* stereoPairPort,
     int sampleRate, IPort* extraPort, bool rhythmMode)
@@ -312,6 +326,11 @@ void CFITOM::initDevices()
             continue;
         }
 
+        // ADPCM-A/ADPCM-B(OPNA)は高位ポート側へ差し替える(下記
+        // resolveAdpcmHighPort()参照)。該当しないデバイスタイプでは
+        // portをそのまま返すだけの no-op。
+        port = resolveAdpcmHighPort(deviceType, port, config_->getDevicePort2(i));
+
         // B-2: 2 ポートチップ (OPNA/OPN2/OPL3) の処理
         // プロファイルに extra_port が指定されていれば SplitPort を生成する。
         // 未指定 (= エミュレーター or 1ポートHW) なら port をそのまま渡す。
@@ -358,6 +377,10 @@ void CFITOM::initDevices()
                 // ch0/ch3を無効化した別クラス)。代表のdeviceTypeを流用せず、
                 // このポート本来のdeviceTypeを使う。
                 uint32_t subDeviceType = config_->getDeviceSpanGroupDeviceType(i, k);
+                // 代表デバイスと同様、ADPCM-A/ADPCM-B(OPNA)は高位ポートへ
+                // 差し替える(spanGroup配下にはconfiguredPort2の概念が無いため
+                // 常にOffsetPortを自前生成する)。
+                sp = resolveAdpcmHighPort(subDeviceType, sp, nullptr);
                 auto subDev = createLeveledDevice(subDeviceType, sp, spStereo, sampleRate,
                                                    nullptr, config_->getDeviceRhythmMode(i));
                 if (!subDev) {
