@@ -60,10 +60,14 @@ void RegisterDumpWindow::renderChipTable(int chipIndex, const FITOMChipInfo& inf
         }
     }
 
-    char header[160];
-    std::snprintf(header, sizeof(header), "%s  [%s]  %s",
+    // アドレス範囲はダンプの実サイズから直接組み立てる(1ポート機は
+    // 0x00-0xFF、2ポート機や単一ポートで0x100超のアドレス空間を使う
+    // チップ[OPNA/OPN2/OPL3等]は0x000-0x1FF等。CFITOM::getPhysicalChipRegisterDump()
+    // 側のサイズ決定ロジック参照)。
+    char header[176];
+    std::snprintf(header, sizeof(header), "%s  [%s]  0x%03X-0x%03X",
                   info.label.c_str(), info.physicalName.c_str(),
-                  info.twoPort ? "0x000-0x1FF" : "0x00-0xFF");
+                  0, static_cast<unsigned>(dump.size()) - 1);
     ImGui::SeparatorText(header);
 
     constexpr int kCols = 16;
@@ -72,14 +76,15 @@ void RegisterDumpWindow::renderChipTable(int chipIndex, const FITOMChipInfo& inf
     char tableId[32];
     std::snprintf(tableId, sizeof(tableId), "regtable##%d", chipIndex);
 
-    // 2ポートチップは32行になりウィンドウからはみ出しうるため、
-    // テーブル自体をスクロール可能にして高さをクランプする。
-    float tableHeight = ImGui::GetTextLineHeightWithSpacing() * static_cast<float>(rows + 1) + 8.0f;
-    if (tableHeight > 420.0f) tableHeight = 420.0f;
-
-    ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                             ImGuiTableFlags_ScrollY;
-    if (ImGui::BeginTable(tableId, kCols + 1, flags, ImVec2(0.0f, tableHeight))) {
+    // テーブル自体はスクロールさせず、行数分の高さへ自然にフィットさせる
+    // (outer_size.y=0.0fで自動サイズ、ScrollY未指定)。ウィンドウ全体の
+    // 内容が窓の高さを超えた場合は、ルートウィンドウ側のスクロールに
+    // 任せる(MIDIモニターバンドと同じ挙動、2026年7月修正。以前はテーブル
+    // ごとに高さを見積もってScrollYを付けていたが、見積もりがセル
+    // パディング分だけ実際の内容より小さくなり、バンド単位で常に
+    // スクロールバーが出てしまっていた)。
+    ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg;
+    if (ImGui::BeginTable(tableId, kCols + 1, flags)) {
         ImGui::TableSetupColumn("addr", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         for (int c = 0; c < kCols; ++c) {
             char colLabel[4];

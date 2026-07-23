@@ -315,7 +315,6 @@ std::vector<FITOMChipInfo> FITOMBridge::getHwChips() const
         c.index        = i;
         c.label        = info->label;
         c.physicalName = info->physicalName;
-        c.twoPort      = (info->port2 != nullptr);
         result.push_back(c);
     }
     return result;

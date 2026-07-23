@@ -55,7 +55,6 @@ struct FITOMChipInfo {
     // チップドライバ分類(deviceType)ではなく、実際に接続されている
     // 物理/エミュレーターチップそのものの識別名。
     std::string physicalName;
-    bool        twoPort;       // true = レジスタダンプは0x000-0x1FF、false = 0x00-0xFF
 };
 
 // ─── 発音中ノート情報 (キーボードビューのポリフォニー表示用) ──────────────
