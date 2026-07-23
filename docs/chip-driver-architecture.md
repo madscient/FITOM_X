@@ -381,6 +381,21 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
   (`PatchManager::loadPcmBankJson()`)はバンクごとに独立して走るため、
   同一の名前集合が複数バンク番号の下でパッチピッカーに重複表示される
   点は既知のトレードオフ。
+- **束ねられた(`CSpanDevice`)ADPCM-Bサブチップへは、代表デバイスの
+  bankNoではなく各サブチップ自身のdeviceTypeでバンクを解決する**：OPNA/
+  OPNB/OPNBBのADPCM-Bは同一VoicePatchType(`VOICE_PATCH_ADPCMB`)のため
+  `mergeSpannableDevices()`により1つの`CSpanDevice`へ自動的に束ねられる
+  (`docs/STATUS.md`参照、実機ログで確認済み)。しかし`CMultiDevice::
+  setPcmRegistry()`(`MultiDevice.h`)は当初、代表デバイス(束ねの先頭、
+  例えばOPNA)のdeviceTypeから解決した1つの`bankNo`を全サブチップへ
+  ブロードキャストしていたため、OPNB/OPNBBのサブチップにもOPNA用バンクが
+  そのまま伝播し、上記のdeviceType別バンク解決(`findBankNoForDeviceType()`)
+  が束ね構成では実質無効化されるバグがあった(2026-07-24)。
+  `CMultiDevice::setPcmRegistry()`を、各サブチップについて`c->
+  getDeviceType()`(サブチップ自身の実際のdeviceType)で個別に
+  `findBankNoForDeviceType()`を引き直し、見つかればそちらを優先するよう
+  修正(見つからない場合のみ代表デバイス基準の`bankNo`にフォールバック、
+  単一チップ種のみの束ね[SSG複数枚等]との後方互換を維持)。
 - **`DEVICE_ADPCM`/`DEVICE_ADPCMB`/`DEVICE_ADPCMB_OPNA`の3分割**：旧FITOMは
   Y8950とOPNAの両方に`DEVICE_ADPCM`を共用していた（クラスが分かれていたため実害
   なし）が、新FITOMの単一ディスパッチ方式では区別が必要なため、

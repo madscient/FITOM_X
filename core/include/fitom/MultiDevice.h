@@ -14,6 +14,7 @@
 #pragma once
 
 #include "fitom/ISoundDevice.h"
+#include "fitom/PcmBankData.h"
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -76,8 +77,28 @@ public:
     void setWaveRegistry(const SccWaveRegistry* reg) override {
         for (auto* c : chips_) c->setWaveRegistry(reg);
     }
+    // bankNoは呼び出し元(CFITOM::initDevices())が代表デバイス(chips_[0])の
+    // deviceTypeから解決した値だが、束ねられたサブチップが異なる物理チップ
+    // (例: OPNA用ADPCM-BとOPNB/OPNBB用ADPCM-Bが同一VoicePatchTypeで束ねられる
+    // 構成)の場合、正しいPCMバンク(波形バイナリのバウンダリ整列がチップ毎に
+    // 異なる)はサブチップ毎に違う。そのため各サブチップについて、まず
+    // そのサブチップ自身のdeviceTypeに完全一致するバンクを個別に探し
+    // (PcmBankRegistry::findBankNoForDeviceType()、PcmBank::deviceTypeの
+    // コメント参照)、見つかった場合はbankNoではなくそちらを使う。見つから
+    // ない場合のみ、代表デバイス基準で解決済みのbankNoにフォールバックする
+    // (単一チップ種のみが束ねられている旧来の構成との後方互換)。
+    // 2026-07-24、OPNA+OPNB+OPNBBのADPCM-Bが束ねられた構成で、OPNB/OPNBB
+    // 側のサブチップにもbankNo(代表=OPNAのバンク)がそのまま伝播しており、
+    // OPNB/OPNBB用の正しいバンクが一切反映されないバグとして発覚。
     void setPcmRegistry(const PcmBankRegistry* reg, int bankNo = 0) override {
-        for (auto* c : chips_) c->setPcmRegistry(reg, bankNo);
+        for (auto* c : chips_) {
+            int chipBankNo = bankNo;
+            if (reg) {
+                int specific = reg->findBankNoForDeviceType(c->getDeviceType());
+                if (specific >= 0) chipBankNo = specific;
+            }
+            c->setPcmRegistry(reg, chipBankNo);
+        }
     }
     void initPcmData() override {
         for (auto* c : chips_) c->initPcmData();
