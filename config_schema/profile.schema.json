@@ -401,6 +401,11 @@
                   "OPNBB"
                 ],
                 "description": "任意。このPCMバンクを限定する物理チップ。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一group(VoicePatchType)を共有するが、実際に配置された波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じオフセットテーブルを共有できない。同一group内で複数の物理チップ向けバンクを併用する場合は各エントリにchipを指定する(CFITOM::initDevices()がgroupより先にdeviceType完全一致で解決する、PcmBank::deviceType参照)。ADPCM-A/PCM-D8のようにVoicePatchTypeとdeviceTypeが1:1のグループでは通常不要。"
+              },
+              "offsets_only": {
+                "type": "boolean",
+                "default": false,
+                "description": "任意、既定false。trueの場合、このバンクはchipで指定した物理チップ向けのStart/Endレジスタ計算用オフセットテーブルとしてのみ登録し、entries[]からのnamed patch自動合成(パッチピッカーへの公開)を行わない。同一group内でchip違いのバンクを複数併用する場合、entries[]の名前集合はどのバンクも同一(オフセット値のみチップ毎に異なる)なので、代表となる1つのバンク(通常はchip省略または最初のバンク)以外にtrueを指定し、パッチピッカーでの重複表示を避ける。"
               }
             }
           }

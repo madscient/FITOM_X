@@ -179,8 +179,17 @@ public:
     // deviceType: このバンクを特定の物理チップのADPCM系サブデバイスに
     // 限定する場合に指定する(DEVICE_ADPCMB_OPNA等、PcmBank::deviceType
     // 参照)。省略時(0)は制限なし(voicePatchTypeのみで解決)。
+    // offsetsOnly: trueの場合、このバンクは特定チップ向けのオフセット
+    // テーブル(Start/Endレジスタ計算専用)としてのみ登録し、named patch
+    // 自動合成(sampleRegistry()への公開)を行わない。OPNA用ADPCM-Bと
+    // OPNB/OPNBB用ADPCM-Bのように、同一VoicePatchTypeを共有する複数の
+    // 物理チップ向けバンクをdeviceType指定で併用する場合、entries[]の
+    // 名前集合はどのバンクも同一(サンプル名・並び順は共通、オフセット値
+    // のみチップ毎に異なる)なので、2つ目以降のバンクでtrueを指定すれば
+    // パッチピッカーへの重複表示を避けられる(2026年7月新設)。
     bool loadPcmBankJson(const std::filesystem::path& path, int bankNo,
-                          uint8_t voicePatchType = 0, uint32_t deviceType = 0);
+                          uint8_t voicePatchType = 0, uint32_t deviceType = 0,
+                          bool offsetsOnly = false);
     bool savePcmBankJson(const std::filesystem::path& path, int bankNo) const;
 
     // ─── SCC 波形バンク ──────────────────────────────────────────

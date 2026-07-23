@@ -1633,7 +1633,8 @@ bool PcmBank::loadBinary(const std::filesystem::path& basePath)
 }
 
 bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo,
-                                    uint8_t voicePatchType, uint32_t deviceType)
+                                    uint8_t voicePatchType, uint32_t deviceType,
+                                    bool offsetsOnly)
 {
     reportProgress("Loading PCM Bank: " + path.string());
     std::ifstream f(path);
@@ -1738,7 +1739,11 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
         // する。ノート範囲・ベロシティ範囲は全域固定の単一ゾーン
         // (waveIndex=エントリ番号、rootNote=adpcm_packer出力の"root_note"、
         // 省略時69=A4)とする。
-        if (voicePatchType != VOICE_PATCH_NONE) {
+        // offsetsOnly指定時は、このバンクが特定チップ向けのオフセット
+        // テーブル(Start/Endレジスタ計算専用)であり、名前集合は他のバンク
+        // (同一VoicePatchTypeのデフォルトバンク)と重複するため合成を
+        // 行わない(PatchManager.hのloadPcmBankJsonコメント参照)。
+        if (voicePatchType != VOICE_PATCH_NONE && !offsetsOnly) {
             auto& sampleBank = sampleReg_.getOrCreate(bankNo);
             sampleBank.name           = bank.name;
             sampleBank.filename       = path.string();
