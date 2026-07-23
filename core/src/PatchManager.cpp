@@ -1633,7 +1633,7 @@ bool PcmBank::loadBinary(const std::filesystem::path& basePath)
 }
 
 bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo,
-                                    uint8_t voicePatchType)
+                                    uint8_t voicePatchType, uint32_t deviceType)
 {
     reportProgress("Loading PCM Bank: " + path.string());
     std::ifstream f(path);
@@ -1648,6 +1648,7 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
         bank.boundary       = j.value("boundary",    256u);
         bank.binPath        = j.value("bin_file",    "");
         bank.voicePatchType = voicePatchType;
+        bank.deviceType     = deviceType;
 
         const std::filesystem::path baseDir = path.parent_path();
 

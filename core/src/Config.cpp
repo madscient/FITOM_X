@@ -1033,6 +1033,27 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
     return DEVICE_NONE;
 }
 
+// pcm_banks[].chip 文字列 → ADPCM系サブデバイスのdeviceType 変換ヘルパー
+// (PcmBank::deviceTypeのコメント参照)。OPNA(YM2608)とOPNB/OPNBB
+// (YM2610/2610B)のADPCM-Bは同一のVoicePatchTypeを共有するが波形バイナリの
+// バウンダリ整列が異なるため、pcm_banks[]エントリを物理チップ単位に
+// 明示区別する必要がある(2026-07-24)。ADPCM-A/PCM-D8はVoicePatchTypeと
+// deviceTypeが1:1のため通常この区別は不要(chip省略でよい)。
+static uint32_t resolvePcmBankChipDeviceType(const std::string& chipName)
+{
+    static const std::pair<const char*, uint32_t> kPcmChipMap[] = {
+        {"Y8950", DEVICE_ADPCMB_Y8950},
+        {"OPNA",  DEVICE_ADPCMB_OPNA},
+        {"OPNB",  DEVICE_ADPCMB},
+        {"OPNBB", DEVICE_ADPCMB},
+    };
+    for (const auto& [name, id] : kPcmChipMap) {
+        if (chipName == name) return id;
+    }
+    FITOM_LOG_WARN("pcm_banks: unknown chip \"" << chipName << "\"");
+    return 0;
+}
+
 // ================================================================
 //  ドラムバンクロード (buildFromProfile から呼ぶ)
 //  profile の banks.drum_banks[] を PatchManager に登録する
@@ -1165,7 +1186,18 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
                         << "\" in " << file << " — falling back to legacy (unrouted) load");
                 }
             }
-            pm.loadPcmBankJson(path, bankNo, voicePatchType);
+            // "chip"(任意): OPNA/OPNB/OPNBB/Y8950等、このPCMバンクを限定する
+            // 物理チップ。OPNAとOPNB/OPNBBのADPCM-Bは同一groupを共有するが
+            // 波形バイナリのバウンダリ整列が異なるため、同一group内で複数の
+            // 物理チップ向けバンクを併用する場合に指定する
+            // (PcmBank::deviceType/CFITOM::initDevices()参照)。省略時は
+            // 従来通りgroup(VoicePatchType)のみで解決する
+            uint32_t chipDeviceType = 0;
+            if (e.contains("chip")) {
+                std::string chipStr = e["chip"].get<std::string>();
+                chipDeviceType = resolvePcmBankChipDeviceType(chipStr);
+            }
+            pm.loadPcmBankJson(path, bankNo, voicePatchType, chipDeviceType);
         }
     }
 }

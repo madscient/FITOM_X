@@ -355,6 +355,32 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 - **`createCAdPcm()`のmasterクロックは`port->getClock()`を使う**：FM系チップ
   ドライバ(`createCOPNA`等)と同様、DeltaN算出のmasterにはサンプルレート
   ではなく実クロックを渡す(取得不可時のみサンプルレートにフォールバック)。
+- **OPNA用ADPCM-BとOPNB/OPNBB用ADPCM-Bは、PCMバンク(オフセットテーブル)を
+  物理チップ単位に分けて登録する必要がある**：両者は音色パラメータ形式が
+  共通のため同一VoicePatchType(`VOICE_PATCH_ADPCMB`)を共有する設計だが、
+  実際に配置される波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=
+  256byte、上記`addrShift`参照)が異なるため、同じエントリ(オフセット/
+  サイズ)テーブルを共有できない。`PcmBankRegistry::findBankNoForVoicePatchType()`
+  は「最初に見つかった一致」しか返せないため、これだけに頼ると片方の
+  デバイスにもう片方用のオフセットテーブルが誤って割り当てられる
+  (2026-07-24、OPNBがOPNA用の32byte境界オフセットを参照してノイズに
+  なるバグとして発覚。FitomEmuIF/YMEngine側の`pcm_image_catalog.json`は
+  `OPNB_ADPCM-B`という別キーで正しい256byte境界のバイナリを既にロード
+  していたため、原因はhwif側ではなくFITOM_X本体のバンク解決側にあった)。
+  `PcmBank::deviceType`(`DEVICE_ADPCMB_OPNA`/`DEVICE_ADPCMB`/
+  `DEVICE_ADPCMB_Y8950`)と`PcmBankRegistry::findBankNoForDeviceType()`
+  (deviceType完全一致、無ければVoicePatchType一致へフォールバック)を
+  新設し、`CFITOM::initDevices()`はこちらを先に試す。profile.jsonでは
+  `pcm_banks[].chip`("OPNA"/"OPNB"/"OPNBB"/"Y8950")で指定する
+  (`Config.cpp`の`resolvePcmBankChipDeviceType()`が変換)。entries[]の
+  エントリ番号(WS/waveIndex)とサンプル名の対応は物理チップに依らず共通の
+  ため、HwBank/SampleZoneBank側の音色パッチ定義自体はchip指定の有無に
+  関わらずOPNA/OPNBどちらのデバイスにも共通で使い回せる(chipで分離
+  されるのはオフセットテーブルという実装内部の詳細のみで、パッチ互換性
+  は失われない)。ただしchip指定時、entries[]からのnamed patch自動合成
+  (`PatchManager::loadPcmBankJson()`)はバンクごとに独立して走るため、
+  同一の名前集合が複数バンク番号の下でパッチピッカーに重複表示される
+  点は既知のトレードオフ。
 - **`DEVICE_ADPCM`/`DEVICE_ADPCMB`/`DEVICE_ADPCMB_OPNA`の3分割**：旧FITOMは
   Y8950とOPNAの両方に`DEVICE_ADPCM`を共用していた（クラスが分かれていたため実害
   なし）が、新FITOMの単一ディスパッチ方式では区別が必要なため、
