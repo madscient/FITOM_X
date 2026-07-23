@@ -391,6 +391,16 @@
                   "PCMD8"
                 ],
                 "description": "任意。このPCMバンクが対象とするVoicePatchType。指定すると、①CFITOM::initDevices()が一致するVoicePatchTypeのPCMデバイスへこのバンク番号を自動的に割り当てるようになり(省略時は全PCMデバイスがbank0を共有する後方互換動作のまま)、②entries[]の各サンプルが、パッチピッカー等で選択可能なnamed patchとして自動的にHwBankRegistry側にも公開される(*.hwbank.jsonを別途手書きする必要はない、PatchManager::loadPcmBankJson()参照)。異なるコーデックのPCMバンクを複数併用する場合は指定必須(省略のままだと2つ目以降のバンクが無視される)。"
+              },
+              "chip": {
+                "type": "string",
+                "enum": [
+                  "Y8950",
+                  "OPNA",
+                  "OPNB",
+                  "OPNBB"
+                ],
+                "description": "任意。このPCMバンクを限定する物理チップ。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一group(VoicePatchType)を共有するが、実際に配置された波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じオフセットテーブルを共有できない。同一group内で複数の物理チップ向けバンクを併用する場合は各エントリにchipを指定する(CFITOM::initDevices()がgroupより先にdeviceType完全一致で解決する、PcmBank::deviceType参照)。ADPCM-A/PCM-D8のようにVoicePatchTypeとdeviceTypeが1:1のグループでは通常不要。"
               }
             }
           }

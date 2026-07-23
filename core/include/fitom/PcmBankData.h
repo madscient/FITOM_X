@@ -104,6 +104,23 @@ struct PcmBank {
     // entries[]から同じ内容のHwBank(named patch)を自動合成する際にも使う。
     uint8_t     voicePatchType = 0;
 
+    // このバンクを特定の物理チップのADPCM系サブデバイスに限定するための
+    // deviceType(DEVICE_ADPCMB_OPNA/DEVICE_ADPCMB/DEVICE_ADPCMB_Y8950等)。
+    // profile.jsonのpcm_banks[].chipから設定される。未指定時は0(制限なし、
+    // voicePatchTypeのみで解決)。
+    //
+    // OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一のVoicePatchType
+    // (音色パラメータ形式が共通)を使うことが多いが、実際に配置された波形
+    // バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なる
+    // ため、同じエントリ(オフセット/サイズ)テーブルを共有できない
+    // (2026-07-24、実機ログでOPNBが誤ってOPNA用オフセットを使っている
+    // ことを確認)。voicePatchTypeが同じ複数バンクが存在する場合、
+    // findBankNoForVoicePatchType()だけでは(banks_がunordered_mapのため)
+    // どちらが選ばれるか不定になるので、このフィールドで物理チップ単位に
+    // 明示的にバンクを区別できるようにする
+    // (PcmBankRegistry::findBankNoForDeviceType()参照)。
+    uint32_t    deviceType = 0;
+
     // エントリ (WS 番号 → PcmEntry)
     std::array<PcmEntry, PCM_MAX_ENTRIES> entries;
 
@@ -152,6 +169,18 @@ public:
         if (vpt == 0) return -1;
         for (const auto& kv : banks_) {
             if (kv.second.voicePatchType == vpt) return kv.first;
+        }
+        return -1;
+    }
+
+    // deviceTypeが完全一致するバンク番号を返す(見つからなければ-1)。
+    // findBankNoForVoicePatchType()より具体的な一致のため、CFITOM::
+    // initDevices()はこちらを先に試し、見つからない場合のみVoicePatchType
+    // ベースの解決にフォールバックする(PcmBank::deviceTypeのコメント参照)。
+    int findBankNoForDeviceType(uint32_t deviceType) const {
+        if (deviceType == 0) return -1;
+        for (const auto& kv : banks_) {
+            if (kv.second.deviceType == deviceType) return kv.first;
         }
         return -1;
     }

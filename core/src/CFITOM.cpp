@@ -464,18 +464,30 @@ void CFITOM::initDevices()
         }
 
         // B-3: PCM/ADPCM デバイスには PcmBankRegistry を注入して初期化する
-        // (非対応チップは空実装で無視される)。バンク番号は、このデバイスの
+        // (非対応チップは空実装で無視される)。バンク番号は、まずこの
+        // デバイスのdeviceType(DEVICE_ADPCMB_OPNA/DEVICE_ADPCMB等)に完全
+        // 一致するpcm_banksエントリ(profile.jsonでchip指定されたもの)を
+        // 優先して逆引きする。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)の
+        // ADPCM-Bは同一のVoicePatchTypeを使うが、実際の波形バイナリの
+        // バウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じ
+        // オフセットテーブルを共有できないため(2026-07-24、実機ログで
+        // OPNBが誤ってOPNA用オフセットを使っていたことが判明)、
+        // PcmBank::deviceTypeで物理チップ単位に明示区別できるようにした。
+        // chip指定が無い(=deviceType不一致)場合は、従来通りこのデバイスの
         // VoicePatchType(ADPCM-B/ADPCM-A/PCM-D8)に一致するpcm_banks
-        // エントリ(profile.jsonでgroup指定されたもの)から逆引きする。
-        // 複数の異なるPCMバンク(コーデックの異なるADPCM-A用/ADPCM-B用等)を
-        // 同一プロファイル内で併用できるようにするため(2026年7月、
-        // 以前はbankNo=0固定で全PCMデバイスが同じバンクを共有しており、
-        // 2種目以降のPCMバンクが常に無視されていた不具合を修正)。
+        // エントリ(groupのみ指定)にフォールドバックする。複数の異なる
+        // PCMバンク(コーデックの異なるADPCM-A用/ADPCM-B用等)を同一
+        // プロファイル内で併用できるようにするため(2026年7月、以前は
+        // bankNo=0固定で全PCMデバイスが同じバンクを共有しており、2種目
+        // 以降のPCMバンクが常に無視されていた不具合を修正)。どちらも
         // 一致するバンクが無い場合は、従来通りbank0にフォールバックする
-        // (groupを指定しない旧来のpcm_banks記述との後方互換)。
+        // (group/chipいずれも指定しない旧来のpcm_banks記述との後方互換)。
         {
-            uint8_t vpt = FITOMConfig::deviceTypeToVoicePatchType(deviceType);
-            int pcmBankNo = patchMgr_->pcmRegistry().findBankNoForVoicePatchType(vpt);
+            int pcmBankNo = patchMgr_->pcmRegistry().findBankNoForDeviceType(deviceType);
+            if (pcmBankNo < 0) {
+                uint8_t vpt = FITOMConfig::deviceTypeToVoicePatchType(deviceType);
+                pcmBankNo = patchMgr_->pcmRegistry().findBankNoForVoicePatchType(vpt);
+            }
             if (pcmBankNo < 0) pcmBankNo = 0;
             dev->setPcmRegistry(&patchMgr_->pcmRegistry(), pcmBankNo);
         }

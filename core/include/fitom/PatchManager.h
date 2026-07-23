@@ -176,8 +176,11 @@ public:
     // pcmbank.json(adpcm_packer出力)を唯一の情報源として直接ピッカーに
     // 反映できる、2026年7月新設。
     // 省略時(0=VOICE_PATCH_NONE)は従来通り波形データの登録のみ行う。
+    // deviceType: このバンクを特定の物理チップのADPCM系サブデバイスに
+    // 限定する場合に指定する(DEVICE_ADPCMB_OPNA等、PcmBank::deviceType
+    // 参照)。省略時(0)は制限なし(voicePatchTypeのみで解決)。
     bool loadPcmBankJson(const std::filesystem::path& path, int bankNo,
-                          uint8_t voicePatchType = 0);
+                          uint8_t voicePatchType = 0, uint32_t deviceType = 0);
     bool savePcmBankJson(const std::filesystem::path& path, int bankNo) const;
 
     // ─── SCC 波形バンク ──────────────────────────────────────────
