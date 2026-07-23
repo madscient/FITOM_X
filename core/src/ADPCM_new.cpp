@@ -250,10 +250,28 @@ public:
     // voices_[prog]へ登録するだけ。チップメモリへの書き込みは行わない
     // (波形データは既にhwif側で配置済みという前提)。実際のStart/End
     // アドレスレジスタへの反映はupdateVoice()がNoteOnのたびに行う。
+    //
+    // 注意: このチップのStart/Endアドレスレジスタは下位5bit(=バイト単位
+    // でのoffsetの下位2bit、4byte境界)を保持できない(updateVoice()の
+    // setReg(startLSB,(st>>5)&0xFF)等参照)。adpcm_packer側がboundary
+    // (pcmbank.json、32/256byte)に整列済みのオフセットを出力していれば
+    // 自動的に満たされるはずだが、万一4byte境界に整列していない場合は
+    // 無警告で下位ビットが切り捨てられ、再生アドレスが実際の配置位置と
+    // ずれてしまう。ここで検知して警告する(FITOM_X側で値を丸めて
+    // 誤魔化すことはしない。丸めるとhwif側が実際に配置したアドレスと
+    // 一致しなくなり、波形データの配置はhwif側の責務という設計方針に
+    // 反するため)。
     void registerVoice(int prog, uint32_t offset, uint32_t length) override {
         if (prog < 0 || prog >= 128) return;
-        voices_[prog].startAddr = offset * 8;
-        voices_[prog].length    = length * 8;
+        uint32_t st  = offset * 8;
+        uint32_t len = length * 8;
+        if ((st & 0x1F) != 0 || (len & 0x1F) != 0) {
+            FITOM_LOG_WARN("CYmDelta: voice[" << prog << "] offset=" << offset
+                << " length=" << length << " is not aligned to a 4-byte boundary; "
+                "Start/End address register will be truncated (adpcm_packer boundary設定を確認してください)");
+        }
+        voices_[prog].startAddr = st;
+        voices_[prog].length    = len;
         usedMem_ += length;
     }
 
@@ -382,10 +400,18 @@ public:
     // voices_[prog]へそのまま登録するだけ。チップメモリへの書き込みは
     // 行わない(波形データは既にhwif側で配置済みという前提)。このチップの
     // アドレスレジスタは下位8bitを持たない(0x10+ch/0x18+chとも8bit
-    // シフト後の値のみ)ため、offsetは256byte境界に整列済みであること
-    // が前提(pcmbank.jsonのboundary:256、adpcm_packer側の責務)。
+    // シフト後の値のみ)ため、offset/lengthは256byte境界に整列済みで
+    // あることが前提(pcmbank.jsonのboundary:256、adpcm_packer側の責務)。
+    // 万一整列していない場合は無警告で下位ビットが切り捨てられ、
+    // 再生アドレスが実際の配置位置とずれるため、ここで検知して警告する
+    // (CYmDeltaと同じ理由でFITOM_X側で値を丸めることはしない)。
     void registerVoice(int prog, uint32_t offset, uint32_t length) override {
         if (prog < 0 || prog >= 128) return;
+        if ((offset & 0xFF) != 0 || (length & 0xFF) != 0) {
+            FITOM_LOG_WARN("CAdPcm2610A: voice[" << prog << "] offset=" << offset
+                << " length=" << length << " is not aligned to a 256-byte boundary; "
+                "Start/End address register will be truncated (adpcm_packer boundary設定を確認してください)");
+        }
         voices_[prog].startAddr = offset;
         voices_[prog].length    = length;
         usedMem_ += length;
