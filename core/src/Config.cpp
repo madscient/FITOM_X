@@ -1197,7 +1197,15 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
                 std::string chipStr = e["chip"].get<std::string>();
                 chipDeviceType = resolvePcmBankChipDeviceType(chipStr);
             }
-            pm.loadPcmBankJson(path, bankNo, voicePatchType, chipDeviceType);
+            // "offsets_only"(任意、既定false): trueの場合、このバンクは
+            // chipで指定した物理チップ向けのオフセットテーブル専用として
+            // 登録し、named patch自動合成(パッチピッカーへの公開)を行わ
+            // ない。同一group内でchip違いのバンクを複数併用する場合、
+            // entries[]の名前集合はどれも同一なので、2つ目以降のバンクに
+            // 指定してパッチピッカーの重複表示を避ける
+            // (PatchManager::loadPcmBankJson()参照)
+            bool offsetsOnly = e.value("offsets_only", false);
+            pm.loadPcmBankJson(path, bankNo, voicePatchType, chipDeviceType, offsetsOnly);
         }
     }
 }

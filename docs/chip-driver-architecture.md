@@ -377,10 +377,14 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
   ため、HwBank/SampleZoneBank側の音色パッチ定義自体はchip指定の有無に
   関わらずOPNA/OPNBどちらのデバイスにも共通で使い回せる(chipで分離
   されるのはオフセットテーブルという実装内部の詳細のみで、パッチ互換性
-  は失われない)。ただしchip指定時、entries[]からのnamed patch自動合成
+  は失われない)。chip指定時、entries[]からのnamed patch自動合成
   (`PatchManager::loadPcmBankJson()`)はバンクごとに独立して走るため、
-  同一の名前集合が複数バンク番号の下でパッチピッカーに重複表示される
-  点は既知のトレードオフ。
+  同一の名前集合が複数バンク番号の下でパッチピッカーに重複表示され得るが、
+  `pcm_banks[].offsets_only`(任意、既定false)をtrueにすると、そのバンクは
+  Start/Endオフセットテーブルとしてのみ登録され named patch自動合成を
+  スキップする。同一group内でchip違いのバンクを複数併用する場合、代表
+  (通常はchip省略または最初のバンク)以外に`offsets_only: true`を指定すれば
+  パッチピッカーでの重複表示を避けられる。
 - **束ねられた(`CSpanDevice`)ADPCM-Bサブチップへは、代表デバイスの
   bankNoではなく各サブチップ自身のdeviceTypeでバンクを解決する**：OPNA/
   OPNB/OPNBBのADPCM-Bは同一VoicePatchType(`VOICE_PATCH_ADPCMB`)のため
