@@ -95,9 +95,33 @@ private:
                 // val = 8 * master / freq / divide
                 val = std::round((8.0 * master) / (freq * divide));
                 break;
-            case FnumTableType::DeltaN:
-                val = std::round(65536.0 * freq / master);
+            case FnumTableType::DeltaN: {
+                // 実チップのDelta-N式: delta_n = round(2^16 * freq * divide / master)
+                // (master=マスタークロック[Hz]、divide=ADPCM内部クロック分周比。
+                //  YM2608/YM2610は144)。Fnumberケースと同様にdivideを掛ける必要が
+                //  あったが、この乗算が丸ごと欠落していた(2026-07-24、ADPCM-B
+                //  再生レート異常の実機調査で発覚)。
+                //
+                //  さらに、ここで使う"freq"の基準周波数は他の型(Fnumber/
+                //  TonePeriod)と違いmasterPitch_(A440チューニング基準、
+                //  デフォルト440Hz)ではなく、旧FITOM(現在は未使用の
+                //  Fnum.cpp::CFnumTable::GetDeltaNが実装していた式)が使っていた
+                //  固定16000Hz基準でなければならない。CYmDelta(ADPCM_new.cpp)の
+                //  kNoteOffset=448・kPitchOrigin=-57は「旧実装のまま変更しない」
+                //  前提でこの16000Hz基準にキャリブレーションされた定数であり、
+                //  ここでmasterPitch_(440Hz)を使うと基準周波数が16000/440≈36.4倍
+                //  食い違い、DeltaNが常に約1/36というかなり遅い再生レートになって
+                //  いた(2026-07-24、C4(MIDIノート60)で実測: 誤り690→正しくは
+                //  約25085相当と判明)。旧式のtuningoffset(マスターチューニングを
+                //  加算オフセットとして反映)と等価になるよう、
+                //  freq*(16000/440)*(masterPitch_/440ではなくmasterPitch_そのもの
+                //  が既にfreqに掛かっているため、16000/440倍するだけでよい)。
+                constexpr double kDeltaNBaseFreq = 16000.0;
+                constexpr double kDeltaNBaseRef  = 440.0; // 旧式のTuningFrequencyデフォルト
+                double freqDeltaN = freq * (kDeltaNBaseFreq / kDeltaNBaseRef);
+                val = std::round(65536.0 * freqDeltaN * divide / master);
                 break;
+            }
             case FnumTableType::SSG:
                 // SSG period: master / (16 * freq)
                 val = std::round(static_cast<double>(master) / (16.0 * freq));
