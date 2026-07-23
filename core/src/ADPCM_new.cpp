@@ -232,12 +232,17 @@ static const RegMap kY8950_DeltaT = {
 };
 
 // YM2610 (OPNB) ADPCM-B レジスタマップ (旧FITOM CAdPcm2610B 完全移植)
+// 2026-07-24: addrShiftを8(256byte境界)へ修正したが、OPNA ADPCM-Bと同一の
+// パッチのはずが同じ音にならないとの報告があり、原因切り分けのため
+// いったん旧値の2(4byte境界)に差し戻す(診断用の一時的な戻し。
+// 上のRegMap::addrShiftコメントの8=256byte境界という判断自体を撤回した
+// わけではない点に注意)。
 static const RegMap kOPNB_DeltaT = {
     /*control1*/0x10, /*control2*/0x11, /*startLSB*/0x12, /*startMSB*/0x13,
     /*endLSB*/0x14,   /*endMSB*/0x15,   /*limitLSB*/0xff, /*limitMSB*/0xff,
     /*memory*/0xff,   /*deltanLSB*/0x19,/*deltanMSB*/0x1a,/*volume*/0x1b,
     /*flag*/0x1c,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0xc0,
-    /*addrShift*/8
+    /*addrShift*/2  // 2026-07-24: 8から一時的に差し戻し中(上記コメント参照)
 };
 
 // ================================================================
