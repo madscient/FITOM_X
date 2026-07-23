@@ -887,9 +887,14 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         // OPNA本体(FM 6ch) + SSG(3ch) + ADPCM-B + リズム(6パート)。
         // 全サブデバイスが同一の物理ポート(+extraPort)を共有する。
         // ADPCM-BはOPNB系と異なるレジスタマップのため DEVICE_ADPCMB_OPNA を使う。
+        // ADPCM-B(OPNA)は実チップ上port2(アドレス0x100以降)に配置される
+        // レジスタ体系のためusesExtraPort=trueとする(2026年7月、ユーザー
+        // 指摘により発覚。以前はSSGと同じport1のまま割り当てておりレジスタ
+        // アドレスが衝突していた。実際の高位ポートへの差し替えは
+        // CFITOM::resolveAdpcmHighPort()が行う)。
         outSpec.push_back({baseDeviceType,      "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,          "-SSG",    false, false});
-        outSpec.push_back({DEVICE_ADPCMB_OPNA,  "-ADPCMB", false, false});
+        outSpec.push_back({DEVICE_ADPCMB_OPNA,  "-ADPCMB", true,  false});
         outSpec.push_back({DEVICE_OPNA_RHY,     "-RHYTHM", false, true});
         return true;
 
@@ -899,9 +904,12 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         // SSG/ADPCM-A/ADPCM-Bのケーパビリティ自体は共通(2026年7月、
         // ステージング環境からの指摘で訂正: 以前は無印にADPCM-B用メモリ
         // 空間が無いという誤った前提でADPCM-Bを生成していなかった)。
+        // ADPCM-Aは実チップ上port2(アドレス0x100以降)に配置される
+        // レジスタ体系のためusesExtraPort=trueとする(ADPCM-Bは逆にport1の
+        // ままで正しい。2026年7月、ユーザー指摘により発覚)。
         outSpec.push_back({baseDeviceType, "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
-        outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", false, false});
+        outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", true,  false});
         outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
         return true;
 
@@ -909,9 +917,10 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         // OPNBB (YM2610B): FM本体(6ch) + SSG + ADPCM-A + ADPCM-B。
         // 無印(DEVICE_OPNB)とはFMチャンネル数のみが異なる(COPNAをそのまま
         // 6chフル構成で使う点がOPNBのCOPNB(実効4ch)との違い)。
+        // ADPCM-Aのport2扱いはOPNBと同じ理由(上記コメント参照)。
         outSpec.push_back({baseDeviceType, "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
-        outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", false, false});
+        outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", true,  false});
         outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
         return true;
 

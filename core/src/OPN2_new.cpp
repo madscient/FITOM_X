@@ -187,10 +187,13 @@ private:
 //  実効4ch構成 (有効なグローバルchは1,2,4,5)。旧FITOMはCOPN2から派生して
 //  同じch0/ch3を無効化する実装だったが、新実装ではOPNA相当のCOPNAが
 //  基底クラスに当たるため、これを派生する。
-//  SSG/ADPCM-AはFITOMConfig::resolveCompositeSpec()により、
-//  同一物理ポートを共有する別デバイスとして自動生成される
-//  (YM2610無印はADPCM-B用メモリ空間を持たないため生成しない。
-//   ADPCM-Bも持つYM2610BはDEVICE_2610B側=COPNAで扱う)。
+//  SSG/ADPCM-A/ADPCM-BはFITOMConfig::resolveCompositeSpec()により、
+//  同一物理ポート(+extraPort)を共有する別デバイスとして自動生成される
+//  (2026年7月訂正: 以前はYM2610無印にADPCM-B用メモリ空間が無いという
+//  誤った前提でADPCM-Bを生成していなかったが、実際にはYM2610無印/2610B
+//  共通のケーパビリティであるため両方とも生成する。ADPCM-Aはレジスタが
+//  port2[アドレス0x100以降]に配置されるためextraPortを使う点に注意
+//  [CFITOM::resolveAdpcmHighPort()参照]、ADPCM-Bはport1のまま)。
 // ================================================================
 class COPNB : public COPNA {
 public:

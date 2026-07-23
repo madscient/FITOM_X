@@ -298,6 +298,19 @@ private:
     // OPNA/OPN2 等の HW 2 ポート構成時に生成する SplitPort。
     // IPort* として CSoundDevice に渡すが、所有権はここで管理する。
     std::vector<std::unique_ptr<SplitPort>> splitPorts_;
+
+    // ─── OffsetPort の寿命管理 (2026年7月新設) ─────────────────────
+    // ADPCM-A(YM2610/2610B)・ADPCM-B(YM2608=OPNA)は実チップ上
+    // 「port2」(SplitPort/OffsetPortでアドレス0x100以降にマップされる側)
+    // に配置されるレジスタ体系のため(ADPCM-B(YM2610/2610B)は逆に低位
+    // ポートのままで正しく対象外)、resolveAdpcmHighPort()がinitDevices()
+    // 内でこのデバイスのportを高位ポート側へ差し替える。プロファイルの
+    // extra_port等で明示された物理ポートが無い場合、ここでOffsetPortを
+    // 自前生成して所有する(ユーザー指摘により発覚: 以前はSSG等と同じ
+    // 低位ポートにそのまま割り当てており、レジスタアドレスが衝突していた)。
+    std::vector<std::unique_ptr<OffsetPort>> offsetPorts_;
+    IPort* resolveAdpcmHighPort(uint32_t deviceType, IPort* port, IPort* configuredPort2);
+
     // 同種デバイス自動束ね (CSpanDevice) で生成される個々のサブチップ。
     // devices_[i] が CSpanDevice の場合、その内部で束ねられる実体
     // (unique_ptr<ISoundDevice>) をここで保持し続ける必要がある
