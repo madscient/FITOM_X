@@ -232,17 +232,25 @@ static const RegMap kY8950_DeltaT = {
 };
 
 // YM2610 (OPNB) ADPCM-B レジスタマップ (旧FITOM CAdPcm2610B 完全移植)
-// 2026-07-24: addrShiftを8(256byte境界)へ修正したが、OPNA ADPCM-Bと同一の
-// パッチのはずが同じ音にならないとの報告があり、原因切り分けのため
-// いったん旧値の2(4byte境界)に差し戻す(診断用の一時的な戻し。
-// 上のRegMap::addrShiftコメントの8=256byte境界という判断自体を撤回した
-// わけではない点に注意)。
+// 2026-07-24: addrShift=8で確定(ymfm実ソースで裏取り済み)。
+// YMEngine/extern/ymfm/src/ymfm_opn.cpp の ym2610::ym2610() コンストラクタが
+// m_adpcm_b(intf, 8) と非0のaddrshiftを明示的に渡しており、
+// adpcm_b_channel::address_shift()(ymfm_adpcm.cpp)は「非0なら無条件にその
+// 値を返す」実装のため、YM2610/2610Bは常時8(256byte境界)固定で確定
+// (control2のROM/RAM・8bit DRAMビットには依存しない)。一方YM2608(OPNA)の
+// コンストラクタはm_adpcm_b(intf)(addrshift省略=0)で、この場合は
+// control2のrom_ram()/dram_8bit()ビットが両方0なら2(4byte境界)になる
+// (本FITOM_Xの実装は両ビット常に0固定のため、OPNAは常に2で正しい)。
+// 一時的に2へ差し戻して検証したが改善しなかったため8へ戻す。8でも症状が
+// 残る場合、原因はaddrShift値ではなくadpcm_packer側の実際の整列単位
+// (pcmbank.jsonのboundaryはFITOM_X側で検証に使われない情報欄のため、
+// 実データが256byte境界に整列されていない可能性がある)を疑うこと。
 static const RegMap kOPNB_DeltaT = {
     /*control1*/0x10, /*control2*/0x11, /*startLSB*/0x12, /*startMSB*/0x13,
     /*endLSB*/0x14,   /*endMSB*/0x15,   /*limitLSB*/0xff, /*limitMSB*/0xff,
     /*memory*/0xff,   /*deltanLSB*/0x19,/*deltanMSB*/0x1a,/*volume*/0x1b,
     /*flag*/0x1c,     /*ctrl1init*/0x01,/*ctrl2init*/0x00,/*panmask*/0xc0,
-    /*addrShift*/2  // 2026-07-24: 8から一時的に差し戻し中(上記コメント参照)
+    /*addrShift*/8
 };
 
 // ================================================================
