@@ -141,6 +141,13 @@ struct PhysicalChipInfo {
     std::string physicalName;
     HWPort*     port  = nullptr;   // 1ポート目 (レジスタダンプの0x000-0x0FF)
     HWPort*     port2 = nullptr;   // 2ポート目 (0x100-0x1FF)。nullptr = 1ポートチップ
+    // レジスタダンプの表示サイズ [byte] (0x100刻み)。port2がある場合は
+    // 常に0x200。port2が無くても、OPNA/OPN2(内部OffsetPort経由)やOPL3
+    // (直接addr>=0x100を同一HWPortへ書く)のように、1つの物理ポートだけで
+    // 0x100を超えるアドレス空間を使うチップがあるため、getDeviceRegSize()
+    // (deviceType別の既知のレジスタ空間サイズ)を併用して決める
+    // (buildPhysicalChipList()参照)。
+    uint32_t    dumpSize = 0x100;
 };
 
 // ================================================================

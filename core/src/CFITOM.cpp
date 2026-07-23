@@ -478,6 +478,19 @@ void CFITOM::buildPhysicalChipList()
         info.physicalName = primary->getPhysicalChipName();
         info.port         = primary;
         info.port2        = secondary;
+        if (secondary) {
+            // 分離した物理ポート2つ (SPFM 2スロット構成等): 各ポート
+            // ローカル0x000-0x0FFを0x000/0x100にpackするため常に0x200。
+            info.dumpSize = 0x200;
+        } else {
+            // port2が無くても、チップドライバが同一HWPortへ0x100以降の
+            // アドレスを直接(OPL3)またはOffsetPort経由(OPNA/OPN2、内部で
+            // +0x100して同じportへ書く)で書き込む場合があるため、
+            // deviceType別の既知のレジスタ空間サイズを採用する
+            // (該当なし/0x100以下ならデフォルトの0x100のまま)。
+            uint32_t regSize = getDeviceRegSize(deviceType);
+            if (regSize > 0x100) info.dumpSize = regSize;
+        }
         physicalChips_.push_back(info);
         portToChip[primary] = idx;
         if (secondary) portToChip[secondary] = idx;
@@ -520,9 +533,18 @@ std::vector<uint8_t> CFITOM::getPhysicalChipRegisterDump(int index) const
 {
     if (index < 0 || index >= static_cast<int>(physicalChips_.size())) return {};
     const auto& info = physicalChips_[index];
-    std::vector<uint8_t> result(info.port2 ? 0x200 : 0x100, 0);
-    if (info.port)  info.port->getShadowRegRange(0x000, result.data(), 0x100);
-    if (info.port2) info.port2->getShadowRegRange(0x000, result.data() + 0x100, 0x100);
+    std::vector<uint8_t> result(info.dumpSize, 0);
+    if (info.port2) {
+        // 分離した物理ポート2つ: それぞれのローカルアドレス0x000-0x0FFを
+        // 読み、0x000/0x100に配置する。
+        if (info.port)  info.port->getShadowRegRange(0x000, result.data(), 0x100);
+        if (info.port2) info.port2->getShadowRegRange(0x000, result.data() + 0x100, 0x100);
+    } else if (info.port) {
+        // 単一物理ポート: 高位アドレス(0x100以降)もチップドライバが同じ
+        // HWPortへ直接(OPL3等)またはOffsetPort経由(OPNA/OPN2等、内部で
+        // +0x100して同じportへ書く)で書き込んでいるため、一括で読み出せる。
+        info.port->getShadowRegRange(0x000, result.data(), info.dumpSize);
+    }
     return result;
 }
 
