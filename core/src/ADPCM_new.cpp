@@ -56,26 +56,32 @@ public:
         pcmBankNo_ = bankNo;
     }
 
-    // PcmBankRegistry からバイナリを取得してチップへ転送する
-    // CFITOM::initDevices() でデバイス生成直後に呼ぶ
+    // PcmBankRegistry からエントリのオフセット/サイズ情報を取得し、
+    // Start/Endアドレス計算用のボイステーブル(voices_)へ登録する。
+    // CFITOM::initDevices() でデバイス生成直後に呼ぶ。
+    //
+    // 波形バイナリ自体をチップのPCMメモリへ配置する処理はここでは
+    // 行わない(2026年7月、設計を訂正)。実チップのADPCM-A/B用メモリは
+    // 多くの場合ROM/事前フラッシュ済みRAMであり、その配置はhwif側
+    // (実機ボード・fitom_fmhwif側の設定)の責務である。FITOM_X本体は
+    // 波形データが既にそこへ配置されている前提で、entries[]のオフセット/
+    // サイズ情報だけを使ってStart/Endアドレスレジスタを設定する
+    // (以前はFITOM_X側でPCM RAM相当のレジスタへ波形バイナリを逐次
+    // 転送する実装になっていたが、この転送責務自体を持つべきではなかった)。
     void initPcmData() override {
         if (!pcmReg_) return;
         const PcmBank* bank = pcmReg_->find(pcmBankNo_);
-        if (!bank || !bank->hasBinData()) {
+        if (!bank) {
             FITOM_LOG_WARN("CAdPcmBase: PCM bank " << pcmBankNo_ << " not loaded");
             return;
         }
-        // バイナリ全体をエントリごとに転送
         for (int i = 0; i < PCM_MAX_ENTRIES; ++i) {
             const auto& e = bank->getEntry(static_cast<uint8_t>(i));
             if (!e.isValid()) continue;
-            if (e.startOffset + e.paddedSize > bank->binData.size()) continue;
-            loadVoice(i,
-                bank->binData.data() + e.startOffset,
-                e.paddedSize);
+            registerVoice(i, e.startOffset, e.paddedSize);
         }
-        FITOM_LOG_INFO("CAdPcmBase: PCM data loaded, "
-            << usedMem_ << " bytes used");
+        FITOM_LOG_INFO("CAdPcmBase: PCM voice table registered, "
+            << usedMem_ << " bytes (bank " << pcmBankNo_ << ")");
     }
 
     // B-3: HwPatch.hwOp[0].WS = エントリ番号 → PcmEntry を解決
@@ -102,8 +108,11 @@ public:
         return &s.samplePatch->zones[0]; // フォールバック: 最初のゾーン
     }
 
-    // 後方互換: 直接データを転送する方式 (テスト用)
-    virtual void loadVoice(int prog, const uint8_t* data, size_t length) = 0;
+    // entries[]のoffset(バイト単位、adpcm_packer出力のstart_offset
+    // そのもの)/length(padded_size)を、このチップのアドレス表現単位
+    // (バイト or ビット)に変換してvoices_[prog]へ登録するだけ。
+    // チップメモリへのデータ転送は行わない(波形配置はhwif側の責務)。
+    virtual void registerVoice(int prog, uint32_t offset, uint32_t length) = 0;
 
     uint8_t  getParentDevId() const { return parentDevId_; }
     size_t   getMaxMem()      const { return maxMem_; }
@@ -139,7 +148,7 @@ protected:
     const PcmBankRegistry* pcmReg_;
     int                    pcmBankNo_;
 
-    AdpcmVoice voices_[128];  // 後方互換 (loadVoice で使用)
+    AdpcmVoice voices_[128];  // WS番号(entry_no) → Start/Endアドレス・長さ (registerVoice で登録)
 
     // DeltaN F-number 計算 (旧 CYmDelta::GetDeltaN 相当、完全に元の実装のまま)。
     // root_note対応は、この関数の計算結果に対して後段でスケーリングする
@@ -236,48 +245,16 @@ public:
     std::string getDescriptor() const override { return "YMDeltaT (ADPCM-B) 1ch"; }
     void init() override {}
 
-    // 旧FITOM CYmDelta::LoadVoice 完全移植。
-    // データ転送は regmap.memory レジスタを経由する。
-    void loadVoice(int prog, const uint8_t* data, size_t length) override {
+    // offset(バイト単位、adpcm_packer出力のstart_offsetそのもの)を
+    // このチップのstart/endレジスタが扱うビット単位に変換して
+    // voices_[prog]へ登録するだけ。チップメモリへの書き込みは行わない
+    // (波形データは既にhwif側で配置済みという前提)。実際のStart/End
+    // アドレスレジスタへの反映はupdateVoice()がNoteOnのたびに行う。
+    void registerVoice(int prog, uint32_t offset, uint32_t length) override {
         if (prog < 0 || prog >= 128) return;
-
-        uint32_t st = 0;
-        if (prog > 0) {
-            st = voices_[prog - 1].startAddr + voices_[prog - 1].length;
-        }
-        size_t blk = (length * 8) >> 5;
-        if ((blk << 5) < length * 8) { ++blk; }
-        blk <<= 5;
-        // 256Kbit 境界をまたぐ場合は次の境界へ
-        if ((st >> 18) != ((st + blk) >> 18)) {
-            st = ((st >> 18) + 1) << 18;
-        }
-        uint32_t ed = static_cast<uint32_t>(st + blk - 1);
-
-        voices_[prog].startAddr = st;
-        voices_[prog].length    = static_cast<uint32_t>(blk);
-
-        setReg(reg_.flag,     0);
-        setReg(reg_.flag,     0x80);
-        setReg(reg_.control1, reg_.ctrl1init);
-        setReg(reg_.control1, 0x60);
-        setReg(reg_.control2, reg_.ctrl2init);
-        setReg(reg_.startLSB, static_cast<uint8_t>((st >> 5) & 0xFF));
-        setReg(reg_.startMSB, static_cast<uint8_t>((st >> 13) & 0xFF));
-        setReg(reg_.endLSB,   static_cast<uint8_t>((ed >> 5) & 0xFF));
-        setReg(reg_.endMSB,   static_cast<uint8_t>((ed >> 13) & 0xFF));
-        if (reg_.limitLSB != 0xFF) setReg(reg_.limitLSB, static_cast<uint8_t>((ed >> 5) & 0xFF));
-        if (reg_.limitMSB != 0xFF) setReg(reg_.limitMSB, static_cast<uint8_t>((ed >> 13) & 0xFF));
-
-        for (size_t i = 0; i < (blk >> 3); ++i) {
-            setReg(reg_.memory, (i < length) ? data[i] : 0x80);
-        }
-        setReg(reg_.control1, reg_.ctrl1init);
-        setReg(reg_.control1, 0);
-
-        usedMem_ += blk;
-        FITOM_LOG_DEBUG("YMDeltaT: loaded prog=" << prog
-            << " start=0x" << std::hex << st << " len=" << length);
+        voices_[prog].startAddr = offset * 8;
+        voices_[prog].length    = length * 8;
+        usedMem_ += length;
     }
 
 protected:
@@ -376,7 +353,8 @@ private:
 //    0x01: 総合音量 (全ch共通、6bit)
 //    0x08+ch: パン(bit6-7)/チャンネル音量(bit0-4, 5bit)
 //    0x10/0x18+ch, 0x20/0x28+ch: 各chの開始/終了アドレス
-//    0x200-0x204: PCM ROM/RAM書き込み (loadVoice)
+//    0x200-0x204: PCM ROM/RAM書き込み (波形データの配置はhwif側の責務の
+//                 ため、本ドライバでは使用しない。ハードウェア仕様として記載のみ)
 //
 //  旧FITOM同様、チャンネル毎のMIDI Volume(CC#7)は反映せず、
 //  velocity×expressionのみをチャンネルレジスタに反映し、
@@ -391,9 +369,7 @@ public:
         : CAdPcmBase(DEVICE_ADPCMA, port, 0x30, sampleRate, 0,
                      448 /* YMDELTA_OFFSET、CYmDelta::kNoteOffsetと同値 */,
                      memSize, 6, parentDevId)
-    {
-        boundary_ = 0x100000; // 1MB境界
-    }
+    {}
 
     std::string getDescriptor() const override { return "ADPCM-A (YM2610) 6ch"; }
 
@@ -402,35 +378,20 @@ public:
         setReg(0, 0, true);
     }
 
-    void loadVoice(int prog, const uint8_t* data, size_t length) override {
+    // offset(バイト単位、adpcm_packer出力のstart_offsetそのもの)を
+    // voices_[prog]へそのまま登録するだけ。チップメモリへの書き込みは
+    // 行わない(波形データは既にhwif側で配置済みという前提)。このチップの
+    // アドレスレジスタは下位8bitを持たない(0x10+ch/0x18+chとも8bit
+    // シフト後の値のみ)ため、offsetは256byte境界に整列済みであること
+    // が前提(pcmbank.jsonのboundary:256、adpcm_packer側の責務)。
+    void registerVoice(int prog, uint32_t offset, uint32_t length) override {
         if (prog < 0 || prog >= 128) return;
-        uint32_t st = 0;
-        if (prog > 0) {
-            st = voices_[prog - 1].startAddr + voices_[prog - 1].length;
-        }
-        // 256byte 境界に切り上げ
-        size_t blk = (length + 0xFF) & ~static_cast<size_t>(0xFF);
-        if ((st >> 20) < ((st + blk) >> 20)) { // 1MB境界をまたぐ場合
-            st = (st + boundary_) & ~static_cast<uint32_t>(boundary_ - 1);
-        }
-        voices_[prog].startAddr = st;
-        voices_[prog].length    = static_cast<uint32_t>(blk);
-
-        port_->writeRaw(0x200, static_cast<uint16_t>(st & 0xFF));
-        port_->writeRaw(0x201, static_cast<uint16_t>((st >> 8) & 0xFF));
-        port_->writeRaw(0x202, static_cast<uint16_t>((st >> 16) & 0xFF));
-        port_->writeRaw(0x203, 1);
-        for (size_t i = 0; i < blk; ++i) {
-            port_->writeRaw(0x204, (i < length) ? data[i] : 0x80);
-        }
-        usedMem_ += blk;
-        FITOM_LOG_DEBUG("ADPCM-A: loaded prog=" << prog
-            << " start=0x" << std::hex << st << " len=" << length);
+        voices_[prog].startAddr = offset;
+        voices_[prog].length    = length;
+        usedMem_ += length;
     }
 
 protected:
-    uint32_t boundary_ = 0x100000;
-
     // ADPCM-A は各chが固定音程のサンプル再生のみ (音程制御レジスタなし)
     void updateFreq(uint8_t /*ch*/, const ChState::Fnum* /*fn*/) override {}
 
@@ -533,27 +494,15 @@ public:
         setReg(0x80, 0x88, true);
     }
 
-    void loadVoice(int prog, const uint8_t* data, size_t length) override {
+    // offset(バイト単位、adpcm_packer出力のstart_offsetそのもの)を
+    // voices_[prog]へそのまま登録するだけ。チップメモリへの書き込みは
+    // 行わない(波形データは既にhwif側で配置済みという前提)。このチップの
+    // アドレスレジスタは24bitフル(下位バイトの切り捨てなし)。
+    void registerVoice(int prog, uint32_t offset, uint32_t length) override {
         if (prog < 0 || prog >= 128) return;
-
-        uint32_t st = 0;
-        if (prog > 0) {
-            st = voices_[prog - 1].startAddr + voices_[prog - 1].length;
-        }
-        size_t blk = (length + 3) / 4 * 4;
-        uint32_t ed = static_cast<uint32_t>(st + blk - 1);
-
-        voices_[prog].startAddr = st;
-        voices_[prog].length    = static_cast<uint32_t>(blk);
-
-        for (size_t i = 0; i < blk; ++i) {
-            uint32_t addr = st + i;
-            setReg(0x84, static_cast<uint8_t>(addr >> 16));
-            setReg(0x85, static_cast<uint8_t>((addr >> 8) & 0xFF));
-            setReg(0x86, static_cast<uint8_t>(addr & 0xFF));
-            setReg(0x87, (i < length) ? data[i] : uint8_t{0});
-        }
-        usedMem_ += blk;
+        voices_[prog].startAddr = offset;
+        voices_[prog].length    = length;
+        usedMem_ += length;
     }
 
 protected:

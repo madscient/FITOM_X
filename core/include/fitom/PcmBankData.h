@@ -18,11 +18,19 @@
 //           エントリ番号 → name / start_offset / end_offset
 //
 //     [3] 実行時 (CFITOM::initDevices)
-//           PcmBankRegistry が .bin を読み込んで CAdPcmBase::loadVoice() に渡す
+//           PcmBankRegistry が entries[] のオフセット/サイズ情報を
+//           CAdPcmBase::registerVoice() に渡し、voices_[エントリ番号]
+//           テーブルへ登録する。波形バイナリ自体をチップメモリへ書き込む
+//           処理はここでは行わない(実チップのADPCM-A/B用メモリは多くの
+//           場合ROM/事前フラッシュ済みRAMであり、その配置はhwif側
+//           [実機ボード・fitom_fmhwif側の設定]の責務。FITOM_X本体は
+//           波形データが既にそこへ配置されている前提でStart/Endアドレス
+//           レジスタを設定するだけでよい。2026年7月、設計を訂正)
 //
 //     [4] NoteOn 時
 //           HwPatch.hwOp[0].WS = エントリ番号
-//           → CAdPcmBase::updateKey() が voices_[WS] のオフセットを使って発音
+//           → CAdPcmBase::updateVoice() が voices_[WS] のオフセットを
+//             使ってStart/Endアドレスレジスタへ書き込み、発音する
 //
 // ─── adpcm_packer 出力 JSON との対応 ─────────────────────────────────────────
 //
@@ -38,7 +46,10 @@
 //
 //   PcmEntry.startOffset / endOffset は adpcm_packer の
 //   offset / (offset + padded_size - 1) をバイト単位で保持する。
-//   チップへの書き込みは CAdPcmBase が各チップのアドレス単位に変換する。
+//   このオフセットは、波形データが実際に配置されているチップメモリ上の
+//   アドレスと一致している前提で扱う(FITOM_X側での再配置は行わない)。
+//   レジスタへの反映はCAdPcmBaseが各チップのアドレス単位(バイト/ビット)
+//   に変換するのみ。
 
 #include <cstdint>
 #include <string>

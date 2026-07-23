@@ -62,6 +62,26 @@ public:
     void setMasterVolume(uint8_t vol) override {
         for (auto* c : chips_) c->setMasterVolume(vol);
     }
+
+    // 特定チップのみ有効なオプショナルインターフェース (SCC波形テーブル /
+    // ADPCM系PCMバンク) は、ISoundDevice基底のデフォルトがno-opのため、
+    // CMultiDeviceが未オーバーライドのままだと同種デバイス自動束ね
+    // (CSpanDevice、VoicePatchType基準)やCUnison経由の構成で、実際の
+    // 発音を担うサブチップ側に一切伝播しない(2026年7月、ADPCM-Aが
+    // 2チップにspanされた構成で「キーオンは動くが波形アドレスが常に0の
+    // まま」という不具合の根本原因として発覚。setPcmRegistry()/
+    // initPcmData()がCSpanDevice自身のno-opデフォルトで止まっており、
+    // 束ねられた実チップ(CAdPcm2610A等)のvoices_テーブルが一度も
+    // 登録されていなかった)。全サブチップへブロードキャストする。
+    void setWaveRegistry(const SccWaveRegistry* reg) override {
+        for (auto* c : chips_) c->setWaveRegistry(reg);
+    }
+    void setPcmRegistry(const PcmBankRegistry* reg, int bankNo = 0) override {
+        for (auto* c : chips_) c->setPcmRegistry(reg, bankNo);
+    }
+    void initPcmData() override {
+        for (auto* c : chips_) c->initPcmData();
+    }
     void onMasterPitchChanged(double pitchHz) override {
         for (auto* c : chips_) c->onMasterPitchChanged(pitchHz);
     }
