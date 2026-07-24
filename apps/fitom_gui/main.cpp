@@ -14,6 +14,7 @@
 #include "MidiPortSettingsDialog.h"
 #include "SystemSettingsDialog.h"
 #include "RegisterDumpWindow.h"
+#include "LevelMeterPanel.h"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -726,6 +727,7 @@ namespace
         static MidiPortSettingsDialog portDialog;
         static SystemSettingsDialog systemDialog;
         static RegisterDumpWindow regDumpWindow;
+        static LevelMeterPanel levelMeterPanel;
         // MIDIモニター本体とレジスタダンプモニターは、ルート画面上で
         // オルタネート表示(排他的に切り替え)する(2026年7月変更。以前は
         // レジスタダンプモニターを別ウィンドウとして重ねて表示していた)。
@@ -810,7 +812,17 @@ namespace
         if (showRegisterDump)
         {
             ImGui::Separator();
+            // 左右2ペイン(2026年7月新設): 左にチャンネルレベルメーター、
+            // 右に既存のレジスタダンプ。それぞれ独立してスクロールできる
+            // ようBeginChildで区切る。
+            const float leftWidth = ImGui::GetContentRegionAvail().x * 0.42f;
+            ImGui::BeginChild("##levelMeterPane", ImVec2(leftWidth, 0.0f), true);
+            levelMeterPanel.render(bridge);
+            ImGui::EndChild();
+            ImGui::SameLine();
+            ImGui::BeginChild("##registerDumpPane", ImVec2(0.0f, 0.0f), true);
             regDumpWindow.render(bridge);
+            ImGui::EndChild();
         }
         else
         {
