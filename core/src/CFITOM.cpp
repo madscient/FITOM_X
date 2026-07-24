@@ -360,6 +360,7 @@ void CFITOM::initDevices()
     int n = config_->getDeviceCount();
     devices_.clear();
     devices_.resize(n);
+    pendingSubDevices_.clear();
 
     for (int i = 0; i < n; ++i) {
         IPort*   port       = config_->getDevicePort(i);
@@ -410,6 +411,17 @@ void CFITOM::initDevices()
             continue;
         }
 
+        // チャンネルレベルメーター用: このデバイス自身(span/stereo展開前、
+        // 単一物理ポート単位)をbuildPhysicalChipList()が後で拾えるよう
+        // 記録しておく。stereoPairPort指定時はcreateLeveledDevice()が
+        // 既にCLinearPanDeviceへラップして返しており、L/R個別のch構成を
+        // 安定して取り出せないため対象外とする(既知の制限)。
+        if (!stereoPairPort) {
+            if (auto* hwPort = dynamic_cast<HWPort*>(config_->getDevicePort(i))) {
+                pendingSubDevices_.push_back({hwPort, dev.get(), deviceType});
+            }
+        }
+
         // 同種デバイス自動束ね: spanGroups があれば追加のチップ(モノラルまたは
         // ステレオペア)を生成し CSpanDevice で束ねる (旧FITOMの isSpannable 相当)。
         int spanCount = config_->getDeviceSpanGroupCount(i);
@@ -428,6 +440,11 @@ void CFITOM::initDevices()
                 // ch0/ch3を無効化した別クラス)。代表のdeviceTypeを流用せず、
                 // このポート本来のdeviceTypeを使う。
                 uint32_t subDeviceType = config_->getDeviceSpanGroupDeviceType(i, k);
+                // dedupキー用に、resolveAdpcmHighPort()で差し替えられる前の
+                // 元ポート(config_->getDeviceSpanGroupPrimary()と同一)を
+                // 別途保持しておく(buildPhysicalChipList()側のspanGroups
+                // 登録と同じポインタで突き合わせる必要があるため)。
+                auto* spHwPort = dynamic_cast<HWPort*>(sp);
                 // 代表デバイスと同様、ADPCM-A/ADPCM-B(OPNA)は高位ポートへ
                 // 差し替える(spanGroup配下にはconfiguredPort2の概念が無いため
                 // 常にOffsetPortを自前生成する)。
@@ -442,6 +459,12 @@ void CFITOM::initDevices()
                 FITOM_LOG_INFO("Device[" << i << "]: span sub-chip[" << k << "]: "
                     << subDev->getDescriptor());
                 spanDev->addDevice(subDev.get());
+                // チャンネルレベルメーター用(上記の代表デバイスと同じ理由)。
+                // spStereo指定時はcreateLeveledDevice()がCLinearPanDeviceへ
+                // ラップして返すため対象外とする(既知の制限)。
+                if (spHwPort && !spStereo) {
+                    pendingSubDevices_.push_back({spHwPort, subDev.get(), subDeviceType});
+                }
                 spanSubChips_.push_back(std::move(subDev));
             }
             // getChCount()はチャンネルアドレス空間(enableCh(false)で無効化された
@@ -568,24 +591,7 @@ void CFITOM::buildPhysicalChipList()
     for (int i = 0; i < n; ++i) {
         auto* port  = dynamic_cast<HWPort*>(config_->getDevicePort(i));
         auto* port2 = dynamic_cast<HWPort*>(config_->getDevicePort2(i));
-        size_t chipIdx = registerChip(port, port2, config_->getDeviceLabel(i), config_->getDeviceType(i));
-
-        // チャンネルレベルメーター用のサブデバイス内訳を記録する。
-        // stereoPairPort/spanGroupsで束ねられるデバイスは、devices_[i]が
-        // CLinearPanDevice/CSpanDeviceにラップされ、getChCount()が複数の
-        // 物理チップ分を合算してしまう(「1サブデバイス=1物理チップの
-        // 一部」という前提が崩れる)ため対象外とする
-        // (PhysicalChipInfo::subDevicesのコメント参照)。
-        if (chipIdx != static_cast<size_t>(-1)
-            && !config_->getDeviceStereoPairPort(i)
-            && config_->getDeviceSpanGroupCount(i) == 0
-            && i < static_cast<int>(devices_.size()) && devices_[i]) {
-            PhysicalChipSubDevice sd;
-            sd.device     = devices_[i].get();
-            sd.deviceType = config_->getDeviceType(i);
-            sd.chCount    = devices_[i]->getChCount();
-            physicalChips_[chipIdx].subDevices.push_back(sd);
-        }
+        registerChip(port, port2, config_->getDeviceLabel(i), config_->getDeviceType(i));
 
         // 物理的にL/R固定配線されたステレオペア (CLinearPanDevice) の
         // 相方(R側)も、独立した物理チップとして登録する。
@@ -609,6 +615,26 @@ void CFITOM::buildPhysicalChipList()
                          config_->getDeviceLabel(i) + " (span " + std::to_string(k) + " stereo pair)",
                          subType);
         }
+    }
+
+    // チャンネルレベルメーター用のサブデバイス内訳を反映する。
+    // initDevices()の構築ループがspan/stereo展開“前”に記録しておいた
+    // pendingSubDevices_(port,device,deviceType)を、上記で確定した物理
+    // チップ一覧(portToChip)へ突き合わせる。同種デバイス自動束ね
+    // (spanGroups)で他デバイスに吸収されたデバイスも、その吸収先が
+    // 登録したポートと同じportを持つため、ここで正しく同じ物理チップの
+    // サブデバイスとして復元される(2026年7月、ユーザー報告により発覚:
+    // 以前はspanGroupsを持つ/持たれる側の両方をチャンネルレベルメーターの
+    // 対象外としていたため、同系統FMチップが複数ある構成でチャンネルが
+    // 大量に欠落していた)。
+    for (const auto& psd : pendingSubDevices_) {
+        auto it = portToChip.find(psd.port);
+        if (it == portToChip.end()) continue;
+        PhysicalChipSubDevice sd;
+        sd.device     = psd.device;
+        sd.deviceType = psd.deviceType;
+        sd.chCount    = psd.device->getChCount();
+        physicalChips_[it->second].subDevices.push_back(sd);
     }
 
     FITOM_LOG_INFO("buildPhysicalChipList: " << physicalChips_.size() << " physical chip(s)");
@@ -646,6 +672,7 @@ std::vector<PhysicalChipChannelState> CFITOM::getPhysicalChipChannelStates(int i
             if (cs) {
                 st.sounding = cs->isActive();
                 st.velocity = cs->velocity;
+                st.enabled  = cs->isEnabled();
             }
             result.push_back(st);
         }

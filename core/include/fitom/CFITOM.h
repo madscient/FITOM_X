@@ -162,12 +162,13 @@ struct PhysicalChipInfo {
     // (deviceType別の既知のレジスタ空間サイズ)を併用して決める
     // (buildPhysicalChipList()参照)。
     uint32_t    dumpSize = 0x100;
-    // チャンネルレベルメーター用のサブデバイス内訳。buildPhysicalChipList()の
-    // メインループ(config_->getDeviceCount()の各エントリ)で見つかった
-    // サブデバイスのみを収録する。stereoPairPort/spanGroups経由で束ねられる
-    // 物理チップ(CLinearPanDevice/CSpanDeviceの内部でのみ扱われ、外部から
-    // 個々のサブチャンネル構成を安定して逆引きする手段が無い)は現状空のまま
-    // (既知の制限。必要になった場合は改めて対応する)。
+    // チャンネルレベルメーター用のサブデバイス内訳。initDevices()が
+    // span/stereo展開“前”に記録したpendingSubDevices_を、buildPhysicalChipList()
+    // が物理ポート単位に突き合わせて構築する(2026年7月)。同種デバイス
+    // 自動束ね(spanGroups)で他デバイスに吸収されたデバイスも、吸収先とは
+    // 別の物理チップとして正しく内訳が復元される。ただしstereoPairPort
+    // (CLinearPanDevice化)されるデバイス自身は、createLeveledDevice()が
+    // 展開前にL/R個別のch構成を返さないため対象外のまま(既知の制限)。
     std::vector<PhysicalChipSubDevice> subDevices;
 };
 
@@ -183,6 +184,11 @@ struct PhysicalChipInfo {
 struct PhysicalChipChannelState {
     bool    sounding = false;
     uint8_t velocity = 0;
+    // false = このチャンネルは実チップ上恒常的に無効(例: COPNBのch0/ch3
+    // [実機に存在しない]、OPL/OPLL系リズムモード時のch6-8[リズム専用に
+    // 転用され通常のFM割り当て対象外])。ChState::isEnabled()由来
+    // (2026年7月新設。チャンネルレベルメーターで非活性表示に使う)。
+    bool    enabled  = true;
 };
 
 // ================================================================
@@ -389,6 +395,19 @@ private:
     // ここでは生ポインタのみを保持する。
     std::vector<PhysicalChipInfo> physicalChips_;
     void buildPhysicalChipList();
+
+    // チャンネルレベルメーター用、buildPhysicalChipList()がsubDevicesを
+    // 組み立てる元データ(2026年7月新設)。initDevices()のデバイス構築
+    // ループが、devices_[i]がCSpanDevice/CLinearPanDeviceへラップされる
+    // “前”の、単一物理ポートに対応する生のISoundDeviceを都度ここへ記録する
+    // (同種デバイス自動束ねでspanGroupsへ吸収されたデバイスも、devices_[]
+    // からは辿れなくなるが、ここには独立して記録が残る)。
+    struct PendingSubDevice {
+        HWPort*       port       = nullptr; // buildPhysicalChipList()のdedupキーと同じ生ポート
+        ISoundDevice* device     = nullptr;
+        uint32_t      deviceType = 0;
+    };
+    std::vector<PendingSubDevice> pendingSubDevices_;
 
     // 1つの物理ポート(+extraPort)から ISoundDevice を生成する。
     // stereoPairPort が指定されていれば、そのポート用にもう1つ生成し、

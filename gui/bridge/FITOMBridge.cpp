@@ -326,6 +326,70 @@ std::vector<uint8_t> FITOMBridge::getHwChipRegisterDump(int chipIndex) const
     return fitom::CFITOM::instance().getPhysicalChipRegisterDump(chipIndex);
 }
 
+std::vector<FITOMLevelBand> FITOMBridge::getPhysicalLevelBands() const
+{
+    std::vector<FITOMLevelBand> result;
+    if (!initialized_) return result;
+
+    auto& core = fitom::CFITOM::instance();
+    int n = core.getPhysicalChipCount();
+    for (int i = 0; i < n; ++i) {
+        const auto* info = core.getPhysicalChipInfo(i);
+        // subDevicesが空(stereoPairPort/spanGroups経由のチップ)は
+        // 内訳を取得できないため対象外(既知の制限)。
+        if (!info || info->subDevices.empty()) continue;
+
+        FITOMLevelBand band;
+        band.label = info->physicalName.empty() ? info->label : info->physicalName;
+
+        auto states = core.getPhysicalChipChannelStates(i);
+        size_t stateIdx = 0;
+        for (const auto& sub : info->subDevices) {
+            std::string prefix = fitom::CFITOM::getSubDeviceChannelPrefix(sub.deviceType);
+            for (uint8_t ch = 0; ch < sub.chCount && stateIdx < states.size(); ++ch, ++stateIdx) {
+                FITOMLevelChannel c;
+                c.name     = prefix + std::to_string(static_cast<int>(ch) + 1);
+                c.sounding = states[stateIdx].sounding;
+                c.velocity = states[stateIdx].velocity;
+                c.enabled  = states[stateIdx].enabled;
+                band.channels.push_back(std::move(c));
+            }
+        }
+        result.push_back(std::move(band));
+    }
+    return result;
+}
+
+std::vector<FITOMLevelBand> FITOMBridge::getLogicalLevelBands() const
+{
+    std::vector<FITOMLevelBand> result;
+    if (!initialized_) return result;
+
+    auto& core = fitom::CFITOM::instance();
+    int n = core.getDeviceCount();
+    for (int i = 0; i < n; ++i) {
+        auto* dev = core.getDevice(i);
+        if (!dev) continue;
+        auto states = core.getLogicalDeviceChannelStates(i);
+        if (states.empty()) continue;
+
+        FITOMLevelBand band;
+        band.label = core.getConfig().getDeviceLabel(i);
+
+        std::string prefix = fitom::CFITOM::getSubDeviceChannelPrefix(dev->getDeviceType());
+        for (size_t ch = 0; ch < states.size(); ++ch) {
+            FITOMLevelChannel c;
+            c.name     = prefix + std::to_string(static_cast<int>(ch) + 1);
+            c.sounding = states[ch].sounding;
+            c.velocity = states[ch].velocity;
+            c.enabled  = states[ch].enabled;
+            band.channels.push_back(std::move(c));
+        }
+        result.push_back(std::move(band));
+    }
+    return result;
+}
+
 std::vector<FITOMMidiInfo> FITOMBridge::getMidiInputs() const
 {
     std::vector<FITOMMidiInfo> result;

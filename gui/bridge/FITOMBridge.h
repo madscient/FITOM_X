@@ -57,6 +57,30 @@ struct FITOMChipInfo {
     std::string physicalName;
 };
 
+// ─── チャンネルレベルメーター情報 (2026年7月新設) ──────────────────────────
+// FITOM_Xは音声合成を行わないため実際の音量信号は存在しない。soundingと
+// velocityによる疑似メーター表示である点に注意(CFITOM::PhysicalChipChannelState
+// 参照)。nameは「接頭辞+ch番号」形式("FM1"等、CFITOM::getSubDeviceChannelPrefix()
+// から組み立て済み)。
+struct FITOMLevelChannel {
+    std::string name;
+    bool        sounding = false;
+    uint8_t     velocity = 0;
+    // false = このチャンネルは実チップ上恒常的に無効(例: OPNBのch0/ch3、
+    // OPL/OPLL系リズムモード時のch6-8)。GUI側は非活性表示(ブランク
+    // プレースホルダ等)にすること。
+    bool        enabled  = true;
+};
+
+// 1バンド = 1チップ分の表示単位。物理チップ単位表示ではサブデバイス
+// (FM/SSG/ADPCM-A/ADPCM-B等)を1バンドにまとめ、論理チップ単位表示では
+// devices[]の1エントリ = 1バンドとなる(getPhysicalLevelBands()/
+// getLogicalLevelBands()参照)。
+struct FITOMLevelBand {
+    std::string label;
+    std::vector<FITOMLevelChannel> channels;
+};
+
 // ─── 発音中ノート情報 (キーボードビューのポリフォニー表示用) ──────────────
 struct FITOMActiveNote {
     uint8_t note;
@@ -148,6 +172,17 @@ public:
     // 以降にpack)。実チップからの読み出しAPIは存在しないため、FITOM_Xが
     // 最後に書き込んだ値をそのまま返す。chipIndexが範囲外の場合は空配列。
     std::vector<uint8_t> getHwChipRegisterDump(int chipIndex) const;
+
+    // チャンネルレベルメーター用のバンド一覧(2026年7月新設)。表示単位の
+    // 粒度が異なる2種類を用意し、GUI側で切り替えられるようにする。
+    // 物理チップ単位: 同一物理ポートを共有するサブデバイスを1バンドにまとめる
+    // (getHwChips()と同じ粒度。stereoPairPort/spanGroups経由のチップは
+    //  内訳を取得できないため対象外、既知の制限)。
+    std::vector<FITOMLevelBand> getPhysicalLevelBands() const;
+    // 論理チップ単位: devices[]の1エントリ(サブデバイス自動生成後の1つ、
+    // getDevices()と同じ粒度)を1バンドとする。stereoPairPort/spanGroups
+    // 経由のチップも(束ねられた合成chとしてではあるが)表示できる。
+    std::vector<FITOMLevelBand> getLogicalLevelBands() const;
     // MPU(getMpuCount()、現状4)分を常に返す(indexはMPU番号と一致)。
     // 未割り当てのMPUはnameが空文字列になる(2026年7月、MIDIポート設定
     // ダイアログ対応のため「設定済みの件数分だけ返す」旧仕様から変更)。

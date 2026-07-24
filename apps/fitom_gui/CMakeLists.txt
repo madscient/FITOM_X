@@ -11,6 +11,7 @@ add_executable(fitom_gui
     MidiPortSettingsDialog.cpp
     SystemSettingsDialog.cpp
     RegisterDumpWindow.cpp
+    LevelMeterPanel.cpp
 )
 
 target_link_libraries(fitom_gui
