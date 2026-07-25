@@ -183,7 +183,7 @@
             "minimum": -1200,
             "maximum": 1200,
             "default": 0,
-            "description": "固定トランスポーズ[セント、-1200〜+1200]。ToneLayer.transpose(半音単位、ネイティブパッチのレイヤー固有パラメータ)とは独立した概念で、SwPatchが適用される全ての経路(通常モード/直接モード/内蔵リズム音源等)で効く。両方指定されている場合は加算される。適用時は「半音部分(ノート番号に加算)」と「セント端数部分(kfs単位=1半音64ステップに変換して加算。docs/terminology.mdの「kfs」参照)」に分解される。名前はDrumNote.fine_tuneと同じ命名スタイル(ToneLayer.transposeとの役割混同を避けるため\"fixed\"ではなく\"fine\"を使う)。"
+            "description": "固定トランスポーズ[セント、-1200〜+1200]。ToneLayer.transpose(半音単位、レイヤードパッチのレイヤー固有パラメータ)とは独立した概念で、SwPatchが適用される全ての経路(通常モード/直接モード/内蔵リズム音源等)で効く。両方指定されている場合は加算される。適用時は「半音部分(ノート番号に加算)」と「セント端数部分(kfs単位=1半音64ステップに変換して加算。docs/terminology.mdの「kfs」参照)」に分解される。名前はDrumNote.fine_tuneと同じ命名スタイル(ToneLayer.transposeとの役割混同を避けるため\"fixed\"ではなく\"fine\"を使う)。"
           }
         }
       }

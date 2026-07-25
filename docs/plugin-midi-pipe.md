@@ -111,9 +111,9 @@ F0 00 48 01 <sub-cmd> 00 <ch> 00 <JSONバイト列> F7
 8<ch> <note> <velocity>   ; ノートオフ
 ```
 
-### 5.4 ネイティブパッチ(ToneLayer)の編集
+### 5.4 レイヤードパッチ(ToneLayer)の編集
 
-通常モードの音色(ネイティブパッチ)を編集する場合は、NRPN 97番台([同マニュアルの「3.3 ToneLayerオーバーライド」](manuals/midi-message-reference.md#33-tonelayerオーバーライドnrpn-97))を使います。この場合、あらかじめ通常モード(CC#0=0)でバンク/プログラムを選択しておく必要があります。
+通常モードの音色(レイヤードパッチ)を編集する場合は、NRPN 97番台([同マニュアルの「3.3 ToneLayerオーバーライド」](manuals/midi-message-reference.md#33-tonelayerオーバーライドnrpn-97))を使います。この場合、あらかじめ通常モード(CC#0=0)でバンク/プログラムを選択しておく必要があります。
 
 ### 5.5 後片付け
 

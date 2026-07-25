@@ -67,7 +67,7 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 | `docs/midi-implementation-status.md` | 開発者向けMIDI実装状況(内部実装詳細つき) |
 | `docs/manuals/hwpatch-reference.md` | HwPatch(音色合成パラメータ)リファレンス |
 | `docs/manuals/swpatch-reference.md` | SwPatch(演奏特性パラメータ)リファレンス |
-| `docs/manuals/native-patch-reference.md` | ネイティブパッチ(ToneLayer)リファレンス |
+| `docs/manuals/layered-patch-reference.md` | レイヤードパッチ(ToneLayer)リファレンス |
 | `docs/plugin-hwif.md` | HW I/Fプラグイン要件定義(実装リポジトリ: FitomEmuIF) |
 | `docs/plugin-midi.md` | MIDIバックエンドプラグイン要件定義 |
 | `docs/plugin-midi-pipe.md` | 内部用MIDIパイプ(名前付きパイプ)インターフェース仕様。**別プロジェクトのパッチエディタ向け**。このリポジトリ側はインターフェース(`backends/midi_pipe/`)とドキュメントの整備のみがスコープで、パッチエディタ本体は実装しない |

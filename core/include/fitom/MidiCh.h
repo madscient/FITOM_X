@@ -452,7 +452,7 @@ private:
     std::array<bool, MAX_TONE_LAYERS>    swPatchOverrideActive_{};
 
     // NRPN 97,*(ToneLayerオーバーライド、2026年7月新設)。
-    // 「ネイティブパッチバンクが選択されているチャンネル」(bankSelM_==0)
+    // 「レイヤードパッチバンクが選択されているチャンネル」(bankSelM_==0)
     // でのみ有効。直接モード(bankSelM_!=0)のチャンネルでは、
     // setNRPNRegister()内で全て無視する(何もしない)。
     //
@@ -475,7 +475,7 @@ private:
         ResolvedPatch resolved;
 
         // 3-7番: 個別に独立したオーバーライド。有効フラグが立っている
-        // 間、ネイティブ(またはpatchActive時は上記resolved)のToneLayer
+        // 間、レイヤード(またはpatchActive時は上記resolved)のToneLayer
         // が持つ値の代わりにこちらを使う。
         bool    transposeActive = false;    int8_t  transpose = 0;
         bool    noteRangeLoActive = false;  uint8_t noteRangeLo = 0;
