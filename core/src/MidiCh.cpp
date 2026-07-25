@@ -245,9 +245,9 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
 
     for (int li = 0; li < MAX_TONE_LAYERS; ++li) {
         // NRPN97,*によるToneLayerオーバーライド(デバイス/HwPatch選択の
-        // 差し替え、patchActive)が有効なら、ネイティブパッチが元々
+        // 差し替え、patchActive)が有効なら、レイヤードパッチが元々
         // このレイヤーを持っているかどうかに関わらずそちらを使う
-        // (ネイティブパッチが1レイヤーしか定義していなくても、
+        // (レイヤードパッチが1レイヤーしか定義していなくても、
         // オーバーライドで2つ目以降のレイヤーを追加できる)。
         auto& lov = layerOverride_[li];
         const auto* rl = (li < resolver_.layerCount()) ? resolver_.layer(li) : nullptr;
@@ -258,7 +258,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
 
         // レイヤー固有パラメータ: 個別オーバーライドがあればそちらを
         // 優先し、無ければ(patchActiveなら上記resolved由来の、そうで
-        // なければネイティブの)ToneLayerの値をそのまま使う。
+        // なければレイヤードの)ToneLayerの値をそのまま使う。
         const uint8_t effRangeLo = lov.noteRangeLoActive ? lov.noteRangeLo : rl->layer->noteRangeLo;
         const uint8_t effRangeHi = lov.noteRangeHiActive ? lov.noteRangeHi : rl->layer->noteRangeHi;
         if (note < effRangeLo || note > effRangeHi) continue;
@@ -267,7 +267,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         int transposed = static_cast<int>(note) + effTranspose;
         // SwPatch.fineTranspose(HwPatch由来の演奏特性の一部、
         // セント単位・±1200)を加算する。ToneLayer.transpose(半音単位、
-        // ネイティブパッチのレイヤー固有パラメータ)とは独立した概念で、
+        // レイヤードパッチのレイヤー固有パラメータ)とは独立した概念で、
         // 両方指定されている場合は加算する。
         // セント値は「半音部分(ノート番号に加算)」と「セント端数部分
         // (下でfineに合成する)」に分解する。整数除算/剰余は0方向への
@@ -792,7 +792,7 @@ void CInstCh::setRPNRegister(uint16_t reg, uint16_t val)
 void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 {
     // NRPN 97,n (0x3080-0x309F): ToneLayerオーバーライド。
-    // 「ネイティブパッチバンクが選択されているチャンネル」(通常モード、
+    // 「レイヤードパッチバンクが選択されているチャンネル」(通常モード、
     // bankSelM_==0)でのみ有効。直接モードのチャンネルでは何もしない。
     if (reg >= 0x3080 && reg <= 0x309F) {
         applyToneLayerOverride(reg, val);
@@ -827,7 +827,7 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 // 詳細な仕様はMidiCh.hのToneLayerOverrideコメント参照。
 void CInstCh::applyToneLayerOverride(uint16_t reg, uint16_t val)
 {
-    // ネイティブパッチバンクが選択されていないチャンネルでは何もしない。
+    // レイヤードパッチバンクが選択されていないチャンネルでは何もしない。
     if (bankSelM_ != 0) return;
     if (!patchMgr_ || !fitom_) return;
 

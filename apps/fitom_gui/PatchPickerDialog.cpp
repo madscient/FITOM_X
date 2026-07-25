@@ -18,7 +18,7 @@ struct CategoryEntry {
 };
 
 constexpr CategoryEntry kCategories[] = {
-    { 0x00, "ネイティブ" },
+    { 0x00, "レイヤード" },
     { 0x10, "OPN" },
     { 0x11, "OPN2" },
     { 0x19, "OPM" },

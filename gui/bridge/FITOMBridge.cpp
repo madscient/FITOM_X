@@ -500,7 +500,7 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         mon.expression = midich->getExpression();
         mon.panpot   = midich->getPanpot();
 
-        // バンク名・パッチ名の解決。ネイティブモード(PatchBank)・
+        // バンク名・パッチ名の解決。レイヤードモード(PatchBank)・
         // 直接デバイス選択モード(HwBankRegistry)・リズムチャンネル
         // (DrumPatchBank)とで参照先が異なる。解決できない場合は空文字の
         // ままにし、GUI側で数値表示にフォールバックする。

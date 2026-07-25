@@ -97,7 +97,7 @@
 | `docs/manuals/midi-implementation-chart.md` | ✅ |
 | `docs/manuals/hwpatch-reference.md` | ✅ |
 | `docs/manuals/swpatch-reference.md` | ✅ |
-| `docs/manuals/native-patch-reference.md` | ✅ |
+| `docs/manuals/layered-patch-reference.md` | ✅ |
 
 ---
 
