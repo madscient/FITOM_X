@@ -427,7 +427,21 @@ namespace
             return;
         }
 
-        const std::vector<std::string> args = {profilePath, hwBankFile, std::to_string(progNo)};
+        // profilePath/hwBankFileは、プロファイルが相対パスで指定されて
+        // いた場合、fitom_gui自身のCWD基準の相対パス文字列のままになって
+        // いる(FITOMConfig::loadProfile()のbaseDir=path.parent_path()も
+        // 相対のまま伝播するため)。一方launchProcess()は子プロセスの
+        // 作業ディレクトリをエディタの実行ファイル自身のディレクトリに
+        // 固定するため、相対パスのまま渡すとfitom_gui起動時のCWDとは
+        // 異なる場所を基準に解決されてしまい、ファイルが見つからなくなる。
+        // 子プロセスのCWDに関わらず解決できるよう、ここで絶対パスへ変換
+        // してから渡す。
+        std::error_code ec;
+        const fs::path absProfilePath = fs::absolute(profilePath, ec);
+        const fs::path absHwBankFile = fs::absolute(hwBankFile, ec);
+
+        const std::vector<std::string> args = {
+            absProfilePath.string(), absHwBankFile.string(), std::to_string(progNo)};
         std::string launchError;
         if (!launchProcess(editorExe, args, launchError))
         {
