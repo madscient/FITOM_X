@@ -336,6 +336,7 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     s.volDirty = true; // 新規ノートオンは常にベロシティが変わるため強制的にdirty扱い
     s.run();
     s.noteOnAge = 0;
+    ++s.noteOnSeq;
 
     // VoiceProcessor::onNoteOn()は、assignCh()内でupdateVoice()より前に
     // 既に呼ばれている(2026年7月訂正、voice-data-design.mdのフェーズ6

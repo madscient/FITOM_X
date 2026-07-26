@@ -670,9 +670,10 @@ std::vector<PhysicalChipChannelState> CFITOM::getPhysicalChipChannelStates(int i
             const ChState* cs = sub.device->getChState(ch);
             PhysicalChipChannelState st;
             if (cs) {
-                st.sounding = cs->isActive();
-                st.velocity = cs->velocity;
-                st.enabled  = cs->isEnabled();
+                st.sounding  = cs->isActive();
+                st.velocity  = cs->velocity;
+                st.enabled   = cs->isEnabled();
+                st.noteOnSeq = cs->noteOnSeq;
             }
             result.push_back(st);
         }
@@ -691,8 +692,10 @@ std::vector<PhysicalChipChannelState> CFITOM::getLogicalDeviceChannelStates(int 
         const ChState* cs = dev->getChState(ch);
         PhysicalChipChannelState st;
         if (cs) {
-            st.sounding = cs->isActive();
-            st.velocity = cs->velocity;
+            st.sounding  = cs->isActive();
+            st.velocity  = cs->velocity;
+            st.enabled   = cs->isEnabled();
+            st.noteOnSeq = cs->noteOnSeq;
         }
         result.push_back(st);
     }
