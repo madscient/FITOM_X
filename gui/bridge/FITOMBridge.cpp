@@ -349,9 +349,10 @@ std::vector<FITOMLevelBand> FITOMBridge::getPhysicalLevelBands() const
             for (uint8_t ch = 0; ch < sub.chCount && stateIdx < states.size(); ++ch, ++stateIdx) {
                 FITOMLevelChannel c;
                 c.name     = prefix + std::to_string(static_cast<int>(ch) + 1);
-                c.sounding = states[stateIdx].sounding;
-                c.velocity = states[stateIdx].velocity;
-                c.enabled  = states[stateIdx].enabled;
+                c.sounding  = states[stateIdx].sounding;
+                c.velocity  = states[stateIdx].velocity;
+                c.enabled   = states[stateIdx].enabled;
+                c.noteOnSeq = states[stateIdx].noteOnSeq;
                 band.channels.push_back(std::move(c));
             }
         }
@@ -380,9 +381,10 @@ std::vector<FITOMLevelBand> FITOMBridge::getLogicalLevelBands() const
         for (size_t ch = 0; ch < states.size(); ++ch) {
             FITOMLevelChannel c;
             c.name     = prefix + std::to_string(static_cast<int>(ch) + 1);
-            c.sounding = states[ch].sounding;
-            c.velocity = states[ch].velocity;
-            c.enabled  = states[ch].enabled;
+            c.sounding  = states[ch].sounding;
+            c.velocity  = states[ch].velocity;
+            c.enabled   = states[ch].enabled;
+            c.noteOnSeq = states[ch].noteOnSeq;
             band.channels.push_back(std::move(c));
         }
         result.push_back(std::move(band));

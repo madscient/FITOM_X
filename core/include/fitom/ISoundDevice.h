@@ -52,6 +52,13 @@ struct ChState {
     uint8_t  lastNote  = 0xFF;
     int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/terminology.md「kfs」参照)
     uint16_t noteOnAge = 0;       // 古いチャンネルを奪う優先度
+    // ノートオン(CSoundDevice::noteOn())が呼ばれるたびに単調増加する
+    // シーケンス番号。sounding/velocityは現在値のスナップショットに過ぎず、
+    // 同一ベロシティでの再トリガー(ボイススチールによる同一チャンネル上の
+    // 連続ノートオン)を区別できないため、チャンネルレベルメーター(GUI)が
+    // 「本当にノートオンが起きたか」をフレーム間差分で検出するために使う
+    // (2026年7月新設)。
+    uint32_t noteOnSeq = 0;
 
     // レガシー互換: FNUM (旧 ISoundDevice::FNUM)
     struct Fnum {
@@ -92,6 +99,7 @@ struct ChState {
         lastNote     = 0xFF;
         fineFreq     = 0;
         noteOnAge    = 0;
+        noteOnSeq    = 0;
         releaseTimer = 0;
         velocity     = 100;
         volume       = 127;

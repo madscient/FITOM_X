@@ -70,6 +70,12 @@ struct FITOMLevelChannel {
     // OPL/OPLL系リズムモード時のch6-8)。GUI側は非活性表示(ブランク
     // プレースホルダ等)にすること。
     bool        enabled  = true;
+    // PhysicalChipChannelState::noteOnSeq由来。ノートオンのたびに単調増加
+    // する。sounding/velocityは現在値のスナップショットに過ぎず、同一
+    // ベロシティでの再トリガー(ボイススチールによる同一チャンネル上の
+    // 連続ノートオン)をGUI側のフレーム間差分だけでは検出できないため、
+    // 「本当にノートオンが起きたか」の判定に使う(2026年7月新設)。
+    uint32_t    noteOnSeq = 0;
 };
 
 // 1バンド = 1チップ分の表示単位。物理チップ単位表示ではサブデバイス
