@@ -30,6 +30,13 @@ using json   = nlohmann::json;
 struct FITOMBridge::MidiState {
     std::shared_ptr<fitom::MidiPluginInstance> plugin;
     std::vector<std::unique_ptr<fitom::MidiInPort>> ports;
+
+    // 内部用MIDIパイプ専用(2026年7月新設)。プロファイルのmidi_backend/
+    // midi_inputsとは無関係な、独立したライフサイクルを持つため上記の
+    // plugin/portsとは別メンバにする(reopenMidiPorts()がplugin/portsを
+    // クリアしても、これは影響を受けない)。
+    std::shared_ptr<fitom::MidiPluginInstance> internalPipePlugin;
+    std::unique_ptr<fitom::MidiInPort>          internalPipePort;
 };
 
 FITOMBridge::FITOMBridge() : midiState_(std::make_unique<MidiState>()) {}
@@ -77,6 +84,26 @@ fs::path resolveMidiBackendPath(const std::string& configured)
     return exeDir() / "fitom_midi_backend";
 #endif
 }
+
+// 内部用MIDIパイプ(fitom_midi_pipe)専用のDLLパスを解決する。
+// resolveMidiBackendPath()と異なり、プロファイルの設定(midi_backend.dll)を
+// 一切参照しない。ファイル名も固定(有効/無効はFITOM_BUILD_BACKEND_MIDI_PIPE
+// というビルド設定で切り替える設計のため、パス自体を可変にする理由がない)。
+fs::path resolveInternalPipeBackendPath()
+{
+#if defined(_WIN32)
+    return exeDir() / "fitom_midi_pipe.dll";
+#elif defined(__APPLE__)
+    return exeDir() / "fitom_midi_pipe.dylib";
+#elif defined(__linux__)
+    return exeDir() / "fitom_midi_pipe.so";
+#else
+    return exeDir() / "fitom_midi_pipe";
+#endif
+}
+
+// backends/midi_pipe/src/MidiPipe.cppのkDeviceNameと完全一致させる必要がある。
+constexpr const char* kInternalPipeDeviceName = "FITOM Internal Pipe";
 
 // MIDI入力のオープン失敗時、原因調査用にバックエンドが実際に列挙する
 // ポート名一覧をログへ出す(findPortByNameは完全一致のみで検索するため、
@@ -153,10 +180,43 @@ bool FITOMBridge::init(const std::string& systemConfPath,
     // reopenMidiPorts()(GUIのMIDIポート設定ダイアログからの再設定とも
     // 共通、2026年7月新設)に切り出した。
     reopenMidiPorts();
+    initInternalMidiPipe();
 
     initialized_ = true;
     FITOM_LOG_INFO("FITOMBridge initialized");
     return true;
+}
+
+// 内部用MIDIパイプ(fitom_midi_pipe)を、プロファイルのmidi_backend/
+// midi_inputs設定とは無関係に無条件でオープンする(2026年7月新設)。
+// 詳細はFITOMBridge.hの宣言コメント参照。
+void FITOMBridge::initInternalMidiPipe()
+{
+    const fs::path pipeDllPath = resolveInternalPipeBackendPath();
+    if (!fs::exists(pipeDllPath)) {
+        // FITOM_BUILD_BACKEND_MIDI_PIPE=OFF(既定)でビルドした場合の通常
+        // 経路。エラーではないためINFOレベルにとどめる。
+        FITOM_LOG_INFO("FITOMBridge: 内部用MIDIパイプDLL未検出のためスキップ ("
+            << pipeDllPath.string() << ")");
+        return;
+    }
+
+    auto* proc = fitom::CFITOM::instance().getInternalPipeProcessor();
+    if (!proc) return; // CFITOM::init()が必ず生成するため通常起こりえない
+
+    try {
+        midiState_->internalPipePlugin = fitom::MidiPluginInstance::load(pipeDllPath);
+        midiState_->internalPipePort = std::make_unique<fitom::MidiInPort>(
+            midiState_->internalPipePlugin, kInternalPipeDeviceName,
+            [proc](const uint8_t* data, size_t len, uint64_t ts) {
+                proc->receiveByte(data, len, ts);
+            });
+        FITOM_LOG_INFO("FITOMBridge: 内部用MIDIパイプを有効化しました");
+    } catch (const std::exception& e) {
+        FITOM_LOG_ERR("FITOMBridge: 内部用MIDIパイプのオープンに失敗: " << e.what());
+        midiState_->internalPipePort.reset();
+        midiState_->internalPipePlugin.reset();
+    }
 }
 
 // Config側の現在のMIDI入力ポート設定(getMidiInputCount()/
@@ -223,6 +283,8 @@ void FITOMBridge::exit() {
     // CFITOMへ飛び込まないようにするため。apps/fitom_cliと同じ順序)。
     midiState_->ports.clear();
     midiState_->plugin.reset();
+    midiState_->internalPipePort.reset();
+    midiState_->internalPipePlugin.reset();
     fitom::CFITOM::instance().exit();
     initialized_ = false;
     FITOM_LOG_INFO("FITOMBridge exited");

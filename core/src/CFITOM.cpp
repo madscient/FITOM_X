@@ -204,6 +204,28 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
             channels_[p], this, /*clockEnabled=*/(p == 0));
     }
 
+    // 内部用MIDIパイプ(backends/midi_pipe)専用のチャンネル/MidiProcessorを
+    // 構築する。MAX_MPUS本と同様に常に生成する(プロファイルのmidi_backend/
+    // midi_inputs設定を一切関知しない。実際にパイプDLLがロード・オープン
+    // されるかどうかはアプリ層[FITOMBridge::initInternalMidiPipe()等]の
+    // 責務)。clockEnabled=falseとする理由: パッチエディタが誤って0xF8
+    // (MIDIクロック)を送っても、MPU0が担うマスタークロック挙動に影響
+    // させないため。
+    for (int ch = 0; ch < 16; ++ch) {
+        bool isRhythm = (ch == 9);
+        if (isRhythm) {
+            internalPipeChannels_[ch] = std::make_unique<CRhythmCh>(
+                static_cast<uint8_t>(ch), this);
+        } else {
+            auto instCh = std::make_unique<CInstCh>(
+                static_cast<uint8_t>(ch), this);
+            instCh->setup(patchMgr_.get(), this);
+            internalPipeChannels_[ch] = std::move(instCh);
+        }
+    }
+    internalPipeProcessor_ = std::make_unique<MidiProcessor>(
+        internalPipeChannels_, this, /*clockEnabled=*/false);
+
     // 各チャンネルのデフォルト音色をロード (GM準拠: bank0:0/prog0)。
     // CInstCh/CRhythmCh 両方に適用する。Program Changeを一度も受信せず
     // Note Onが来た場合でも即座に発音できるようにするため
@@ -217,6 +239,9 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
                 midicch->progChange(0); // デフォルト音色 (リズムCHはデフォルトドラムキット)
             }
         }
+    }
+    for (int ch = 0; ch < 16; ++ch) {
+        if (internalPipeChannels_[ch]) internalPipeChannels_[ch]->progChange(0);
     }
 
     resetAllCtrl();
@@ -744,6 +769,7 @@ void CFITOM::timerCallback(uint32_t tick)
     for (int p = 0; p < MAX_MPUS; ++p) {
         if (processors_[p]) processors_[p]->timerCallback(tick);
     }
+    if (internalPipeProcessor_) internalPipeProcessor_->timerCallback(tick);
     // デバイスタイマー
     int n = getDeviceCount();
     for (int i = 0; i < n; ++i) {
@@ -762,6 +788,10 @@ int CFITOM::pollingCallback()
             ++ret;
         }
     }
+    if (internalPipeProcessor_) {
+        internalPipeProcessor_->pollingCallback();
+        ++ret;
+    }
     return ret;
 }
 
@@ -772,6 +802,8 @@ void CFITOM::midiClockCallback()
     for (int p = 0; p < MAX_MPUS; ++p) {
         if (processors_[p]) processors_[p]->midiClockCallback(timerTick_);
     }
+    // clockEnabled_=falseのため内部的には無視されるが、他系統と同じ形にしておく。
+    if (internalPipeProcessor_) internalPipeProcessor_->midiClockCallback(timerTick_);
 }
 
 // ================================================================
@@ -785,6 +817,9 @@ void CFITOM::allNoteOff()
             if (channels_[p][ch]) channels_[p][ch]->allNoteOff();
         }
     }
+    for (int ch = 0; ch < 16; ++ch) {
+        if (internalPipeChannels_[ch]) internalPipeChannels_[ch]->allNoteOff();
+    }
 }
 
 void CFITOM::resetAllCtrl()
@@ -793,6 +828,9 @@ void CFITOM::resetAllCtrl()
         for (int ch = 0; ch < 16; ++ch) {
             if (channels_[p][ch]) channels_[p][ch]->resetAllCtrl();
         }
+    }
+    for (int ch = 0; ch < 16; ++ch) {
+        if (internalPipeChannels_[ch]) internalPipeChannels_[ch]->resetAllCtrl();
     }
 }
 
@@ -867,6 +905,9 @@ void CFITOM::setScaleTuning(const std::array<int8_t, 12>& table)
         for (int ch = 0; ch < 16; ++ch) {
             if (channels_[p][ch]) channels_[p][ch]->refreshPitch();
         }
+    }
+    for (int ch = 0; ch < 16; ++ch) {
+        if (internalPipeChannels_[ch]) internalPipeChannels_[ch]->refreshPitch();
     }
     FITOM_LOG_INFO("Scale/Octave Tuning updated");
 }

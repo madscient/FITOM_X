@@ -19,6 +19,7 @@
       "cacheVariables": {
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
+        "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_GUI_MFC": "OFF",
         "FITOM_BUILD_TESTS": "ON"
       }
@@ -42,6 +43,7 @@
       "cacheVariables": {
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
+        "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_GUI_MFC": "OFF",
         "FITOM_BUILD_TESTS": "ON"
       }
@@ -72,6 +74,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
+        "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_BUILD_TESTS": "ON"
       }
     },
@@ -91,6 +94,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
+        "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_BUILD_TESTS": "ON"
       }
     }
