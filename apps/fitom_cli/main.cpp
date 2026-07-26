@@ -90,6 +90,26 @@ fs::path resolveMidiBackendPath(const std::string& configured) {
 #endif
 }
 
+// 内部用MIDIパイプ(fitom_midi_pipe)専用のDLLパスを解決する。
+// resolveMidiBackendPath()と異なり、プロファイルの設定(midi_backend.dll)を
+// 一切参照しない。有効/無効はFITOM_BUILD_BACKEND_MIDI_PIPEというビルド
+// 設定で切り替える設計のため、パス自体を可変にする理由がない
+// (gui/bridge/FITOMBridge.cppの同名ヘルパーと同じ実装)。
+fs::path resolveInternalPipeBackendPath() {
+#if defined(_WIN32)
+    return exeDir() / "fitom_midi_pipe.dll";
+#elif defined(__APPLE__)
+    return exeDir() / "fitom_midi_pipe.dylib";
+#elif defined(__linux__)
+    return exeDir() / "fitom_midi_pipe.so";
+#else
+    return exeDir() / "fitom_midi_pipe";
+#endif
+}
+
+// backends/midi_pipe/src/MidiPipe.cppのkDeviceNameと完全一致させる必要がある。
+constexpr const char* kInternalPipeDeviceName = "FITOM Internal Pipe";
+
 // MIDIノート番号 → "C4"のような音名表記 (MIDI note 60 = C4)。
 std::string noteToName(uint8_t note) {
     if (note >= 128) return "";
@@ -326,6 +346,33 @@ int main(int argc, char** argv)
         }
     }
 
+    // 内部用MIDIパイプ(fitom_midi_pipe)を、プロファイルのmidi_backend/
+    // midi_inputsとは無関係に常時有効化する(2026年7月新設)。設計の詳細は
+    // gui/bridge/FITOMBridge.cpp::initInternalMidiPipe()と同じ
+    // (FITOM_BUILD_BACKEND_MIDI_PIPE=OFFでDLLが存在しない場合は何もしない、
+    // 致命的エラーにはしない)。
+    std::shared_ptr<MidiPluginInstance> internalPipePlugin;
+    std::unique_ptr<MidiInPort> internalPipePort;
+    {
+        const fs::path pipeDllPath = resolveInternalPipeBackendPath();
+        if (fs::exists(pipeDllPath)) {
+            MidiProcessor* pipeProc = fitomInst.getInternalPipeProcessor();
+            if (pipeProc) {
+                try {
+                    internalPipePlugin = MidiPluginInstance::load(pipeDllPath);
+                    internalPipePort = std::make_unique<MidiInPort>(
+                        internalPipePlugin, kInternalPipeDeviceName,
+                        [pipeProc](const uint8_t* data, size_t len, uint64_t ts) {
+                            pipeProc->receiveByte(data, len, ts);
+                        });
+                    std::cerr << "内部用MIDIパイプを有効化しました\n";
+                } catch (const std::exception& e) {
+                    std::cerr << "内部用MIDIパイプのオープンに失敗: " << e.what() << "\n";
+                }
+            }
+        }
+    }
+
     std::signal(SIGINT, onSigInt);
 
     // メインループ: topコマンド風に画面全体を定期再描画する。
@@ -335,6 +382,7 @@ int main(int argc, char** argv)
     }
 
     midiPorts.clear();
+    internalPipePort.reset();
     fitomInst.stopTimerThread();
     fitomInst.exit();
 

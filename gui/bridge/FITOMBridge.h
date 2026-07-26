@@ -309,4 +309,13 @@ private:
     // getMidiInputName())に基づき、既存ポートを全て閉じてから開き直す
     // (init()とsetMidiInputPorts()の共通処理、2026年7月新設)。
     void reopenMidiPorts();
+
+    // 内部用MIDIパイプ(backends/midi_pipe、fitom_midi_pipe)を、プロファイル
+    // のmidi_backend/midi_inputs設定とは無関係に無条件でオープンする
+    // (2026年7月新設)。init()から一度だけ呼ぶ。FITOM_BUILD_BACKEND_MIDI_PIPE=ON
+    // でビルドされ、DLLが実行ファイルと同じディレクトリに存在する場合のみ
+    // 動作し、存在しない場合(既定のOFFビルド)は何もせず即座に返る(致命的
+    // エラーにはしない)。reopenMidiPorts()/loadProfile()の影響を受けず、
+    // プロセス終了(exit())まで開いたままにする。
+    void initInternalMidiPipe();
 };

@@ -272,6 +272,14 @@ public:
     //箇所向け(2026年7月新設)。
     static constexpr int getMpuCount() { return MAX_MPUS; }
 
+    // 内部用MIDIパイプ(backends/midi_pipe)専用の1系統(16ch)へアクセスする。
+    // MAX_MPUS本のMPU(getMidiProcessor()/getMpuCount())とは完全に独立して
+    // おり、GUIのMIDIモニター・MIDIポート設定ダイアログ等、実MIDI入力ポート
+    // 前提のUIには意図的に一切現れない。init()で常に生成するため、実際に
+    // このパイプへ外部プロセスが接続するかどうか(=アプリ層がbackends/
+    // midi_pipeをロードするかどうか)とは無関係にnullptrにはならない。
+    MidiProcessor* getInternalPipeProcessor() { return internalPipeProcessor_.get(); }
+
     // GUI等から、指定MPU/chへ直接コントロールチェンジ/プログラムチェンジを
     // 送出する(2026年7月新設、GUIのCH設定ダイアログ用)。timerCallback()
     // 等と同じprocessMutex_でロックする(MidiProcessor::sendControlChange/
@@ -359,6 +367,13 @@ private:
     // MIDI プロセッサとチャンネル (入力ポートごと)
     std::array<std::array<std::unique_ptr<IMidiCh>, 16>, MAX_MPUS> channels_;
     std::array<std::unique_ptr<MidiProcessor>, MAX_MPUS> processors_;
+
+    // ─── 内部用MIDIパイプ専用チャンネル (MAX_MPUSとは完全に独立、2026年7月新設) ───
+    // プロファイルのmidi_backend/midi_inputs設定を一切関知せず、init()で
+    // 常に生成する(実際に外部プロセスがbackends/midi_pipe経由で接続
+    // するかどうかはアプリ層[FITOMBridge/fitom_cli]の責務)。
+    std::array<std::unique_ptr<IMidiCh>, 16> internalPipeChannels_;
+    std::unique_ptr<MidiProcessor>           internalPipeProcessor_;
 
     // ─── デバイスリスト (CFITOM が ISoundDevice を所有) ──────────
     // Config は IPort を所有し、CFITOM は ISoundDevice を所有する
