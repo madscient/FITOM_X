@@ -716,10 +716,15 @@ banks/
 ### 相対パスの解決基点
 
 `banks.*[].file`(hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/
-pcm_banks)に書く相対パスは、**そのプロファイルファイル自身が置かれている
-ディレクトリ**を起点に解決される(起動時のカレントワーキングディレクトリ
-は無関係)。プロファイルとバンク一式をどこに配置しても、起動時のCWDに
-依存せず常に同じ結果になる。
+pcm_banks/sf2_banks)に書く相対パスは、**そのプロファイルファイル自身が
+置かれているディレクトリ**を起点に解決される(起動時のカレントワーキング
+ディレクトリは無関係)。プロファイルとバンク一式をどこに配置しても、起動時
+のCWDに依存せず常に同じ結果になる。
+
+(`sf2_banks`はスキーマ(`config_schema/profile.schema.json`)のみ追加済みで、
+ローダー(`Sf2BankRegistry`、`docs/sf2-fluidsynth-integration.md`参照)は
+本書執筆時点(2026年7月)ではまだ未実装。実装時にはこの規約に従うことを
+設計上決めているため、先行してここに記載している。)
 
 例えば `config/profiles/preset_opn.profile.json` からリポジトリルート直下の
 `banks/` を参照する場合は `"../../banks/OPN/gm/necopn_gm.hwbank.json"` の

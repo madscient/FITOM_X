@@ -316,6 +316,42 @@ target_link_libraries(fitom_fmhwif PRIVATE
 
 ---
 
+## fitom_sf2if.dll のビルド（将来実装、設計検討段階）
+
+> **この節は設計検討の記録であり、現時点(2026年7月)では未実装。** 詳細な設計判断の経緯は`docs/sf2-fluidsynth-integration.md`を参照。
+
+SoundFont(.sf2)ベースの音源(fluidsynthライブラリ)をラップし、`IHWPlugin`契約に**新規関数を一切追加せず**、既存のI/O系関数だけで実装するhwif互換DLL。他のhwifプラグイン(fitom_hw.dll/fitom_fmhwif.dll)と同様、FITOM本体からは区別なく扱われる1つのhwifインスタンスになる。
+
+**MIDI入力(`HWPlugin_WriteBlock`)**:`startAddr`は無視し、`data`に生のMIDIバイト列(Note On/Off・CC・プログラムチェンジ・SysEx)がそのまま渡される。DLL内部でこれを最小限パースし、`fluid_synth_noteon()`/`fluid_synth_cc()`/`fluid_synth_program_change()`等へ変換して`fluid_synth_t`へ渡す。バンク/プログラム選択(CC#32相当)は、FITOM_Xコア側が既にファイル/ネイティブbank番号を解決した状態のプライベートSysEx(マニュファクチャラID`00 48 01`、sub-cmd `0x05`、詳細は`docs/sf2-fluidsynth-integration.md`4節④参照)として届くため、標準のCC#32バイトを直接解釈する必要はない。
+
+**音声出力**:他のhwifプラグインと同じく自己完結する。自前のオーディオコールバックで`fluid_synth_process()`をプルするか、fluidsynth自身の`fluid_audio_driver_t`をそのまま使うかは実装側の任意。FITOM本体は複数hwifプラグインインスタンスの音声出力をソフトウェアミックスしないため、他のプラグインの出力とは独立したストリームになる(組み合わせたい場合はユーザー側の外部ミキシングが必要)。
+
+**`params_json`フォーマット(案)**:
+
+```jsonc
+{
+  "soundfonts": ["<絶対パス1>.sf2", "<絶対パス2>.sf2"]
+}
+```
+
+配列順に0起算の`soundfont_index`が割り当てられ、`fluid_synth_sfload()`は各ファイルにつき1回だけ呼び出す(前述のsub-cmd 0x05はファイルパスではなくこの`soundfont_index`を使って対象を指定する)。
+
+```cmake
+add_library(fitom_sf2if SHARED src/Sf2HwIfImpl.cpp)
+target_compile_definitions(fitom_sf2if PRIVATE FITOM_HW_PLUGIN_EXPORTS)
+target_link_libraries(fitom_sf2if PRIVATE
+    fluidsynth
+    nlohmann_json::nlohmann_json
+)
+```
+
+**実装する関数（他のhwifプラグインと同じ IHWPlugin.h を実装、新規関数なし）:**
+- `HWPlugin_GetLatencySamples` / `HWPlugin_SetDelaySamples` — fitom_fmhwifと同様、自身のバッファサイズを基準レイテンシとして報告する
+- `HWPlugin_WriteBlock` — 生MIDIバイト列を受け取り内部でパース、`fluid_synth_*`へ変換
+- `HWPlugin_Write` — 単体では使わない想定(1バイトではMIDIメッセージを表現できないため、常に`HWPlugin_WriteBlock`を使う)
+
+---
+
 ## ビルド要件
 
 | 項目 | 要件 |
