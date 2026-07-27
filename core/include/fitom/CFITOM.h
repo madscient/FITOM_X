@@ -42,8 +42,12 @@ namespace fitom {
 // ================================================================
 class MidiProcessor {
 public:
+    // mpuIndex: SF2直行パス(docs/sf2-fluidsynth-integration.md参照)の窓
+    // テーブルが対象とするMPU番号(0-3)。窓の対象にならない系統
+    // (内部用MIDIパイプ等)は既定値-1のままにし、SF2直行パスの判定自体を
+    // 行わない(2026年7月新設)。
     MidiProcessor(std::array<std::unique_ptr<IMidiCh>, 16>& channels,
-                  CFITOM* parent, bool clockEnabled);
+                  CFITOM* parent, bool clockEnabled, int mpuIndex = -1);
     ~MidiProcessor() = default;
 
     // MidiManager から受け取った生バイトを処理する
@@ -90,6 +94,7 @@ private:
     std::array<std::unique_ptr<IMidiCh>, 16>& channels_;
     CFITOM* parent_;
     bool clockEnabled_;
+    int mpuIndex_;
 
     // MIDI 状態機械
     enum class State { Ready, Wait1, Wait2, SysEx } state_ = State::Ready;
@@ -302,6 +307,21 @@ public:
         if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendNoteOff(ch, note);
     }
 
+    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+    // MidiProcessor::processMessage()から、生MIDI入力の(mpu, ch)が窓
+    // テーブルに含まれるかどうかの判定・実際の転送処理を委譲される。
+    // 窓に含まれていれば、CInstCh/CRhythmChへのディスパッチを行わず true
+    // を返す(呼び出し元は以降の通常処理をスキップする)。含まれていなければ
+    // false を返し、呼び出し元は通常どおりchannels_[ch]へディスパッチする。
+    // status: MIDIステータスバイト(0x80-0xEF)。d1/d2: データバイト
+    // (1byteメッセージの場合d2は無視される)。
+    bool routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t d1, uint8_t d2);
+
+    // プライベートSysEx sub-cmd 0x04(F0 00 48 01 04 <mpu> <ch>
+    // <fluidsynth_chan|0x7F> F7)による窓の動的割り当て/解除。
+    // MidiProcessor::processPrivateSysEx()から呼ばれる。
+    void setSf2ChannelWindow(uint8_t mpu, uint8_t ch, uint8_t fluidsynthChanOr7F);
+
     // ─── タイマー・ポーリング ────────────────────────────────────
     void timerCallback(uint32_t tick);
     int  pollingCallback();
@@ -402,6 +422,29 @@ private:
     // 低位ポートにそのまま割り当てており、レジスタアドレスが衝突していた)。
     std::vector<std::unique_ptr<OffsetPort>> offsetPorts_;
     IPort* resolveAdpcmHighPort(uint32_t deviceType, IPort* port, IPort* configuredPort2);
+
+    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+    // chip:"SF2"のdevices[]エントリのIPort(HWPort)。initDevices()が
+    // FITOMConfig::isSf2Device()で見つけて記録する。プロファイル検証
+    // (FITOMConfig::buildFromProfile())により、devices[]内にchip:"SF2"は
+    // 高々1つしか存在しないことが保証されている。nullptr = SF2ラッパー
+    // デバイス未接続(窓は割り当てられていてもメッセージは単純に読み捨てる)。
+    IPort* sf2Port_ = nullptr;
+
+    // MPU×ch単位の窓テーブル。fluid_synth_tのchanは複数MPU間で共有できない
+    // 状態そのものを持つため(⑤節参照)、明示的な対応表として管理する。
+    struct Sf2WindowState {
+        bool    assigned       = false; // この(mpu,ch)は現在窓に含まれるか
+        uint8_t fluidsynthChan = 0;     // 割り当て先fluidsynth chan(0-15)。assigned時のみ有効
+        // CC#32解決結果のキャッシュ(CC#0を除く生MIDI転送とは別に、
+        // 次のプログラムチェンジと組み合わせてsub-cmd 0x05を構築するために
+        // 必要な最小限の状態。有効なCC#32が一度も解決されていない間は
+        // プログラムチェンジ自体を読み捨てる、docs④節参照)。
+        bool    bankResolved   = false;
+        int     soundfontIndex = 0;
+        int     sf2Bank        = 0;
+    };
+    std::array<std::array<Sf2WindowState, 16>, MAX_MPUS> sf2Windows_;
 
     // 同種デバイス自動束ね (CSpanDevice) で生成される個々のサブチップ。
     // devices_[i] が CSpanDevice の場合、その内部で束ねられる実体

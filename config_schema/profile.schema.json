@@ -264,7 +264,7 @@
         },
         "sf2_banks": {
           "type": "array",
-          "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照。設計検討段階、2026年7月時点で未実装)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよく、その場合もHWプラグイン側でファイルパスをキーにキャッシュし、実体のロード(fluid_synth_sfload()相当)は1回だけ行う想定。",
+          "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよく、その場合もHWプラグイン側でファイルパスをキーにキャッシュし、実体のロード(fluid_synth_sfload()相当)は1回だけ行う想定。2026年7月、FITOM_X本体側(Sf2BankRegistry、CC#32解決・devices[]のsoundfonts一覧自動生成)は実装済み。実際にSF2を鳴らすにはこのファイル一覧を受け取るhwifプラグイン(仮称FitomSf2IF、別リポジトリ)が別途必要で、そちらは未実装。",
           "items": {
             "type": "object",
             "required": [
@@ -454,7 +454,7 @@
     },
     "sf2_channel_windows": {
       "type": "array",
-      "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照。設計検討段階、2026年7月時点で未実装)における、MPU×chとfluidsynthの`chan`(0–15)の静的な対応表(「窓」)。ここに載っているMPU×chは、FITOM_Xのネイティブ処理(通常モード/直接デバイス選択モード/内蔵リズムバンク/役割切替/DVA/PatchManagerによるHwPatch解決)を一切経由せず、Note On/Off・CC(CC#0を除く)・プログラムチェンジをそのままfluidsynthエンジンへ素通しする経路になる。載っていないMPU×chは、これまでどおりネイティブ経路が適用される。banks(hw_banks等)がバンク内容の参照であるのに対し、これはMIDIチャンネルそのもののルーティング設定であるため、bank類とは別のトップレベルプロパティとした。演奏中に窓の割り当てを変更する場合は、プライベートSysEx(sub-cmd 0x04、docs/manuals/midi-message-reference.mdの8.1節と同じ枠組み、未実装)を使う。ここでのプロファイル設定は、その初期値に相当する。",
+      "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照)における、MPU×chとfluidsynthの`chan`(0–15)の静的な対応表(「窓」)。ここに載っているMPU×chは、FITOM_Xのネイティブ処理(通常モード/直接デバイス選択モード/内蔵リズムバンク/役割切替/DVA/PatchManagerによるHwPatch解決)を一切経由せず、Note On/Off・CC(CC#0を除く)・プログラムチェンジをそのままfluidsynthエンジンへ素通しする経路になる。載っていないMPU×chは、これまでどおりネイティブ経路が適用される。banks(hw_banks等)がバンク内容の参照であるのに対し、これはMIDIチャンネルそのもののルーティング設定であるため、bank類とは別のトップレベルプロパティとした。演奏中に窓の割り当てを変更する場合は、プライベートSysEx(sub-cmd 0x04、docs/manuals/midi-message-reference.mdの8.2節参照)を使う。ここでのプロファイル設定は、その初期値に相当する。2026年7月、FITOM_X本体側(この読み込み・検証・MidiProcessorでの窓判定・SysEx sub-cmd 0x04受信)は実装済み。実際にSF2を鳴らすにはhwifプラグイン(仮称FitomSf2IF、別リポジトリ)が別途必要で、そちらは未実装。",
       "items": {
         "type": "object",
         "required": [

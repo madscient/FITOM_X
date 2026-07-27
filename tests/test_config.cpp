@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "fitom/Config.h"
 #include "fitom/PatchManager.h"
+#include "fitom/Sf2BankRegistry.h"
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <fstream>
@@ -334,4 +335,226 @@ TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
     REQUIRE(specB.size() == 4);
     CHECK(specB[0].deviceType == DEVICE_2610B);
     CHECK(specB[3].deviceType == DEVICE_ADPCMB);
+}
+
+// ================================================================
+//  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
+// ================================================================
+
+TEST_CASE("Sf2BankRegistry: resolves CC#32 to {soundfont_index, sf2_bank} and "
+          "dedups soundfont files by first-seen order", "[config][sf2]")
+{
+    json arr = json::array({
+        {{"bank", 0}, {"file", "orchestral.sf2"}, {"sf2_bank", 0}},
+        {{"bank", 1}, {"file", "orchestral.sf2"}, {"sf2_bank", 8}},   // 同一fileを再利用
+        {{"bank", 2}, {"file", "drums.sf2"},      {"sf2_bank", 128}},
+    });
+
+    fitom::Sf2BankRegistry reg;
+    reg.load(arr, "/base/dir");
+
+    REQUIRE_FALSE(reg.empty());
+    REQUIRE(reg.soundfontFiles().size() == 2); // orchestral.sf2/drums.sf2の2ファイルのみ
+
+    fitom::Sf2BankRegistry::Resolved r0, r1, r2;
+    REQUIRE(reg.resolve(0, r0));
+    REQUIRE(reg.resolve(1, r1));
+    REQUIRE(reg.resolve(2, r2));
+
+    CHECK(r0.soundfontIndex == r1.soundfontIndex); // 同一fileは同じindex
+    CHECK(r0.soundfontIndex != r2.soundfontIndex);
+    CHECK(r0.sf2Bank == 0);
+    CHECK(r1.sf2Bank == 8);
+    CHECK(r2.sf2Bank == 128); // パーカッションバンク(127を超える特別な値)
+
+    fitom::Sf2BankRegistry::Resolved unresolved;
+    CHECK_FALSE(reg.resolve(99, unresolved)); // 対応エントリなし
+}
+
+TEST_CASE("Sf2BankRegistry: invalid entries (out-of-range bank/sf2_bank, empty file) "
+          "are skipped", "[config][sf2]")
+{
+    json arr = json::array({
+        {{"bank", 128}, {"file", "a.sf2"}, {"sf2_bank", 0}},   // bank範囲外(>127)
+        {{"bank", 0},   {"file", ""},      {"sf2_bank", 0}},   // file空
+        {{"bank", 1},   {"file", "b.sf2"}, {"sf2_bank", 129}}, // sf2_bank範囲外(>128)
+    });
+
+    fitom::Sf2BankRegistry reg;
+    reg.load(arr, "/base/dir");
+    CHECK(reg.empty());
+}
+
+TEST_CASE("FITOMConfig: sf2_banks without a chip=\"SF2\" device fails to load "
+          "(no dispatch destination)", "[config][sf2]")
+{
+    json profile = {
+        {"profile_name", "test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"sf2_banks", json::array({
+                {{"bank", 0}, {"file", "a.sf2"}, {"sf2_bank", 0}}
+            })}
+        }}
+    };
+    fs::path p = writeTempJson("fitom_test_sf2_banks_no_device.profile.json", profile);
+
+    fitom::FITOMConfig cfg;
+    CHECK_FALSE(cfg.loadProfile(p));
+}
+
+TEST_CASE("FITOMConfig: sf2_channel_windows without a chip=\"SF2\" device fails to load",
+          "[config][sf2]")
+{
+    json profile = {
+        {"profile_name", "test"},
+        {"devices",      json::array()},
+        {"sf2_channel_windows", json::array({
+            {{"mpu", 0}, {"ch", 12}, {"fluidsynth_chan", 0}}
+        })}
+    };
+    fs::path p = writeTempJson("fitom_test_sf2_windows_no_device.profile.json", profile);
+
+    fitom::FITOMConfig cfg;
+    CHECK_FALSE(cfg.loadProfile(p));
+}
+
+TEST_CASE("FITOMConfig: more than one devices[] entry with chip=\"SF2\" fails to load "
+          "(fluid_synth_t is shared across all MPUs, dispatch must be unambiguous)",
+          "[config][sf2]")
+{
+    // pluginが未登録のため実際のHWPort生成は失敗するが、devices[]の記述
+    // レベルでの矛盾(chip=\"SF2\"が2つ)は宣言のJSONを直接数えて検出する
+    // ため、プラグインの実在有無とは無関係に検証できる。
+    json profile = {
+        {"profile_name", "test"},
+        {"devices", json::array({
+            {{"if", "HW"}, {"chip", "SF2"}, {"plugin", "NoSuchPlugin"}},
+            {{"if", "HW"}, {"chip", "SF2"}, {"plugin", "NoSuchPlugin"}}
+        })}
+    };
+    fs::path p = writeTempJson("fitom_test_sf2_duplicate_device.profile.json", profile);
+
+    fitom::FITOMConfig cfg;
+    CHECK_FALSE(cfg.loadProfile(p));
+}
+
+TEST_CASE("FITOMConfig: sf2_channel_windows validates duplicate (mpu,ch), duplicate "
+          "fluidsynth_chan, out-of-range values, and >16 entries", "[config][sf2]")
+{
+    SECTION("同一(mpu,ch)の重複") {
+        json profile = {
+            {"profile_name", "test"},
+            {"devices",      json::array()},
+            {"sf2_channel_windows", json::array({
+                {{"mpu", 0}, {"ch", 12}, {"fluidsynth_chan", 0}},
+                {{"mpu", 0}, {"ch", 12}, {"fluidsynth_chan", 1}}
+            })}
+        };
+        fs::path p = writeTempJson("fitom_test_sf2_win_dup_mpuch.profile.json", profile);
+        fitom::FITOMConfig cfg;
+        CHECK_FALSE(cfg.loadProfile(p));
+    }
+
+    SECTION("fluidsynth_chanの重複") {
+        json profile = {
+            {"profile_name", "test"},
+            {"devices",      json::array()},
+            {"sf2_channel_windows", json::array({
+                {{"mpu", 0}, {"ch", 12}, {"fluidsynth_chan", 0}},
+                {{"mpu", 0}, {"ch", 13}, {"fluidsynth_chan", 0}}
+            })}
+        };
+        fs::path p = writeTempJson("fitom_test_sf2_win_dup_chan.profile.json", profile);
+        fitom::FITOMConfig cfg;
+        CHECK_FALSE(cfg.loadProfile(p));
+    }
+
+    SECTION("範囲外の値") {
+        json profile = {
+            {"profile_name", "test"},
+            {"devices",      json::array()},
+            {"sf2_channel_windows", json::array({
+                {{"mpu", 0}, {"ch", 12}, {"fluidsynth_chan", 16}} // 0-15の範囲外
+            })}
+        };
+        fs::path p = writeTempJson("fitom_test_sf2_win_out_of_range.profile.json", profile);
+        fitom::FITOMConfig cfg;
+        CHECK_FALSE(cfg.loadProfile(p));
+    }
+
+    SECTION("16エントリ超過") {
+        json arr = json::array();
+        for (int i = 0; i < 17; ++i) {
+            arr.push_back({{"mpu", 0}, {"ch", i % 16}, {"fluidsynth_chan", i % 16}});
+        }
+        json profile = {
+            {"profile_name", "test"},
+            {"devices",      json::array()},
+            {"sf2_channel_windows", arr}
+        };
+        fs::path p = writeTempJson("fitom_test_sf2_win_too_many.profile.json", profile);
+        fitom::FITOMConfig cfg;
+        CHECK_FALSE(cfg.loadProfile(p));
+    }
+}
+
+TEST_CASE("FITOMConfig: valid sf2_channel_windows load into getSf2ChannelWindows() "
+          "when a chip=\"SF2\" device is declared", "[config][sf2]")
+{
+    // pluginは未登録のため実際のISoundDevice/HWPort生成は行われないが、
+    // devices[]記述レベルではchip=\"SF2\"が1つ存在するため、
+    // sf2_channel_windowsの検証・保持自体は正常に完了する。
+    json profile = {
+        {"profile_name", "test"},
+        {"devices", json::array({
+            {{"if", "HW"}, {"chip", "SF2"}, {"plugin", "NoSuchPlugin"}}
+        })},
+        {"sf2_channel_windows", json::array({
+            {{"mpu", 0}, {"ch", 12}, {"fluidsynth_chan", 0}},
+            {{"mpu", 2}, {"ch", 9},  {"fluidsynth_chan", 2}}
+        })}
+    };
+    fs::path p = writeTempJson("fitom_test_sf2_windows_valid.profile.json", profile);
+
+    fitom::FITOMConfig cfg;
+    REQUIRE(cfg.loadProfile(p));
+
+    const auto& windows = cfg.getSf2ChannelWindows();
+    REQUIRE(windows.size() == 2);
+    CHECK(windows[0].mpu == 0);
+    CHECK(windows[0].ch == 12);
+    CHECK(windows[0].fluidsynthChan == 0);
+    CHECK(windows[1].mpu == 2);
+    CHECK(windows[1].ch == 9);
+    CHECK(windows[1].fluidsynthChan == 2);
+}
+
+TEST_CASE("FITOMConfig: sf2_banks parse into getSf2BankRegistry() when a chip=\"SF2\" "
+          "device is declared", "[config][sf2]")
+{
+    json profile = {
+        {"profile_name", "test"},
+        {"devices", json::array({
+            {{"if", "HW"}, {"chip", "SF2"}, {"plugin", "NoSuchPlugin"}}
+        })},
+        {"banks", {
+            {"sf2_banks", json::array({
+                {{"bank", 0}, {"file", "orchestral.sf2"}, {"sf2_bank", 0}},
+                {{"bank", 2}, {"file", "drums.sf2"},      {"sf2_bank", 128}}
+            })}
+        }}
+    };
+    fs::path p = writeTempJson("fitom_test_sf2_banks_valid.profile.json", profile);
+
+    fitom::FITOMConfig cfg;
+    REQUIRE(cfg.loadProfile(p));
+
+    const auto& reg = cfg.getSf2BankRegistry();
+    REQUIRE_FALSE(reg.empty());
+    REQUIRE(reg.soundfontFiles().size() == 2);
+
+    fitom::Sf2BankRegistry::Resolved r;
+    REQUIRE(reg.resolve(2, r));
+    CHECK(r.sf2Bank == 128);
 }

@@ -259,6 +259,12 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
         }
     }
 
+    // --- SF2直行パス: sf2_banksレジストリの構築 (2026年7月新設) ---
+    // devices[](chip:"SF2")のparams_json組み立て(buildDevice()内)が
+    // soundfonts一覧を必要とするため、devices[]構築より前に1回だけ行う。
+    // PatchManagerに依存しないためpatchMgrの有無を問わず常に実行する。
+    loadSf2Banks(j, baseDir);
+
     // --- デバイス構築 ---
     if (j.contains("devices") && j["devices"].is_array()) {
         for (const auto& dev : j["devices"]) {
@@ -304,6 +310,14 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
         masterPitch_ = j["master_pitch"].get<double>();
     }
 
+    // --- SF2直行パス: sf2_channel_windows(トップレベル)の読み込み ---
+    // (2026年7月新設。banks.*とは異なりトップレベルプロパティ、詳細は
+    //  docs/sf2-fluidsynth-integration.md ⑤節参照)
+    if (!loadSf2ChannelWindows(j)) {
+        FITOM_LOG_ERR("sf2_channel_windows: 検証エラーのためプロファイル読み込みを中止します");
+        return false;
+    }
+
     // --- 音色バンク一式のロード (hw/sw/patch/drum/scc_wave/pcm) ---
     // patchMgr が渡された場合のみ実行する (省略時は従来通りデバイス構成
     // のみを構築し、音色バンクロードはスキップする、後方互換動作)。
@@ -316,6 +330,33 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
 
     // --- バリデーション ---
     validateProfile();
+
+    // --- SF2直行パス: 構成の整合性検証 (2026年7月新設) ---
+    // devices[]内でchip:"SF2"が宣言された回数を数える。実際にHWPluginの
+    // オープンに成功したかどうかとは無関係に、プロファイル記述レベルで
+    // 判定する(devices_[].isSf2はHWPort生成成功時のみ立つため、
+    // 「宣言はあるがプラグインロードに失敗した」場合と「そもそも1つも
+    // 宣言していない」場合を区別できない。ここではプロファイルの記述
+    // そのものの矛盾を検出したいため、生JSONを直接数える)。
+    int sf2DeclaredCount = 0;
+    if (j.contains("devices") && j["devices"].is_array()) {
+        for (const auto& dev : j["devices"]) {
+            if (dev.value("chip", "") == "SF2") ++sf2DeclaredCount;
+        }
+    }
+    if (sf2DeclaredCount > 1) {
+        FITOM_LOG_ERR("devices[]: chip=\"SF2\" のエントリが" << sf2DeclaredCount
+            << "個あります。fluid_synth_tは全MPUで1つを共有する設計のため、"
+               "devices[]にchip=\"SF2\"は1つまでしか指定できません");
+        return false;
+    }
+    const bool hasSf2Settings = !sf2Banks_.empty() || !sf2ChannelWindows_.empty();
+    if (hasSf2Settings && sf2DeclaredCount == 0) {
+        FITOM_LOG_ERR("banks.sf2_banks または sf2_channel_windows が設定されていますが、"
+            "devices[]にchip=\"SF2\"のエントリがありません(SF2直行パスの送出先が"
+            "ありません)");
+        return false;
+    }
 
     return true;
 }
@@ -347,6 +388,17 @@ void FITOMConfig::buildDevice(const json& dev)
         params.erase("rhythm_mode");
         params.erase("stereo_pair");
 
+        // SF2直行パス(docs/sf2-fluidsynth-integration.md参照): chip:"SF2"の
+        // devices[]エントリには、banks.sf2_banks[].fileから重複除去した
+        // soundfonts一覧を自動的に注入する。ユーザーがdevices[]へ直接
+        // "soundfonts"を書く必要はない(sf2_banksとの二重管理を避けるため)。
+        const bool isSf2 = (dev.value("chip", "") == "SF2");
+        if (isSf2) {
+            json files = json::array();
+            for (const auto& f : sf2Banks_.soundfontFiles()) files.push_back(f);
+            params["soundfonts"] = files;
+        }
+
         // B-2: extra_slot → 2ポート目の HWPort を生成 (2ポート目は
         // 元のparamsの"slot"(チップスロット番号)をextra_slotの値で
         // 上書きして開く。FitomHwIFのparams_json仕様上、"slot"がチップの
@@ -374,6 +426,7 @@ void FITOMConfig::buildDevice(const json& dev)
             bool stereoPair = dev.value("stereo_pair", false);
             int sampleRate = dev.value("sample_rate", 44100);
             pushDeviceEntries(label, deviceType, port, port2, sampleRate, extraSlot, rhythmMode, stereoPair);
+            if (isSf2 && !devices_.empty()) devices_.back().isSf2 = true;
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
         }
@@ -527,6 +580,11 @@ int FITOMConfig::getDeviceSampleRate(int index) const {
 bool FITOMConfig::getDeviceRhythmMode(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
     return devices_[index].rhythmMode;
+}
+
+bool FITOMConfig::isSf2Device(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
+    return devices_[index].isSf2;
 }
 
 // ================================================================
@@ -1025,6 +1083,12 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"SAA",   DEVICE_SAA},   {"SAA1099", DEVICE_SAA},
         {"PCMD8", DEVICE_PCMD8},
         {"ADPCMB_Y8950", DEVICE_ADPCMB_Y8950},
+        // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用ラッパー
+        // デバイス。DEVICE_NONEへ明示的に解決することで、CFITOM::
+        // initDevices()の「deviceType unknown」警告(下記kChipMapで
+        // 一致しない場合の既定分岐)を意図せず出さないようにする
+        // (isSf2フラグと合わせて区別する)。
+        {"SF2", DEVICE_NONE},
     };
     for (const auto& [name, id] : kChipMap) {
         if (chipName == name) return id;
@@ -1208,6 +1272,62 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
             pm.loadPcmBankJson(path, bankNo, voicePatchType, chipDeviceType, offsetsOnly);
         }
     }
+}
+
+// ================================================================
+//  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
+// ================================================================
+
+void FITOMConfig::loadSf2Banks(const nlohmann::json& j, const std::filesystem::path& baseDir)
+{
+    if (!j.contains("banks")) return;
+    const auto& banks = j["banks"];
+    if (!banks.contains("sf2_banks")) return;
+    sf2Banks_.load(banks["sf2_banks"], baseDir);
+}
+
+bool FITOMConfig::loadSf2ChannelWindows(const nlohmann::json& j)
+{
+    sf2ChannelWindows_.clear();
+    if (!j.contains("sf2_channel_windows")) return true;
+    const auto& arr = j["sf2_channel_windows"];
+    if (!arr.is_array()) return true;
+
+    if (arr.size() > 16) {
+        FITOM_LOG_ERR("sf2_channel_windows: エントリ数が" << arr.size()
+            << "個あります。fluidsynthの既定チャンネル数(16)を超えられません");
+        return false;
+    }
+
+    std::vector<Sf2ChannelWindow> result;
+    result.reserve(arr.size());
+    for (const auto& e : arr) {
+        int mpu = e.value("mpu", -1);
+        int ch  = e.value("ch", -1);
+        int fsChan = e.value("fluidsynth_chan", -1);
+        if (mpu < 0 || mpu > 3 || ch < 0 || ch > 15 || fsChan < 0 || fsChan > 15) {
+            FITOM_LOG_ERR("sf2_channel_windows: 不正なエントリです (mpu=" << mpu
+                << " ch=" << ch << " fluidsynth_chan=" << fsChan << ")");
+            return false;
+        }
+        for (const auto& r : result) {
+            if (r.mpu == mpu && r.ch == ch) {
+                FITOM_LOG_ERR("sf2_channel_windows: (mpu=" << mpu << ", ch=" << ch
+                    << ") が重複して指定されています");
+                return false;
+            }
+            if (r.fluidsynthChan == fsChan) {
+                FITOM_LOG_ERR("sf2_channel_windows: fluidsynth_chan=" << fsChan
+                    << " が複数の(mpu, ch)組へ重複して割り当てられています");
+                return false;
+            }
+        }
+        result.push_back(Sf2ChannelWindow{
+            static_cast<uint8_t>(mpu), static_cast<uint8_t>(ch), static_cast<uint8_t>(fsChan)});
+    }
+
+    sf2ChannelWindows_ = std::move(result);
+    return true;
 }
 
 } // namespace fitom

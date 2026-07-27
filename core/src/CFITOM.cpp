@@ -201,7 +201,14 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
         }
 
         processors_[p] = std::make_unique<MidiProcessor>(
-            channels_[p], this, /*clockEnabled=*/(p == 0));
+            channels_[p], this, /*clockEnabled=*/(p == 0), /*mpuIndex=*/p);
+    }
+
+    // SF2直行パス: プロファイルのsf2_channel_windows[]を初期状態として
+    // 窓テーブルへ反映する(2026年7月新設。演奏中のプライベートSysEx
+    // sub-cmd 0x04によるsetSf2ChannelWindow()呼び出しと等価な初期化)。
+    for (const auto& w : config_->getSf2ChannelWindows()) {
+        setSf2ChannelWindow(w.mpu, w.ch, w.fluidsynthChan);
     }
 
     // 内部用MIDIパイプ(backends/midi_pipe)専用のチャンネル/MidiProcessorを
@@ -398,8 +405,20 @@ void CFITOM::initDevices()
             continue;
         }
         if (deviceType == DEVICE_NONE) {
-            FITOM_LOG_WARN("Device[" << i << "] '"
-                << config_->getDeviceLabel(i) << "': deviceType unknown, skipping");
+            if (config_->isSf2Device(i)) {
+                // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用の
+                // ラッパーデバイス。ISoundDevice生成は意図的にスキップし、
+                // MidiProcessor::processMessage()からの生MIDIバイト列転送
+                // 先としてIPortのみ記録する(プロファイル検証により
+                // devices[]内でこの分岐に入るのは高々1回のみ)。
+                sf2Port_ = port;
+                FITOM_LOG_INFO("Device[" << i << "] '" << config_->getDeviceLabel(i)
+                    << "': SF2 direct-path wrapper device (ISoundDevice creation "
+                       "intentionally skipped)");
+            } else {
+                FITOM_LOG_WARN("Device[" << i << "] '"
+                    << config_->getDeviceLabel(i) << "': deviceType unknown, skipping");
+            }
             continue;
         }
 
@@ -836,6 +855,32 @@ void CFITOM::resetAllCtrl()
 
 // ─── マスターピッチ ──────────────────────────────────────────────────────────
 
+// SF2直行パス(docs/sf2-fluidsynth-integration.md参照): マスターボリューム/
+// マスターピッチも、新規プロトコルを設計せず既存のGM2 Universal Realtime
+// SysExをそのままHWPlugin_WriteBlock経由でSF2ラッパーへ転送するだけで
+// 済ませる(8.1節既存のマスターチューニングSysExと同じバイト列)。
+namespace {
+void buildGm2MasterVolumeSysEx(uint8_t (&out)[8], uint8_t vol)
+{
+    out[0] = 0xF0; out[1] = 0x7F; out[2] = 0x7F; out[3] = 0x04; out[4] = 0x01;
+    out[5] = 0x00;                      // ll (未使用、7bit精度のみ使用)
+    out[6] = static_cast<uint8_t>(vol & 0x7F);
+    out[7] = 0xF7;
+}
+
+void buildGm2MasterFineTuneSysEx(uint8_t (&out)[8], double pitchHz)
+{
+    double cents = 1200.0 * std::log2(pitchHz / 440.0);
+    cents = std::clamp(cents, -100.0, 100.0);
+    int value14 = static_cast<int>(std::lround(cents * 8192.0 / 100.0)) + 8192;
+    value14 = std::clamp(value14, 0, 16383);
+    out[0] = 0xF0; out[1] = 0x7F; out[2] = 0x7F; out[3] = 0x04; out[4] = 0x03;
+    out[5] = static_cast<uint8_t>(value14 & 0x7F);        // ll
+    out[6] = static_cast<uint8_t>((value14 >> 7) & 0x7F); // mm
+    out[7] = 0xF7;
+}
+} // namespace
+
 void CFITOM::setMasterPitch(double pitchHz)
 {
     // 範囲チェック: 430〜450Hz
@@ -850,6 +895,14 @@ void CFITOM::setMasterPitch(double pitchHz)
     // 全デバイスに通知 (発音中チャンネルの F-number を即時再計算)
     for (auto& dev : devices_) {
         if (dev) dev->onMasterPitchChanged(pitchHz);
+    }
+
+    // SF2直行パス: 既存のGM2 Universal Realtime SysEx(マスターファイン
+    // チューニング)をそのまま転送する(docs/sf2-fluidsynth-integration.md参照)。
+    if (sf2Port_) {
+        uint8_t buf[8];
+        buildGm2MasterFineTuneSysEx(buf, pitchHz);
+        sf2Port_->writeBurst(0, buf, sizeof(buf));
     }
 
     FITOM_LOG_INFO("MasterPitch: " << pitchHz << " Hz");
@@ -917,11 +970,125 @@ void CFITOM::setScaleTuning(const std::array<int8_t, 12>& table)
 void CFITOM::setMasterVolume(uint8_t vol)
 {
     if (config_) config_->setMasterVolume(vol);
+    if (sf2Port_) {
+        uint8_t buf[8];
+        buildGm2MasterVolumeSysEx(buf, vol);
+        sf2Port_->writeBurst(0, buf, sizeof(buf));
+    }
 }
 
 uint8_t CFITOM::getMasterVolume() const
 {
     return config_ ? config_->getMasterVolume() : 100;
+}
+
+// ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+
+bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t d1, uint8_t d2)
+{
+    if (mpu < 0 || mpu >= MAX_MPUS || ch >= 16) return false;
+    Sf2WindowState& w = sf2Windows_[mpu][ch];
+    if (!w.assigned) return false;
+
+    // 窓には含まれるがSF2デバイス未接続(プラグインロード失敗等)の場合は、
+    // ネイティブ経路へフォールバックせず単純に読み捨てる(2.6節: 窓に
+    // 含まれる限り常にこの経路として動作する)。
+    if (!sf2Port_) return true;
+
+    const uint8_t type = status & 0xF0;
+
+    if (type == 0xB0) { // Control Change
+        const uint8_t cc = d1, val = d2;
+        if (cc == 0) return true; // CC#0(バンクセレクトMSB)は使用しない
+        if (cc == 32) {
+            // CC#32(バンクセレクトLSB) → sf2_banksのインデックスとして解決する。
+            // 該当エントリが無い場合は単純に読み捨てる(直前の解決状態は
+            // そのまま維持し、ソフトフォールバックは行わない)。
+            Sf2BankRegistry::Resolved r;
+            if (config_->getSf2BankRegistry().resolve(val, r)) {
+                w.bankResolved   = true;
+                w.soundfontIndex = r.soundfontIndex;
+                w.sf2Bank        = r.sf2Bank;
+            }
+            return true;
+        }
+        uint8_t buf[3] = { static_cast<uint8_t>(0xB0 | w.fluidsynthChan), cc, val };
+        sf2Port_->writeBurst(0, buf, sizeof(buf));
+        return true;
+    }
+
+    if (type == 0xC0) { // Program Change
+        // 有効なCC#32が一度も解決されていない間は、プログラムチェンジも
+        // (渡すべきsoundfont_index/sf2_bankが無いため)読み捨てる。
+        if (!w.bankResolved) return true;
+        // F0 00 48 01 05 <chan> <soundfont_index> <bank_msb> <bank_lsb> <prog> F7
+        uint8_t buf[11] = {
+            0xF0, 0x00, 0x48, 0x01, 0x05,
+            w.fluidsynthChan,
+            static_cast<uint8_t>(w.soundfontIndex & 0x7F),
+            static_cast<uint8_t>((w.sf2Bank >> 7) & 0x7F),
+            static_cast<uint8_t>(w.sf2Bank & 0x7F),
+            static_cast<uint8_t>(d1 & 0x7F),
+            0xF7
+        };
+        sf2Port_->writeBurst(0, buf, sizeof(buf));
+        return true;
+    }
+
+    // Note On/Off・ピッチベンド等、それ以外の通常のチャンネルメッセージは
+    // そのままfluidsynth chanへ転送する(RPN/NRPNのデータエントリー系CCも
+    // 上のCC分岐でcc!=0/32のため既にここを通らず転送済み)。
+    const uint8_t remappedStatus = static_cast<uint8_t>(type | w.fluidsynthChan);
+    if (type == 0xD0) { // Channel Pressure (1データバイト)
+        uint8_t buf[2] = { remappedStatus, d1 };
+        sf2Port_->writeBurst(0, buf, sizeof(buf));
+    } else {
+        uint8_t buf[3] = { remappedStatus, d1, d2 };
+        sf2Port_->writeBurst(0, buf, sizeof(buf));
+    }
+    return true;
+}
+
+void CFITOM::setSf2ChannelWindow(uint8_t mpu, uint8_t ch, uint8_t fluidsynthChanOr7F)
+{
+    if (mpu >= MAX_MPUS || ch >= 16) {
+        FITOM_LOG_WARN("SF2 channel window: invalid mpu=" << (int)mpu << " ch=" << (int)ch);
+        return;
+    }
+
+    if (fluidsynthChanOr7F == 0x7F) {
+        sf2Windows_[mpu][ch] = Sf2WindowState{};
+        FITOM_LOG_INFO("SF2 channel window: mpu=" << (int)mpu << " ch=" << (int)(ch + 1)
+            << " released (back to native path)");
+        return;
+    }
+
+    if (fluidsynthChanOr7F >= 16) {
+        FITOM_LOG_WARN("SF2 channel window: invalid fluidsynth_chan=" << (int)fluidsynthChanOr7F);
+        return;
+    }
+
+    // 同じfluidsynth_chanを複数の(mpu, ch)組へ重複して割り当てることは
+    // できない(docs 8.2節)。重複する場合は要求そのものを無視する
+    // (暗黙に既存の割り当てを解除するような副作用は起こさない)。
+    for (int p = 0; p < MAX_MPUS; ++p) {
+        for (int c = 0; c < 16; ++c) {
+            if (p == mpu && c == ch) continue;
+            if (sf2Windows_[p][c].assigned && sf2Windows_[p][c].fluidsynthChan == fluidsynthChanOr7F) {
+                FITOM_LOG_WARN("SF2 channel window: fluidsynth_chan=" << (int)fluidsynthChanOr7F
+                    << " is already assigned to mpu=" << p << " ch=" << (int)(c + 1)
+                    << ", request ignored");
+                return;
+            }
+        }
+    }
+
+    Sf2WindowState fresh;
+    fresh.assigned       = true;
+    fresh.fluidsynthChan = fluidsynthChanOr7F;
+    sf2Windows_[mpu][ch] = fresh;
+    FITOM_LOG_INFO("SF2 channel window: mpu=" << (int)mpu << " ch=" << (int)(ch + 1)
+        << " -> fluidsynth_chan=" << (int)fluidsynthChanOr7F);
 }
 
 // ================================================================
@@ -965,8 +1132,8 @@ void CFITOM::timerThreadFunc(uint32_t intervalMs)
 
 MidiProcessor::MidiProcessor(
     std::array<std::unique_ptr<IMidiCh>, 16>& channels,
-    CFITOM* parent, bool clockEnabled)
-    : channels_(channels), parent_(parent), clockEnabled_(clockEnabled)
+    CFITOM* parent, bool clockEnabled, int mpuIndex)
+    : channels_(channels), parent_(parent), clockEnabled_(clockEnabled), mpuIndex_(mpuIndex)
 {}
 
 void MidiProcessor::receiveByte(const uint8_t* data, size_t len,
@@ -1067,6 +1234,15 @@ void MidiProcessor::processMessage()
     uint8_t status = msgBuf_[0];
     uint8_t ch     = status & 0x0F;
     uint8_t type   = status & 0xF0;
+
+    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照): 窓に含まれる
+    // (mpuIndex_, ch)は、CInstCh/CRhythmChへのディスパッチ・PatchManagerに
+    // よる音色解決を一切経由せず、SF2ラッパープラグインへ生MIDIバイト列
+    // として直接転送する。内部用MIDIパイプ(mpuIndex_==-1)は対象外。
+    if (mpuIndex_ >= 0
+        && parent_->routeSf2ChannelMessage(mpuIndex_, ch, status, msgBuf_[1], msgBuf_[2])) {
+        return;
+    }
 
     IMidiCh* midicch = channels_[ch].get();
     if (!midicch) return;
@@ -1286,6 +1462,22 @@ void MidiProcessor::processPrivateSysEx()
         return;
     }
     const uint8_t subCmd = sysexBuf_[3];
+
+    // sub-cmd=0x04: SF2直行パス チャンネル窓の動的割り当て
+    // (docs/manuals/midi-message-reference.md 8.2節、
+    //  docs/sf2-fluidsynth-integration.md ⑤節参照)。
+    //   F0 00 48 01 04 <mpu> <ch> <fluidsynth_chan|0x7F> F7
+    if (subCmd == 0x04) {
+        if (sysexPt_ < 7) {
+            FITOM_LOG_DEBUG("SysEx: SF2 channel window message too short, ignored");
+            return;
+        }
+        if (parent_) {
+            parent_->setSf2ChannelWindow(sysexBuf_[4], sysexBuf_[5], sysexBuf_[6]);
+        }
+        return;
+    }
+
     if (subCmd != 0x01 && subCmd != 0x02) {
         FITOM_LOG_DEBUG("SysEx: private sub-cmd=0x" << std::hex << (int)subCmd
             << std::dec << " unhandled");
