@@ -938,6 +938,17 @@ int main(int argc, char **argv)
     {
         coreReady = bridge.init(systemConfArg, profilePath);
     }
+    // コアのタイマーコールバック(releaseTimer減算・ソフトウェアLFO tick等、
+    // 全チップドライバが「1回の呼び出し=1ms経過」を前提にしている)は、
+    // 専用の1msスレッド(apps/fitom_cliと同じCFITOM::startTimerThread())
+    // で駆動する。以前はレンダーループから毎フレーム1回onTimer(1)を
+    // 呼ぶ簡易実装だったが、実際のフレームレート(~60fps、~16ms/frame)は
+    // 前提の1msから大きく外れており、kReleasingHoldMs(2000tick=本来2秒)
+    // 等の時間ベースの処理が実時間で約16倍(30秒以上)に間延びしてしまう
+    // バグがあった(2026年7月発見・修正。「演奏停止後もレジスタが更新され
+    // 続ける」報告の根本原因)。
+    if (coreReady)
+        bridge.startTimerThread();
 
     while (!glfwWindowShouldClose(window))
     {
@@ -947,11 +958,6 @@ int main(int argc, char **argv)
             ImGui_ImplGlfw_Sleep(10);
             continue;
         }
-
-        // コアのタイマーコールバック(1ms相当)。フレームごとに1回呼ぶ簡易実装
-        // (正確な1msキックが必要になったら別スレッド化を検討する)。
-        if (coreReady)
-            bridge.onTimer(1);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -1007,8 +1013,10 @@ int main(int argc, char **argv)
         glfwSwapBuffers(window);
     }
 
-    if (coreReady)
+    if (coreReady) {
+        bridge.stopTimerThread();
         bridge.exit();
+    }
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

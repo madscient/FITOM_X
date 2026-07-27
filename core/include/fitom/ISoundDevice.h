@@ -123,14 +123,38 @@ struct ChState {
     // 大半の FM 音色で 2 秒あれば十分消音する
     static constexpr uint16_t kReleasingHoldMs = 2000;
 
-    void assign(IMidiCh* ch) { owner = ch; status = Status::Assigned; }
     // wasReleasing: run() 直前が Releasing 状態だったかを記録する。
     // (リリース中の音が残った状態で同一チャンネルに新規ノートオンした場合、
     //  アタック波形が不正になるのを防ぐため、チップドライバの updateKey が
     //  この情報を見て NoteOn 直前に強制ダンプ(RR最大化)するかを判定する)
+    //
+    // 通常のポリフォニック経路(CSoundDevice::assignCh()経由)では、
+    // assign()がstatusをReleasing→Assignedへ書き換えてからrun()が
+    // 呼ばれるため、run()側で「直前がReleasingだったか」をstatusから
+    // 判定しようとしても、その時点では既にAssignedに上書きされた後で
+    // 常にfalseになってしまう(2026年7月発見のバグ。「リリース中再トリガー
+    // 対策」自体はOPM/OPN/OPL/OPL3に実装済みだったが、この経路のせいで
+    // 発動条件[wasReleasing]が実質的に常にfalseとなり、事実上一度も
+    // 機能していなかった。高速な連続ノートオンで前の音のリリース中に
+    // 同じchを再利用する[通常のround-robin]たびに毎回この対策が
+    // スキップされ、前の音のエンベロープがリリース中のまま次のアタックが
+    // 乗るため、アタックが再トリガーされず音程だけ滑らかに変化して
+    // 聞こえる不具合として顕在化した)。
+    // そのためassign()側で書き換え前のstatusを見てwasReleasingを確定させ、
+    // run()はstatus==Assigned(=assign()経由)の場合はその値を信頼して
+    // 上書きしない。assign()を経由しない経路(モノフォニックの自己スティール
+    // 等、CInstCh::noteOn()がdevChを直接使い回すケース)ではstatusが
+    // Releasing/Runningのまま渡ってくるため、従来通りrun()側で直接判定する。
     bool wasReleasing = false;
-    void run() {
+    void assign(IMidiCh* ch) {
         wasReleasing = (status == Status::Releasing);
+        owner = ch;
+        status = Status::Assigned;
+    }
+    void run() {
+        if (status != Status::Assigned) {
+            wasReleasing = (status == Status::Releasing);
+        }
         status = Status::Running;
         noteOnAge = 0;
     }

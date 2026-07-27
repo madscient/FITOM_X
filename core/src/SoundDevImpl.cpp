@@ -214,8 +214,21 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
     auto& s = chState_[ch];
     if (!s.isEnabled()) return 0xFF;
 
-    // 他の owner が使用中なら先に止める (noteOff が release を内包)
-    if (s.isActive() && s.owner && s.owner != owner)
+    // 発音中(Running)のchを奪って割り当てる場合は、ownerの異同に関わらず
+    // 必ず先にnoteOff()する(noteOff()がKey Offレジスタ書き込み+release()を
+    // 内包)。OPN系等のKey On/Offレジスタはエッジトリガ(0→1でアタック開始)
+    // のため、Key Offを挟まずKey Onだけを再度書いても実機ではエンベロープが
+    // 再アタックしない。以前はowner不一致の場合のみnoteOff()していたため、
+    // findBestCh()のscore=1(強制スティール、Running chの奪取)で選ばれた
+    // chがたまたま同一owner(同一MIDIチャンネル)の古いノートだった場合に
+    // Key Offが抜け落ち、Fnumは新しいノートの値に変わるのにアタックが
+    // 再トリガーされない(音程だけ滑らかに変化して聞こえる)不具合があった
+    // (2026年7月修正。高速に連続でノートオンが発生するベースライン等で、
+    // ノートオンの取りこぼしのように聞こえると報告され発覚)。
+    // 一方、Releasing chの再利用(score 2-4の通常の round-robin)は既に
+    // noteOff()済みで無害なため、ここで再度呼ぶ必要はない(isRunning()の
+    // みをチェックし、isReleasing()は対象外のままにする)。
+    if (s.isRunning())
         noteOff(ch);
 
     s.assign(owner);
