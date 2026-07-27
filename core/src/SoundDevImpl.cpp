@@ -225,22 +225,20 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
     if (patch) {
         s.hwPatch = *patch;
         s.samplePatch = nullptr;
+        // swPatchはChStateにキャッシュしておく(setVolume/setExpressionが
+        // 発音中にFmVoiceを再構築してVoiceProcessor::onVolumeChange()を
+        // 呼ぶ際に必要、2026年7月新設。buildVoiceForCh()参照)。
+        s.swPatch = swPatch ? *swPatch : SwPatch();
         // VoiceProcessor::onNoteOn()をupdateVoice()より前に呼ぶ
         // (ドキュメント化された正しい設計、voice-data-design.mdの
         // フェーズ6手順3参照。2026年7月訂正。以前はnoteOn()側で
         // 遅延して呼ばれており、updateVoice()内のキャリア側ベロシティ
         // 補正値が常に未計算のまま実機へ送信されるバグがあった)。
-        FmVoice dummy;
-        dummy.hw = s.hwPatch.hw;
-        for (int i = 0; i < 4; ++i) dummy.hwOp[i] = s.hwPatch.hwOp[i];
-        if (swPatch) {
-            dummy.sw = swPatch->sw;
-            for (int i = 0; i < 4; ++i) dummy.swOp[i] = swPatch->swOp[i];
-        }
-        s.proc.onNoteOn(s.volume, s.expression, vel, dummy, computeCarrierMask(ch));
+        s.proc.onNoteOn(s.volume, s.expression, vel, buildVoiceForCh(ch), computeCarrierMask(ch));
         updateVoice(ch);
     } else if (samplePatch) {
         s.samplePatch = samplePatch;
+        s.swPatch = swPatch ? *swPatch : SwPatch();
         // サンプルベース音源系(AWM/ADPCM-B/ADPCM-A/PCMD8)向け。
         // usesVoiceProcessorForSamplePatch()がtrueのチップ(音量計算が
         // effectiveTL()経由の設計)のみ、patch分岐と同様にonNoteOn()を
@@ -249,13 +247,8 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
         // 該当チップの音量がVolume/Expression/Velocityを無視して常に
         // 最大になる既存バグもあった、ISoundDevice.hのコメント参照)。
         if (usesVoiceProcessorForSamplePatch()) {
-            FmVoice dummy; // PCM系はHwPatchを持たないため既定値のまま
-            if (swPatch) {
-                dummy.sw = swPatch->sw;
-                for (int i = 0; i < 4; ++i) dummy.swOp[i] = swPatch->swOp[i];
-            }
             s.proc.onNoteOn(sampleVoiceProcessorVolume(ch), s.expression, vel,
-                             dummy, computeCarrierMask(ch));
+                             buildVoiceForCh(ch), computeCarrierMask(ch));
         }
         updateVoice(ch);
     }
@@ -426,7 +419,15 @@ void CSoundDevice::setVolume(uint8_t ch, uint8_t vol, bool update)
 {
     if (ch >= maxChs_) return;
     auto& s = chState_[ch];
-    if (s.volume != vol) { s.volume = vol; s.volDirty = true; }
+    if (s.volume != vol) {
+        s.volume = vol;
+        s.volDirty = true;
+        // effectiveTL()をvol変更後の値に再計算する(2026年7月修正。
+        // 以前はonVolumeChange()自体が一度も呼ばれておらず、発音中の
+        // CC7変更がupdateVolExp()経由の音量書き込みに反映されなかった。
+        // STATUS.md参照)。
+        s.proc.onVolumeChange(s.volume, s.expression, buildVoiceForCh(ch), computeCarrierMask(ch));
+    }
     if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }
 }
 
@@ -442,7 +443,13 @@ void CSoundDevice::setExpression(uint8_t ch, uint8_t exp, bool update)
 {
     if (ch >= maxChs_) return;
     auto& s = chState_[ch];
-    if (s.expression != exp) { s.expression = exp; s.volDirty = true; }
+    if (s.expression != exp) {
+        s.expression = exp;
+        s.volDirty = true;
+        // setVolume()と同様、effectiveTL()をexp変更後の値に再計算する
+        // (2026年7月修正。STATUS.md参照)。
+        s.proc.onVolumeChange(s.volume, s.expression, buildVoiceForCh(ch), computeCarrierMask(ch));
+    }
     if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }
 }
 
