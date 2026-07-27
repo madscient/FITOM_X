@@ -362,8 +362,14 @@ protected:
     // Volumeのみを書く (旧FITOM CYmDelta::UpdateVolExp 完全移植)。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        uint8_t loudness = 127u - s.proc.effectiveTL(0);
-        uint8_t vol = fitom::calcLinearLevel(loudness, 0); // 旧: CalcLinearLevel(evol, 0)
+        // effectiveTL()は既にラウドネス空間(0=無音,127=最大音量、
+        // VoiceProcessor.h/OPN_new.cppのeffTLToReg()コメント参照)のため、
+        // calcVolExpVel()の戻り値と同じ規約でそのまま渡せる。2026年7月、
+        // ここに不要な反転(127-effectiveTL(0))が入っており、Expression/
+        // Velocityの効きが逆転していたバグを修正(onNoteOn()が呼ばれて
+        // いなかった別の既存バグの陰に隠れて顕在化していなかった)。
+        uint8_t evol = s.proc.effectiveTL(0);
+        uint8_t vol = fitom::calcLinearLevel(evol, 0); // 旧: CalcLinearLevel(evol, 0)
         setReg(reg_.volume, static_cast<uint8_t>(vol << 1));
     }
 
@@ -490,7 +496,10 @@ protected:
         // sampleVoiceProcessorVolume()が常にvol=127を渡すことで、この
         // vol中立化を維持したまま計算される(2026年7月、従来のcalcVolExpVel
         // 直接呼び出しから置き換え。総合音量レジスタ側は無変更)。
-        uint8_t vev = 127u - s.proc.effectiveTL(0);
+        // effectiveTL()は既にラウドネス空間(0=無音,127=最大音量)のため、
+        // 元のcalcVolExpVel()と同じ規約でそのまま渡せる(反転不要。
+        // 反転を入れてExpression/Velocityの効きが逆転していたバグを修正)。
+        uint8_t vev = s.proc.effectiveTL(0);
         uint8_t evol = 31u - fitom::linear2dB(vev, RANGE24DB, STEP075DB, 5);
         setReg(static_cast<uint16_t>(0x08 + ch),
                static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x08 + ch)) & 0xC0) | evol), true);
