@@ -24,6 +24,15 @@ add_executable(fitom_tests
     test_soundevice_freq.cpp
 )
 
+# 内部用MIDIパイプ(fitom_midi_pipe)の回帰テスト。DLL自体が
+# FITOM_BUILD_BACKEND_MIDI_PIPE=OFF(既定)ではビルドされないため、
+# このソース・依存関係もそのときは追加しない(既存テストスイートへの
+# 影響はゼロ)。
+if(FITOM_BUILD_BACKEND_MIDI_PIPE)
+    target_sources(fitom_tests PRIVATE test_midi_pipe.cpp)
+    add_dependencies(fitom_tests fitom_midi_pipe)
+endif()
+
 target_link_libraries(fitom_tests
     PRIVATE
         fitom_core
