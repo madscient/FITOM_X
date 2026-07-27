@@ -158,7 +158,11 @@ bool FITOMBridge::init(const std::string& systemConfPath,
         currentProfile_ = profilePath;
     }
 
-    // タイマースレッドは MFC タイマーから onTimer() を呼ぶため不要
+    // タイマースレッドの起動はinit()の呼び出し元(apps/fitom_gui等)が
+    // 初期化成功後にstartTimerThread()を呼んで行う(2026年7月訂正。
+    // 以前はここに「MFCタイマーからonTimer()を呼ぶため不要」という
+    // コメントがあったが、現行のfitom_gui(Dear ImGui)はMFCを使っておらず
+    // 実態と食い違っていた。詳細はFITOMBridge.hのonTimer()コメント参照)。
     // CFITOM を初期化
     int ret = fitom::CFITOM::instance().init(
         std::move(config), std::move(patchMgr));
@@ -1002,6 +1006,14 @@ void FITOMBridge::resetAllCtrl() { if (initialized_) fitom::CFITOM::instance().r
 
 void FITOMBridge::onTimer(uint32_t tick) {
     if (initialized_) fitom::CFITOM::instance().timerCallback(tick);
+}
+
+void FITOMBridge::startTimerThread(uint32_t intervalMs) {
+    if (initialized_) fitom::CFITOM::instance().startTimerThread(intervalMs);
+}
+
+void FITOMBridge::stopTimerThread() {
+    if (initialized_) fitom::CFITOM::instance().stopTimerThread();
 }
 
 // ================================================================

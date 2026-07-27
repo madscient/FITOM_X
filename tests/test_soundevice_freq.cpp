@@ -21,7 +21,14 @@ namespace {
 class RecordingPort : public IPort {
 public:
     std::map<uint16_t, uint8_t> regs;
-    void write(uint16_t addr, uint16_t data) override { regs[addr] = static_cast<uint8_t>(data); }
+    // 書き込み順序そのものを検証したいテスト(例: 同一ownerによる
+    // Running chの強制スティール時、Key Off→Key On の順で書かれているか)
+    // 向けに、regsとは別に全書き込みを時系列で記録する。
+    std::vector<std::pair<uint16_t, uint8_t>> history;
+    void write(uint16_t addr, uint16_t data) override {
+        regs[addr] = static_cast<uint8_t>(data);
+        history.emplace_back(addr, static_cast<uint8_t>(data));
+    }
     uint8_t read(uint16_t addr) override {
         auto it = regs.find(addr);
         return it != regs.end() ? it->second : 0;
@@ -338,4 +345,182 @@ TEST_CASE("Rapid retrigger across nested multi-chip span (OPN2+OPNA+OPNB) keeps 
         CHECK(actualHi == expHi);
         CHECK(actualLo == expLo);
     }
+}
+
+
+// 実機再現報告: モノフォニックにもレイヤードパッチにもしていない、
+// 高速に連続でノートオンが発生するトラック(ベースライン等)で、
+// ノートオンが取りこぼされている(または直前のノートオフが効いていない)
+// ように聞こえる、Fnumは更新されているという報告の再現を試みる。
+//
+// デバイスの全chが同一owner(同一MIDIチャンネル)のノートで埋まっている
+// 状態で、さらに新しいノートオンが来ると、findBestCh()はscore=1
+// (強制スティール、noteOnAge最大のchを選ぶ)で最古のchを選ぶ。この時
+// 選ばれたchがたまたま「同じowner」が使っていたchだった場合、
+// CSoundDevice::assignCh()の`s.owner != owner`ガードにより、本来
+// 呼ばれるべきnoteOff()(Key Offレジスタ書き込みを含む)がスキップされて
+// しまう。OPN系のKey On/Offレジスタ(0x28)はエッジトリガ(0→1で
+// アタック開始)のため、Key Offを挟まずKey On(1)を再度書いても実機では
+// エンベロープが再アタックせず、Fnumだけが新しいノートの値に変わって
+// 音程だけ滑らかに(まるでポルタメントのように)変化して聞こえる、と
+// いう症状に一致する。
+TEST_CASE("Forced steal of a Running channel owned by the same owner still sends Key Off before Key On", "[sounddevice]")
+{
+    RecordingPort port;
+    auto dev = createCOPN(&port, 8000000); // 3ch
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+    DummyMidiCh owner;
+
+    // 3ch全てを同一owner+patchのノートで埋める(全てRunning)。
+    // timerCallbackを挟んでnoteOnAgeに差を付け、ch0が最古になるようにする。
+    for (int i = 0; i < 3; ++i) {
+        uint8_t ch = dev->allocCh(&owner, &patch, 100);
+        REQUIRE(ch == static_cast<uint8_t>(i));
+        dev->setNoteFine(ch, static_cast<uint8_t>(60 + i), 0, true);
+        dev->noteOn(ch, 100);
+        for (int t = 0; t < 10; ++t) dev->timerCallback(static_cast<uint32_t>(t));
+    }
+
+    // 空きが無いので、同一owner(自分自身)の最古ch(ch0)を強制スティール
+    // するはず。
+    port.history.clear();
+    uint8_t stolen = dev->allocCh(&owner, &patch, 100);
+    REQUIRE(stolen == 0);
+    dev->setNoteFine(stolen, 90, 0, true);
+    dev->noteOn(stolen, 100);
+
+    // reg 0x28 (Key On/Off, ch0はスロットマスク0xF0|0=0xF0でKeyOn、
+    // 0x00でKeyOff)への書き込み履歴を調べ、新しいKeyOn(0xF0)より前に
+    // KeyOff(0x00)が書かれていることを確認する。
+    bool sawKeyOffCh0 = false;
+    bool sawKeyOnCh0AfterOff = false;
+    for (const auto& [addr, data] : port.history) {
+        if (addr != 0x28) continue;
+        if (data == 0x00) sawKeyOffCh0 = true;
+        if (data == 0xF0 && sawKeyOffCh0) sawKeyOnCh0AfterOff = true;
+    }
+    INFO("history size=" << port.history.size());
+    CHECK(sawKeyOffCh0);
+    CHECK(sawKeyOnCh0AfterOff);
+}
+
+// 上のテストは「デバイス全chが同一ownerで埋まっている(forceSteal)」という
+// やや特殊な状況を再現したものだったが、報告された「高速なベースライン」の
+// 症状はチャンネルに余裕がある通常のround-robin再利用(Releasing chの
+// score=4再利用、findBestCh参照)でも起きている可能性があるため、より
+// シンプルな「チャンネルに十分な余裕がある状態での通常の連続ノートオン/
+// オフ」でもKey Off→Key Onの順が保たれているかを別途検証する。
+TEST_CASE("Normal round-robin reuse of a Releasing channel still sends Key Off before Key On", "[sounddevice]")
+{
+    RecordingPort port;
+    auto dev = createCOPN(&port, 8000000); // 3ch (余裕あり、1noteしか使わない)
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+    DummyMidiCh owner;
+
+    // ここから先の全書き込み(元のノートのnoteOff→再利用のnoteOnまで)を
+    // 通しで記録し、Key Off(元ノート)がKey On(再利用後の新ノート)より
+    // 前に来ているかを確認する(途中でclearしない。noteOff()自体が
+    // 書くKey Offも検証対象に含める必要があるため)。
+    uint8_t ch1 = dev->allocCh(&owner, &patch, 100);
+    REQUIRE(ch1 != 0xFF);
+    dev->setNoteFine(ch1, 60, 0, true);
+    dev->noteOn(ch1, 100);
+    for (int t = 0; t < 5; ++t) dev->timerCallback(static_cast<uint32_t>(t));
+
+    port.history.clear();
+    dev->noteOff(ch1); // → Releasing (kReleasingHoldMs残り)、Key Offを書くはず
+
+    uint8_t ch2 = dev->allocCh(&owner, &patch, 100); // すぐ次のノート
+    REQUIRE(ch2 == ch1); // 同一owner+patchなのでscore=4で同じchを再利用するはず
+    dev->setNoteFine(ch2, 72, 0, true);
+    dev->noteOn(ch2, 100); // Key Onを書くはず
+
+    int keyOffIdx = -1, keyOnIdx = -1;
+    for (size_t i = 0; i < port.history.size(); ++i) {
+        const auto& [addr, data] = port.history[i];
+        if (addr != 0x28) continue;
+        if (data == static_cast<uint8_t>(ch1 & 3) && keyOffIdx < 0)
+            keyOffIdx = static_cast<int>(i);
+        if (data == static_cast<uint8_t>(0xF0 | (ch1 & 3)))
+            keyOnIdx = static_cast<int>(i);
+    }
+    INFO("keyOffIdx=" << keyOffIdx << " keyOnIdx=" << keyOnIdx
+         << " history size=" << port.history.size());
+    CHECK(keyOffIdx >= 0);
+    CHECK(keyOnIdx >= 0);
+    CHECK(keyOffIdx < keyOnIdx);
+}
+
+// 実機再現報告: モノフォニックにもレイヤードパッチにもしていない通常の
+// ポリフォニックチャンネルで、高速な連続ノートオン(ベースライン等)の際、
+// リリース中の同一chを再利用して次のノートを鳴らすと、聴感上アタックが
+// 再トリガーされず音程だけ滑らかに変化して聞こえるという報告の再現を試みる。
+//
+// ChState::wasReleasing は本来「run()直前がReleasing状態だったか」を見て、
+// リリース中の同一chへの再ノートオン時にキャリアOPのRRを強制的に最大化
+// (急速ダンプ)してからKey Onする「リリース中再トリガー対策」を発動させる
+// フラグである。しかし通常のポリフォニック経路(CSoundDevice::assignCh()
+// 経由)では、assign()がstatusをReleasing→Assignedへ書き換えてから
+// run()が呼ばれるため、run()側の「status==Releasing」判定は常にfalseに
+// なり、この対策が事実上一度も発動していなかった(2026年7月発見)。
+TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasReleasing and forces RR dump before Key On", "[sounddevice]")
+{
+    RecordingPort port;
+    auto dev = createCOPN(&port, 8000000); // 3ch
+    dev->init();
+
+    HwPatch patch{}; // ALG=0 → キャリアはop3のみ(kCarrierMask[0]=0x08)
+    patch.id = 1;
+    DummyMidiCh owner;
+
+    uint8_t ch1 = dev->allocCh(&owner, &patch, 100);
+    REQUIRE(ch1 != 0xFF);
+    dev->setNoteFine(ch1, 60, 0, true);
+    dev->noteOn(ch1, 100);
+    for (int t = 0; t < 5; ++t) dev->timerCallback(static_cast<uint32_t>(t));
+
+    port.history.clear();
+    dev->noteOff(ch1); // → Releasing
+
+    // releaseTimerが満了する前に、同一owner+patchで即座に次のノートオン
+    // (実際のログでは前のnoteOffから数msという間隔だった)。
+    uint8_t ch2 = dev->allocCh(&owner, &patch, 100);
+    REQUIRE(ch2 == ch1); // score=4でRelesing中の同じchを再利用するはず
+
+    const auto* cs = dev->getChState(ch2);
+    REQUIRE(cs != nullptr);
+    // assignCh()内のassign()呼び出し時点で、既にwasReleasing=trueが
+    // 確定していなければならない(この時点ではまだnoteOn()を呼んでいない
+    // = run()未実行だが、assign()がここまでで正しく検出しているはず)。
+    CHECK(cs->wasReleasing);
+
+    dev->setNoteFine(ch2, 72, 0, true);
+    dev->noteOn(ch2, 100);
+
+    // run()実行後もwasReleasingがtrueのまま保持されていること。
+    CHECK(cs->wasReleasing);
+
+    // op3(キャリア、ALG=0)のRRレジスタ(0x80+kOpMap[3]+ch=0x80+12+0=0x8C)へ
+    // SL<<4|0xF(RR強制最大化)が、Key On(reg 0x28, 0xF0)より前に
+    // 書かれていることを確認する。
+    int rrDumpIdx = -1, keyOnIdx = -1;
+    for (size_t i = 0; i < port.history.size(); ++i) {
+        const auto& [addr, data] = port.history[i];
+        if (addr == 0x8C && data == 0x0F && rrDumpIdx < 0) rrDumpIdx = static_cast<int>(i);
+        if (addr == 0x28 && data == 0xF0) keyOnIdx = static_cast<int>(i);
+    }
+    INFO("rrDumpIdx=" << rrDumpIdx << " keyOnIdx=" << keyOnIdx);
+    for (size_t i = 0; i < port.history.size(); ++i) {
+        INFO("write[" << i << "] addr=0x" << std::hex << (int)port.history[i].first
+             << " data=0x" << (int)port.history[i].second);
+    }
+    CHECK(rrDumpIdx >= 0);
+    CHECK(keyOnIdx >= 0);
+    CHECK(rrDumpIdx < keyOnIdx);
 }

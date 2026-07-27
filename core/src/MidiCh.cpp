@@ -510,8 +510,14 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
 // ----------------------------------------------------------------
 void CInstCh::noteOff(uint8_t note)
 {
-    if (mono_ && legato_) return;
-
+    // 以前は mono_&&legato_ のとき無条件で何もしない実装になっていたが、
+    // これだとレガート演奏で最後の鍵盤を離した際に本来のnoteOff()が一切
+    // 呼ばれず、そのチャンネルが永久にRunning状態のまま(ビブラート等の
+    // ソフトウェアLFOも含め)鳴り続けるバグがあった。レガート中に新しい
+    // ノートオンで前の音を奪う場合はnoteOn()側のmono_&&timbres_>0分岐が
+    // leaveNote()/enterNote()でnotes_[]のnote番号を差し替え済みのため、
+    // 奪われた古いノート番号のnoteOff()が後から来ても下のh.note!=noteの
+    // 一致判定で自然に無視される。よってここで特別扱いする必要はない。
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (!h.isValid()) continue;
@@ -531,7 +537,14 @@ void CInstCh::noteOff(uint8_t note)
             }
             leaveNote(hi);
         }
-        if (note != 0xFF) break; // 1音だけ止める
+        // ここでbreakしない: notes_[]はレイヤー単位のエントリのため、
+        // レイヤードパッチ(ToneLayer複数)では同一noteが複数hiスロットに
+        // またがって存在しうる(stealOldestNoteIfNeeded()の同種コメント
+        // 参照)。以前はnote一致した時点でbreakしており、2レイヤー目以降の
+        // 同一noteエントリが解放されないまま、対応するチャンネルが永久に
+        // Running状態(ビブラート等のソフトウェアLFOも含め)で鳴り続ける
+        // バグがあった(2026年7月修正、レジスタダンプモニターで演奏停止後も
+        // 一部chのF-number/TLレジスタが更新され続けると報告され発覚)。
     }
 }
 

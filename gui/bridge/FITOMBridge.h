@@ -281,7 +281,23 @@ public:
     void resetAllCtrl();
 
     // ─── タイマーコールバック (MFC タイマーから呼ぶ) ───────────────────
+    // 2026年7月時点でonTimer()を実際に呼んでいるのはapps/fitom_cli(独自の
+    // 1msスレッド)のみ。MFC実装は存在しない(コメントは移植元からの記述が
+    // 残っていたもの)。apps/fitom_gui(Dear ImGui)は従来GUIのレンダー
+    // ループから毎フレーム1回onTimer(1)を呼んでいたが、これは「1回の呼び
+    // 出し=1ms経過」という全チップドライバ共通の前提(releaseTimer減算・
+    // ソフトウェアLFOのtick単位)と食い違い、実際には約16ms(60fps)に1回
+    // しか呼ばれないため、kReleasingHoldMs(2000tick=本来2秒)等の
+    // 時間ベースの処理が実時間で約16倍(30秒以上)に間延びしてしまう
+    // バグがあった(2026年7月発見。「演奏停止後もレジスタが更新され続ける」
+    // 報告の根本原因)。startTimerThread()/stopTimerThread()
+    // (apps/fitom_cliが既に使っている、CFITOM側の本来の1ms専用スレッド)
+    // をfitom_gui側からも呼べるようラップして新設し、フレームレートに
+    // 依存しない正確な1msキックへ切り替える。onTimer()自体は後方互換の
+    // ため残す。
     void onTimer(uint32_t tick);
+    void startTimerThread(uint32_t intervalMs = 1);
+    void stopTimerThread();
 
     // ─── ステータスコールバック (GUI ステータスバー更新用) ──────────────
     using StatusCb = std::function<void(const std::string&)>;
