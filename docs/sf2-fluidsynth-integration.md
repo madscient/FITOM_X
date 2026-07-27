@@ -1,6 +1,6 @@
 # FluidSynth (SF2) 統合 技術検討
 
-**ステータス**: 設計はほぼ確定。以下は決定済み: `fluid_synth_t`は専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込め、FITOM_X本体は他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_WriteBlock`で生MIDIバイト列を渡すだけ)で扱う。`IHWPlugin.h`への新規追加は無い(既存プラグインへの埋め込み案・FITOM_Xコア本体への直接リンク案とも不採用。音声出力はこのプラグインが他のhwifと同じく自己完結し、ソフトウェアミックスは行わない)/ SF2直行パスへの切替方式(MPU×ch単位の「窓」をプロファイル+SysExで割り当て、CC#0は不使用)/ CC#32からSF2ファイル/内部バンクへの対応方式(`sf2_banks`による間接参照)/ MPU×chの窓割り当て方式(トップレベルプロパティ`sf2_channel_windows`)/ (**両スキーマとも`config_schema/profile.schema.json`に実装済み**)/ FITOM_Xを「CH変換付きMIDIパッチベイ」に徹させる方針(状態管理・クリーンアップ・ポリフォニー調整・`sf2_banks`未一致時のフォールバックを一切行わない)/ GUIスコープ(デバイス一覧・PatchPickerDialog対応は見送り、`sf2_channel_windows`編集用の専用ダイアログは新設)/ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録方式(`chip:"SF2"`→既存の`DEVICE_NONE`スキップ経路を流用、`soundfonts`一覧は`sf2_banks`から自動導出、複数`devices[]`が`chip=="SF2"`を使った場合は起動時エラー)。コード本体(`FitomSf2IF`プラグイン本体・`Sf2BankRegistry`・`sf2_channel_windows`の読み込み・GUIダイアログ等)は未着手。
+**ステータス**: 設計はほぼ確定。以下は決定済み: `fluid_synth_t`は専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込め、FITOM_X本体は他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_WriteBlock`で生MIDIバイト列を渡すだけ)で扱う。`IHWPlugin.h`への新規追加は無い(既存プラグインへの埋め込み案・FITOM_Xコア本体への直接リンク案とも不採用。音声出力はこのプラグインが他のhwifと同じく自己完結し、ソフトウェアミックスは行わない)/ SF2直行パスへの切替方式(MPU×ch単位の「窓」をプロファイル+SysExで割り当て、CC#0は不使用)/ CC#32からSF2ファイル/内部バンクへの対応方式(`sf2_banks`による間接参照)/ MPU×chの窓割り当て方式(トップレベルプロパティ`sf2_channel_windows`)/ (**両スキーマとも`config_schema/profile.schema.json`に実装済み**)/ FITOM_Xを「CH変換付きMIDIパッチベイ」に徹させる方針(状態管理・クリーンアップ・ポリフォニー調整・`sf2_banks`未一致時のフォールバックを一切行わない)/ GUIスコープ(デバイス一覧・PatchPickerDialog対応は見送り、`sf2_channel_windows`編集用の専用ダイアログは新設)/ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録方式(`chip:"SF2"`→既存の`DEVICE_NONE`スキップ経路を流用、`soundfonts`一覧は`sf2_banks`から自動導出、複数`devices[]`が`chip=="SF2"`を使った場合は起動時エラー)/ マスターボリューム/ピッチは新規プロトコルを設計せず、既存のGM2 Universal Realtime SysEx(8節、マスターボリューム`04 01`・マスターファインチューニング`04 03`)をそのまま`HWPlugin_WriteBlock`で転送するだけで済ませる。コード本体(`FitomSf2IF`プラグイン本体・`Sf2BankRegistry`・`sf2_channel_windows`の読み込み・GUIダイアログ等)は未着手。
 **検討日**: 2026年7月
 **検討の目的**: FITOM_Xに`fluidsynth`を組み込み、SF2サウンドフォントをシームレスに扱えるようにする(例: 特定のMIDIチャンネルをSF2音源へ振り分け、FITOM_X固有バンクと動的に共存させる)ことが、現在の構造のまま可能かどうかを検証する。
 
@@ -64,6 +64,8 @@ FluidSynthは公開APIレベルで既に3層に分離されている。
 **音声出力**:このプラグインは他のhwifプラグイン(FitomEmuIF等)と同じく、音声出力について自己完結する。自前のオーディオコールバックを実装して`fluid_synth_process()`をプルするか、fluidsynth自身の`fluid_audio_driver_t`をそのまま使うかは、このプラグインを実装する側の内部判断であり、FITOM_X本体の設計はどちらかを指定しない。FITOM_X本体は現状、複数のhwifプラグインインスタンスの音声出力をソフトウェア的に1つへミックスする機能を持たない(実機とエミュレータの混在時、複数エミュレータインスタンス使用時のいずれも、組み合わせはユーザー側の外部ミキシングに委ねている)。SF2ラッパーもこの既存の制約をそのまま引き継ぐ。したがって、こちらも`IHWPlugin.h`への新規追加は一切不要になった。
 
 **トレードオフ**:SF2の音声を他のFM系エミュレーションと同一ストリームにソフトウェアミックスすることはできない(組み合わせたい場合は外部ミキシングが必要)。ただしこれはSF2固有の新しい制約ではなく、既存の複数プラグイン併用時の制約をそのまま引き継いだだけであり、SF2のために新しい妥協を持ち込んだわけではない。
+
+**マスターボリューム/マスターピッチも既存のGM2 Universal Realtime SysExをそのまま転送するだけで済む**。マニュアル8節に既に「マスターボリューム(`F0 7F <dev> 04 01 ll mm F7`)」「マスターファインチューニング(`F0 7F <dev> 04 03 ll mm F7`)」が定義されており、FITOM_Xは外部MIDI機器からこれらを**受信**した際の解釈は既に持っている。`master_volume`/`master_pitch`(430–450Hz、440Hz中心で±100セント以内に収まるため、コースチューニングは不要でファインチューニングのみで足りる)が変化した際、同じバイト列を**構築してSF2ラッパーのハンドルへ`HWPlugin_WriteBlock`で送るだけ**でよい。新規のプライベートSysExを設計する必要はない。fluidsynth(または ラッパー内部の実装)がこれらの標準SysExを実際にどう処理するか(`fluid_synth_sysex()`が対応しているか、対応していなければラッパー側で自前解釈してゲイン/チューニングAPIを呼ぶか)は、別リポジトリであるラッパープラグイン側の実装詳細であり、FITOM_X側の設計はここまでで完結する。
 
 ### ③ FITOM_X本体側:「SF2直行パス」を新設(CC#0による切替は不採用)
 
@@ -206,7 +208,6 @@ F0 00 48 01 05 <chan> <soundfont_index> <sf2_bank_msb> <sf2_bank_lsb> <prog> F7
 - **マニュアルに「SF2直行パス」概念そのものの節を新設する**:2.2節(バンクセレクト/プログラムチェンジ)に④番目の動作モードとして追記するか、独立した節を新設するかを含め、実装時に構成を決める。窓(`sf2_channel_windows`)の説明、CC#0を転送しない旨、SysEx `sub-cmd 0x04`(窓の動的割り当て)・`sub-cmd 0x05`(バンク/プログラム選択)の仕様(8.1節相当の書式で追記)を含む。ただし`sub-cmd 0x05`はエンドユーザーが直接送るものではなくFITOM_X内部(コア↔ラッパープラグイン間)のみで完結するプロトコルのため、エンドユーザー向けマニュアルに載せる必要があるかどうか自体も実装時に判断する(`sub-cmd 0x03`のチャンネル割り当て通知が、パッチエディタとの内部連携用として`docs/plugin-midi-pipe.md`側に記載され本マニュアルには無いのと同種の扱いになる可能性がある)。上記のRPN/NRPN追記文言は、いずれもこの節の存在を前提にしている。
 - **`docs/patch-structure-design.md`の「相対パスの解決基点」節の一覧を更新する**:`Sf2BankRegistry`のローダー実装時に、`banks.*[].file`の列挙(現在hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)に`sf2_banks`を追加する(スキーマは追加済みだがローダー未実装のため、現時点ではまだ追加していない)。
 - **`params_json`の`soundfonts`配列と`Sf2BankRegistry`の同期の具体的なクラス設計**:⑥で「FITOM_Xが`sf2_banks`から自動導出する」と方針は決まったが、`HWPlugin_Open()`に渡す`soundfonts`配列の順序と、`Sf2BankRegistry`がsub-cmd 0x05で送る`soundfont_index`が常に整合するよう、同じ「重複除去済みファイル一覧」を1箇所で構築して両方に使うロジックの具体的なクラス設計は未定。
-- **マスターボリューム/マスターピッチ(`master_volume`/`master_pitch`)のSF2出力への適用**:`fluid_synth_t`はSF2ラッパープラグイン内に閉じているため、FITOM_XコアはPCMそのものに触れられない。適用するとすれば、①②の生MIDIバイト列転送とは別に、マスターボリューム/ピッチの変更をラッパーへ伝える専用のプライベートSysExを新設し、ラッパー内部でfluidsynth自身のゲイン/チューニングAPIを呼んでもらう形になる。実際に適用するかどうか、そのための専用SysExを追加するかどうかは未検討。
 - **`docs/plugin-hwif.md`(HW I/Fプラグイン要件定義)への反映**:SF2ラッパープラグインは既存の`IHWPlugin`契約をそのまま使う(新規関数は無い)ため、同ドキュメントの構造自体は変わらないが、実装例として「MIDIバイト列を`HWPlugin_WriteBlock`で受け取り内部でパースする」パターンをどこかに追記するかは実装時に判断する。
 
 ---
