@@ -252,14 +252,21 @@ public:
     bool        setSwPatchJson(int bankNo, int prog, const std::string& json);
 
     // 指定チャンネル(mpuIndex/ch)が現在選択している(CC#0/#32/プログラム
-    // チェンジの値、未受信なら初期値=PatchBank0/Prog0扱い)HwPatchに
-    // ついて、その元になった *.hwbank.json のファイルパスとprog番号を
-    // 解決する。発音履歴(ノートオン)には依存しない。外部パッチエディタ
-    // (FITOM_patch_editor)をキオスクモードで起動する際の引数として使う
-    // 想定。解決できない場合(リズムチャンネル、AWM等HwBankを使わない
-    // 音色、対応するHwBankが見つからない等)はfalseを返す。
-    bool resolveChannelHwPatch(int mpuIndex, int ch,
-                                std::string& outHwBankFile, int& outProgNo) const;
+    // チェンジの値、未受信なら初期値=PatchBank0/Prog0扱い)パッチについて、
+    // 外部パッチエディタ(FITOM_patch_editor)をキオスクモードで起動する
+    // 際の引数(<kind> <bank-file> <prog>、FITOM_patch_editor側
+    // docs/DESIGN.md D-039/D-040参照)を解決する。発音履歴(ノートオン)には
+    // 依存しない。
+    // outKindは"device"(直接デバイス選択モード、bankSelMSB!=0。
+    // outBankFile=*.hwbank.json、outProgNo=HW prog)または
+    // "layered"(通常モード、bankSelMSB==0。outBankFile=*.patchbank.json、
+    // outProgNo=レイヤードPatchのprog、そのPatchが実際に何層のToneLayerを
+    // 持つかに関わらずこちらになる)のいずれかを返す。performance/drumは
+    // 「チャンネルの現在のパッチ」になることが無いため対象外(D-039参照)。
+    // 解決できない場合(リズムチャンネル、AWM等HwBank/PatchBankを使わない
+    // 音色、対応するバンクが見つからない等)はfalseを返す。
+    bool resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKind,
+                                std::string& outBankFile, int& outProgNo) const;
 
     // ─── マスターボリューム ──────────────────────────────────────────────
     void    setMasterVolume(uint8_t vol);
