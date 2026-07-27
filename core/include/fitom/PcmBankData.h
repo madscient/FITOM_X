@@ -76,6 +76,12 @@ struct PcmEntry {
     // SampleZone::rootNoteへそのまま渡す用。PatchManager::loadPcmBankJson()
     // がgroup指定時にnamed patchを自動合成する際に使う)。
     uint8_t  rootNote    = 69;
+    // パフォーマンスパッチ(SwPatch)参照。-1=参照なし。pcmbank.jsonの
+    // トップレベル"swpatches"配列(entry_noで対応づけ)から読み込む。
+    // 自動合成されるSampleZone::swBank/swProgへそのまま渡す
+    // (2026年7月新設、docs/patch-structure-design.md参照)。
+    int8_t   swBank      = -1;
+    int8_t   swProg      = -1;
 
     PcmEntry() noexcept { name[0] = '\0'; }
 

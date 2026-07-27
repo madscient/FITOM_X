@@ -241,6 +241,22 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
         updateVoice(ch);
     } else if (samplePatch) {
         s.samplePatch = samplePatch;
+        // サンプルベース音源系(AWM/ADPCM-B/ADPCM-A/PCMD8)向け。
+        // usesVoiceProcessorForSamplePatch()がtrueのチップ(音量計算が
+        // effectiveTL()経由の設計)のみ、patch分岐と同様にonNoteOn()を
+        // 呼んでSwPatch(トレモロ/VTL感度/チャンネルLFO)を有効化する
+        // (2026年7月新設。以前はswPatch引数が完全に無視されており、
+        // 該当チップの音量がVolume/Expression/Velocityを無視して常に
+        // 最大になる既存バグもあった、ISoundDevice.hのコメント参照)。
+        if (usesVoiceProcessorForSamplePatch()) {
+            FmVoice dummy; // PCM系はHwPatchを持たないため既定値のまま
+            if (swPatch) {
+                dummy.sw = swPatch->sw;
+                for (int i = 0; i < 4; ++i) dummy.swOp[i] = swPatch->swOp[i];
+            }
+            s.proc.onNoteOn(sampleVoiceProcessorVolume(ch), s.expression, vel,
+                             dummy, computeCarrierMask(ch));
+        }
         updateVoice(ch);
     }
     return ch;
@@ -392,7 +408,18 @@ void CSoundDevice::setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool upda
     auto& s = chState_[ch];
     s.lastNote = note;
     s.fineFreq  = fine;
-    if (update) updateFnumber(ch, true);
+    if (update) {
+        updateFnumber(ch, true);
+        // サンプルベース音源系(SampleZonePatch)は、waveIndex等のゾーン
+        // 依存の状態がupdateVoice()内でs.lastNote基準に解決される。
+        // assignCh()内のupdateVoice()呼び出しは、この関数が呼ばれる前の
+        // 段階(=s.lastNoteがまだ正しいノートに更新されていない段階)で
+        // 実行されるため、正しいノートが確定したこの時点で改めて
+        // 呼び直す必要がある(2026年7月、この再呼び出しが無く常に
+        // 1つ前のノート、または初回は0xFFでゾーンが決まっていた
+        // 既存バグを修正)。
+        if (s.samplePatch) updateVoice(ch);
+    }
 }
 
 void CSoundDevice::setVolume(uint8_t ch, uint8_t vol, bool update)

@@ -300,6 +300,19 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // 等)は、無指定時と同じ扱いとしてrl->swPatchにソフトフォール
         // バックする(DrumNote::swBank/swProgと同じ規約)。
         const SwPatch* baseSwPatch = rl->swPatch;
+        // サンプルベース音源系(samplePatch経由)はresolveTriple()が
+        // rl->swPatchを解決しない(Program Change時点ではまだノートが
+        // 分からずゾーンを特定できないため)。ここでノート・ベロシティが
+        // 確定した時点で、実際に一致するゾーン自身のswBank/swProgを
+        // HwPatchの「自身の参照」層と同じ位置づけで解決する
+        // (2026年7月新設。SampleZone::swBank/swProgのチップ別対応制約は
+        // PatchData.h参照)。
+        if (!baseSwPatch && samplePatch && patchMgr_) {
+            if (const SampleZone* zone = samplePatch->resolveZone(
+                    static_cast<uint8_t>(transposed), vel)) {
+                baseSwPatch = patchMgr_->resolveSwPatch(zone->swBank, zone->swProg);
+            }
+        }
         if (swBankOverride_ >= 0 && patchMgr_) {
             const SwPatch* overridden = patchMgr_->resolveSwPatch(swBankOverride_, swProgOverride_);
             if (overridden) baseSwPatch = overridden;
@@ -1568,6 +1581,19 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         // 無効(rl->layer/hwPatchが無い状態)として返すため、この関数の
         // 先頭で既にスキップされている。
         //
+        // ベロシティ (vol + NRPN)
+        int adjVel = static_cast<int>(vel) + adj.vel;
+        adjVel = std::clamp(adjVel, 1, 127);
+
+        // ノート: DrumNote.playNote を絶対指定、ToneLayer.transpose は無視
+        // (ドラムはトランスポーズより play_note の絶対指定が自然)。
+        // SwPatch.fineTransposeも同じ理由で、ここでは意図的に適用しない。
+        // (2026年7月、下のsamplePatchゾーン解決がnote/velを必要とする
+        // ため、assignCh呼び出しより前に計算するよう前倒しした)
+        int playNote = static_cast<int>(dn.playNote) + adj.pitch;
+        playNote = std::clamp(playNote, 0, 127);
+        int16_t fine = static_cast<int16_t>(dn.fineTune);
+
         // このノートに適用すべきSwPatch(パフォーマンスパッチ)。
         // DrumNote.swBank/swProgによる上書き(layer[0]専用の制約)は
         // resolveNote()内で事前に解決・キャッシュ済み
@@ -1577,10 +1603,19 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         // pendingSwPatch機構を廃止して単純化)。
         const SwPatch* effectiveSwPatch =
             (li == 0) ? noteCache_[midiNote].effectiveSwPatch0 : rl->swPatch;
-
-        // ベロシティ (vol + NRPN)
-        int adjVel = static_cast<int>(vel) + adj.vel;
-        adjVel = std::clamp(adjVel, 1, 127);
+        // サンプルベース音源系(samplePatch経由)は、上記までの解決が
+        // 常にnullptrになる(resolveTriple/resolveNoteはノート未確定の
+        // Program Change相当のタイミングで走るため、ゾーンを特定できない)。
+        // ここでplayNote/adjVelが確定した時点で、実際に一致するゾーン
+        // 自身のswBank/swProgを解決する(HwPatch側の「自身の参照」層と
+        // 同じ位置づけ。2026年7月新設)。
+        if (!effectiveSwPatch && samplePatch) {
+            if (const SampleZone* zone = samplePatch->resolveZone(
+                    static_cast<uint8_t>(playNote), static_cast<uint8_t>(adjVel))) {
+                effectiveSwPatch = fitom_->getPatchManager().resolveSwPatch(
+                    zone->swBank, zone->swProg);
+            }
+        }
 
         uint8_t devCh = 0xFF;
         if (rl->forcedCh >= 0) {
@@ -1606,12 +1641,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         adjPan = std::clamp(adjPan, -64, 63);
         dev->setPanpot(devCh, static_cast<int8_t>(adjPan), false);
 
-        // ノート: DrumNote.playNote を絶対指定、ToneLayer.transpose は無視
-        // (ドラムはトランスポーズより play_note の絶対指定が自然)。
-        // SwPatch.fineTransposeも同じ理由で、ここでは意図的に適用しない。
-        int playNote = static_cast<int>(dn.playNote) + adj.pitch;
-        playNote = std::clamp(playNote, 0, 127);
-        int16_t fine = static_cast<int16_t>(dn.fineTune);
+        // ノート/ファインチューン設定(playNote/fineは上で計算済み)。
         dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, true);
 
         dev->noteOn(devCh, static_cast<uint8_t>(adjVel));

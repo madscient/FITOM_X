@@ -98,14 +98,7 @@ public:
     // (該当なしなら最初のゾーンにフォールバック)。
     // ────────────────────────────────────────────────────────────
     const SampleZone* resolveSampleZone(const ChState& s) const {
-        if (!s.samplePatch || s.samplePatch->zones.empty()) return nullptr;
-        for (const auto& z : s.samplePatch->zones) {
-            if (s.lastNote >= z.keyMin && s.lastNote <= z.keyMax &&
-                s.velocity  >= z.velMin && s.velocity  <= z.velMax) {
-                return &z;
-            }
-        }
-        return &s.samplePatch->zones[0]; // フォールバック: 最初のゾーン
+        return s.samplePatch ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr;
     }
 
     // entries[]のoffset(バイト単位、adpcm_packer出力のstart_offset
@@ -374,6 +367,18 @@ protected:
         setReg(reg_.volume, static_cast<uint8_t>(vol << 1));
     }
 
+    // このチップの音量はeffectiveTL(0)のみで決まる設計のため、
+    // samplePatch分岐でもVoiceProcessor::onNoteOn()を呼び、SwPatchの
+    // トレモロ/VTL感度/チャンネルLFOを有効化する(2026年7月新設)。
+    bool usesVoiceProcessorForSamplePatch() const override { return true; }
+
+    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する
+    // (2026年7月、従来no-opだったためトレモロが継続的に反映されなかった
+    // バグを修正)。
+    void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t /*tl*/) override {
+        updateVolExp(ch);
+    }
+
     void updatePanpot(uint8_t ch) override {
         int8_t pan = chState_[ch].panpot;
         uint8_t chena = (pan > 20) ? 0x40 : (pan < -20) ? 0x80 : 0xC0;
@@ -480,8 +485,12 @@ protected:
 
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        // チャンネルレジスタ: velocity×expression のみ (vol=127固定相当)
-        uint8_t vev = fitom::calcVolExpVel(127, s.expression, s.velocity);
+        // チャンネルレジスタ: velocity×expression(+SwPatchのVTL感度/
+        // トレモロ)のみ (vol=127固定相当)。effectiveTL(0)は
+        // sampleVoiceProcessorVolume()が常にvol=127を渡すことで、この
+        // vol中立化を維持したまま計算される(2026年7月、従来のcalcVolExpVel
+        // 直接呼び出しから置き換え。総合音量レジスタ側は無変更)。
+        uint8_t vev = 127u - s.proc.effectiveTL(0);
         uint8_t evol = 31u - fitom::linear2dB(vev, RANGE24DB, STEP075DB, 5);
         setReg(static_cast<uint16_t>(0x08 + ch),
                static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x08 + ch)) & 0xC0) | evol), true);
@@ -489,6 +498,22 @@ protected:
         // 総合音量レジスタ: MIDI Volume(CC#7) のみ反映 (全ch共通)
         uint8_t mvol = 63u - fitom::linear2dB(s.volume, RANGE48DB, STEP075DB, 6);
         if (getReg(0x01) != mvol) setReg(0x01, mvol, true);
+    }
+
+    // このチップの音量計算はvol(CC7)を意図的に除外した設計(上記コメント
+    // 参照)のため、samplePatch分岐でもVoiceProcessor::onNoteOn()を呼び、
+    // SwPatchのVTL感度/トレモロを有効化する。チャンネルLFO(ビブラート)は
+    // updateFreq()がno-op(ピッチ制御非対応チップ)のため実質無効のままだが、
+    // onNoteOn自体は無害(2026年7月新設)。
+    bool usesVoiceProcessorForSamplePatch() const override { return true; }
+
+    // 総合音量レジスタ(vol由来)とチャンネル計算(effectiveTL)を分離する
+    // 既存設計を維持するため、onNoteOn()へは常にvol=127(中立値)を渡す。
+    uint8_t sampleVoiceProcessorVolume(uint8_t) const override { return 127; }
+
+    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する。
+    void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t /*tl*/) override {
+        updateVolExp(ch);
     }
 
     void updatePanpot(uint8_t ch) override {
@@ -664,6 +689,11 @@ protected:
                static_cast<uint8_t>((loudness << 1) | (loudness >> 6)), false);
     }
 
+    // このチップの音量はeffectiveTL(0)のみで決まる設計のため、
+    // samplePatch分岐でもVoiceProcessor::onNoteOn()を呼び、SwPatchの
+    // トレモロ/VTL感度/チャンネルLFOを有効化する(2026年7月新設)。
+    bool usesVoiceProcessorForSamplePatch() const override { return true; }
+
     // Panpot (4bit、16段階)。中央=8相当 (データシートに中央値の明記は
     // ないため、16段階の中央=8と仮定)。
     void updatePanpot(uint8_t ch) override {
@@ -674,7 +704,13 @@ protected:
     }
 
     void updateSustain(uint8_t /*ch*/) override {}
-    void updateTL(uint8_t, uint8_t, uint8_t) override {}
+
+    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する
+    // (2026年7月、従来no-opだったためトレモロが継続的に反映されなかった
+    // バグを修正)。
+    void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t /*tl*/) override {
+        updateVolExp(ch);
+    }
 
     // KON(bit7)。MD1MD0=01(4bit ADPCM)固定。FN8ビットは保持する。
     void updateKey(uint8_t ch, bool keyOn) override {

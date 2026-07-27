@@ -790,11 +790,14 @@ ToneLayer jsonToToneLayer(const json& j) {
 //  A4=440Hz基準を使うため、ベロシティレイヤーを使わないシンプルな
 //  キーゾーンのみのバンクは最小限の記述で書ける)。
 json sampleZoneToJson(const SampleZone& z) {
-    return json{
+    json j{
         {"key_min", z.keyMin}, {"key_max", z.keyMax},
         {"vel_min", z.velMin}, {"vel_max", z.velMax},
         {"wave_index", z.waveIndex}, {"root_note", z.rootNote}
     };
+    if (z.swBank >= 0) j["sw_bank"] = z.swBank;
+    if (z.swProg >= 0) j["sw_prog"] = z.swProg;
+    return j;
 }
 SampleZone jsonToSampleZone(const json& j) {
     SampleZone z;
@@ -804,6 +807,8 @@ SampleZone jsonToSampleZone(const json& j) {
     if (j.contains("vel_max"))    z.velMax    = j["vel_max"].get<uint8_t>();
     if (j.contains("wave_index")) z.waveIndex = j["wave_index"].get<uint16_t>();
     if (j.contains("root_note"))  z.rootNote  = j["root_note"].get<uint8_t>();
+    if (j.contains("sw_bank"))    z.swBank    = static_cast<int8_t>(j["sw_bank"].get<int>());
+    if (j.contains("sw_prog"))    z.swProg    = static_cast<int8_t>(j["sw_prog"].get<int>());
     return z;
 }
 json sampleZonePatchToJson(const SampleZonePatch& p) {
@@ -1720,6 +1725,22 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
             }
         }
 
+        // swpatches[]: entries[](adpcm_json由来も直接記述も)の各entry_noに
+        // 1:1でパフォーマンスパッチ(SwPatch)を紐づける(2026年7月新設)。
+        // entries[]のロードより後に処理することで、直接記述優先の規約と
+        // 独立して常に正しいentry_noへ反映できる。
+        if (j.contains("swpatches") && j["swpatches"].is_array()) {
+            for (const auto& sj : j["swpatches"]) {
+                int no = sj.value("entry_no", -1);
+                if (no < 0 || no >= PCM_MAX_ENTRIES) continue;
+                PcmEntry e = bank.getEntry(static_cast<uint8_t>(no));
+                if (!e.isValid()) continue;
+                if (sj.contains("sw_bank")) e.swBank = static_cast<int8_t>(sj["sw_bank"].get<int>());
+                if (sj.contains("sw_prog")) e.swProg = static_cast<int8_t>(sj["sw_prog"].get<int>());
+                bank.setEntry(static_cast<uint8_t>(no), e);
+            }
+        }
+
         // バイナリを読み込む
         bank.loadBinary(baseDir);
 
@@ -1758,6 +1779,8 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
                 SampleZone z;
                 z.waveIndex = static_cast<uint16_t>(i);
                 z.rootNote  = e.rootNote;
+                z.swBank    = e.swBank;
+                z.swProg    = e.swProg;
                 p.zones.push_back(z);
                 sampleBank.set(i, p);
                 ++synthCount;
@@ -1792,6 +1815,15 @@ bool PatchManager::savePcmBankJson(const std::filesystem::path& path, int bankNo
             {"padded_size", e.paddedSize}
         });
     }
+    json swpatches = json::array();
+    for (int i = 0; i < PCM_MAX_ENTRIES; ++i) {
+        const auto& e = bank->getEntry(static_cast<uint8_t>(i));
+        if (!e.isValid() || e.swBank < 0) continue;
+        json sj{{"entry_no", i}, {"sw_bank", e.swBank}};
+        if (e.swProg >= 0) sj["sw_prog"] = e.swProg;
+        swpatches.push_back(sj);
+    }
+
     json out = {
         {"name",        bank->name},
         {"codec",       bank->codec},
@@ -1800,6 +1832,7 @@ bool PatchManager::savePcmBankJson(const std::filesystem::path& path, int bankNo
         {"bin_file",    bank->binPath},
         {"entries",     entries}
     };
+    if (!swpatches.empty()) out["swpatches"] = swpatches;
     std::ofstream ofs(path);
     if (!ofs) return false;
     ofs << out.dump(2);

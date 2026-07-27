@@ -66,6 +66,28 @@
           }
         }
       }
+    },
+    "swpatches": {
+      "type": "array",
+      "description": "entries[](adpcm_json由来・直接記述のいずれも)の各サンプルに1:1でパフォーマンスパッチ(SwPatch)を紐づける(2026年7月新設)。省略可。voicePatchType指定によりentries[]から自動合成されるSampleZonePatch(PatchManager::loadPcmBankJson参照)の各ゾーンへ、entry_noで対応づけてswBank/swProgが反映される。DrumNote側の個別上書きがあればそちらが優先される(既存のHwPatch.sw_bank/sw_progと同じソフトフォールバック規約)。**対応チップの制約(2026年7月時点)**: ADPCM-B/PCMD8はSwPatch全機能(チャンネルLFO/トレモロ/ベロシティ感度/fine_transpose)が有効。ADPCM-Aはピッチ制御ができないためベロシティ感度・トレモロのみ有効(チャンネルLFO/fine_transposeは無効)。",
+      "items": {
+        "type": "object",
+        "required": ["entry_no"],
+        "properties": {
+          "entry_no": {
+            "type": "integer", "minimum": 0, "maximum": 127,
+            "description": "対応するentries[].entry_no(adpcm_json由来の場合は出現順に0から自動採番された値)。"
+          },
+          "sw_bank": {
+            "type": "integer", "minimum": -1, "maximum": 127, "default": -1,
+            "description": "参照先SwPatchのバンク番号。-1(省略時)=参照なし。"
+          },
+          "sw_prog": {
+            "type": "integer", "minimum": -1, "maximum": 127, "default": -1,
+            "description": "sw_bankと組で使う、参照先のプログラム番号。"
+          }
+        }
+      }
     }
   },
   "examples": [

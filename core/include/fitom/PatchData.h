@@ -349,6 +349,20 @@ struct SampleZone {
     //  ここに残している)
     uint8_t  rootNote = 69;  // 既定: A4 (MIDI note 69)。旧FITOM ADPCM-B
                               // の暗黙の基準ピッチ規約に合わせている。
+
+    // ─── パフォーマンスパッチ(SwPatch)参照 ────────────────────────
+    // HwPatch::swBank/swProgと同じ意味・同じソフトフォールバック規約
+    // (-1=参照なし、指定先が解決できなくてもゾーン自体の発音は妨げない)。
+    // 2026年7月新設。DrumNote側に個別の上書き指定があれば、そちらが優先
+    // される(詳細はdocs/patch-structure-design.md参照)。
+    // 【対応チップの制約】ADPCM-B/PCMD8は全機能(チャンネルLFO/トレモロ/
+    // VTL感度/fine_transpose)が有効。ADPCM-Aはピッチ制御が無いため
+    // VTL感度/トレモロのみ有効(チャンネルLFO/fine_transposeは無効)。
+    // AWMは実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が
+    // 別途必要なため、現状この参照は解決されるが音には反映されない
+    // (2026年7月時点、docs/patch-structure-design.md参照)。
+    int8_t   swBank    = -1;
+    int8_t   swProg    = -1;
 };
 
 // 1プログラムぶんのゾーン列。ノート・ベロシティに応じて↑を線形探索し、
@@ -363,6 +377,19 @@ struct SampleZonePatch {
     SampleZonePatch() noexcept : id(0xFFFFFFFFu) { name[0] = '\0'; }
 
     bool isValid() const noexcept { return id != 0xFFFFFFFFu; }
+
+    // ノート・ベロシティに一致する最初のゾーンを返す(該当なしなら
+    // zones[0]にフォールバック、zones自体が空ならnullptr)。COPL4AWM/
+    // CAdPcmBaseに重複していた線形探索を統一する正準実装(2026年7月)。
+    const SampleZone* resolveZone(uint8_t note, uint8_t vel) const noexcept {
+        for (const auto& z : zones) {
+            if (note >= z.keyMin && note <= z.keyMax &&
+                vel  >= z.velMin && vel  <= z.velMax) {
+                return &z;
+            }
+        }
+        return zones.empty() ? nullptr : &zones[0];
+    }
 };
 
 // ================================================================

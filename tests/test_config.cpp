@@ -154,6 +154,9 @@ TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
              {"start_offset", 0}, {"end_offset", 255}, {"size", 200}, {"padded_size", 256}},
             {{"entry_no", 1}, {"name", "snare"},
              {"start_offset", 256}, {"end_offset", 511}, {"size", 200}, {"padded_size", 256}}
+        })},
+        {"swpatches", json::array({
+            {{"entry_no", 0}, {"sw_bank", 2}, {"sw_prog", 5}}
         })}
     };
     fs::path pcmbankPath = dir / "test.pcmbank.json";
@@ -190,6 +193,8 @@ TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
     REQUIRE(p0.zones.size() == 1);
     CHECK(p0.zones[0].waveIndex == 0);
     CHECK(p0.zones[0].rootNote == 60); // entries[]で明示指定した値
+    CHECK(p0.zones[0].swBank == 2);    // swpatches[]から反映
+    CHECK(p0.zones[0].swProg == 5);
 
     const auto& p1 = sampleBank->get(1);
     REQUIRE(p1.isValid());
@@ -197,6 +202,58 @@ TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
     REQUIRE(p1.zones.size() == 1);
     CHECK(p1.zones[0].waveIndex == 1);
     CHECK(p1.zones[0].rootNote == 69); // root_note省略時のデフォルト(A4)
+    CHECK(p1.zones[0].swBank == -1);   // swpatches[]未指定
+    CHECK(p1.zones[0].swProg == -1);
+}
+
+TEST_CASE("SampleZonePatch::resolveZone: key/velocity range matching with fallback",
+          "[patchdata][samplezone]")
+{
+    fitom::SampleZonePatch patch;
+    fitom::SampleZone low;
+    low.keyMin = 0; low.keyMax = 59; low.velMin = 0; low.velMax = 127;
+    low.waveIndex = 100;
+    fitom::SampleZone high;
+    high.keyMin = 60; high.keyMax = 127; high.velMin = 0; high.velMax = 63;
+    high.waveIndex = 101;
+    fitom::SampleZone highLoud;
+    highLoud.keyMin = 60; highLoud.keyMax = 127; highLoud.velMin = 64; highLoud.velMax = 127;
+    highLoud.waveIndex = 102;
+    patch.zones = { low, high, highLoud };
+
+    SECTION("キー範囲による選択") {
+        const auto* z = patch.resolveZone(40, 100);
+        REQUIRE(z != nullptr);
+        CHECK(z->waveIndex == 100);
+    }
+
+    SECTION("ベロシティレイヤーによる選択") {
+        const auto* zSoft = patch.resolveZone(72, 30);
+        REQUIRE(zSoft != nullptr);
+        CHECK(zSoft->waveIndex == 101);
+
+        const auto* zLoud = patch.resolveZone(72, 100);
+        REQUIRE(zLoud != nullptr);
+        CHECK(zLoud->waveIndex == 102);
+    }
+
+    SECTION("該当ゾーンが無い場合はzones[0]にフォールバック") {
+        // note=200相当は呼び出し側の責務外だが、境界外velで検証する
+        // (uint8_tの範囲内で「どのゾーンにも一致しない」ケースを作る)
+        fitom::SampleZonePatch narrow;
+        fitom::SampleZone only;
+        only.keyMin = 10; only.keyMax = 10; only.velMin = 10; only.velMax = 10;
+        only.waveIndex = 5;
+        narrow.zones = { only };
+        const auto* z = narrow.resolveZone(0, 0); // 一致しないがフォールバック
+        REQUIRE(z != nullptr);
+        CHECK(z->waveIndex == 5);
+    }
+
+    SECTION("zonesが空ならnullptr") {
+        fitom::SampleZonePatch empty;
+        CHECK(empty.resolveZone(60, 100) == nullptr);
+    }
 }
 
 TEST_CASE("FITOMConfig: pcm_banks[] without group keeps legacy behavior "
