@@ -7,6 +7,7 @@
 #include "fitom/PatchData.h"
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/Sf2BankRegistry.h"
 
 #include <cstdint>
 #include <string>
@@ -72,6 +73,13 @@ struct DeviceEntry {
     // port(+stereoPairPort) と spanGroups それぞれに ISoundDevice を
     // 生成し CSpanDevice で束ねる。
     std::vector<PortGroup>          spanGroups;
+
+    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用のラッパー
+    // デバイス(chip:"SF2")かどうか。deviceType は他の未知チップ文字列と
+    // 同じくDEVICE_NONEになるが、これは意図したスキップであるため、
+    // CFITOM::initDevices()が「deviceType unknown」警告を出さずに区別
+    // できるようにするためのフラグ(2026年7月新設)。
+    bool                            isSf2       = false;
 };
 
 class IPortFactory {
@@ -124,6 +132,21 @@ public:
     // リズムモード (OPLL/OPL系等、チップ内蔵リズム音源の有効/無効)
     bool             getDeviceRhythmMode(int index) const;
     std::string      getDeviceLabel(int index)     const;
+    // SF2直行パス用ラッパーデバイス(chip:"SF2")かどうか。
+    bool             isSf2Device(int index)        const;
+
+    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+    // banks.sf2_banks[]から構築されたレジストリ(CC#32解決・soundfonts一覧)。
+    const Sf2BankRegistry& getSf2BankRegistry() const { return sf2Banks_; }
+
+    // トップレベルsf2_channel_windows[]の静的設定一覧。CFITOM::init()が
+    // これを初期状態として窓テーブルへ反映する。
+    struct Sf2ChannelWindow {
+        uint8_t mpu;
+        uint8_t ch;
+        uint8_t fluidsynthChan;
+    };
+    const std::vector<Sf2ChannelWindow>& getSf2ChannelWindows() const { return sf2ChannelWindows_; }
 
     // 同種デバイス自動束ね: このデバイスと束ねる追加ポートグループ数、
     // および k番目 (0-indexed) の追加ポートグループの主/ステレオペアポートを返す。
@@ -256,6 +279,19 @@ protected:
     // profile の banks.drum_banks[] を PatchManager に登録する
     void loadDrumBanks(const nlohmann::json& j, PatchManager& pm,
                         const std::filesystem::path& baseDir);
+
+    // ─── SF2直行パス (2026年7月新設) ──────────────────────────────────────
+    // banks.sf2_banks[]をパースしsf2Banks_を構築する。devices[]のビルド
+    // (buildDevice()、chip:"SF2"のparams_json組み立て)より前に、
+    // buildFromProfile()の先頭付近で1回だけ呼ぶ(Sf2BankRegistryが
+    // soundfonts一覧を確定させるため)。PatchManagerに依存しないため
+    // patchMgr==nullptrでも常に実行する。
+    void loadSf2Banks(const nlohmann::json& j, const std::filesystem::path& baseDir);
+    // トップレベルsf2_channel_windows[]をパースし、sf2ChannelWindows_を
+    // 構築する。fluidsynth_chanの重複・エントリ数(<=16)を検証し、違反時は
+    // 空にしてfalseを返す(呼び出し元はプロファイル読み込み全体を失敗させる)。
+    bool loadSf2ChannelWindows(const nlohmann::json& j);
+
     virtual void validateProfile();
     virtual void loadLegacyManualDevices(const nlohmann::json& ini);
 
@@ -273,6 +309,10 @@ protected:
 
     uint8_t     masterVolume_    = 100;
     double      masterPitch_     = 440.0;
+
+    // ─── SF2直行パス (2026年7月新設) ──────────────────────────────────────
+    Sf2BankRegistry               sf2Banks_;
+    std::vector<Sf2ChannelWindow> sf2ChannelWindows_;
 
     nlohmann::json systemConf_;
     nlohmann::json profileJson_;

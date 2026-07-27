@@ -14,6 +14,7 @@ set(FITOM_CORE_SOURCES
     src/HWPort.cpp
     src/MidiManager.cpp
     src/Config.cpp
+    src/Sf2BankRegistry.cpp
     src/PatchManager.cpp
     src/VoiceProcessor.cpp
     src/DeviceFactory.cpp
