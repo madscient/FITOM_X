@@ -47,6 +47,12 @@ struct ChState {
     //  PatchManagerが所有するSampleZoneBank内の記憶域を指すため、
     //  バンクロード中は寿命が安定している)。
     const SampleZonePatch* samplePatch = nullptr;
+    // assignCh() に渡された SwPatch のキャッシュ(値コピー)。hwPatch と
+    // 異なりポインタ元(PatchManagerのSwBank)の寿命が短命な呼び出しの
+    // 場合もあるため、VoiceProcessor::onVolumeChange() 用に sw/swOp を
+    // ここへ保持しておく(2026年7月新設。setVolume/setExpression が
+    // FmVoice を再構築するのに必要)。
+    SwPatch  swPatch;
     VoiceProcessor proc;          // SW パラメータ処理エンジン
 
     uint8_t  lastNote  = 0xFF;
@@ -109,6 +115,7 @@ struct ChState {
         volDirty     = false;
         panDirty     = false;
         sustainDirty = false;
+        swPatch      = SwPatch();
         proc.reset();
     }
 
@@ -361,6 +368,23 @@ protected:
         for (int op = 0; op < 4; ++op)
             if (isCarrierOp(ch, op)) mask |= static_cast<uint8_t>(1u << op);
         return mask;
+    }
+
+    // ChState (hwPatch/samplePatch/swPatch キャッシュ) から
+    // VoiceProcessor::onNoteOn/onVolumeChange 用の FmVoice を再構築する。
+    // samplePatch使用中(PCM系)はhw/hwOpを既定値(TL=0)のままにする
+    // (assignCh()のsamplePatch分岐が従来dummy.hw/hwOpに触れていなかった
+    // のと同じ扱い)。呼び出し元は ch < maxChs_ を保証すること。
+    FmVoice buildVoiceForCh(uint8_t ch) const {
+        const auto& s = chState_[ch];
+        FmVoice v;
+        if (!s.samplePatch) {
+            v.hw = s.hwPatch.hw;
+            for (int op = 0; op < 4; ++op) v.hwOp[op] = s.hwPatch.hwOp[op];
+        }
+        v.sw = s.swPatch.sw;
+        for (int op = 0; op < 4; ++op) v.swOp[op] = s.swPatch.swOp[op];
+        return v;
     }
 
     // ─── サンプルベース音源系(SampleZonePatch)へのSwPatch適用 ──────────

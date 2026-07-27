@@ -347,10 +347,11 @@ SampleZone::swBank/swProg → SwPatch への参照(HwPatch::swBank/swProgと同�
 
 なお`VoiceProcessor::onVolumeChange()`(CC7/Expression変更時に`effectiveTL`を
 再計算するメソッド)は、本調査時点でFM系チップも含め全チップから呼ばれて
-いない(実質未使用)ことが判明した。発音中のCC7/Expression変更が
-`effectiveTL`ベースの音量計算へ即座に反映されない可能性があるが、本機能とは
-独立した既存の全チップ共通の課題のため、今回は対応していない
-(別途調査・対応が必要)。
+おらず(実質未使用)、発音中のCC7/Expression変更が`effectiveTL`ベースの
+音量計算へ即座に反映されない、本機能とは独立した既存の全チップ共通の課題が
+あることが判明していた。この課題は後続セッション(2026年7月)で修正済み
+(`CSoundDevice::setVolume()`/`setExpression()`が値変更時に
+`onVolumeChange()`を呼ぶよう変更、`STATUS.md`参照)。
 
 ### サンプルベース音源系（ADPCM-B/ADPCM-A/PCMD8/AWM）の解決
 
