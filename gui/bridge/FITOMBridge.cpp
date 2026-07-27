@@ -708,8 +708,8 @@ void FITOMBridge::sendNoteOff(int mpuIndex, int ch, uint8_t note)
         static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch), note);
 }
 
-bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch,
-                                         std::string& outHwBankFile, int& outProgNo) const
+bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKind,
+                                         std::string& outBankFile, int& outProgNo) const
 {
     if (!initialized_) return false;
     if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return false;
@@ -728,51 +728,64 @@ bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch,
     auto& cfg = fitomInst.getConfig();
 
     // 発音履歴(ChState/ノートオン)には依存しない。CInstCh::progChange()が
-    // 実際に行っているのと同じ解決(resolve()/resolveDirect())を、
-    // このチャンネルの「現在のCC#0/#32/プログラムチェンジ値」でその場で
-    // 再実行する。progChangeを一度も受信していないチャンネルでも、
-    // これらのメンバは初期値(0)のまま公開されるため、「未受信なら
-    // 初期値(PatchBank0/Prog0)扱い」を自然に満たす。
+    // 実際に参照しているのと同じ値(このチャンネルの「現在のCC#0/#32/
+    // プログラムチェンジ値」)をその場で読む。progChangeを一度も受信して
+    // いないチャンネルでも、これらのメンバは初期値(0)のまま公開されるため、
+    // 「未受信なら初期値(PatchBank0/Prog0)扱い」を自然に満たす。
     const uint8_t bankSelMSB = midich->getBankSelMSB();
     const uint8_t bankNoLsb  = static_cast<uint8_t>(midich->getBankNo());
     const uint8_t progNo     = midich->getProgramNo();
 
-    fitom::ResolvedPatch resolved;
-    fitom::Patch directStorage; // resolveDirect()使用時のみ参照される
     if (bankSelMSB == 0) {
-        // 通常モード: bankNoLsb = PatchBank番号、progNo = Patch番号
-        resolved = pm.resolve(static_cast<int>(bankNoLsb), static_cast<int>(progNo), cfg);
-    } else if (bankSelMSB <= 0x6F) {
-        // 直接モード: bankSelMSB自体がVoicePatchType、bankNoLsb = HwBank
-        // インデックス、progNo = HwProgそのもの
-        resolved = pm.resolveDirect(bankSelMSB, bankNoLsb, progNo, cfg, directStorage);
-    } else {
-        return false; // 0x70(内蔵リズム専用バンク)等、本機能の対象外
+        // 通常モード: レイヤードパッチ(PatchBank)そのものをキオスク対象に
+        // する(FITOM_patch_editor側 kind="layered")。以前はここで
+        // pm.resolve()により先頭ToneLayerのHwPatchまで解決していたため、
+        // 「レイヤードパッチ経由だった」という情報が失われ、常に
+        // デバイスパッチ編集画面が開いてしまう不具合があった(D-039)。
+        // bankNoLsb = PatchBank番号、progNo = そのバンク内のPatch番号を
+        // そのまま使う(解決は行わず存在確認のみ)。
+        const fitom::PatchBank* bank = pm.findPatchBank(static_cast<int>(bankNoLsb));
+        if (!bank || bank->filename.empty()) return false;
+        if (!bank->get(static_cast<int>(progNo)).isValid()) return false;
+
+        outKind     = "layered";
+        outBankFile = bank->filename;
+        outProgNo   = static_cast<int>(progNo);
+        return true;
     }
+    if (bankSelMSB <= 0x6F) {
+        // 直接モード: bankSelMSB自体がVoicePatchType、bankNoLsb = HwBank
+        // インデックス、progNo = HwProgそのもの(FITOM_patch_editor側
+        // kind="device")。
+        fitom::Patch directStorage; // resolveDirect()内でのみ参照される
+        fitom::ResolvedPatch resolved =
+            pm.resolveDirect(bankSelMSB, bankNoLsb, progNo, cfg, directStorage);
+        if (!resolved.isValid() || resolved.layerCount <= 0) return false;
+        const fitom::ResolvedLayer& rl = resolved.layers[0];
+        if (!rl.hwPatch) return false; // AWM等HwBankを使わない音色、または解決失敗
 
-    if (!resolved.isValid() || resolved.layerCount <= 0) return false;
-    const fitom::ResolvedLayer& rl = resolved.layers[0];
-    if (!rl.hwPatch) return false; // AWM等HwBankを使わない音色、または解決失敗
+        // HwPatch::id = (bank_no << 16) | prog_no (PatchData.h参照)
+        const int bankNo = static_cast<int>(rl.hwPatch->id >> 16);
+        const int prog   = static_cast<int>(rl.hwPatch->id & 0xFFFFu);
 
-    // HwPatch::id = (bank_no << 16) | prog_no (PatchData.h参照)
-    const int bankNo = static_cast<int>(rl.hwPatch->id >> 16);
-    const int prog   = static_cast<int>(rl.hwPatch->id & 0xFFFFu);
+        // deviceType はプロファイルのdevices[]メタデータ(FITOMConfig側)から
+        // 得る。ISoundDeviceの実体(CFITOM::getDevice())は問わない
+        // (resolveTriple()自身がこのメタデータだけでVoiceGroup照合している
+        // ため、実体の有無に依存させる必要が無い。実機HWプラグイン未接続の
+        // 環境でも解決できるようにするため意図的にこちらを使う)。
+        const uint32_t  deviceType = cfg.getDeviceType(rl.deviceIndex);
+        const uint8_t   vpt        = fitom::FITOMConfig::deviceTypeToVoicePatchType(deviceType);
+        const uint32_t  group      = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(vpt);
 
-    // deviceType はプロファイルのdevices[]メタデータ(FITOMConfig側)から
-    // 得る。ISoundDeviceの実体(CFITOM::getDevice())は問わない
-    // (resolveTriple()自身がこのメタデータだけでVoiceGroup照合している
-    // ため、実体の有無に依存させる必要が無い。実機HWプラグイン未接続の
-    // 環境でも解決できるようにするため意図的にこちらを使う)。
-    const uint32_t  deviceType = cfg.getDeviceType(rl.deviceIndex);
-    const uint8_t   vpt        = fitom::FITOMConfig::deviceTypeToVoicePatchType(deviceType);
-    const uint32_t  group      = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(vpt);
+        const fitom::HwBank* hwBank = pm.hwRegistry().find(group, bankNo);
+        if (!hwBank || hwBank->filename.empty()) return false;
 
-    const fitom::HwBank* bank = pm.hwRegistry().find(group, bankNo);
-    if (!bank || bank->filename.empty()) return false;
-
-    outHwBankFile = bank->filename;
-    outProgNo     = prog;
-    return true;
+        outKind     = "device";
+        outBankFile = hwBank->filename;
+        outProgNo   = prog;
+        return true;
+    }
+    return false; // 0x70(内蔵リズム専用バンク)等、本機能の対象外
 }
 
 // ================================================================

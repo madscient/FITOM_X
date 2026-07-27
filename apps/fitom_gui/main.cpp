@@ -395,13 +395,17 @@ namespace
     // MIDIモニターのBank/Program表示をダブルクリックしたときに、外部の
     // パッチエディタ(FITOM_patch_editor、実行ファイルはfitom_guiと同じ
     // ディレクトリに配置されている想定)をキオスクモードで起動する。
-    // 起動引数の仕様(<profile.json> <hwbank-file> <prog>)は
-    // FITOM_patch_editor側 docs/DESIGN.md の D-026 参照。
+    // 起動引数の仕様(<profile.json> <kind> <bank-file> <prog>)は
+    // FITOM_patch_editor側 docs/DESIGN.md の D-026/D-039/D-040 参照。
+    // kindは"device"(*.hwbank.json)または"layered"(*.patchbank.json)の
+    // いずれかで、bridge.resolveChannelHwPatch()がチャンネルの現在の
+    // CC#0値(直接デバイス選択モードか通常モードか)から判定する。
     void launchPatchEditorForChannel(FITOMBridge &bridge, int mpuIndex, int ch)
     {
-        std::string hwBankFile;
+        std::string kind;
+        std::string bankFile;
         int progNo = 0;
-        if (!bridge.resolveChannelHwPatch(mpuIndex, ch, hwBankFile, progNo))
+        if (!bridge.resolveChannelHwPatch(mpuIndex, ch, kind, bankFile, progNo))
         {
             showErrorPopup(
                 "このチャンネルには現在編集可能なパッチがありません。\n"
@@ -427,7 +431,7 @@ namespace
             return;
         }
 
-        // profilePath/hwBankFileは、プロファイルが相対パスで指定されて
+        // profilePath/bankFileは、プロファイルが相対パスで指定されて
         // いた場合、fitom_gui自身のCWD基準の相対パス文字列のままになって
         // いる(FITOMConfig::loadProfile()のbaseDir=path.parent_path()も
         // 相対のまま伝播するため)。一方launchProcess()は子プロセスの
@@ -438,10 +442,10 @@ namespace
         // してから渡す。
         std::error_code ec;
         const fs::path absProfilePath = fs::absolute(profilePath, ec);
-        const fs::path absHwBankFile = fs::absolute(hwBankFile, ec);
+        const fs::path absBankFile = fs::absolute(bankFile, ec);
 
         const std::vector<std::string> args = {
-            absProfilePath.string(), absHwBankFile.string(), std::to_string(progNo)};
+            absProfilePath.string(), kind, absBankFile.string(), std::to_string(progNo)};
         std::string launchError;
         if (!launchProcess(editorExe, args, launchError))
         {
