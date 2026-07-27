@@ -262,6 +262,36 @@
             }
           }
         },
+        "sf2_banks": {
+          "type": "array",
+          "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照。設計検討段階、2026年7月時点で未実装)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよく、その場合もHWプラグイン側でファイルパスをキーにキャッシュし、実体のロード(fluid_synth_sfload()相当)は1回だけ行う想定。",
+          "items": {
+            "type": "object",
+            "required": [
+              "bank",
+              "file",
+              "sf2_bank"
+            ],
+            "properties": {
+              "bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127,
+                "description": "CC#32で選択するインデックス(既存hw_banks[].bankと同じ意味論のインデックスで、SF2ファイル内部のbank番号そのものではない)。"
+              },
+              "file": {
+                "type": "string",
+                "description": "SoundFont2(.sf2)ファイルへのパス。"
+              },
+              "sf2_bank": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 128,
+                "description": "このエントリが指すSF2ファイル内部でのネイティブbank番号。128はSF2/GM界隈で広く使われるパーカッションバンクの慣習を許容するための値で、hw_banks[].bankの上限(127)より1つ広い。"
+              }
+            }
+          }
+        },
         "sw_banks": {
           "type": "array",
           "items": {
@@ -418,6 +448,38 @@
           ],
           "items": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "sf2_channel_windows": {
+      "type": "array",
+      "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照。設計検討段階、2026年7月時点で未実装)における、MPU×chとfluidsynthの`chan`(0–15)の静的な対応表(「窓」)。ここに載っているMPU×chは、FITOM_Xのネイティブ処理(通常モード/直接デバイス選択モード/内蔵リズムバンク/役割切替/DVA/PatchManagerによるHwPatch解決)を一切経由せず、Note On/Off・CC(CC#0を除く)・プログラムチェンジをそのままfluidsynthエンジンへ素通しする経路になる。載っていないMPU×chは、これまでどおりネイティブ経路が適用される。banks(hw_banks等)がバンク内容の参照であるのに対し、これはMIDIチャンネルそのもののルーティング設定であるため、bank類とは別のトップレベルプロパティとした。演奏中に窓の割り当てを変更する場合は、プライベートSysEx(sub-cmd 0x04、docs/manuals/midi-message-reference.mdの8.1節と同じ枠組み、未実装)を使う。ここでのプロファイル設定は、その初期値に相当する。",
+      "items": {
+        "type": "object",
+        "required": [
+          "mpu",
+          "ch",
+          "fluidsynth_chan"
+        ],
+        "properties": {
+          "mpu": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3,
+            "description": "対象MPU番号(0起算、現状MAX_MPUS=4)。"
+          },
+          "ch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15,
+            "description": "対象MIDIチャンネル番号(0起算)。"
+          },
+          "fluidsynth_chan": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15,
+            "description": "割り当て先のfluidsynth chan番号(0起算)。全エントリを通じて重複不可(スキーマでは表現できないため、ローダー側でのバリデーションが必要)。"
           }
         }
       }
