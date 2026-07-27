@@ -633,6 +633,15 @@ void CFITOM::buildPhysicalChipList()
 
     int n = config_->getDeviceCount();
     for (int i = 0; i < n; ++i) {
+        // DEVICE_NONEのエントリ(chip:"SF2"のSF2直行パス用ラッパー、または
+        // 単に未知のchip文字列)はinitDevices()がISoundDevice生成自体を
+        // スキップしている(実レジスタ空間を持たない)ため、レジスタダンプ
+        // モニターの物理チップ一覧にも登録しない(2026年7月新設。以前は
+        // ここでdeviceTypeを一切見ておらず、SF2ラッパーのIPortへ生MIDI
+        // バイト列を書き込んだ際のシャドウレジスタが、無意味な「物理チップ」
+        // としてそのままRegisterDumpWindowに表示されてしまっていた)。
+        if (config_->getDeviceType(i) == DEVICE_NONE) continue;
+
         auto* port  = dynamic_cast<HWPort*>(config_->getDevicePort(i));
         auto* port2 = dynamic_cast<HWPort*>(config_->getDevicePort2(i));
         registerChip(port, port2, config_->getDeviceLabel(i), config_->getDeviceType(i));
