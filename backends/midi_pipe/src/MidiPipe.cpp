@@ -96,6 +96,18 @@ struct MidiInDevice {
     ~MidiInDevice() {
         running.store(false);
 #if defined(_WIN32)
+        // acceptThreadがConnectNamedPipe()でブロックしている場合、別スレッド
+        // からのCloseHandle()だけでは同期I/O呼び出し中のスレッドを確実には
+        // 解放できない(ブロッキングモードのハンドルに対する既知のWindowsの
+        // 制約。実際、パッチエディタ未接続時でもacceptThreadは起動直後から
+        // 常にConnectNamedPipe待ちのため、CloseHandleだけに頼るとFITOM_X
+        // 終了時に高確率でハングしていた)。CancelSynchronousIo()はハンドル
+        // ではなくスレッド単位で保留中の同期I/Oをキャンセルできる(Vista
+        // 以降のAPI)ため、まずこちらでacceptThreadを確実に解放してから
+        // ハンドルを閉じる。
+        if (acceptThread.joinable()) {
+            CancelSynchronousIo(acceptThread.native_handle());
+        }
         // ConnectNamedPipe/ReadFileでブロックしている全スレッドを起こす
         // ため、生存中の全ハンドルを閉じる。以後、各スレッドが自分の
         // ハンドルをclaimHandleForClose()経由でクローズしようとしても
@@ -119,6 +131,14 @@ struct MidiInDevice {
         if (acceptThread.joinable()) acceptThread.join();
         // acceptThreadの終了後は新規ワーカーが増えないため、ここから先は
         // workersへの安全な走査・joinができる。
+#if defined(_WIN32)
+        // パッチエディタ接続が生きたままFITOM_X終了処理に入った場合、
+        // 該当ワーカーはReadFile()でブロックしたままの可能性がある。
+        // acceptThreadと同じ理由で、スレッド単位でキャンセルしてからjoinする。
+        for (auto& t : workers) {
+            if (t.joinable()) CancelSynchronousIo(t.native_handle());
+        }
+#endif
         for (auto& t : workers) if (t.joinable()) t.join();
 
 #if !defined(_WIN32)
