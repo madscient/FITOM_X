@@ -1,6 +1,6 @@
 # FluidSynth (SF2) 統合 技術検討
 
-**ステータス**: 設計はほぼ確定。以下は決定済み: `fluid_synth_t`は専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込め、FITOM_X本体は他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_WriteBlock`で生MIDIバイト列を渡すだけ)で扱う。`IHWPlugin.h`への新規追加は無い(既存プラグインへの埋め込み案・FITOM_Xコア本体への直接リンク案とも不採用。音声出力はこのプラグインが他のhwifと同じく自己完結し、ソフトウェアミックスは行わない)/ SF2直行パスへの切替方式(MPU×ch単位の「窓」をプロファイル+SysExで割り当て、CC#0は不使用)/ CC#32からSF2ファイル/内部バンクへの対応方式(`sf2_banks`による間接参照)/ MPU×chの窓割り当て方式(トップレベルプロパティ`sf2_channel_windows`)/ (**両スキーマとも`config_schema/profile.schema.json`に実装済み**)/ FITOM_Xを「CH変換付きMIDIパッチベイ」に徹させる方針(状態管理・クリーンアップ・ポリフォニー調整・`sf2_banks`未一致時のフォールバックを一切行わない)/ GUIスコープ(デバイス一覧・PatchPickerDialog対応は見送り、`sf2_channel_windows`編集用の専用ダイアログは新設)/ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録方式(`chip:"SF2"`→既存の`DEVICE_NONE`スキップ経路を流用、`soundfonts`一覧は`sf2_banks`から自動導出、複数`devices[]`が`chip=="SF2"`を使った場合は起動時エラー)/ マスターボリューム/ピッチは新規プロトコルを設計せず、既存のGM2 Universal Realtime SysEx(8節、マスターボリューム`04 01`・マスターファインチューニング`04 03`)をそのまま`HWPlugin_WriteBlock`で転送するだけで済ませる/ `Sf2BankRegistry`はCC#32解決用マップと`soundfonts`一覧・`soundfont_index`解決用マップの両方を1回のパースから導出する単一クラスとし、`devices[]`ビルドより前に構築するだけで初期化順序の問題も解消する。コード本体(`FitomSf2IF`プラグイン本体・`Sf2BankRegistry`・`sf2_channel_windows`の読み込み・GUIダイアログ等)は未着手。
+**ステータス**: 設計はほぼ確定。以下は決定済み: `fluid_synth_t`は専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込め、FITOM_X本体は他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_WriteBlock`で生MIDIバイト列を渡すだけ)で扱う。`IHWPlugin.h`への新規追加は無い(既存プラグインへの埋め込み案・FITOM_Xコア本体への直接リンク案とも不採用。音声出力はこのプラグインが他のhwifと同じく自己完結し、ソフトウェアミックスは行わない)/ SF2直行パスへの切替方式(MPU×ch単位の「窓」をプロファイル+SysExで割り当て、CC#0は不使用)/ CC#32からSF2ファイル/内部バンクへの対応方式(`sf2_banks`による間接参照)/ MPU×chの窓割り当て方式(トップレベルプロパティ`sf2_channel_windows`)/ (**両スキーマとも`config_schema/profile.schema.json`に実装済み**)/ FITOM_Xを「CH変換付きMIDIパッチベイ」に徹させる方針(状態管理・クリーンアップ・ポリフォニー調整・`sf2_banks`未一致時のフォールバックを一切行わない)/ GUIスコープ(デバイス一覧・PatchPickerDialog対応は見送り、`sf2_channel_windows`編集用の専用ダイアログは新設)/ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録方式(`chip:"SF2"`→既存の`DEVICE_NONE`スキップ経路を流用、`soundfonts`一覧は`sf2_banks`から自動導出、複数`devices[]`が`chip=="SF2"`を使った場合は起動時エラー)/ マスターボリューム/ピッチは新規プロトコルを設計せず、既存のGM2 Universal Realtime SysEx(8節、マスターボリューム`04 01`・マスターファインチューニング`04 03`)をそのまま`HWPlugin_WriteBlock`で転送するだけで済ませる/ `Sf2BankRegistry`はCC#32解決用マップと`soundfonts`一覧・`soundfont_index`解決用マップの両方を1回のパースから導出する単一クラスとし、`devices[]`ビルドより前に構築するだけで初期化順序の問題も解消する。ドキュメント面は`docs/manuals/midi-message-reference.md`(2.6節・8.2節・3.1/3.2/3.3節、未実装である旨を明記)・`docs/plugin-hwif.md`(`fitom_sf2if.dll`将来実装節)・`docs/patch-structure-design.md`(相対パス解決基点の一覧)へ反映済み(2026年7月)。コード本体(`FitomSf2IF`プラグイン本体・`Sf2BankRegistry`・`sf2_channel_windows`の読み込み・GUIダイアログ等)は未着手。
 **検討日**: 2026年7月
 **検討の目的**: FITOM_Xに`fluidsynth`を組み込み、SF2サウンドフォントをシームレスに扱えるようにする(例: 特定のMIDIチャンネルをSF2音源へ振り分け、FITOM_X固有バンクと動的に共存させる)ことが、現在の構造のまま可能かどうかを検証する。
 
@@ -203,22 +203,9 @@ F0 00 48 01 05 <chan> <soundfont_index> <sf2_bank_msb> <sf2_bank_lsb> <prog> F7
 
 ## 5. 残る検討事項(実装時に詰める必要がある点)
 
-- **RPN/NRPNの引き継ぎ範囲**:方針は決定済み(下記)。マニュアル本体([`docs/manuals/midi-message-reference.md`](manuals/midi-message-reference.md))への反映は、SF2直行パス自体が未実装のうちは行わない(実装していない挙動をエンドユーザー向けマニュアルに書くと誤解を招くため、CC#0=127案を見送った際と同じ判断)。実装着手時にそのまま貼り込めるよう、追記文言をここに確定させておく。
-
-  - **3.1節(RPN)への追記**(RPN一覧表の下、「上記以外のRPN番号は受信しても無視されます。」の付近):
-    > SF2直行パス(窓に含まれるチャンネル)では、RPN/NRPNのパラメータ選択・データエントリー系コントロールチェンジ(CC#6/38/96/97/98/99/100/101)はFITOM_X側では解釈せず、そのままSF2エンジンへ転送されます。上記のRPN(ピッチベンドセンシティビティ等)は、SF2エンジン自身が標準的なGM準拠の解釈を行うため、通常どおり機能します。
-  - **3.2節(NRPN メロディチャンネル共通)への追記**(96,1/96,2/96,3の表の下):
-    > 上記のNRPN(96,1・96,2・96,3)は、いずれもDVA(自動チャンネル割り当て)またはPatchManagerによる音色解決を前提とした機能のため、SF2直行パスのチャンネルでは受信しても何も起こりません。
-  - **3.3節(ToneLayerオーバーライド)の既存文言の拡張**:「直接デバイス選択モード(2.2節②)のチャンネルでは、これらのNRPNは受信しても何も起こりません。」を「直接デバイス選択モード(2.2節②)およびSF2直行パスのチャンネルでは、これらのNRPNは受信しても何も起こりません。」に変更する。
-  - **リズムチャンネル専用NRPN(24/26/28、3.2節)は変更不要**:窓に含まれるチャンネルはメロディ/リズムの役割区別自体が適用されない(③、CC#0そのものを転送しないため役割切替CC#0=120/121も効かない)。この点は3.1〜3.3節側ではなく、「SF2直行パス」概念そのものの説明箇所(2.2節相当、まだマニュアルに存在せず新設が必要)にまとめて記載する。
-- **GUIでの見え方**:以下のとおり方針を決定。
-  - **「デバイス一覧」(`FITOMBridge::getDevices()`)にSF2は出さない**:`ISoundDevice`を経由しないという設計方針(③)と一貫させる。デバイス一覧自体が現状GUI未接続([[maybe_unused]])であることもあり、優先度は低い。
-  - **`PatchPickerDialog`のSF2専用モードは今回のスコープでは見送り**:既存ピッカーの試聴プロトコルがCC#0を前提にしており、SF2窓のチャンネル(CC#0不使用)にはそのまま使えない。対応は将来の検討事項とする。
+- **RPN/NRPNの引き継ぎ範囲**:方針決定済み。マニュアル本体(`docs/manuals/midi-message-reference.md`)の3.1/3.2/3.3節・新設2.6節へ反映済み(2026年7月)。未実装の機能であることは2.6節冒頭に明記した。
+- **GUIでの見え方**:方針は決定済み(デバイス一覧・PatchPickerDialogのSF2対応は見送り、`sf2_channel_windows`編集用の専用ダイアログを新設)。ダイアログ自体の実装は未着手。
   - **MIDIモニターバンドのDevice/Fnumber列表示、バンク名・パッチ名解決**:実装時に個別に詰める(Device列は`sf2_banks[].file`のファイル名またはfluidsynth chan番号、Fnumber列は空欄が妥当と思われるが未確定)。
-  - **`sf2_channel_windows`の編集用に専用ダイアログを新設する**:`MidiPortSettingsDialog`相当の位置づけで、MPU×chごとに割り当て先のfluidsynth chan(0–15、または「未割り当て」)をドロップダウンで設定する。バリデーションは`fluidsynth_chan`の重複チェック(既存の「MIDI入力ポートの重複割り当て」チェックと同種)。OKで即時反映(内部的に⑤のSysEx `sub-cmd 0x04`相当の処理を発行)しつつ、`FITOMBridge::saveCurrentProfile()`で`sf2_channel_windows`をプロファイルへ書き戻す。キャンセル時はダイアログを開いた時点の割り当てへ復元する。既存のMIDIポート設定ダイアログと同じ設計パターンを踏襲することで、GUI側の実装・操作感の一貫性を保つ。
-- **マニュアルに「SF2直行パス」概念そのものの節を新設する**:2.2節(バンクセレクト/プログラムチェンジ)に④番目の動作モードとして追記するか、独立した節を新設するかを含め、実装時に構成を決める。窓(`sf2_channel_windows`)の説明、CC#0を転送しない旨、SysEx `sub-cmd 0x04`(窓の動的割り当て)・`sub-cmd 0x05`(バンク/プログラム選択)の仕様(8.1節相当の書式で追記)を含む。ただし`sub-cmd 0x05`はエンドユーザーが直接送るものではなくFITOM_X内部(コア↔ラッパープラグイン間)のみで完結するプロトコルのため、エンドユーザー向けマニュアルに載せる必要があるかどうか自体も実装時に判断する(`sub-cmd 0x03`のチャンネル割り当て通知が、パッチエディタとの内部連携用として`docs/plugin-midi-pipe.md`側に記載され本マニュアルには無いのと同種の扱いになる可能性がある)。上記のRPN/NRPN追記文言は、いずれもこの節の存在を前提にしている。
-- **`docs/patch-structure-design.md`の「相対パスの解決基点」節の一覧を更新する**:`Sf2BankRegistry`のローダー実装時に、`banks.*[].file`の列挙(現在hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)に`sf2_banks`を追加する(スキーマは追加済みだがローダー未実装のため、現時点ではまだ追加していない)。
-- **`docs/plugin-hwif.md`(HW I/Fプラグイン要件定義)への反映**:SF2ラッパープラグインは既存の`IHWPlugin`契約をそのまま使う(新規関数は無い)ため、同ドキュメントの構造自体は変わらないが、実装例として「MIDIバイト列を`HWPlugin_WriteBlock`で受け取り内部でパースする」パターンをどこかに追記するかは実装時に判断する。
 
 ---
 
