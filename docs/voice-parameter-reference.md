@@ -382,6 +382,7 @@ HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェ�
 | `vel_min`/`vel_max` | ベロシティレイヤー範囲 (省略時0-127=無制限) |
 | `wave_index` | YRW801内蔵ROMの波形番号 (チップ側の生値) |
 | `root_note` | 録音時の基準ノート (OPL4AWMはFnumber計算がチップ側で完結するため未使用。将来のADPCM系転用に備えた予約フィールド) |
+| `sw_bank`/`sw_prog` | パフォーマンスパッチ(SwPatch)参照(`HwPatch::swBank/swProg`と同じ規約、-1=参照なし、2026年7月新設)。DrumNote側の個別上書きが優先される。**対応範囲**: ADPCM-B/PCMD8=全機能、ADPCM-A=ベロシティ感度/トレモロのみ(ピッチ制御不可のため)、AWM=参照は解決されるが音には未反映(実機LFO/VIBレジスタとの整合設計が別途必要)。詳細は`patch-structure-design.md`の「サンプルベース音源系へのパフォーマンスパッチ紐づけ」節参照 |
 
 ノートオン時、`zones[]`を先頭から線形探索し、`key_min <= note <= key_max` かつ
 `vel_min <= velocity <= vel_max` を満たす最初のゾーンの`wave_index`を使う。

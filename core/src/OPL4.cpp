@@ -85,21 +85,8 @@ protected:
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         uint16_t waveNum = 0;
-        if (s.samplePatch && !s.samplePatch->zones.empty()) {
-            bool found = false;
-            for (const auto& z : s.samplePatch->zones) {
-                if (s.lastNote >= z.keyMin && s.lastNote <= z.keyMax &&
-                    s.velocity >= z.velMin && s.velocity <= z.velMax) {
-                    waveNum = z.waveIndex;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                // 該当ゾーンが見つからない場合は最初のゾーンにフォールバック
-                // (旧resolveWaveNumber()の挙動と同じ)
-                waveNum = s.samplePatch->zones[0].waveIndex;
-            }
+        if (const SampleZone* zone = s.samplePatch ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr) {
+            waveNum = zone->waveIndex;
         }
         setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(waveNum & 0xFF), true);
         uint8_t reg20cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xFE;

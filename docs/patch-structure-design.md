@@ -296,10 +296,61 @@ OPLL/OPLLX/OPLLP/VRC7全バリアント分のエントリをまとめて記述�
 `OPL4AWM`は対象外とした。AWMのROM音色(YRW801 GM)は`opllRomPatches_`
 のようなC++内部ハードコードではなく、既に通常のバンクファイル
 (`SampleZonePatch`、`*.samplezonebank.json`)として実装・配布されて
-いるため、この専用の紐づけ機構自体が不要。もしAWMにパフォーマンス
-パッチを適用したい場合は、`SampleZonePatch`構造体自体に`swBank`/
-`swProg`フィールドを追加し、通常のバンクファイルへ直接記述する方が
-自然(未実装、別タスク)。
+いるため、この専用の紐づけ機構自体が不要。
+
+### サンプルベース音源系(ADPCM-B/A/PCMD8/AWM)へのパフォーマンスパッチ紐づけ(2026年7月新設)
+
+`SampleZonePatch`(`SampleZone`単位)に`swBank`/`swProg`フィールドを
+追加し、`HwPatch`と全く同じソフトフォールバック規約(-1=参照なし、
+解決失敗はソフトな失敗)で紐づけられるようにした。
+
+```
+SampleZone::swBank/swProg → SwPatch への参照(HwPatch::swBank/swProgと同じ規約)
+```
+
+**入力経路は2つ**:
+
+- `*.samplezonebank.json`(手書き、現状は事実上AWM専用): `zones[]`の
+  各要素に`sw_bank`/`sw_prog`を直接記述する
+  (`config_schema/samplezonebank.schema.json`参照)。
+- `*.pcmbank.json`(ADPCM-B/A/PCMD8): トップレベルに`swpatches[]`配列
+  (`{entry_no, sw_bank, sw_prog}`)を新設し、`entries[]`(`adpcm_json`
+  由来・直接記述いずれも)の各サンプルへ`entry_no`で対応づける。
+  `PatchManager::loadPcmBankJson()`がentries[]から自動合成する
+  単一ゾーンの`SampleZonePatch`(前掲「PCMバンク複数併用対応」節参照)へ、
+  このswBank/swProgがそのまま反映される
+  (`config_schema/pcmbank.schema.json`参照)。
+
+**DrumNoteによる上書き**: `DrumNote::swBank/swProg`(既存)は、解決対象が
+`HwPatch`(直接モード)か`SampleZonePatch`(direct型drumkit経由のAWM/ADPCM系)
+かに関わらず同じ優先順位で効く(①DrumNote指定が解決できればそれを使う
+→②無指定/解決失敗ならそのゾーン自身の参照にフォールバック→③それも
+無ければ無し)。
+
+**解決タイミング**: `HwPatch`の`swBank`/`swProg`はProgram Change時点
+(`PatchManager::resolveTriple()`)で解決できるが、`SampleZone`は
+ノート・ベロシティで初めてどのゾーンが使われるか決まるため、NoteOn時点
+(`CInstCh::noteOn`/`CRhythmCh::applyNoteOn`)で`SampleZonePatch::resolveZone(note, vel)`
+により実際に一致するゾーンを求めてから、そのゾーンの`swBank`/`swProg`を
+解決する。
+
+**チップ別の対応範囲(2026年7月時点)**: `CSoundDevice::assignCh()`の
+`samplePatch`分岐は、音量計算が`VoiceProcessor::effectiveTL()`のみ
+(またはその一部)に依存する設計のチップでのみ`VoiceProcessor::onNoteOn()`
+を呼ぶ(`usesVoiceProcessorForSamplePatch()`、既定false)。
+
+| チップ | 対応範囲 | 理由 |
+|---|---|---|
+| ADPCM-B / PCMD8 | 全機能(チャンネルLFO/トレモロ/ベロシティ感度/fine_transpose) | `updateVolExp()`が最初から`effectiveTL(0)`のみで音量を決める設計。調査の結果、`onNoteOn()`が呼ばれていなかったことで、この2チップはMIDI Volume/Expression/Velocityを無視して常に最大音量になっているという、本機能とは無関係の既存バグも合わせて発見・修正した |
+| ADPCM-A | ベロシティ感度・トレモロのみ | `updateFreq()`がno-opでピッチ制御自体ができないため、チャンネルLFO/fine_transposeは対象外。音量計算はチャンネルレジスタ(vel×exp)/総合音量レジスタ(vol、全ch共通)に分離された実機設計のため、`onNoteOn()`へは常にvol=127(中立値)を渡し、チャンネルレジスタ側の計算だけを`effectiveTL(0)`ベースへ置き換えた(総合音量レジスタ・複数MIDI CH間の競合という既存の制約には一切手を加えていない) |
+| AWM | 参照は解決されるが音には未反映 | 実機がトレモロ・ビブラートをデバイス機能として持ち(レジスタ`0x80-0x97`のLFO/VIBビット)、`samplezone`が参照する波形バイナリ側にその設定が含まれる前提の設計。他チップと同じ「チャンネルLFO値をFnumberに加算するだけ」の汎用経路をそのまま繋いでも実機のLFO/VIB機構と整合しないため、意図的に対象外とした(将来対応する場合は実機レジスタ・波形バイナリ側設定との統合設計が別途必要) |
+
+なお`VoiceProcessor::onVolumeChange()`(CC7/Expression変更時に`effectiveTL`を
+再計算するメソッド)は、本調査時点でFM系チップも含め全チップから呼ばれて
+いない(実質未使用)ことが判明した。発音中のCC7/Expression変更が
+`effectiveTL`ベースの音量計算へ即座に反映されない可能性があるが、本機能とは
+独立した既存の全チップ共通の課題のため、今回は対応していない
+(別途調査・対応が必要)。
 
 ### サンプルベース音源系（ADPCM-B/ADPCM-A/PCMD8/AWM）の解決
 

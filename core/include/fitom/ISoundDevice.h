@@ -363,6 +363,22 @@ protected:
         return mask;
     }
 
+    // ─── サンプルベース音源系(SampleZonePatch)へのSwPatch適用 ──────────
+    // assignCh()のsamplePatch分岐でVoiceProcessor::onNoteOn()を呼ぶか。
+    // 既定false(呼ばない=既存動作維持)。effectiveTL()のみ(または
+    // その一部)で音量を決める設計のチップのみtrueにオーバーライドする。
+    // AWMは実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が
+    // 別途必要なため対象外(2026年7月、docs/patch-structure-design.md参照)。
+    virtual bool usesVoiceProcessorForSamplePatch() const { return false; }
+
+    // 上記がtrueの場合にonNoteOn()へ渡すvolume。既定はs.volume(実際の
+    // CC7値)。MIDI Volumeをチャンネル毎ではなく全ch共通の別レジスタへ
+    // 集約する設計のチップ(CAdPcm2610A)は、per-channel effectiveTL計算
+    // からVolumeを除外するため127(中立値)を返すようオーバーライドする。
+    virtual uint8_t sampleVoiceProcessorVolume(uint8_t ch) const {
+        return (ch < maxChs_) ? chState_[ch].volume : 127;
+    }
+
     // ─── Fnum 計算 ──────────────────────────────────────────────────────
     virtual ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const; // offset: kfs単位
 
