@@ -170,6 +170,121 @@ TEST_CASE("FITOMConfig: banks as a string resolves to an external bank-set file,
     CHECK(bank->name == "external bankset test");
 }
 
+TEST_CASE("FITOMConfig: bank_overrides replaces a matching hw_banks entry (same "
+          "group+bank) from an external banks reference, and adds a non-matching one",
+          "[config]")
+{
+    // banksが外部参照(共通プリセットバンクセット)の場合でも、bank_overrides
+    // (プロファイル側にインラインで書く)で一部のバンクだけを差し替えたり
+    // 追加したりできることを確認する。識別キーはhw_banksでは"group"+"bank"。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_bank_overrides_hw";
+    fs::create_directories(dir);
+
+    auto writeHwBank = [](const fs::path& p, const std::string& name) {
+        json hwbank = {{"name", name}, {"patches", json::array()}};
+        std::ofstream f(p);
+        f << hwbank.dump(2);
+    };
+    writeHwBank(dir / "opn_common.hwbank.json",  "common OPN bank0");
+    writeHwBank(dir / "opm_common.hwbank.json",  "common OPM bank0");
+    writeHwBank(dir / "opn_override.hwbank.json","overridden OPN bank0");
+    writeHwBank(dir / "opn_added.hwbank.json",   "added OPN bank1");
+
+    json bankset = {
+        {"hw_banks", json::array({
+            {{"group", "OPN"}, {"bank", 0}, {"file", "opn_common.hwbank.json"}},
+            {{"group", "OPM"}, {"bank", 0}, {"file", "opm_common.hwbank.json"}}
+        })}
+    };
+    { std::ofstream f(dir / "common.bankset.json"); f << bankset.dump(2); }
+
+    json profile = {
+        {"profile_name", "bank_overrides hw test"},
+        {"devices",      json::array()},
+        {"banks",        "common.bankset.json"},
+        {"bank_overrides", {
+            {"hw_banks", json::array({
+                {{"group", "OPN"}, {"bank", 0}, {"file", "opn_override.hwbank.json"}},
+                {{"group", "OPN"}, {"bank", 1}, {"file", "opn_added.hwbank.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "bank_overrides_hw.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    uint8_t opnType  = fitom::FITOMConfig::stringToVoicePatchType("OPN");
+    uint8_t opmType  = fitom::FITOMConfig::stringToVoicePatchType("OPM");
+    uint32_t opnGroup = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(opnType);
+    uint32_t opmGroup = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(opmType);
+
+    // group+bankが一致するOPN bank0は上書きされている
+    const auto* opnBank0 = pm.hwRegistry().find(opnGroup, 0);
+    REQUIRE(opnBank0 != nullptr);
+    CHECK(opnBank0->name == "overridden OPN bank0");
+
+    // 一致しないOPM bank0は共通セットのまま変化しない
+    const auto* opmBank0 = pm.hwRegistry().find(opmGroup, 0);
+    REQUIRE(opmBank0 != nullptr);
+    CHECK(opmBank0->name == "common OPM bank0");
+
+    // 共通セットに無いOPN bank1は追加としてロードされている
+    const auto* opnBank1 = pm.hwRegistry().find(opnGroup, 1);
+    REQUIRE(opnBank1 != nullptr);
+    CHECK(opnBank1->name == "added OPN bank1");
+}
+
+TEST_CASE("FITOMConfig: bank_overrides matches drum_banks by 'prog' (not 'bank', "
+          "which drum_banks entries don't have)", "[config]")
+{
+    // drum_banksはbankフィールドを持たない(常に固定バンク0)ため、
+    // bank_overridesの識別キーもprogを使う(bankEntryKeyMatches参照)。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_bank_overrides_drum";
+    fs::create_directories(dir);
+
+    auto writeKit = [](const fs::path& p, const std::string& name) {
+        json kit = {{"name", name}, {"notes", json::array()}};
+        std::ofstream f(p);
+        f << kit.dump(2);
+    };
+    writeKit(dir / "kit0_common.drumkit.json",   "common kit prog0");
+    writeKit(dir / "kit0_override.drumkit.json", "overridden kit prog0");
+    writeKit(dir / "kit1_added.drumkit.json",    "added kit prog1");
+
+    json profile = {
+        {"profile_name", "bank_overrides drum test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"drum_banks", json::array({
+                {{"prog", 0}, {"file", "kit0_common.drumkit.json"}}
+            })}
+        }},
+        {"bank_overrides", {
+            {"drum_banks", json::array({
+                {{"prog", 0}, {"file", "kit0_override.drumkit.json"}},
+                {{"prog", 1}, {"file", "kit1_added.drumkit.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "bank_overrides_drum.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    const auto* kit0 = pm.resolveDrum(0, 0);
+    REQUIRE(kit0 != nullptr);
+    CHECK(std::string(kit0->name) == "overridden kit prog0");
+
+    const auto* kit1 = pm.resolveDrum(0, 1);
+    REQUIRE(kit1 != nullptr);
+    CHECK(std::string(kit1->name) == "added kit prog1");
+}
+
 TEST_CASE("FITOMConfig: system config defaults", "[config]")
 {
     fitom::FITOMConfig cfg;

@@ -104,48 +104,115 @@ static double getDouble(const json& ini, const std::string& section,
 } // namespace ini
 
 // -------------------------------------------------------
-//  banks 外部参照の解決 (2026年7月新設)
-//  プロファイルの"banks"は通常オブジェクト直書きだが、文字列の場合は
-//  外部JSONファイルへのパスとみなし、その内容(hw_banks/sw_banks/...を
-//  持つオブジェクト)をそのまま"banks"の値として展開する。パッチバンク
-//  構成はデバイス構成(devices/hw_plugins)に依存しないため、複数の
-//  プロファイル間で同じプリセットバンク構成を使い回せるようにする
-//  (デバイス構成に含まれないバンクエントリは単に発音しないだけであり、
-//  一部のデバイス構成が変わってもbank/prog番号の一貫性は保たれる)。
+//  banks/bank_overrides 外部参照の解決 (2026年7月新設)
+//  プロファイルの"banks"(および同一スキーマの"bank_overrides")は通常
+//  オブジェクト直書きだが、文字列の場合は外部JSONファイルへのパスとみなし、
+//  その内容(hw_banks/sw_banks/...を持つオブジェクト)をそのままキーの値
+//  として展開する。パッチバンク構成はデバイス構成(devices/hw_plugins)に
+//  依存しないため、複数のプロファイル間で同じプリセットバンク構成を
+//  使い回せるようにする(デバイス構成に含まれないバンクエントリは単に
+//  発音しないだけであり、一部のデバイス構成が変わってもbank/prog番号の
+//  一貫性は保たれる)。
 // -------------------------------------------------------
-static json resolveBanksSection(const json& j, const fs::path& baseDir)
+static json resolveExternalBanksRef(const json& j, const char* key, const fs::path& baseDir)
 {
-    if (!j.contains("banks")) return json::object();
-    const json& banksVal = j["banks"];
+    if (!j.contains(key)) return json::object();
+    const json& val = j[key];
 
-    if (banksVal.is_object()) return banksVal;
+    if (val.is_object()) return val;
 
-    if (banksVal.is_string()) {
-        fs::path refPath = banksVal.get<std::string>();
+    if (val.is_string()) {
+        fs::path refPath = val.get<std::string>();
         if (refPath.is_relative()) refPath = baseDir / refPath;
 
         std::ifstream f(refPath);
         if (!f) {
-            FITOM_LOG_ERR("banks: 外部参照ファイルを開けません: " << refPath.string());
+            FITOM_LOG_ERR(key << ": 外部参照ファイルを開けません: " << refPath.string());
             return json::object();
         }
         try {
             json refJson = json::parse(f, nullptr, true, true); // allow comments
             if (!refJson.is_object()) {
-                FITOM_LOG_ERR("banks: 外部参照ファイルの内容がオブジェクトではありません: "
+                FITOM_LOG_ERR(key << ": 外部参照ファイルの内容がオブジェクトではありません: "
                     << refPath.string());
                 return json::object();
             }
             return refJson;
         } catch (const json::exception& e) {
-            FITOM_LOG_ERR("banks: 外部参照ファイルの解析に失敗しました: "
+            FITOM_LOG_ERR(key << ": 外部参照ファイルの解析に失敗しました: "
                 << refPath.string() << " (" << e.what() << ")");
             return json::object();
         }
     }
 
-    FITOM_LOG_ERR("banks: オブジェクトまたは外部参照ファイルパス(文字列)である必要があります");
+    FITOM_LOG_ERR(key << ": オブジェクトまたは外部参照ファイルパス(文字列)である必要があります");
     return json::object();
+}
+
+static json resolveBanksSection(const json& j, const fs::path& baseDir)
+{
+    return resolveExternalBanksRef(j, "banks", baseDir);
+}
+
+// -------------------------------------------------------
+//  bank_overrides の適用 (2026年7月新設)
+//  外部参照の共通バンクセット(banks)に対し、プロファイルごとに一部の
+//  バンクだけを差し替えたり追加したりするための機能。配列種別ごとに
+//  「識別キー」が一致するエントリを上書き対象とみなし、一致しなければ
+//  配列末尾へ追加する(削除はできない)。
+//    hw_banks:  group + bank (バンク番号はチップ族ごとに独立した名前空間のため)
+//    drum_banks: prog (ドラムバンクはbankを持たずprog単位で固定)
+//    pcm_banks: bank + chip (同一bank番号を複数の物理チップ向けに使い分ける
+//               設計、config_schema/profile.schema.json の pcm_banks[].chip 参照)
+//    その他 (sf2_banks/sw_banks/patch_banks/scc_wave_banks): bank
+// -------------------------------------------------------
+static bool bankEntryKeyMatches(const std::string& arrayName, const json& a, const json& b)
+{
+    if (arrayName == "hw_banks") {
+        return a.value("group", "") == b.value("group", "")
+            && a.value("bank", -1) == b.value("bank", -1);
+    }
+    if (arrayName == "drum_banks") {
+        return a.value("prog", -1) == b.value("prog", -1);
+    }
+    if (arrayName == "pcm_banks") {
+        return a.value("bank", -1) == b.value("bank", -1)
+            && a.value("chip", "") == b.value("chip", "");
+    }
+    return a.value("bank", -1) == b.value("bank", -1);
+}
+
+static void mergeBankArray(json& baseBanks, const json& overrides, const char* arrayName)
+{
+    if (!overrides.contains(arrayName)) return;
+    const json& overrideArr = overrides[arrayName];
+    if (!overrideArr.is_array()) return;
+
+    json& baseArr = baseBanks[arrayName];
+    if (!baseArr.is_array()) baseArr = json::array();
+
+    for (const auto& overrideEntry : overrideArr) {
+        bool replaced = false;
+        for (auto& baseEntry : baseArr) {
+            if (bankEntryKeyMatches(arrayName, baseEntry, overrideEntry)) {
+                baseEntry = overrideEntry;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) baseArr.push_back(overrideEntry);
+    }
+}
+
+static void applyBankOverrides(json& baseBanks, const json& overrides)
+{
+    static const char* kBankArrayNames[] = {
+        "hw_banks", "sf2_banks", "sw_banks", "patch_banks",
+        "drum_banks", "scc_wave_banks", "pcm_banks"
+    };
+    for (const char* name : kBankArrayNames) {
+        mergeBankArray(baseBanks, overrides, name);
+    }
 }
 
 // -------------------------------------------------------
@@ -306,8 +373,15 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
 
     // "banks"は文字列(外部参照ファイルパス)の場合があるため、以降の
     // バンク関連処理(loadSf2Banks/loadDrumBanks)が参照する実体を最初に
-    // 1回だけ解決しておく(resolveBanksSection参照)。
-    const json resolvedBanks = resolveBanksSection(j, baseDir);
+    // 1回だけ解決しておく(resolveBanksSection参照)。続けて"bank_overrides"
+    // (同一スキーマ、外部参照の共通バンクセットに対する部分上書き・追加用)
+    // を解決し、識別キー一致で置換・不一致で追加する形でresolvedBanksへ
+    // マージする(applyBankOverrides参照)。
+    json resolvedBanks = resolveBanksSection(j, baseDir);
+    const json bankOverrides = resolveExternalBanksRef(j, "bank_overrides", baseDir);
+    if (!bankOverrides.empty()) {
+        applyBankOverrides(resolvedBanks, bankOverrides);
+    }
 
     // --- SF2直行パス: sf2_banksレジストリの構築 (2026年7月新設) ---
     // devices[](chip:"SF2")のparams_json組み立て(buildDevice()内)が
