@@ -196,261 +196,272 @@
       ]
     },
     "banks": {
-      "type": "object",
-      "description": "バンクファイルの読み込み設定。",
-      "additionalProperties": false,
-      "properties": {
-        "hw_banks": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "group",
-              "bank",
-              "file"
-            ],
-            "properties": {
-              "group": {
-                "type": "string",
-                "enum": [
-                  "OPN",
-                  "OPN2",
-                  "OPNA",
-                  "OPNB",
-                  "OPM",
-                  "OPZ",
-                  "OPZ2",
-                  "OPL",
-                  "OPL2",
-                  "OPL3",
-                  "OPL3_2",
-                  "OPL_RHY",
-                  "OPLL",
-                  "OPLLP",
-                  "OPLLX",
-                  "VRC7",
-                  "SSG",
-                  "EPSG",
-                  "DCSG",
-                  "SAA",
-                  "SCC",
-                  "SCCP",
-                  "ADPCMB",
-                  "ADPCMA",
-                  "PCMD8",
-                  "AWM",
-                  "PSG",
-                  "PCM"
+      "description": "バンクファイルの読み込み設定。文字列を指定した場合は外部バンク定義ファイルへのパス(プロファイル自身のディレクトリからの相対パスまたは絶対パス)とみなし、参照先JSONオブジェクトの内容(hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)がこの位置にそのまま埋め込まれたものとして扱われる(下記のオブジェクト直書きと同一スキーマ)。パッチバンク構成はデバイス構成(devices/hw_plugins)に一切依存しないため、デバイス構成が異なる複数プロファイル間で同じプリセットバンク構成ファイルを使い回すことができる(デバイス構成に含まれないバンクエントリは単に発音しないだけであり、デバイス構成の一部変更がbank/prog番号の一貫性を崩すことはない)。2026年7月新設。",
+      "oneOf": [
+        {
+          "type": "string",
+          "examples": [
+            "bank.profile.json",
+            "banks/common.profile.json"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hw_banks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "group",
+                  "bank",
+                  "file"
                 ],
-                "description": "対象チップ族。ロード時の VoiceGroup 解決に使用。PatchManager::stringToVoicePatchType(Config.cpp)が認識する全文字列を反映している(2026年7月に、細かい分類文字列(OPZ等)の多くが欠落していた不整合を修正)。SD1/MA3/MA5/MA7系は現状チップドライバが未実装のため、stringToVoicePatchType自体は認識するが本enumには含めない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
-              },
-              "bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127
-              },
-              "file": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string",
-                "enum": [
-                  "builtin_swpatch_meta"
-                ],
-                "description": "このバンクエントリの特殊な役割(省略時は通常のHwBank、voice_patch_type/bank/prog経由で検索される)。\"builtin_swpatch_meta\": OPLL ROM音色(opllRomPatches_、PatchManager::resolveOpllRomVoice参照)にswPatchを紐づけるための専用メタデータバンク。通常のHwBankRegistry検索の対象にならず、専用の保持スロット(PatchManager::opllBuiltinMetaBank_)にルーティングされる。bankフィールドの値はこの場合意味を持たない(何番でもよい)が、スキーマ上は引き続き必須のままとする(既存のhw_banks[]エントリ形式との一貫性のため)。各パッチエントリはhwbank.schema.jsonのbuiltinフィールド(ops[]とは排他)で、対象のROM音色を指定する。2026年7月新設。詳細はdocs/patch-structure-design.md参照。"
-              }
-            }
-          }
-        },
-        "sf2_banks": {
-          "type": "array",
-          "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよく、その場合もHWプラグイン側でファイルパスをキーにキャッシュし、実体のロード(fluid_synth_sfload()相当)は1回だけ行う想定。2026年7月、FITOM_X本体側(Sf2BankRegistry、CC#32解決・devices[]のsoundfonts一覧自動生成)は実装済み。実際にSF2を鳴らすにはこのファイル一覧を受け取るhwifプラグイン(仮称FitomSf2IF、別リポジトリ)が別途必要で、そちらは未実装。",
-          "items": {
-            "type": "object",
-            "required": [
-              "bank",
-              "file",
-              "sf2_bank"
-            ],
-            "properties": {
-              "bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127,
-                "description": "CC#32で選択するインデックス(既存hw_banks[].bankと同じ意味論のインデックスで、SF2ファイル内部のbank番号そのものではない)。"
-              },
-              "file": {
-                "type": "string",
-                "description": "SoundFont2(.sf2)ファイルへのパス。"
-              },
-              "sf2_bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 128,
-                "description": "このエントリが指すSF2ファイル内部でのネイティブbank番号。128はSF2/GM界隈で広く使われるパーカッションバンクの慣習を許容するための値で、hw_banks[].bankの上限(127)より1つ広い。"
-              }
-            }
-          }
-        },
-        "sw_banks": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "bank",
-              "file"
-            ],
-            "properties": {
-              "bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127
-              },
-              "file": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "patch_banks": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "bank",
-              "file"
-            ],
-            "properties": {
-              "bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127
-              },
-              "file": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "drum_banks": {
-          "type": "array",
-          "description": "ドラムキット(プログラムチェンジ1つぶん)のファイル一覧 (CRhythmCh用)。1ファイル=1prog分の割り当てで、ファイル肥大化を避ける設計。ドラムバンクは常に固定バンク番号0を使う (MIDI CC#0/CC#32によるバンク切替はサポートしない。Prog Chg.のみでキットを選択する)。",
-          "items": {
-            "type": "object",
-            "required": [
-              "prog",
-              "file"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "prog": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127,
-                "description": "このキットを割り当てるプログラムチェンジ番号"
-              },
-              "name": {
-                "type": "string",
-                "description": "任意のラベル (人間可読用、実際のキット名はファイル内の\"name\"を使う)"
-              },
-              "file": {
-                "type": "string",
-                "description": "*.drumkit.json のファイルパス"
-              },
-              "_comment": {
-                "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
-                "type": [
-                  "string",
-                  "array"
-                ],
-                "items": {
-                  "type": "string"
+                "properties": {
+                  "group": {
+                    "type": "string",
+                    "enum": [
+                      "OPN",
+                      "OPN2",
+                      "OPNA",
+                      "OPNB",
+                      "OPM",
+                      "OPZ",
+                      "OPZ2",
+                      "OPL",
+                      "OPL2",
+                      "OPL3",
+                      "OPL3_2",
+                      "OPL_RHY",
+                      "OPLL",
+                      "OPLLP",
+                      "OPLLX",
+                      "VRC7",
+                      "SSG",
+                      "EPSG",
+                      "DCSG",
+                      "SAA",
+                      "SCC",
+                      "SCCP",
+                      "ADPCMB",
+                      "ADPCMA",
+                      "PCMD8",
+                      "AWM",
+                      "PSG",
+                      "PCM"
+                    ],
+                    "description": "対象チップ族。ロード時の VoiceGroup 解決に使用。PatchManager::stringToVoicePatchType(Config.cpp)が認識する全文字列を反映している(2026年7月に、細かい分類文字列(OPZ等)の多くが欠落していた不整合を修正)。SD1/MA3/MA5/MA7系は現状チップドライバが未実装のため、stringToVoicePatchType自体は認識するが本enumには含めない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
+                  },
+                  "bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "builtin_swpatch_meta"
+                    ],
+                    "description": "このバンクエントリの特殊な役割(省略時は通常のHwBank、voice_patch_type/bank/prog経由で検索される)。\"builtin_swpatch_meta\": OPLL ROM音色(opllRomPatches_、PatchManager::resolveOpllRomVoice参照)にswPatchを紐づけるための専用メタデータバンク。通常のHwBankRegistry検索の対象にならず、専用の保持スロット(PatchManager::opllBuiltinMetaBank_)にルーティングされる。bankフィールドの値はこの場合意味を持たない(何番でもよい)が、スキーマ上は引き続き必須のままとする(既存のhw_banks[]エントリ形式との一貫性のため)。各パッチエントリはhwbank.schema.jsonのbuiltinフィールド(ops[]とは排他)で、対象のROM音色を指定する。2026年7月新設。詳細はdocs/patch-structure-design.md参照。"
+                  }
                 }
               }
-            }
-          }
-        },
-        "scc_wave_banks": {
-          "type": "array",
-          "description": "SCC/SCC+ 波形バンクファイル一覧。HwPatch の WS フィールドで波形番号を指定する。",
-          "items": {
-            "type": "object",
-            "required": [
-              "bank",
-              "file"
-            ],
-            "properties": {
-              "bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127,
-                "description": "波形バンク番号。デバイスに setWaveBankNo() で指定する。"
-              },
-              "file": {
-                "type": "string",
-                "description": "*.sccwave.json のパス。"
+            },
+            "sf2_banks": {
+              "type": "array",
+              "description": "SF2直行パス(docs/sf2-fluidsynth-integration.md参照)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよく、その場合もHWプラグイン側でファイルパスをキーにキャッシュし、実体のロード(fluid_synth_sfload()相当)は1回だけ行う想定。2026年7月、FITOM_X本体側(Sf2BankRegistry、CC#32解決・devices[]のsoundfonts一覧自動生成)は実装済み。実際にSF2を鳴らすにはこのファイル一覧を受け取るhwifプラグイン(仮称FitomSf2IF、別リポジトリ)が別途必要で、そちらは未実装。",
+              "items": {
+                "type": "object",
+                "required": [
+                  "bank",
+                  "file",
+                  "sf2_bank"
+                ],
+                "properties": {
+                  "bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127,
+                    "description": "CC#32で選択するインデックス(既存hw_banks[].bankと同じ意味論のインデックスで、SF2ファイル内部のbank番号そのものではない)。"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "SoundFont2(.sf2)ファイルへのパス。"
+                  },
+                  "sf2_bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 128,
+                    "description": "このエントリが指すSF2ファイル内部でのネイティブbank番号。128はSF2/GM界隈で広く使われるパーカッションバンクの慣習を許容するための値で、hw_banks[].bankの上限(127)より1つ広い。"
+                  }
+                }
+              }
+            },
+            "sw_banks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "bank",
+                  "file"
+                ],
+                "properties": {
+                  "bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127
+                  },
+                  "file": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "patch_banks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "bank",
+                  "file"
+                ],
+                "properties": {
+                  "bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127
+                  },
+                  "file": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "drum_banks": {
+              "type": "array",
+              "description": "ドラムキット(プログラムチェンジ1つぶん)のファイル一覧 (CRhythmCh用)。1ファイル=1prog分の割り当てで、ファイル肥大化を避ける設計。ドラムバンクは常に固定バンク番号0を使う (MIDI CC#0/CC#32によるバンク切替はサポートしない。Prog Chg.のみでキットを選択する)。",
+              "items": {
+                "type": "object",
+                "required": [
+                  "prog",
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "prog": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127,
+                    "description": "このキットを割り当てるプログラムチェンジ番号"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "任意のラベル (人間可読用、実際のキット名はファイル内の\"name\"を使う)"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "*.drumkit.json のファイルパス"
+                  },
+                  "_comment": {
+                    "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+                    "type": [
+                      "string",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "scc_wave_banks": {
+              "type": "array",
+              "description": "SCC/SCC+ 波形バンクファイル一覧。HwPatch の WS フィールドで波形番号を指定する。",
+              "items": {
+                "type": "object",
+                "required": [
+                  "bank",
+                  "file"
+                ],
+                "properties": {
+                  "bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127,
+                    "description": "波形バンク番号。デバイスに setWaveBankNo() で指定する。"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "*.sccwave.json のパス。"
+                  }
+                }
+              }
+            },
+            "pcm_banks": {
+              "type": "array",
+              "description": "PCM/ADPCM バンクファイル一覧。HwPatch の WS フィールドでエントリ番号を指定する。",
+              "items": {
+                "type": "object",
+                "required": [
+                  "bank",
+                  "file"
+                ],
+                "properties": {
+                  "bank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 127,
+                    "description": "PCM バンク番号。デバイスに setPcmRegistry() で渡される。"
+                  },
+                  "file": {
+                    "type": "string",
+                    "description": "*.pcmbank.json のパス。"
+                  },
+                  "group": {
+                    "type": "string",
+                    "enum": [
+                      "ADPCMB",
+                      "ADPCMA",
+                      "PCMD8"
+                    ],
+                    "description": "任意。このPCMバンクが対象とするVoicePatchType。指定すると、①CFITOM::initDevices()が一致するVoicePatchTypeのPCMデバイスへこのバンク番号を自動的に割り当てるようになり(省略時は全PCMデバイスがbank0を共有する後方互換動作のまま)、②entries[]の各サンプルが、パッチピッカー等で選択可能なnamed patchとして自動的にHwBankRegistry側にも公開される(*.hwbank.jsonを別途手書きする必要はない、PatchManager::loadPcmBankJson()参照)。異なるコーデックのPCMバンクを複数併用する場合は指定必須(省略のままだと2つ目以降のバンクが無視される)。"
+                  },
+                  "chip": {
+                    "type": "string",
+                    "enum": [
+                      "Y8950",
+                      "OPNA",
+                      "OPNB",
+                      "OPNBB"
+                    ],
+                    "description": "任意。このPCMバンクを限定する物理チップ。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一group(VoicePatchType)を共有するが、実際に配置された波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じオフセットテーブルを共有できない。同一group内で複数の物理チップ向けバンクを併用する場合は各エントリにchipを指定する(CFITOM::initDevices()がgroupより先にdeviceType完全一致で解決する、PcmBank::deviceType参照)。ADPCM-A/PCM-D8のようにVoicePatchTypeとdeviceTypeが1:1のグループでは通常不要。"
+                  },
+                  "offsets_only": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "任意、既定false。trueの場合、このバンクはchipで指定した物理チップ向けのStart/Endレジスタ計算用オフセットテーブルとしてのみ登録し、entries[]からのnamed patch自動合成(パッチピッカーへの公開)を行わない。同一group内でchip違いのバンクを複数併用する場合、entries[]の名前集合はどのバンクも同一(オフセット値のみチップ毎に異なる)なので、代表となる1つのバンク(通常はchip省略または最初のバンク)以外にtrueを指定し、パッチピッカーでの重複表示を避ける。"
+                  }
+                }
+              }
+            },
+            "_comment": {
+              "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+              "type": [
+                "string",
+                "array"
+              ],
+              "items": {
+                "type": "string"
               }
             }
-          }
-        },
-        "pcm_banks": {
-          "type": "array",
-          "description": "PCM/ADPCM バンクファイル一覧。HwPatch の WS フィールドでエントリ番号を指定する。",
-          "items": {
-            "type": "object",
-            "required": [
-              "bank",
-              "file"
-            ],
-            "properties": {
-              "bank": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 127,
-                "description": "PCM バンク番号。デバイスに setPcmRegistry() で渡される。"
-              },
-              "file": {
-                "type": "string",
-                "description": "*.pcmbank.json のパス。"
-              },
-              "group": {
-                "type": "string",
-                "enum": [
-                  "ADPCMB",
-                  "ADPCMA",
-                  "PCMD8"
-                ],
-                "description": "任意。このPCMバンクが対象とするVoicePatchType。指定すると、①CFITOM::initDevices()が一致するVoicePatchTypeのPCMデバイスへこのバンク番号を自動的に割り当てるようになり(省略時は全PCMデバイスがbank0を共有する後方互換動作のまま)、②entries[]の各サンプルが、パッチピッカー等で選択可能なnamed patchとして自動的にHwBankRegistry側にも公開される(*.hwbank.jsonを別途手書きする必要はない、PatchManager::loadPcmBankJson()参照)。異なるコーデックのPCMバンクを複数併用する場合は指定必須(省略のままだと2つ目以降のバンクが無視される)。"
-              },
-              "chip": {
-                "type": "string",
-                "enum": [
-                  "Y8950",
-                  "OPNA",
-                  "OPNB",
-                  "OPNBB"
-                ],
-                "description": "任意。このPCMバンクを限定する物理チップ。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一group(VoicePatchType)を共有するが、実際に配置された波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じオフセットテーブルを共有できない。同一group内で複数の物理チップ向けバンクを併用する場合は各エントリにchipを指定する(CFITOM::initDevices()がgroupより先にdeviceType完全一致で解決する、PcmBank::deviceType参照)。ADPCM-A/PCM-D8のようにVoicePatchTypeとdeviceTypeが1:1のグループでは通常不要。"
-              },
-              "offsets_only": {
-                "type": "boolean",
-                "default": false,
-                "description": "任意、既定false。trueの場合、このバンクはchipで指定した物理チップ向けのStart/Endレジスタ計算用オフセットテーブルとしてのみ登録し、entries[]からのnamed patch自動合成(パッチピッカーへの公開)を行わない。同一group内でchip違いのバンクを複数併用する場合、entries[]の名前集合はどのバンクも同一(オフセット値のみチップ毎に異なる)なので、代表となる1つのバンク(通常はchip省略または最初のバンク)以外にtrueを指定し、パッチピッカーでの重複表示を避ける。"
-              }
-            }
-          }
-        },
-        "_comment": {
-          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
-          "type": [
-            "string",
-            "array"
-          ],
-          "items": {
-            "type": "string"
           }
         }
-      }
+      ]
     },
     "sf2_channel_windows": {
       "type": "array",

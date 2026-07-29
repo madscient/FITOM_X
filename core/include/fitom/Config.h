@@ -276,8 +276,10 @@ protected:
     // エントリ (Step1でステレオ化済み) は Panpot をグループ化キーから除外する
     // (ステレオユニットはもはや単一のL/Rパンという概念を持たないため)。
     void mergeSpannableDevices();
-    // profile の banks.drum_banks[] を PatchManager に登録する
-    void loadDrumBanks(const nlohmann::json& j, PatchManager& pm,
+    // banks.drum_banks[] を PatchManager に登録する。引数banksは
+    // resolveBanksSection()(Config.cpp)で解決済みの実体を渡すこと
+    // (banksが外部参照文字列の場合、参照先ファイルの内容に展開済み)。
+    void loadDrumBanks(const nlohmann::json& banks, PatchManager& pm,
                         const std::filesystem::path& baseDir);
 
     // ─── SF2直行パス (2026年7月新設) ──────────────────────────────────────
@@ -285,8 +287,9 @@ protected:
     // (buildDevice()、chip:"SF2"のparams_json組み立て)より前に、
     // buildFromProfile()の先頭付近で1回だけ呼ぶ(Sf2BankRegistryが
     // soundfonts一覧を確定させるため)。PatchManagerに依存しないため
-    // patchMgr==nullptrでも常に実行する。
-    void loadSf2Banks(const nlohmann::json& j, const std::filesystem::path& baseDir);
+    // patchMgr==nullptrでも常に実行する。引数banksはloadDrumBanks同様、
+    // resolveBanksSection()で解決済みの実体を渡すこと。
+    void loadSf2Banks(const nlohmann::json& banks, const std::filesystem::path& baseDir);
     // トップレベルsf2_channel_windows[]をパースし、sf2ChannelWindows_を
     // 構築する。fluidsynth_chanの重複・エントリ数(<=16)を検証し、違反時は
     // 空にしてfalseを返す(呼び出し元はプロファイル読み込み全体を失敗させる)。

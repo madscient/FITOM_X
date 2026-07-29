@@ -127,6 +127,49 @@ TEST_CASE("FITOMConfig: banks.*[].file resolves relative to the profile's own di
     CHECK(bank->name == "reldir test bank");
 }
 
+TEST_CASE("FITOMConfig: banks as a string resolves to an external bank-set file, "
+          "embedded as if written inline", "[config]")
+{
+    // banks: "xxx.json" は、参照先JSONオブジェクト(hw_banks/sw_banks/...を
+    // 持つオブジェクト)をそのまま"banks"の値として展開する外部参照。
+    // パス解決はプロファイル自身のディレクトリが基点(banks.*[].fileと同じ)。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_banks_external_ref";
+    fs::create_directories(dir);
+
+    json hwbank = {
+        {"name", "external bankset test"},
+        {"patches", json::array()}
+    };
+    fs::path hwbankPath = dir / "child.hwbank.json";
+    { std::ofstream f(hwbankPath); f << hwbank.dump(2); }
+
+    json bankset = {
+        {"hw_banks", json::array({
+            {{"group", "OPN"}, {"bank", 0}, {"file", "child.hwbank.json"}}
+        })}
+    };
+    fs::path banksetPath = dir / "common.bankset.json";
+    { std::ofstream f(banksetPath); f << bankset.dump(2); }
+
+    json profile = {
+        {"profile_name", "external banks ref test"},
+        {"devices",      json::array()},
+        {"banks",        "common.bankset.json"}
+    };
+    fs::path profilePath = dir / "external_banks.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    uint8_t voicePatchType = fitom::FITOMConfig::stringToVoicePatchType("OPN");
+    uint32_t group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    const auto* bank = pm.hwRegistry().find(group, 0);
+    REQUIRE(bank != nullptr);
+    CHECK(bank->name == "external bankset test");
+}
+
 TEST_CASE("FITOMConfig: system config defaults", "[config]")
 {
     fitom::FITOMConfig cfg;

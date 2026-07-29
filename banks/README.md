@@ -62,6 +62,38 @@ banks/
 }
 ```
 
+### banksセクションの外部ファイル分離(2026年7月〜)
+
+`banks` に文字列を指定すると、外部ファイルへのパスとして扱われます。
+参照先JSONオブジェクト(`hw_banks`/`sw_banks`/`patch_banks`/`drum_banks`/
+`scc_wave_banks`/`pcm_banks`/`sf2_banks`を持つオブジェクト)が、その位置に
+そのまま埋め込まれたものとして読み込まれます(パス解決はプロファイル
+ファイル自身のディレクトリが基点、`banks.*[].file`と同じ規則)。
+
+```json
+{
+  "banks": "bank.profile.json"
+}
+```
+
+```json
+// bank.profile.json (上記から参照される側。中身は banks オブジェクトと同一形式)
+{
+  "hw_banks": [
+    { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" }
+  ],
+  "drum_banks": [
+    { "group": "OPL2","bank": 0, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
+  ]
+}
+```
+
+パッチバンク構成(bank/prog番号の割り当て)はデバイス構成
+(`devices`/`hw_plugins`)に一切依存しないため、デバイス構成が異なる複数の
+プロファイル間で同じバンク構成ファイルを共有できます。デバイス構成に
+含まれないチップ向けのバンクエントリは単に発音しないだけであり、一部の
+デバイス構成が変わってもbank/prog番号の一貫性は保たれます。
+
 ## バンク数・音色数サマリー
 
 | グループ | バンク数 | 総音色数 | 主な出典 |
