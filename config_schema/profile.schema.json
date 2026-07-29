@@ -8,196 +8,9 @@
   "required": [
     "profile_name"
   ],
-  "properties": {
-    "profile_name": {
-      "type": "string",
-      "description": "このプロファイルの表示名。GUI のプロファイル選択リストに使用する。",
-      "examples": [
-        "自宅スタジオ (SPFM + OPN2)",
-        "エミュレーター (OPM + OPL3)"
-      ]
-    },
-    "devices": {
-      "type": "array",
-      "description": "論理デバイス定義。FITOM の MIDIチャンネル割り当てに使用される。エミュレーターとハードウェアを混在させることができる。",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "if",
-          "plugin"
-        ],
-        "properties": {
-          "if": {
-            "type": "string",
-            "enum": [
-              "HW"
-            ],
-            "description": "バックエンド種別。実機/エミュレータ問わず全て\"HW\"を使う (FITOM本体は両者を区別しない、hw_plugins[]で使うプラグインを指定する)。"
-          },
-          "label": {
-            "type": "string",
-            "description": "このデバイスの表示名（GUI 表示用・任意）。",
-            "examples": [
-              "OPNA #1",
-              "OPL3 (エミュ)"
-            ]
-          },
-          "chip": {
-            "type": "string",
-            "description": "チップ種別文字列。resolveChipDeviceId()でDEVICE_*に変換される。HWプラグイン(FitomEmuIF等)のparams_jsonの一部として転送される場合もある。",
-            "examples": [
-              "OPNA",
-              "OPM",
-              "OPL3",
-              "SSG",
-              "DCSG"
-            ]
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "RE1",
-              "RE4",
-              "SPFM_TOWER",
-              "SPFM_LIGHT",
-              "FMHWIF"
-            ],
-            "description": "[if=HW のみ] ハードウェアインターフェース種別。RE1/RE4/SPFM_TOWER/SPFM_LIGHTは物理ハードウェア、FMHWIFはFmEngineベースのエミュレータ統合プラグイン(FitomEmuIF等)を指す。FITOM本体はこの値を各プラグインへの不透明なパラメータとしてのみ扱い、実機かエミュレータかで処理を分岐させることはない。"
-          },
-          "serial": {
-            "type": "string",
-            "description": "[if=HW, type=RE1/RE4 のみ] FT245R/FT2232H のシリアル番号。省略時は index=0 のデバイスを使用する。",
-            "examples": [
-              "ABCD1234"
-            ]
-          },
-          "port": {
-            "type": "string",
-            "description": "[if=HW, type=SPFM_* のみ] COMポート名または /dev/ttyUSB* のパス。",
-            "examples": [
-              "COM3",
-              "/dev/ttyUSB0"
-            ]
-          },
-          "slot": {
-            "type": "integer",
-            "default": 0,
-            "minimum": 0,
-            "maximum": 3,
-            "description": "[if=HW のみ] チップのスロット番号。SPFM系はCS番号(0-2)、RE1/RE4は/EXSEL0-3(0-3)に対応。プラグイン依存の値であり、FITOM_X本体はこの範囲を検証しない(プラグインドキュメントに従うこと)。"
-          },
-          "pan": {
-            "type": "integer",
-            "default": 0,
-            "enum": [
-              0,
-              1,
-              2,
-              3
-            ],
-            "description": "[if=HW のみ] パノラマ。0=Stereo, 1=L only, 2=R only, 3=LR mono。"
-          },
-          "extra_slot": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 3,
-            "description": "[if=HW のみ] 2 ポートチップ (OPNA/OPN2/OPL3 等) の 2 ポート目に使うチップスロット番号(\"slot\"と同じ意味・同じ範囲)。省略時は 1 ポートとして動作 (エミュレーター時は通常不要)。SplitPort が port1(slot) と port2(extra_slot) を統合し、チップドライバは addr >= 0x100 を port2 向けとして透過的に書くだけでよい。"
-          },
-          "sample_rate": {
-            "type": "integer",
-            "default": 44100,
-            "description": "[if=HW のみ] サンプルレート [Hz]。fitom_fmhwif.dll および fitom_hw.dll の遅延キュー計算に使用する。省略時は 44100。",
-            "examples": [
-              44100,
-              48000
-            ]
-          },
-          "rhythm_mode": {
-            "type": "boolean",
-            "default": false,
-            "description": "OPLL/OPL/OPL2/OPL3/OPNA等、チップ内蔵リズム音源の有効/無効。有効時はsub-device自動生成によりリズム専用デバイスが追加生成される。"
-          },
-          "stereo_pair": {
-            "type": "boolean",
-            "default": false,
-            "description": "リニアステレオ化 (CLinearPanDevice) の対象として明示指定する。同一VoicePatchType・同一I/F・pan(1=L)とpan(2=R)の組み合わせを持つ2エントリのみ、自動的にステレオデバイスとして統合される。自動検出はせず、両エントリともこのフラグが必要。"
-          },
-          "plugin": {
-            "type": "string",
-            "description": "if=\"HW\"の場合に使うHWプラグイン名。hw_plugins[].nameから参照する。実機・エミュレータ問わず同じフィールドで指定する。",
-            "examples": [
-              "FitomEmuIF",
-              "FitomHwIF"
-            ]
-          },
-          "index": {
-            "type": "integer",
-            "description": "if=\"HW\"かつFitomEmuIF等のエミュレータプラグインを使う場合のチップインスタンス番号。プラグインのfmhwif_profile.json等、プラグイン自身の設定で複数チップインスタンスを持つ場合にどれを使うかを指定する。",
-            "examples": [
-              0,
-              1
-            ]
-          },
-          "engine": {
-            "type": "string",
-            "description": "[if=HW かつ FitomEmuIF等のFmEngineベースのプラグインを使う場合] そのHWプラグイン自身の設定(例: FitomEmuIFのfmhwif_profile.json)に登録されたFmEngine名。FITOM_X本体はこの値を単にparams_jsonの一部としてプラグインに転送するのみで、自身でFmEngineをロードすることはない。",
-            "examples": [
-              "YMEngine",
-              "AYEngine"
-            ]
-          },
-          "clock": {
-            "type": "integer",
-            "default": 0,
-            "description": "[if=HW のみ] チップのマスタークロック [Hz]。HWプラグインのparams_jsonフィールド名(FitomHwIF等)。0は呼び出し元が管理しない（チップドライバが固定値を持つ場合）。",
-            "examples": [
-              3993600,
-              3579545,
-              8000000
-            ]
-          },
-          "_comment": {
-            "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
-            "type": [
-              "string",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    "midi_inputs": {
-      "type": "array",
-      "description": "使用する MIDI 入力デバイス名の一覧。MidiPlugin_EnumerateIn() が返すデバイス名と一致させること。配列のindexがMPU番号(0-3、最大4)に対応する。空文字列の要素は「そのMPUには割り当てない」ことを表す(GUIのMIDIポート設定ダイアログで一部のMPUのみ設定した場合等、途中のindexが空になりうる)。",
-      "items": {
-        "type": "string"
-      },
-      "examples": [
-        [
-          "MIDI キーボード",
-          "UM-ONE"
-        ]
-      ]
-    },
-    "midi_outputs": {
-      "type": "array",
-      "description": "使用する MIDI 出力デバイス名の一覧（MIDI スルー等に使用）。省略可。",
-      "items": {
-        "type": "string"
-      },
-      "examples": [
-        [
-          "External Synth Out"
-        ]
-      ]
-    },
-    "banks": {
+  "definitions": {
+    "banksObject": {
       "type": "object",
-      "description": "バンクファイルの読み込み設定。",
       "additionalProperties": false,
       "properties": {
         "hw_banks": {
@@ -451,6 +264,223 @@
           }
         }
       }
+    }
+  },
+  "properties": {
+    "profile_name": {
+      "type": "string",
+      "description": "このプロファイルの表示名。GUI のプロファイル選択リストに使用する。",
+      "examples": [
+        "自宅スタジオ (SPFM + OPN2)",
+        "エミュレーター (OPM + OPL3)"
+      ]
+    },
+    "devices": {
+      "type": "array",
+      "description": "論理デバイス定義。FITOM の MIDIチャンネル割り当てに使用される。エミュレーターとハードウェアを混在させることができる。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "if",
+          "plugin"
+        ],
+        "properties": {
+          "if": {
+            "type": "string",
+            "enum": [
+              "HW"
+            ],
+            "description": "バックエンド種別。実機/エミュレータ問わず全て\"HW\"を使う (FITOM本体は両者を区別しない、hw_plugins[]で使うプラグインを指定する)。"
+          },
+          "label": {
+            "type": "string",
+            "description": "このデバイスの表示名（GUI 表示用・任意）。",
+            "examples": [
+              "OPNA #1",
+              "OPL3 (エミュ)"
+            ]
+          },
+          "chip": {
+            "type": "string",
+            "description": "チップ種別文字列。resolveChipDeviceId()でDEVICE_*に変換される。HWプラグイン(FitomEmuIF等)のparams_jsonの一部として転送される場合もある。",
+            "examples": [
+              "OPNA",
+              "OPM",
+              "OPL3",
+              "SSG",
+              "DCSG"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RE1",
+              "RE4",
+              "SPFM_TOWER",
+              "SPFM_LIGHT",
+              "FMHWIF"
+            ],
+            "description": "[if=HW のみ] ハードウェアインターフェース種別。RE1/RE4/SPFM_TOWER/SPFM_LIGHTは物理ハードウェア、FMHWIFはFmEngineベースのエミュレータ統合プラグイン(FitomEmuIF等)を指す。FITOM本体はこの値を各プラグインへの不透明なパラメータとしてのみ扱い、実機かエミュレータかで処理を分岐させることはない。"
+          },
+          "serial": {
+            "type": "string",
+            "description": "[if=HW, type=RE1/RE4 のみ] FT245R/FT2232H のシリアル番号。省略時は index=0 のデバイスを使用する。",
+            "examples": [
+              "ABCD1234"
+            ]
+          },
+          "port": {
+            "type": "string",
+            "description": "[if=HW, type=SPFM_* のみ] COMポート名または /dev/ttyUSB* のパス。",
+            "examples": [
+              "COM3",
+              "/dev/ttyUSB0"
+            ]
+          },
+          "slot": {
+            "type": "integer",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 3,
+            "description": "[if=HW のみ] チップのスロット番号。SPFM系はCS番号(0-2)、RE1/RE4は/EXSEL0-3(0-3)に対応。プラグイン依存の値であり、FITOM_X本体はこの範囲を検証しない(プラグインドキュメントに従うこと)。"
+          },
+          "pan": {
+            "type": "integer",
+            "default": 0,
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "description": "[if=HW のみ] パノラマ。0=Stereo, 1=L only, 2=R only, 3=LR mono。"
+          },
+          "extra_slot": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3,
+            "description": "[if=HW のみ] 2 ポートチップ (OPNA/OPN2/OPL3 等) の 2 ポート目に使うチップスロット番号(\"slot\"と同じ意味・同じ範囲)。省略時は 1 ポートとして動作 (エミュレーター時は通常不要)。SplitPort が port1(slot) と port2(extra_slot) を統合し、チップドライバは addr >= 0x100 を port2 向けとして透過的に書くだけでよい。"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "default": 44100,
+            "description": "[if=HW のみ] サンプルレート [Hz]。fitom_fmhwif.dll および fitom_hw.dll の遅延キュー計算に使用する。省略時は 44100。",
+            "examples": [
+              44100,
+              48000
+            ]
+          },
+          "rhythm_mode": {
+            "type": "boolean",
+            "default": false,
+            "description": "OPLL/OPL/OPL2/OPL3/OPNA等、チップ内蔵リズム音源の有効/無効。有効時はsub-device自動生成によりリズム専用デバイスが追加生成される。"
+          },
+          "stereo_pair": {
+            "type": "boolean",
+            "default": false,
+            "description": "リニアステレオ化 (CLinearPanDevice) の対象として明示指定する。同一VoicePatchType・同一I/F・pan(1=L)とpan(2=R)の組み合わせを持つ2エントリのみ、自動的にステレオデバイスとして統合される。自動検出はせず、両エントリともこのフラグが必要。"
+          },
+          "plugin": {
+            "type": "string",
+            "description": "if=\"HW\"の場合に使うHWプラグイン名。hw_plugins[].nameから参照する。実機・エミュレータ問わず同じフィールドで指定する。",
+            "examples": [
+              "FitomEmuIF",
+              "FitomHwIF"
+            ]
+          },
+          "index": {
+            "type": "integer",
+            "description": "if=\"HW\"かつFitomEmuIF等のエミュレータプラグインを使う場合のチップインスタンス番号。プラグインのfmhwif_profile.json等、プラグイン自身の設定で複数チップインスタンスを持つ場合にどれを使うかを指定する。",
+            "examples": [
+              0,
+              1
+            ]
+          },
+          "engine": {
+            "type": "string",
+            "description": "[if=HW かつ FitomEmuIF等のFmEngineベースのプラグインを使う場合] そのHWプラグイン自身の設定(例: FitomEmuIFのfmhwif_profile.json)に登録されたFmEngine名。FITOM_X本体はこの値を単にparams_jsonの一部としてプラグインに転送するのみで、自身でFmEngineをロードすることはない。",
+            "examples": [
+              "YMEngine",
+              "AYEngine"
+            ]
+          },
+          "clock": {
+            "type": "integer",
+            "default": 0,
+            "description": "[if=HW のみ] チップのマスタークロック [Hz]。HWプラグインのparams_jsonフィールド名(FitomHwIF等)。0は呼び出し元が管理しない（チップドライバが固定値を持つ場合）。",
+            "examples": [
+              3993600,
+              3579545,
+              8000000
+            ]
+          },
+          "_comment": {
+            "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+            "type": [
+              "string",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "midi_inputs": {
+      "type": "array",
+      "description": "使用する MIDI 入力デバイス名の一覧。MidiPlugin_EnumerateIn() が返すデバイス名と一致させること。配列のindexがMPU番号(0-3、最大4)に対応する。空文字列の要素は「そのMPUには割り当てない」ことを表す(GUIのMIDIポート設定ダイアログで一部のMPUのみ設定した場合等、途中のindexが空になりうる)。",
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        [
+          "MIDI キーボード",
+          "UM-ONE"
+        ]
+      ]
+    },
+    "midi_outputs": {
+      "type": "array",
+      "description": "使用する MIDI 出力デバイス名の一覧（MIDI スルー等に使用）。省略可。",
+      "items": {
+        "type": "string"
+      },
+      "examples": [
+        [
+          "External Synth Out"
+        ]
+      ]
+    },
+    "banks": {
+      "description": "バンクファイルの読み込み設定。文字列を指定した場合は外部バンク定義ファイルへのパス(プロファイル自身のディレクトリからの相対パスまたは絶対パス)とみなし、参照先JSONオブジェクトの内容(hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)がこの位置にそのまま埋め込まれたものとして扱われる(下記のオブジェクト直書きと同一スキーマ)。パッチバンク構成はデバイス構成(devices/hw_plugins)に一切依存しないため、デバイス構成が異なる複数プロファイル間で同じプリセットバンク構成ファイルを使い回すことができる(デバイス構成に含まれないバンクエントリは単に発音しないだけであり、デバイス構成の一部変更がbank/prog番号の一貫性を崩すことはない)。2026年7月新設。",
+      "oneOf": [
+        {
+          "type": "string",
+          "examples": [
+            "bank.profile.json",
+            "banks/common.profile.json"
+          ]
+        },
+        {
+          "$ref": "#/definitions/banksObject"
+        }
+      ]
+    },
+    "bank_overrides": {
+      "description": "banksに対する部分上書き・追加設定。banksと同一スキーマ(オブジェクト直書き、または外部参照ファイルパスの文字列のいずれか)で、hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banksの各配列について、識別キー(hw_banksは\"group\"+\"bank\"、drum_banksは\"prog\"、pcm_banksは\"bank\"+\"chip\"、その他は\"bank\")が一致するエントリはこちらの内容で置き換え、一致しなければ追加としてbanks側の配列に加えられる(削除はできない)。banksが外部参照ファイル(共通プリセットバンクセット)を指しているとき、プロファイルごとに一部のバンクだけを個別ファイルへ差し替えたり、共通セットに無いバンクを追加したりする用途を想定している。banks/bank_overrides両方を省略した場合は従来通りバンク未設定として扱われる。2026年7月新設。",
+      "oneOf": [
+        {
+          "type": "string",
+          "examples": [
+            "profile_specific_overrides.bankset.json"
+          ]
+        },
+        {
+          "$ref": "#/definitions/banksObject"
+        }
+      ]
     },
     "sf2_channel_windows": {
       "type": "array",

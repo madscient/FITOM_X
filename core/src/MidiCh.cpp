@@ -422,8 +422,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // HW LFO(CC#14/#15由来のhwLfoDepth_/hwLfoRate_)。有効/無効自体は
         // CCではなく、このノートが今まさに使うボイス自身のAMS/PMS値で
         // 決まる(デバイス側のenablePM/enableAM実装がAMS/PMS=0なら実質
-        // 無効果になる)。CC#1(pmDepth_)はここでは一切参照しない
-        // (2026年7月、ソフトウェアLFOと完全に分離した)。
+        // 無効果になる)。
         dev->enablePM(devCh, true);
         dev->enableAM(devCh, true);
         dev->setLFODepth(devCh, hwLfoDepth_);
@@ -434,6 +433,14 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // 残っていないよう、上書きが無効(-2000)の場合も含め毎ノート
         // 必ず送る。
         dev->setLfoDepthOverride(devCh, lfoDepthOverrideCents_);
+
+        // CC#1駆動ソフトウェアLFO(pmDepth_)。このデバイスチャンネルを
+        // 直前に使っていた別のMIDIチャンネル/ノートのCC#1値が
+        // VoiceProcessor::cc1Value_ に残留していると、LFR=0の音色で
+        // このチャンネルが一度もCC#1を送っていなくてもソフトLFOが
+        // 誤って起動してしまう(VoiceProcessor::onNoteOn参照)。CC#77と
+        // 同様、毎ノート必ず現在値を送って残留を上書きする。
+        dev->setCC1Modulation(devCh, pmDepth_, modDepthRange_);
 
         // ────────────────────────────────────────────────────────
         // ポルタメント (モノフォニックチャンネル専用)
