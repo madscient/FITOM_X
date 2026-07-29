@@ -23,7 +23,7 @@ GM2 規格を完全網羅するものではなく、意図的に対応範囲を�
 | CC# | 名称 | 状態 | 備考 |
 |---|---|---|---|
 | 0 | Bank Select MSB | ✅ | モード選択子 (下記「Bank Select 方式」参照)。0=通常モード、0x01-0x6F=直接モード(VoicePatchType指定)、0x78/0x79=GM2リズム/メロディ切替 |
-| 1 | Modulation | ✅ | ソフトウェアLFO専用(`pmDepth_`→`setCC1Modulation`)。`sw.LFR=0`の音色のみCC#1駆動LFOが作用。sine固定・6.25Hz固定。RPN#5でデプス変更可。2026年7月、ハードウェアLFO(CC#14/15)への関与を廃止して分離した |
+| 1 | Modulation | ✅ | ソフトウェアLFO専用(`pmDepth_`→`setCC1Modulation`)。`sw.LFR=0`の音色のみCC#1駆動LFOが作用。sine固定・6.25Hz固定。RPN#5でデプス変更可。2026年7月、ハードウェアLFO(CC#14/15)への関与を廃止して分離した。前の占有者(別MIDIチャンネル)の`VoiceProcessor::cc1Value_`が残留し、CC#1を一度も送っていないチャンネルにソフトLFOが誤って掛かる不具合があったため、CC#77と同様に毎ノートオンで現在値を必ずpushするよう修正(2026年7月) |
 | 2 | Breath Controller | ⬜ 非対応(2026年7月に無効化) | 旧`amDepth_`(ハードウェアAM用)を廃止したのに伴い、操作対象のパラメータが無くなったため`setBreathCtrl`は空実装にした。ソフトウェアAM(トレモロ)相当の仕組みは現状存在しない |
 | 4 | Foot Controller | ⬜ 非対応(2026年7月に無効化) | CC#2と同じ理由 |
 | 5 | Portamento Time | ✅ | GM2規格書の「Portamento Rate」グラフから区分指数関数で再構築した128要素テーブル(`kPortaSpeedTable`)を使用。1半音=64ステップ(100/64cent)単位で滑らかに遷移(`PortaCtrl::fine_`) |

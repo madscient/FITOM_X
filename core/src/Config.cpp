@@ -104,6 +104,118 @@ static double getDouble(const json& ini, const std::string& section,
 } // namespace ini
 
 // -------------------------------------------------------
+//  banks/bank_overrides 外部参照の解決 (2026年7月新設)
+//  プロファイルの"banks"(および同一スキーマの"bank_overrides")は通常
+//  オブジェクト直書きだが、文字列の場合は外部JSONファイルへのパスとみなし、
+//  その内容(hw_banks/sw_banks/...を持つオブジェクト)をそのままキーの値
+//  として展開する。パッチバンク構成はデバイス構成(devices/hw_plugins)に
+//  依存しないため、複数のプロファイル間で同じプリセットバンク構成を
+//  使い回せるようにする(デバイス構成に含まれないバンクエントリは単に
+//  発音しないだけであり、一部のデバイス構成が変わってもbank/prog番号の
+//  一貫性は保たれる)。
+// -------------------------------------------------------
+static json resolveExternalBanksRef(const json& j, const char* key, const fs::path& baseDir)
+{
+    if (!j.contains(key)) return json::object();
+    const json& val = j[key];
+
+    if (val.is_object()) return val;
+
+    if (val.is_string()) {
+        fs::path refPath = val.get<std::string>();
+        if (refPath.is_relative()) refPath = baseDir / refPath;
+
+        std::ifstream f(refPath);
+        if (!f) {
+            FITOM_LOG_ERR(key << ": 外部参照ファイルを開けません: " << refPath.string());
+            return json::object();
+        }
+        try {
+            json refJson = json::parse(f, nullptr, true, true); // allow comments
+            if (!refJson.is_object()) {
+                FITOM_LOG_ERR(key << ": 外部参照ファイルの内容がオブジェクトではありません: "
+                    << refPath.string());
+                return json::object();
+            }
+            return refJson;
+        } catch (const json::exception& e) {
+            FITOM_LOG_ERR(key << ": 外部参照ファイルの解析に失敗しました: "
+                << refPath.string() << " (" << e.what() << ")");
+            return json::object();
+        }
+    }
+
+    FITOM_LOG_ERR(key << ": オブジェクトまたは外部参照ファイルパス(文字列)である必要があります");
+    return json::object();
+}
+
+static json resolveBanksSection(const json& j, const fs::path& baseDir)
+{
+    return resolveExternalBanksRef(j, "banks", baseDir);
+}
+
+// -------------------------------------------------------
+//  bank_overrides の適用 (2026年7月新設)
+//  外部参照の共通バンクセット(banks)に対し、プロファイルごとに一部の
+//  バンクだけを差し替えたり追加したりするための機能。配列種別ごとに
+//  「識別キー」が一致するエントリを上書き対象とみなし、一致しなければ
+//  配列末尾へ追加する(削除はできない)。
+//    hw_banks:  group + bank (バンク番号はチップ族ごとに独立した名前空間のため)
+//    drum_banks: prog (ドラムバンクはbankを持たずprog単位で固定)
+//    pcm_banks: bank + chip (同一bank番号を複数の物理チップ向けに使い分ける
+//               設計、config_schema/profile.schema.json の pcm_banks[].chip 参照)
+//    その他 (sf2_banks/sw_banks/patch_banks/scc_wave_banks): bank
+// -------------------------------------------------------
+static bool bankEntryKeyMatches(const std::string& arrayName, const json& a, const json& b)
+{
+    if (arrayName == "hw_banks") {
+        return a.value("group", "") == b.value("group", "")
+            && a.value("bank", -1) == b.value("bank", -1);
+    }
+    if (arrayName == "drum_banks") {
+        return a.value("prog", -1) == b.value("prog", -1);
+    }
+    if (arrayName == "pcm_banks") {
+        return a.value("bank", -1) == b.value("bank", -1)
+            && a.value("chip", "") == b.value("chip", "");
+    }
+    return a.value("bank", -1) == b.value("bank", -1);
+}
+
+static void mergeBankArray(json& baseBanks, const json& overrides, const char* arrayName)
+{
+    if (!overrides.contains(arrayName)) return;
+    const json& overrideArr = overrides[arrayName];
+    if (!overrideArr.is_array()) return;
+
+    json& baseArr = baseBanks[arrayName];
+    if (!baseArr.is_array()) baseArr = json::array();
+
+    for (const auto& overrideEntry : overrideArr) {
+        bool replaced = false;
+        for (auto& baseEntry : baseArr) {
+            if (bankEntryKeyMatches(arrayName, baseEntry, overrideEntry)) {
+                baseEntry = overrideEntry;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) baseArr.push_back(overrideEntry);
+    }
+}
+
+static void applyBankOverrides(json& baseBanks, const json& overrides)
+{
+    static const char* kBankArrayNames[] = {
+        "hw_banks", "sf2_banks", "sw_banks", "patch_banks",
+        "drum_banks", "scc_wave_banks", "pcm_banks"
+    };
+    for (const char* name : kBankArrayNames) {
+        mergeBankArray(baseBanks, overrides, name);
+    }
+}
+
+// -------------------------------------------------------
 //  FITOMConfig
 // -------------------------------------------------------
 
@@ -259,11 +371,23 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
         }
     }
 
+    // "banks"は文字列(外部参照ファイルパス)の場合があるため、以降の
+    // バンク関連処理(loadSf2Banks/loadDrumBanks)が参照する実体を最初に
+    // 1回だけ解決しておく(resolveBanksSection参照)。続けて"bank_overrides"
+    // (同一スキーマ、外部参照の共通バンクセットに対する部分上書き・追加用)
+    // を解決し、識別キー一致で置換・不一致で追加する形でresolvedBanksへ
+    // マージする(applyBankOverrides参照)。
+    json resolvedBanks = resolveBanksSection(j, baseDir);
+    const json bankOverrides = resolveExternalBanksRef(j, "bank_overrides", baseDir);
+    if (!bankOverrides.empty()) {
+        applyBankOverrides(resolvedBanks, bankOverrides);
+    }
+
     // --- SF2直行パス: sf2_banksレジストリの構築 (2026年7月新設) ---
     // devices[](chip:"SF2")のparams_json組み立て(buildDevice()内)が
     // soundfonts一覧を必要とするため、devices[]構築より前に1回だけ行う。
     // PatchManagerに依存しないためpatchMgrの有無を問わず常に実行する。
-    loadSf2Banks(j, baseDir);
+    loadSf2Banks(resolvedBanks, baseDir);
 
     // --- デバイス構築 ---
     if (j.contains("devices") && j["devices"].is_array()) {
@@ -325,7 +449,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
     //  hw_banks/sw_banks/patch_banks/drum_banks等が実際には一度もロード
     //  されないという重大な不具合があったため修正)
     if (patchMgr) {
-        loadDrumBanks(j, *patchMgr, baseDir);
+        loadDrumBanks(resolvedBanks, *patchMgr, baseDir);
     }
 
     // --- バリデーション ---
@@ -1120,15 +1244,15 @@ static uint32_t resolvePcmBankChipDeviceType(const std::string& chipName)
 
 // ================================================================
 //  ドラムバンクロード (buildFromProfile から呼ぶ)
-//  profile の banks.drum_banks[] を PatchManager に登録する
+//  banks.drum_banks[] を PatchManager に登録する。
+//  引数のbanksはresolveBanksSection()で解決済みの実体(banksが外部参照
+//  文字列だった場合は参照先ファイルの内容)であり、プロファイル直下の
+//  生の"banks"値ではない。
 // ================================================================
-void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
+void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
                                  PatchManager& pm,
                                  const std::filesystem::path& baseDir)
 {
-    if (!j.contains("banks")) return;
-    const auto& banks = j["banks"];
-
     // drum_banks[]: プログラムチェンジ1つぶんずつ、独立したファイル
     // (*.drumkit.json) を割り当てる方式。1ファイルに全prog分を
     // 詰め込む旧方式は、ファイル肥大化のため廃止。
@@ -1278,10 +1402,8 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& j,
 //  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
 // ================================================================
 
-void FITOMConfig::loadSf2Banks(const nlohmann::json& j, const std::filesystem::path& baseDir)
+void FITOMConfig::loadSf2Banks(const nlohmann::json& banks, const std::filesystem::path& baseDir)
 {
-    if (!j.contains("banks")) return;
-    const auto& banks = j["banks"];
     if (!banks.contains("sf2_banks")) return;
     sf2Banks_.load(banks["sf2_banks"], baseDir);
 }
