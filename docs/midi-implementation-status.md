@@ -23,7 +23,7 @@ GM2 規格を完全網羅するものではなく、意図的に対応範囲を�
 | CC# | 名称 | 状態 | 備考 |
 |---|---|---|---|
 | 0 | Bank Select MSB | ✅ | モード選択子 (下記「Bank Select 方式」参照)。0=通常モード、0x01-0x6F=直接モード(VoicePatchType指定)、0x78/0x79=GM2リズム/メロディ切替 |
-| 1 | Modulation | ✅ | ソフトウェアLFO専用(`pmDepth_`→`setCC1Modulation`)。`sw.LFR=0`の音色のみCC#1駆動LFOが作用。sine固定・6.25Hz固定。RPN#5でデプス変更可。2026年7月、ハードウェアLFO(CC#14/15)への関与を廃止して分離した。前の占有者(別MIDIチャンネル)の`VoiceProcessor::cc1Value_`が残留し、CC#1を一度も送っていないチャンネルにソフトLFOが誤って掛かる不具合があったため、CC#77と同様に毎ノートオンで現在値を必ずpushするよう修正(2026年7月) |
+| 1 | Modulation | ✅ | ソフトウェアLFO専用(`pmDepth_`→`setCC1Modulation`)。`sw.LFR=0`の音色のみCC#1駆動LFOが作用。sine固定・6.25Hz固定。RPN#5でデプス変更可。2026年7月、ハードウェアLFO(CC#14/15)への関与を廃止して分離した。前の占有者(別MIDIチャンネル)の`VoiceProcessor::cc1Value_`が残留し、CC#1を一度も送っていないチャンネルにソフトLFOが誤って掛かる不具合があったため、CC#77と同様に毎ノートオンで現在値を必ずpushするよう修正(2026年7月)。**この修正は当初無効化されていた**: `CInstCh::noteOn()`が`ISoundDevice::setCC1Modulation()`を呼ぶのは`dev->assignCh()`(→`ChState::status = Assigned`)の直後・`dev->noteOn()`(→`status = Running`)より前だが、`CSoundDevice::setCC1Modulation()`側のガードが`ChState::isActive()`(`Running`/`Releasing`のみ true)だったため、通常の(devChを他chから奪う)経路では常に早期returnして不具合が再発していた。ガードに`isAssigned()`を追加して修正(2026年7月) |
 | 2 | Breath Controller | ⬜ 非対応(2026年7月に無効化) | 旧`amDepth_`(ハードウェアAM用)を廃止したのに伴い、操作対象のパラメータが無くなったため`setBreathCtrl`は空実装にした。ソフトウェアAM(トレモロ)相当の仕組みは現状存在しない |
 | 4 | Foot Controller | ⬜ 非対応(2026年7月に無効化) | CC#2と同じ理由 |
 | 5 | Portamento Time | ✅ | GM2規格書の「Portamento Rate」グラフから区分指数関数で再構築した128要素テーブル(`kPortaSpeedTable`)を使用。1半音=64ステップ(100/64cent)単位で滑らかに遷移(`PortaCtrl::fine_`) |
@@ -40,7 +40,7 @@ GM2 規格を完全網羅するものではなく、意図的に対応範囲を�
 | 67 | Soft Pedal | ⬜ 非対応（意図的） | FM音源に直接対応するパラメータがないため |
 | 68 | Legato | ✅ | **モノフォニックチャンネル専用**。ポリでは無効 |
 | 76 | Sound Controller 7 / Soft LFO Rate上書き(非標準) | ✅(2026年7月新設) | `CInstCh::lfoRateOverride_`。`assignCh()`内部で`VoiceProcessor::onNoteOn()`が呼ばれるタイミングの都合上、CInstCh側で`SwPatch`の一時コピー(`overriddenSw`)へ焼き込んでから渡す方式(devCh決定後にch単位でpushする方式では最初のノートに間に合わないため)。次のノートオンから反映 |
-| 77 | Sound Controller 8 / Soft LFO Depth上書き(非標準) | ✅(2026年7月新設) | `CInstCh::lfoDepthOverrideCents_`(0-127を±1200centsへ線形マッピング)。`VoiceProcessor::recalcChLfo()`が毎tick参照するため、`ISoundDevice::setLfoDepthOverride()`経由で発音中ノートにも即座に反映可能(`setCC1Modulation`と同じ配線パターン)。前の占有者(別MIDIチャンネル)の値が漏れ残らないよう、無効値(-2000)も含め毎ノートオンで必ずpushする |
+| 77 | Sound Controller 8 / Soft LFO Depth上書き(非標準) | ✅(2026年7月新設) | `CInstCh::lfoDepthOverrideCents_`(0-127を±1200centsへ線形マッピング)。`VoiceProcessor::recalcChLfo()`が毎tick参照するため、`ISoundDevice::setLfoDepthOverride()`経由で発音中ノートにも即座に反映可能(`setCC1Modulation`と同じ配線パターン)。前の占有者(別MIDIチャンネル)の値が漏れ残らないよう、無効値(-2000)も含め毎ノートオンで必ずpushする。**この毎ノートオンpushは新設時から無効化されていた**: 呼び出しタイミング(`assignCh()`直後・`dev->noteOn()`より前、`ChState::status == Assigned`)と`CSoundDevice::setLfoDepthOverride()`側のガード(`isActive()`、`Running`/`Releasing`のみ true)が食い違っており、通常の(devChを他chから奪う)経路では常に早期returnしていた。CC#1(上記1番)と同時にガードへ`isAssigned()`を追加して修正(2026年7月) |
 | 78 | Sound Controller 9 / Soft LFO Delay上書き(非標準) | ✅(2026年7月新設) | `CInstCh::lfoDelayOverride_`。CC#76と同じSwPatch焼き込み方式 |
 | 84 | Portamento Control (Source Note) | ✅ | one-shot、次のNoteOnのグライド開始音を明示指定 |
 | 96 | Data Increment | ✅(2026年7月新設) | 選択中のRPN/NRPNレジスタの値を1ステップ増加。ステップ幅はレジスタごとに異なる(`dataIncrement()`実装参照。MSBのみ有効なパラメータは128刻み、LSBのみ有効なパラメータは1刻み等) |
