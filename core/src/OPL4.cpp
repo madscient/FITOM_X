@@ -63,7 +63,7 @@ public:
 
     void init() override {
         setReg(0xF8, 0x00, true); // FM出力ミキサーはCOPL3側が別途担当するためここでは0
-        setReg(0xF9, 0x3F, true); // PCM出力レベル最大 (L/R共)
+        setReg(0xF9, 0x00, true); // PCM出力レベル最大 (L/R共)
     }
 
 protected:
