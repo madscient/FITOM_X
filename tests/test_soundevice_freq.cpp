@@ -46,7 +46,7 @@ std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
 }
 
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")

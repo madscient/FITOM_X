@@ -33,17 +33,31 @@ public:
     // バグを修正。以前はFnumberが常に65535にクランプされていた)。
     static constexpr int kMasterClock = 3579545;
 
-    COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2)
+    // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
+    // 専用として無効化する(COPLLと同じ設計、docs/config-design.mdの
+    // rhythm_modeフィールド参照。2026年7月、OPL系リズムモード対応で追加)。
+    COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2,
+         bool rhythmMode = false)
         : CSoundDevice(devId, 9, port,
                        kMasterClock, 72,   // fnum master/divide
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x100)
+        , rhythmMode_(rhythmMode)
     {
         opCount_ = 2;
+        if (rhythmMode_) {
+            for (int i = 6; i < 9; ++i) enableCh(static_cast<uint8_t>(i), false);
+        }
     }
 
-    std::string getDescriptor() const override { return "OPL2 (YM3812) 9ch"; }
+    // getDescriptor: リズムモードの有無を反映する(COPLLと同じパターン)。
+    // 派生クラスは chipLabel() だけをオーバーライドすればよい。
+    std::string getDescriptor() const override {
+        std::string label = chipLabel();
+        if (rhythmMode_) return label + " 6ch + Rhythm 5ch";
+        return label + " 9ch";
+    }
 
     void init() override {
         setReg(0x04, 0, true);
@@ -53,9 +67,17 @@ public:
     void reset() override {
         CSoundDevice::reset();
         for (int i = 0x20; i < 0xF6; ++i) setReg(static_cast<uint16_t>(i), 0, true);
+        if (rhythmMode_) {
+            for (int i = 6; i < 9; ++i) enableCh(static_cast<uint8_t>(i), false);
+        }
     }
 
 protected:
+    bool rhythmMode_ = false;
+
+    // 派生クラスがチップ名部分だけを差し替えるためのフック。
+    virtual std::string chipLabel() const { return "OPL2 (YM3812)"; }
+
     // チャンネル → オペレータスロットのオフセット
     static const uint8_t kMap[9]; // {0,1,2,8,9,10,16,17,18}
 
@@ -260,13 +282,14 @@ const uint8_t COPL::kMap[9] = {0, 1, 2, 8, 9, 10, 16, 17, 18};
 // ================================================================
 class COPL2 : public COPL {
 public:
-    COPL2(IPort* port, int sampleRate)
-        : COPL(port, sampleRate, DEVICE_OPL2) {}
-    std::string getDescriptor() const override { return "OPL2 (YM3812) 9ch"; }
+    COPL2(IPort* port, int sampleRate, bool rhythmMode = false)
+        : COPL(port, sampleRate, DEVICE_OPL2, rhythmMode) {}
     void init() override {
         COPL::init();
         setReg(0x01, 0x20, true); // Wave Select Enable
     }
+protected:
+    std::string chipLabel() const override { return "OPL2 (YM3812)"; }
 };
 
 // ================================================================
@@ -274,9 +297,10 @@ public:
 // ================================================================
 class C3801 : public COPL {
 public:
-    C3801(IPort* port, int sampleRate)
-        : COPL(port, sampleRate, DEVICE_Y8950) {}
-    std::string getDescriptor() const override { return "Y8950 9ch"; }
+    C3801(IPort* port, int sampleRate, bool rhythmMode = false)
+        : COPL(port, sampleRate, DEVICE_Y8950, rhythmMode) {}
+protected:
+    std::string chipLabel() const override { return "Y8950"; }
 };
 
 // ================================================================
@@ -643,7 +667,14 @@ const uint8_t COPL3::carmsk[8] = {0x2, 0x3, 0x8, 0xc, 0x8, 0x9, 0xa, 0xd};
 // ================================================================
 class COPL3_2 : public CSpanDevice {
 public:
-    COPL3_2(IPort* port, int sampleRate)
+    // rhythmMode: trueならport1側(chip1_)のch6-8をCOPLRhythm
+    // (DEVICE_OPL_RHY)専用として無効化する。実機のリズムモードレジスタ
+    // (0xBD)はbank0(port1)にのみ存在するハードウェア制約のため、port2側
+    // (chip2_)のch6-8は影響を受けず通常の2OPとして使い続けられる
+    // (2026年7月、OPL系リズムモード対応で追加。PatchManager.cppの
+    // ext.rhythmCh解決コメント参照)。
+    COPL3_2(IPort* port, int sampleRate, bool rhythmMode = false)
+        : rhythmMode_(rhythmMode)
     {
         offsetPort_ = std::make_unique<OffsetPort>(port, 0x100);
         chip1_ = std::make_unique<COPL2>(port,              sampleRate);
@@ -654,12 +685,19 @@ public:
             chip1_->enableCh(static_cast<uint8_t>(i), false);
             chip2_->enableCh(static_cast<uint8_t>(i), false);
         }
-        addDevice(chip1_.get()); // ch  0-8 (有効なのはch6-8のみ)
+        if (rhythmMode_) {
+            for (int i = 6; i < 9; ++i) chip1_->enableCh(static_cast<uint8_t>(i), false);
+        }
+        addDevice(chip1_.get()); // ch  0-8 (有効なのはch6-8のみ、rhythmMode時は0)
         addDevice(chip2_.get()); // ch 9-17 (有効なのはch15-17のみ)
     }
 
     uint8_t     getDeviceType() const override { return DEVICE_OPL3_2; }
-    std::string getDescriptor() const override { return "OPL3 (YMF262) 2OP residual 6ch"; }
+    std::string getDescriptor() const override {
+        return rhythmMode_
+            ? "OPL3 (YMF262) 2OP residual 3ch + Rhythm 5ch"
+            : "OPL3 (YMF262) 2OP residual 6ch";
+    }
 
     void init() override {
         chip1_->reset();
@@ -667,6 +705,9 @@ public:
         for (int i = 0; i < 6; ++i) {
             chip1_->enableCh(static_cast<uint8_t>(i), false);
             chip2_->enableCh(static_cast<uint8_t>(i), false);
+        }
+        if (rhythmMode_) {
+            for (int i = 6; i < 9; ++i) chip1_->enableCh(static_cast<uint8_t>(i), false);
         }
         // Wave Select Enable: 両ポートに書く
         chip1_->setReg(0x01, 0x20, true); // 0x001
@@ -678,6 +719,7 @@ public:
     void reset() override { CMultiDevice::reset(); }
 
 private:
+    bool                        rhythmMode_ = false;
     std::unique_ptr<COPL2>      chip1_;
     std::unique_ptr<COPL2>      chip2_;
     std::unique_ptr<OffsetPort> offsetPort_;
@@ -877,10 +919,13 @@ protected:
 } // namespace fitom
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr)  { return std::make_unique<COPL>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr) { return std::make_unique<COPL2>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode)
+    { return std::make_unique<COPL>(p, sr, DEVICE_OPL2, rhythmMode); }
+std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode)
+    { return std::make_unique<COPL2>(p, sr, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_unique<COPL3>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr) { return std::make_unique<COPL3_2>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode)
+    { return std::make_unique<COPL3_2>(p, sr, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr) { return std::make_unique<COPLRhythm>(p, sr); }
 
 // ================================================================

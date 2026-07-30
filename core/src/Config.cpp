@@ -1106,28 +1106,54 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
         return true;
 
+    case DEVICE_OPL:
+    case DEVICE_Y8950:
+        // OPL/Y8950(YM3526系): FM本体(9ch、rhythm_mode時はch6-8無効化) +
+        // リズム(5パート、DEVICE_OPL_RHY)。同一の物理ポートを共有する
+        // (OPLLと同じ構成パターン。2026年7月、OPL系リズムモード対応で
+        // 新設。それまでDEVICE_OPL_RHYを生成する経路が無く、COPLRhythm
+        // 自体・HwBank/DrumKitデータは揃っていても内蔵リズムが一切発音
+        // しなかった)。
+        outSpec.push_back({baseDeviceType, "-FM",     false, true});
+        outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+        return true;
+
+    case DEVICE_OPL2:
+        // OPL2(YM3812): OPL/Y8950と同じ構成パターン。
+        outSpec.push_back({DEVICE_OPL2,    "-FM",     false, true});
+        outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+        return true;
+
     case DEVICE_OPL3:
     case DEVICE_OPN3_L3:
-        // OPL3: 4OPモード(6ch) + 2OP残余(6ch)。同一の物理ポート(port1+port2)を共有する。
-        // COPL3_2側のport1サブチップ(ch6-8)にrhythm_modeを適用すると
-        // "OPL3(6ch)+OPL2(3ch)+Rhythm(5ch)" 構成になる。
-        outSpec.push_back({DEVICE_OPL3,   "-4OP", true, false});
-        outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
+        // OPL3: 4OPモード(6ch) + 2OP残余(6ch) + リズム(5パート)。
+        // 同一の物理ポート(port1+port2)を共有する。実機のリズムモード
+        // レジスタ(0xBD)はbank0(port1)にのみ存在するため、COPL3_2側の
+        // port1サブチップ(ch6-8)にrhythm_modeを適用すると
+        // "OPL3(6ch)+OPL2(3ch)+Rhythm(5ch)" 構成になる(2026年7月、
+        // OPL系リズムモード対応でDEVICE_OPL_RHYエントリを追加。以前は
+        // コメントで意図だけ説明されていてサブデバイス自体が無かった)。
+        outSpec.push_back({DEVICE_OPL3,    "-4OP",    true,  false});
+        outSpec.push_back({DEVICE_OPL3_2,  "-2OP",    true,  true});
+        outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
         return true;
 
     case DEVICE_OPL4:
         // OPL4 = OPL3(FM部、完全互換) + AWM(PCM部、YRW801 ROM音色)。
-        // FM部はOPL3と同じ2サブデバイス構成(4OP+2OP、どちらもport1+port2の
-        // 2バンクを共有するためusesExtraPort=true)。AWM部は実チップ上FM部の
-        // 2バンクとは独立した3つ目のレジスタバンク(アドレス0x200以降)に
-        // 配置されるため、DeviceEntry.port2(2ポート目)ではなく
-        // CFITOM::resolveHighBankPort()が生成するOffsetPort(0x200)経由で
-        // アクセスする(usesExtraPortはfalseのままでよい。2026年7月、
-        // ユーザー指摘で発覚: 以前はAWM部がFM部のport1と同じ低位バンクに
-        // 割り当てられておりレジスタアドレスが衝突していた)。
+        // FM部はOPL3と同じ3サブデバイス構成(4OP+2OP+リズム、いずれも
+        // port1+port2の2バンクを共有するためusesExtraPort=true)。AWM部は
+        // 実チップ上FM部の2バンクとは独立した3つ目のレジスタバンク
+        // (アドレス0x200以降)に配置されるため、DeviceEntry.port2(2ポート
+        // 目)ではなくCFITOM::resolveHighBankPort()が生成するOffsetPort
+        // (0x200)経由でアクセスする(usesExtraPortはfalseのままでよい。
+        // 2026年7月、ユーザー指摘で発覚: 以前はAWM部がFM部のport1と同じ
+        // 低位バンクに割り当てられておりレジスタアドレスが衝突していた)。
+        // リズム(DEVICE_OPL_RHY)はOPL3同様port1のみで完結する
+        // (2026年7月、OPL系リズムモード対応で追加)。
         outSpec.push_back({DEVICE_OPL3,    "-FM-4OP", true,  false});
-        outSpec.push_back({DEVICE_OPL3_2,  "-FM-2OP", true,  false});
+        outSpec.push_back({DEVICE_OPL3_2,  "-FM-2OP", true,  true});
         outSpec.push_back({DEVICE_OPL4AWM, "-AWM",    false, false});
+        outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
         return true;
 
     case DEVICE_OPLL:
