@@ -565,6 +565,26 @@ TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
     CHECK(specB[3].deviceType == DEVICE_ADPCMB);
 }
 
+// OPL4 = OPL3(FM部、4OP+2OP) + AWM(PCM部)。FM部の2サブデバイスは物理的に
+// port1/port2の2バンクを両方使うため usesExtraPort=true。AWM部はこの2ポート
+// モデルには乗らない3つ目のレジスタバンク(アドレス0x200以降、
+// CFITOM::resolveHighBankPort()がOffsetPort(port,0x200)で差し替える)を
+// 使うため usesExtraPort=false のままで正しい(2026年7月、ユーザー指摘で
+// 発覚したAWM部とFM部のレジスタアドレス衝突バグの回帰防止)。
+TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM, "
+          "AWM does not share the FM subdevices' extraPort", "[config]")
+{
+    std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL4, spec));
+    REQUIRE(spec.size() == 3);
+    CHECK(spec[0].deviceType == DEVICE_OPL3);
+    CHECK(spec[0].usesExtraPort == true);
+    CHECK(spec[1].deviceType == DEVICE_OPL3_2);
+    CHECK(spec[1].usesExtraPort == true);
+    CHECK(spec[2].deviceType == DEVICE_OPL4AWM);
+    CHECK(spec[2].usesExtraPort == false);
+}
+
 // ================================================================
 //  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
 // ================================================================

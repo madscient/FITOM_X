@@ -62,6 +62,10 @@ static const DevMapEntry kDevMap[] = {
     {DEVICE_SCC,   "SCC",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG,  0x0B0},
     {DEVICE_ADPCM, "ADPCM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM,  0},
     {DEVICE_PCMD8, "PCMD8", VOICE_TYPE_PCM,  VOICE_GROUP_PCM,  0},
+    // OPL4AWM自身のレジスタ空間(0x00-0xF9)は0x100に収まる。実チップ上は
+    // getHighBankOffset()により0x200オフセットされて配置されるため、
+    // buildPhysicalChipList()側でオフセットと合算して表示サイズを求める。
+    {DEVICE_OPL4AWM, "AWM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM,  0x100},
     {DEVICE_NONE,  nullptr, 0,               0,                0},
 };
 
@@ -344,17 +348,35 @@ void CFITOM::syncDeviceLatency()
 // MultiDev_new.cpp で定義される CLinearPanDevice 生成関数
 extern std::unique_ptr<ISoundDevice> createCLinearPanDevice(ISoundDevice* left, ISoundDevice* right);
 
-// ADPCM-A(YM2610/2610B)・ADPCM-B(YM2608=OPNA)は実チップ上「port2」
-// (アドレス0x100以降)に配置されるレジスタ体系のため、該当デバイスの
-// portを高位ポート側へ差し替える(ADPCM-B(YM2610/2610B)はこの対象外、
-// 低位ポートのままで正しい)。configuredPort2(プロファイルのextra_port
-// 等で明示された物理ポート)があればそれを使い、無ければ
-// OffsetPort(port,0x100)を自前で生成してoffsetPorts_で寿命管理する。
-IPort* CFITOM::resolveAdpcmHighPort(uint32_t deviceType, IPort* port, IPort* configuredPort2)
+// deviceTypeが同一物理ポートの中で、自分専用の高位バンク(0を起点とする
+// 自分のレジスタ空間より上位)へオフセットして配置される場合、そのオフセット
+// 量を返す。該当しないdeviceTypeは0(オフセット不要=低位ポートのまま)。
+// resolveHighBankPort()(実際のポート差し替え)と
+// buildPhysicalChipList()(レジスタダンプモニターの表示サイズ算出)の
+// 両方から参照される単一の真実の情報源。
+uint16_t CFITOM::getHighBankOffset(uint32_t deviceType)
 {
-    if (deviceType != DEVICE_ADPCMB_OPNA && deviceType != DEVICE_ADPCMA) return port;
+    // ADPCM-A(YM2610/2610B)・ADPCM-B(YM2608=OPNA)は実チップ上「port2」
+    // (アドレス0x100以降)に配置されるレジスタ体系(ADPCM-B[YM2610/2610B]は
+    // この対象外、低位ポートのままで正しい)。
+    if (deviceType == DEVICE_ADPCMB_OPNA || deviceType == DEVICE_ADPCMA) return 0x100;
+    // DEVICE_OPL4AWM(OPL4のAWM/PCM部)は、FM部が使う2バンク
+    // (アドレス0x000-0x1FF)とは別の3つ目のレジスタバンク(アドレス0x200
+    // 以降)に配置される。
+    if (deviceType == DEVICE_OPL4AWM) return 0x200;
+    return 0;
+}
+
+// 上記オフセットが必要なデバイスの、portを高位ポート側へ差し替える。
+// configuredPort2(プロファイルのextra_port等で明示された物理ポート)が
+// あればそれを使い、無ければOffsetPort(port,offset)を自前で生成して
+// offsetPorts_で寿命管理する。
+IPort* CFITOM::resolveHighBankPort(uint32_t deviceType, IPort* port, IPort* configuredPort2)
+{
+    uint16_t offset = getHighBankOffset(deviceType);
+    if (offset == 0) return port;
     if (configuredPort2) return configuredPort2;
-    offsetPorts_.push_back(std::make_unique<OffsetPort>(port, 0x100));
+    offsetPorts_.push_back(std::make_unique<OffsetPort>(port, offset));
     return offsetPorts_.back().get();
 }
 
@@ -422,10 +444,10 @@ void CFITOM::initDevices()
             continue;
         }
 
-        // ADPCM-A/ADPCM-B(OPNA)は高位ポート側へ差し替える(下記
-        // resolveAdpcmHighPort()参照)。該当しないデバイスタイプでは
+        // ADPCM-A/ADPCM-B(OPNA)・OPL4AWMは高位ポート側へ差し替える(下記
+        // resolveHighBankPort()参照)。該当しないデバイスタイプでは
         // portをそのまま返すだけの no-op。
-        port = resolveAdpcmHighPort(deviceType, port, config_->getDevicePort2(i));
+        port = resolveHighBankPort(deviceType, port, config_->getDevicePort2(i));
 
         // B-2: 2 ポートチップ (OPNA/OPN2/OPL3) の処理
         // プロファイルに extra_port が指定されていれば SplitPort を生成する。
@@ -484,15 +506,15 @@ void CFITOM::initDevices()
                 // ch0/ch3を無効化した別クラス)。代表のdeviceTypeを流用せず、
                 // このポート本来のdeviceTypeを使う。
                 uint32_t subDeviceType = config_->getDeviceSpanGroupDeviceType(i, k);
-                // dedupキー用に、resolveAdpcmHighPort()で差し替えられる前の
+                // dedupキー用に、resolveHighBankPort()で差し替えられる前の
                 // 元ポート(config_->getDeviceSpanGroupPrimary()と同一)を
                 // 別途保持しておく(buildPhysicalChipList()側のspanGroups
                 // 登録と同じポインタで突き合わせる必要があるため)。
                 auto* spHwPort = dynamic_cast<HWPort*>(sp);
-                // 代表デバイスと同様、ADPCM-A/ADPCM-B(OPNA)は高位ポートへ
-                // 差し替える(spanGroup配下にはconfiguredPort2の概念が無いため
-                // 常にOffsetPortを自前生成する)。
-                sp = resolveAdpcmHighPort(subDeviceType, sp, nullptr);
+                // 代表デバイスと同様、ADPCM-A/ADPCM-B(OPNA)・OPL4AWMは高位
+                // ポートへ差し替える(spanGroup配下にはconfiguredPort2の概念が
+                // 無いため常にOffsetPortを自前生成する)。
+                sp = resolveHighBankPort(subDeviceType, sp, nullptr);
                 auto subDev = createLeveledDevice(subDeviceType, sp, spStereo, sampleRate,
                                                    nullptr, config_->getDeviceRhythmMode(i));
                 if (!subDev) {
@@ -597,14 +619,36 @@ void CFITOM::buildPhysicalChipList()
 
     // primary(+secondary)を1つの物理チップとして登録する。
     // primaryが既に登録済み(=兄弟デバイスが同じ物理ポートを共有している)
-    // 場合は何もしない(代表ラベルは最初に登録したデバイスのものを使う)。
+    // 場合はエントリを新設しない(代表ラベルは最初に登録したデバイスの
+    // ものを使う)が、表示サイズ(dumpSize)は兄弟サブデバイス側の方が
+    // 大きい高位バンクを使うことがある(例: OPL4の場合、最初に登録される
+    // FM部[DEVICE_OPL3、0x000-0x1FF]より後から登録されるAWM部
+    // [DEVICE_OPL4AWM、0x200-0x2FF]の方が高位)ため、合流時にも都度
+    // 必要サイズを比較して広げる(2026年7月、ユーザー指摘で発覚: 以前は
+    // 最初に登録されたサブデバイスのdeviceTypeでのみdumpSizeを決めており、
+    // 後続の高位バンクサブデバイスの分がレジスタダンプの表示範囲から
+    // 漏れていた)。
     // 戻り値: 登録した(または既存の)physicalChips_内のインデックス。
     // primaryがnullptrの場合はSIZE_MAXを返す。
     auto registerChip = [&](HWPort* primary, HWPort* secondary,
                              const std::string& label, uint32_t deviceType) -> size_t {
         if (!primary) return static_cast<size_t>(-1);
+        // このdeviceTypeが実際に必要とする表示サイズ。高位バンクへ
+        // オフセットされるデバイス(getHighBankOffset()参照)は、その
+        // オフセット+自身のレジスタ空間サイズが必要な範囲になる
+        // (該当しないデバイスはoffset=0なので単純にgetDeviceRegSize()と同じ)。
+        uint32_t required = static_cast<uint32_t>(getHighBankOffset(deviceType))
+                           + getDeviceRegSize(deviceType);
+
         auto it = portToChip.find(primary);
-        if (it != portToChip.end()) return it->second;
+        if (it != portToChip.end()) {
+            PhysicalChipInfo& existing = physicalChips_[it->second];
+            // 分離した物理ポート2つ(secondary構成)は常に0x200固定のため対象外。
+            if (!existing.port2 && required > existing.dumpSize) {
+                existing.dumpSize = required;
+            }
+            return it->second;
+        }
         size_t idx = physicalChips_.size();
         PhysicalChipInfo info;
         info.label        = label;
@@ -616,14 +660,8 @@ void CFITOM::buildPhysicalChipList()
             // 分離した物理ポート2つ (SPFM 2スロット構成等): 各ポート
             // ローカル0x000-0x0FFを0x000/0x100にpackするため常に0x200。
             info.dumpSize = 0x200;
-        } else {
-            // port2が無くても、チップドライバが同一HWPortへ0x100以降の
-            // アドレスを直接(OPL3)またはOffsetPort経由(OPNA/OPN2、内部で
-            // +0x100して同じportへ書く)で書き込む場合があるため、
-            // deviceType別の既知のレジスタ空間サイズを採用する
-            // (該当なし/0x100以下ならデフォルトの0x100のまま)。
-            uint32_t regSize = getDeviceRegSize(deviceType);
-            if (regSize > 0x100) info.dumpSize = regSize;
+        } else if (required > info.dumpSize) {
+            info.dumpSize = required;
         }
         physicalChips_.push_back(info);
         portToChip[primary] = idx;

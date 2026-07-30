@@ -164,8 +164,13 @@ struct PhysicalChipInfo {
     // 常に0x200。port2が無くても、OPNA/OPN2(内部OffsetPort経由)やOPL3
     // (直接addr>=0x100を同一HWPortへ書く)のように、1つの物理ポートだけで
     // 0x100を超えるアドレス空間を使うチップがあるため、getDeviceRegSize()
-    // (deviceType別の既知のレジスタ空間サイズ)を併用して決める
-    // (buildPhysicalChipList()参照)。
+    // (deviceType別の既知のレジスタ空間サイズ)とgetHighBankOffset()
+    // (高位バンクへのオフセット量)を併用して決める(buildPhysicalChipList()
+    // 参照)。同一物理ポートを共有する複数サブデバイスのうち、最後に登録
+    // されるものが最も高位のバンクを使うとは限らない(例: OPL4はFM部
+    // [DEVICE_OPL3、0x000-0x1FF]より後にAWM部[DEVICE_OPL4AWM、
+    // 0x200-0x2FF]が登録される)ため、登録順に関わらず全サブデバイスの
+    // 必要サイズの最大値を採用する。
     uint32_t    dumpSize = 0x100;
     // チャンネルレベルメーター用のサブデバイス内訳。initDevices()が
     // span/stereo展開“前”に記録したpendingSubDevices_を、buildPhysicalChipList()
@@ -415,13 +420,23 @@ private:
     // ADPCM-A(YM2610/2610B)・ADPCM-B(YM2608=OPNA)は実チップ上
     // 「port2」(SplitPort/OffsetPortでアドレス0x100以降にマップされる側)
     // に配置されるレジスタ体系のため(ADPCM-B(YM2610/2610B)は逆に低位
-    // ポートのままで正しく対象外)、resolveAdpcmHighPort()がinitDevices()
+    // ポートのままで正しく対象外)、resolveHighBankPort()がinitDevices()
     // 内でこのデバイスのportを高位ポート側へ差し替える。プロファイルの
     // extra_port等で明示された物理ポートが無い場合、ここでOffsetPortを
     // 自前生成して所有する(ユーザー指摘により発覚: 以前はSSG等と同じ
     // 低位ポートにそのまま割り当てており、レジスタアドレスが衝突していた)。
+    // 同様にDEVICE_OPL4AWM(OPL4のAWM/PCM部)は実チップ上FM部の2バンク
+    // (port1/port2、アドレス0x000-0x1FF)とは独立した3つ目のレジスタ
+    // バンク(アドレス0x200以降)に配置されるため、0x200オフセットで
+    // 同じ仕組みに乗せる(2026年7月、ユーザー指摘により発覚: 以前はFM部と
+    // 同じ低位ポートにそのまま割り当てておりレジスタアドレスが衝突していた)。
     std::vector<std::unique_ptr<OffsetPort>> offsetPorts_;
-    IPort* resolveAdpcmHighPort(uint32_t deviceType, IPort* port, IPort* configuredPort2);
+    // deviceTypeが高位バンクへオフセットされるべきなら、そのオフセット量
+    // (0x100/0x200等)を返す。resolveHighBankPort()と
+    // buildPhysicalChipList()(レジスタダンプモニターの表示サイズ算出)の
+    // 双方から参照される単一の真実の情報源(2026年7月新設)。
+    static uint16_t getHighBankOffset(uint32_t deviceType);
+    IPort* resolveHighBankPort(uint32_t deviceType, IPort* port, IPort* configuredPort2);
 
     // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
     // chip:"SF2"のdevices[]エントリのIPort(HWPort)。initDevices()が

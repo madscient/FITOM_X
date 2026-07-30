@@ -193,7 +193,7 @@ private:
 //  誤った前提でADPCM-Bを生成していなかったが、実際にはYM2610無印/2610B
 //  共通のケーパビリティであるため両方とも生成する。ADPCM-Aはレジスタが
 //  port2[アドレス0x100以降]に配置されるためextraPortを使う点に注意
-//  [CFITOM::resolveAdpcmHighPort()参照]、ADPCM-Bはport1のまま)。
+//  [CFITOM::resolveHighBankPort()参照]、ADPCM-Bはport1のまま)。
 // ================================================================
 class COPNB : public COPNA {
 public:

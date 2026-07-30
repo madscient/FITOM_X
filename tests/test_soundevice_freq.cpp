@@ -45,6 +45,7 @@ std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
+std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
 }
 
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")
@@ -523,4 +524,37 @@ TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasRele
     CHECK(rrDumpIdx >= 0);
     CHECK(keyOnIdx >= 0);
     CHECK(rrDumpIdx < keyOnIdx);
+}
+
+// OPL4のAWM(PCM)部は実チップ上、FM部(port1/port2、addr 0x000-0x1FF)とは
+// 独立した3つ目のレジスタバンク(addr 0x200以降、a_high=2)に配置される。
+// CFITOM::resolveHighBankPort()はCOPL4AWMにOffsetPort(port,0x200)経由で
+// アクセスさせることでこれを実現する(2026年7月、ユーザー指摘で発覚:
+// 以前はAWM部がFM部と同じport1[a_high=0, addr 0x00-0xFF]にそのまま
+// 割り当てられており、waveform番号レジスタ0x08等がFM部のレジスタと
+// 衝突していた)。このテストはOffsetPort越しにCOPL4AWMを駆動し、実際に
+// 書き込まれるアドレスが全てa_high=2の範囲(0x200-0x2FF)に収まることを
+// 確認する回帰テスト。
+TEST_CASE("COPL4AWM writes land in the 0x200 high bank via OffsetPort, "
+          "not the FM part's 0x000/0x100 banks", "[sounddevice][opl4]")
+{
+    RecordingPort port;
+    OffsetPort awmPort(&port, 0x200); // CFITOM::resolveHighBankPort()が生成するものと同じ
+    auto dev = createCOPL4AWM(&awmPort, 44100);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    uint8_t ch = dev->allocCh(nullptr, &patch, 100);
+    REQUIRE(ch != 0xFF);
+    dev->setNoteFine(ch, 60, 0, true);
+    dev->noteOn(ch, 100);
+
+    REQUIRE_FALSE(port.history.empty());
+    for (const auto& [addr, data] : port.history) {
+        (void)data;
+        INFO("write addr=0x" << std::hex << (int)addr);
+        CHECK((addr & 0xFF00) == 0x200); // a_high=2、FM部の0x000/0x100とは衝突しない
+    }
 }
