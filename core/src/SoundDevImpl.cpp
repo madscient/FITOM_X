@@ -291,7 +291,14 @@ void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
 {
     if (ch >= maxChs_) return;
     auto& s = chState_[ch];
-    if (!s.isActive()) return;
+    // isActive()(Running/Releasing)だけでなくisAssigned()も許可する。
+    // CInstCh::noteOn()はassignCh()(→status=Assigned)の直後、まだ
+    // dev->noteOn()(→status=Running)を呼ぶ前にこの関数を呼んで直前の
+    // 別MIDIチャンネルのCC#1残留値を上書きする(devChの使い回し対策、
+    // 2026年7月修正[7c3d276]参照)。isActive()のみで判定すると、この
+    // 呼び出し時点ではまだstatus==Assignedのため常に早期returnし、
+    // 当の修正が実質無効化されていた(2026年7月再修正)。
+    if (!s.isActive() && !s.isAssigned()) return;
     s.proc.setCC1Modulation(cc1, maxDepth);
     // デプスが変わったので F-number を再計算
     if (s.proc.channelLfoActive() || cc1 == 0)
@@ -303,7 +310,9 @@ void CSoundDevice::setLfoDepthOverride(uint8_t ch, int16_t cents)
 {
     if (ch >= maxChs_) return;
     auto& s = chState_[ch];
-    if (!s.isActive()) return;
+    // setCC1Modulation()と同じ理由でisAssigned()も許可する
+    // (assignCh直後・dev->noteOn前に呼ばれるため)。
+    if (!s.isActive() && !s.isAssigned()) return;
     s.proc.setLfoDepthOverride(cents);
     // デプスが変わったので F-number を再計算(次tickを待たず即座に反映)
     if (s.proc.channelLfoActive())

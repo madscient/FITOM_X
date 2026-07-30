@@ -526,6 +526,62 @@ TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasRele
     CHECK(rrDumpIdx < keyOnIdx);
 }
 
+// 実機報告: CC#1(ソフトウェアLFO)を使った後、まったく別のMIDIチャンネルで
+// 発音した音にそのLFOが漏れて掛かることがある(2026年7月、[7c3d276]で
+// CInstCh::noteOn()がdev->setCC1Modulation(devCh, pmDepth_, ...)を毎ノート
+// オン強制pushするよう修正したはずだったが、後日同じ症状が再現すると
+// 報告された)。
+//
+// 再調査の結果、CInstCh::noteOn()がこの強制pushを呼ぶタイミングは、
+// dev->assignCh()(→ChState::status=Assigned)の直後・dev->noteOn()
+// (→status=Running)より前であるのに対し、CSoundDevice::setCC1Modulation()
+// 側のガードがisActive()(Running/Releasingのみtrue、Assignedはfalse)
+// だったため、devChを他のMIDIチャンネルから奪う通常の経路では常に
+// 早期returnし、強制pushが実質無効化されていたことが判明した(isAssigned()
+// をガードへ追加して修正)。このテストはassignCh()直後・noteOn()より前の
+// タイミングでsetCC1Modulation()を呼び、前の占有者(別owner)のソフトLFOが
+// 残っていないことを検証する。
+TEST_CASE("CC#1 soft LFO forced push during the Assigned window (after assignCh, "
+          "before noteOn) actually takes effect on a channel stolen from another owner",
+          "[sounddevice]")
+{
+    RecordingPort port;
+    auto dev = createCOPN(&port, 8000000); // 3ch
+    dev->init();
+
+    HwPatch patch{}; // swPatch省略時は既定のSwPatch(LFR=0)が使われる
+                      // → CC#1駆動ソフトLFOモードになる音色
+    patch.id = 1;
+    DummyMidiCh ownerA, ownerB;
+
+    // ownerA: CC#1を送ってソフトLFOを起動させたまま発音終了する
+    uint8_t chA = dev->allocCh(&ownerA, &patch, 100);
+    REQUIRE(chA != 0xFF);
+    dev->setNoteFine(chA, 60, 0, true);
+    dev->noteOn(chA, 100);
+    dev->setCC1Modulation(chA, 100, 600); // CC#1=100 → ソフトLFO起動
+    REQUIRE(dev->getChState(chA)->proc.channelLfoActive());
+
+    dev->noteOff(chA); // → Releasing。LFOはkReleasingHoldMsかけてfadeoutする
+                        // だけで、ここではまだactive()==trueのまま
+
+    // ownerB: 別のMIDIチャンネル。CC#1を一度も送っていない
+    // (CInstCh::pmDepth_の既定値は0)。ラウンドロビンでchAを奪う。
+    uint8_t chB = dev->allocCh(&ownerB, &patch, 100);
+    REQUIRE(chB == chA); // 唯一使用中/Releasingのchなので再利用されるはず
+
+    // CInstCh::noteOn()と同じ呼び出し順序: assignCh直後・noteOn()より前に
+    // pmDepth_(=0、ownerBの既定値)を強制pushする。
+    dev->setCC1Modulation(chB, 0, 600);
+    dev->setNoteFine(chB, 72, 0, true);
+    dev->noteOn(chB, 100);
+
+    // 修正前はここでstatus==Assignedのガードによりpushが無視され、
+    // ownerAの残留LFOがownerBへ漏れてchannelLfoActive()==trueのままに
+    // なっていた。
+    CHECK_FALSE(dev->getChState(chB)->proc.channelLfoActive());
+}
+
 // OPL4のAWM(PCM)部は実チップ上、FM部(port1/port2、addr 0x000-0x1FF)とは
 // 独立した3つ目のレジスタバンク(addr 0x200以降、a_high=2)に配置される。
 // CFITOM::resolveHighBankPort()はCOPL4AWMにOffsetPort(port,0x200)経由で
