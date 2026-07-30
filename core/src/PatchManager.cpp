@@ -403,7 +403,7 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
         // (findFallbackDeviceIndex、HwPatchの内容を要求する) は使わず、
         // 厳密一致のみを試す。サンプルベース音源系は現状フォールバック
         // 元/先になる想定がないため実用上の制約は小さい。
-        const SampleZonePatch* samplePatch = sampleReg_.resolve(hwBank, hwProg);
+        const SampleZonePatch* samplePatch = sampleReg_.resolve(voicePatchType, hwBank, hwProg);
         if (!samplePatch) {
             FITOM_LOG_WARN(ctx << " bank=" << (int)hwBank << " prog=" << (int)hwProg
                 << " SampleZonePatch not found");
@@ -971,7 +971,7 @@ bool PatchManager::loadSampleZoneBankJson(const std::filesystem::path& path,
     if (!f) { FITOM_LOG_ERR("Cannot open: " << path.string()); return false; }
     try {
         json j = json::parse(f, nullptr, true, true);
-        auto& bank = sampleReg_.getOrCreate(bankNo);
+        auto& bank = sampleReg_.getOrCreate(voicePatchType, bankNo);
         if (j.contains("name")) bank.name = j["name"].get<std::string>();
         bank.filename = path.string();
         bank.voicePatchType = voicePatchType;
@@ -992,9 +992,10 @@ bool PatchManager::loadSampleZoneBankJson(const std::filesystem::path& path,
     }
 }
 
-bool PatchManager::saveSampleZoneBankJson(const std::filesystem::path& path, int bankNo) const
+bool PatchManager::saveSampleZoneBankJson(const std::filesystem::path& path,
+                                            uint8_t voicePatchType, int bankNo) const
 {
-    const SampleZoneBank* bank = sampleReg_.find(bankNo);
+    const SampleZoneBank* bank = sampleReg_.find(voicePatchType, bankNo);
     if (!bank) return false;
     json patches = json::array();
     for (int i = 0; i < BANK_PROG_SIZE; ++i) {
@@ -1765,7 +1766,7 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
         // (同一VoicePatchTypeのデフォルトバンク)と重複するため合成を
         // 行わない(PatchManager.hのloadPcmBankJsonコメント参照)。
         if (voicePatchType != VOICE_PATCH_NONE && !offsetsOnly) {
-            auto& sampleBank = sampleReg_.getOrCreate(bankNo);
+            auto& sampleBank = sampleReg_.getOrCreate(voicePatchType, bankNo);
             sampleBank.name           = bank.name;
             sampleBank.filename       = path.string();
             sampleBank.voicePatchType = voicePatchType;

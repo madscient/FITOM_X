@@ -134,7 +134,8 @@ public:
     // JSON 形式でバンクを書き出す
     bool saveHwBankJson(const std::filesystem::path& path,
                         HwBankRegistry::VoiceGroup group, int bankNo) const;
-    bool saveSampleZoneBankJson(const std::filesystem::path& path, int bankNo) const;
+    bool saveSampleZoneBankJson(const std::filesystem::path& path,
+                                 uint8_t voicePatchType, int bankNo) const;
     bool saveSwBankJson(const std::filesystem::path& path, int bankNo) const;
     bool savePatchBankJson(const std::filesystem::path& path, int bankNo) const;
 

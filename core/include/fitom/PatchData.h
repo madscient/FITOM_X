@@ -417,46 +417,57 @@ struct SampleZoneBank {
 };
 
 // ================================================================
-//  SampleZoneBankRegistry: バンク番号 → SampleZoneBank のマッピング
-//  HwBankRegistryと同じ役割だが、VoiceGroupによる多重化は行わない
-//  (現状はチップ族ごとに別バンク番号空間を使う運用を想定。複数チップ族が
-//   同じバンク番号を共有する必要が生じた場合はHwBankRegistry同様
-//   VoiceGroupキーを追加する)。
+//  SampleZoneBankRegistry: (voicePatchType, バンク番号) → SampleZoneBank
+//  のマッピング。HwBankRegistryのVoiceGroupキーと同じ役割をvoicePatchType
+//  で担う(2026年7月修正)。
+//  【重要】ここをVoiceGroupキーにしてはならない。
+//  FITOMConfig::voicePatchTypeToVoiceGroup()はADPCM-B/ADPCM-A/PCMD8/AWMを
+//  全てVOICE_GROUP_PCMへ束ねるため、VoiceGroupキーだと逆にこの4チップ族が
+//  バンク番号空間を共有してしまい、本来分離したい対象が分離できない。
+//  (以前はバンク番号のみをキーにしたフラットな空間だったが、AWMバンク0/1と
+//  ADPCM-B/ADPCM-Aのバンク0/1が番号衝突し、後から読み込んだ側が前の登録を
+//  上書きしてパッチピッカーからAWMバンクが消える不具合があった)。
 // ================================================================
 class SampleZoneBankRegistry {
 public:
-    SampleZoneBank& getOrCreate(int bankNo) { return banks_[bankNo]; }
-
-    const SampleZoneBank* find(int bankNo) const {
-        auto it = banks_.find(bankNo);
-        return (it != banks_.end()) ? &it->second : nullptr;
+    SampleZoneBank& getOrCreate(uint8_t voicePatchType, int bankNo) {
+        return banks_[voicePatchType][bankNo];
     }
-    bool hasBank(int bankNo) const { return banks_.count(bankNo) > 0; }
 
-    // voicePatchTypeが一致するバンク番号一覧を昇順で返す(GUIのパッチ
-    // ピッカーダイアログ向け、サンプルベース音源系(ADPCM-B/ADPCM-A/
-    // PCMD8/AWM)のCC#32階層列挙用、2026年7月新設)。SampleZoneBankRegistry
-    // 自体はHwBankRegistryと異なりVoiceGroupによる多重化を行わない
-    // (フラットなバンク番号空間)ため、この関数がvoicePatchTypeによる
-    // フィルタを担う。
+    const SampleZoneBank* find(uint8_t voicePatchType, int bankNo) const {
+        auto it = banks_.find(voicePatchType);
+        if (it == banks_.end()) return nullptr;
+        auto it2 = it->second.find(bankNo);
+        return (it2 != it->second.end()) ? &it2->second : nullptr;
+    }
+    bool hasBank(uint8_t voicePatchType, int bankNo) const {
+        auto it = banks_.find(voicePatchType);
+        if (it == banks_.end()) return false;
+        return it->second.count(bankNo) > 0;
+    }
+
+    // 指定voicePatchTypeに登録済みのバンク番号一覧を昇順で返す(GUIの
+    // パッチピッカーダイアログ向け、サンプルベース音源系(ADPCM-B/
+    // ADPCM-A/PCMD8/AWM)のCC#32階層列挙用、2026年7月新設)。
     std::vector<int> listBankNumbers(uint8_t voicePatchType) const {
         std::vector<int> result;
-        for (const auto& kv : banks_) {
-            if (kv.second.voicePatchType == voicePatchType) result.push_back(kv.first);
-        }
+        auto it = banks_.find(voicePatchType);
+        if (it == banks_.end()) return result;
+        result.reserve(it->second.size());
+        for (const auto& kv : it->second) result.push_back(kv.first);
         std::sort(result.begin(), result.end());
         return result;
     }
 
-    const SampleZonePatch* resolve(int bankNo, int prog) const {
-        const SampleZoneBank* b = find(bankNo);
+    const SampleZonePatch* resolve(uint8_t voicePatchType, int bankNo, int prog) const {
+        const SampleZoneBank* b = find(voicePatchType, bankNo);
         if (!b) return nullptr;
         const auto& p = b->get(prog);
         return p.isValid() ? &p : nullptr;
     }
 
 private:
-    std::unordered_map<int, SampleZoneBank> banks_;
+    std::unordered_map<uint8_t, std::unordered_map<int, SampleZoneBank>> banks_;
 };
 
 // ================================================================

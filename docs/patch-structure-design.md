@@ -366,7 +366,7 @@ YMF278(AWM)は、通常のFMオペレータ型`HwPatch`ではなく、キーゾ�
 ```
 resolveTriple(voicePatchType, hwBank, hwProg, ...)
   isSampleBasedVoicePatchType(voicePatchType) == true の場合:
-    → SampleZoneBankRegistry::resolve(hwBank, hwProg)
+    → SampleZoneBankRegistry::resolve(voicePatchType, hwBank, hwProg)
         で SampleZonePatch を取得 (HwBankRegistryは一切参照しない)
     → 見つからなければ即座に失敗 (フォールバック機構は使わない。
       フォールバック判定にはHwPatchの内容参照が前提だが、
@@ -384,13 +384,22 @@ resolveTriple(voicePatchType, hwBank, hwProg, ...)
 内蔵GM標準ドラムキットの参照)は前掲の「リズムチャンネル」節を参照。
 
 対応するHwBank用スキーマは無く、`SampleZonePatch`専用のバンクファイル
-形式(サンプルバンクJSON)で管理される。バンク番号の名前空間は、通常の
-`VoicePatchType`と同じ`voicePatchTypeToVoiceGroup()`変換を経由するため、
-`ADPCM-B`/`ADPCM-A`等、チップごとに独立している(詳細な種別と対応チップの
-一覧は`docs/plugin-hwif.md`の「PCM/ADPCM メモリイメージの扱い」参照。
-なお、この節で扱うのはFITOM_X内部の`SampleZonePatch`(音色メタデータ、
-キーゾーン等)であり、`plugin-hwif.md`が扱うPCMメモリイメージ(実際の
-波形データファイル)とは別レイヤーの話である点に注意)。
+形式(サンプルバンクJSON)で管理される。`SampleZoneBankRegistry`は
+`(voicePatchType, bankNo)`をキーにバンクを保持しており(2026年7月修正)、
+`ADPCM-B`/`ADPCM-A`/`PCMD8`/`AWM`はバンク番号が重複してもチップごとに
+独立して共存できる。
+**注意:** ここは`voicePatchTypeToVoiceGroup()`(`HwBankRegistry`が使う
+`VoiceGroup`変換)を経由してはならない。この変換は`ADPCM-B`/`ADPCM-A`/
+`PCMD8`/`AWM`を全て`VOICE_GROUP_PCM`へ束ねるため、`VoiceGroup`をキーに
+すると逆にこの4チップ族がバンク番号空間を共有してしまう(実際に
+AWMバンク0/1とADPCM-B/ADPCM-Aのバンク0/1が番号衝突し、後から読み込んだ
+側が前の登録を上書きしてパッチピッカーからAWMバンクが消える不具合が
+あった)。
+(詳細な種別と対応チップの一覧は`docs/plugin-hwif.md`の「PCM/ADPCM
+メモリイメージの扱い」参照。なお、この節で扱うのはFITOM_X内部の
+`SampleZonePatch`(音色メタデータ、キーゾーン等)であり、
+`plugin-hwif.md`が扱うPCMメモリイメージ(実際の波形データファイル)とは
+別レイヤーの話である点に注意)。
 
 ### 内蔵リズム音源専用バンク（CC#0=0x70、OPNA/OPLLのROM固定リズム）
 
@@ -679,8 +688,8 @@ ADPCM-B/ADPCM-A/PCM-D8 (`VOICE_GROUP_PCM`) は `isSampleBasedVoicePatchType()`
    (`zones`は`key_min/max`・`vel_min/max`ともフル範囲の1件のみ、
    `wave_index`=同じエントリ番号、`root_note`=エントリの`root_note`、
    省略時69)を自動合成し、`*.samplezonebank.json`経由で読み込んだ場合と
-   同じ`SampleZoneBankRegistry`(同一のバンク番号。こちらはHwBankRegistry
-   と異なりVoiceGroupによる多重化を行わないフラットな名前空間)へ登録
+   同じ`SampleZoneBankRegistry`(`(voicePatchType, bankNo)`をキーにする
+   ため、AWM等の他チップ族と同じバンク番号を使っても衝突しない)へ登録
    する。これにより、`*.samplezonebank.json`を別途手書きしなくても、
    パッチピッカー等から個々のPCMサンプルを通常のProgram Change経由で
    選択できる。

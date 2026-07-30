@@ -590,7 +590,7 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
             // SampleZoneBankRegistryを参照する(getHwBankList()等と同じ理由、
             // 2026年7月追加修正)。
             if (isSampleBasedVoicePatchType(bankSelMSB)) {
-                const auto* sampleBank = pm.sampleRegistry().find(mon.bankNo);
+                const auto* sampleBank = pm.sampleRegistry().find(bankSelMSB, mon.bankNo);
                 if (sampleBank) {
                     mon.bankName = sampleBank->name;
                     const auto& sp = sampleBank->get(mon.progNo);
@@ -860,7 +860,7 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         for (int bankNo : pm.sampleRegistry().listBankNumbers(voicePatchType)) {
             FITOMBankInfo info;
             info.bankNo = bankNo;
-            const auto* bank = pm.sampleRegistry().find(bankNo);
+            const auto* bank = pm.sampleRegistry().find(voicePatchType, bankNo);
             if (bank) info.name = bank->name;
             result.push_back(std::move(info));
         }
@@ -888,7 +888,7 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
     // サンプルベース音源系: getHwBankList()と同じ理由でSampleZoneBankRegistry
     // を参照する。
     if (isSampleBasedVoicePatchType(voicePatchType)) {
-        const auto* bank = pm.sampleRegistry().find(hwBank);
+        const auto* bank = pm.sampleRegistry().find(voicePatchType, hwBank);
         if (!bank) return result;
         for (int prog = 0; prog < fitom::BANK_PROG_SIZE; ++prog) {
             const auto& p = bank->get(prog);
