@@ -21,10 +21,10 @@ std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t mode);
@@ -101,11 +101,11 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPZ2:      return createCOPZ(port, sampleRate);
 
     case DEVICE_OPL:
-    case DEVICE_Y8950:     return createCOPL(port, sampleRate);
-    case DEVICE_OPL2:      return createCOPL2(port, sampleRate);
+    case DEVICE_Y8950:     return createCOPL(port, sampleRate, rhythmMode);
+    case DEVICE_OPL2:      return createCOPL2(port, sampleRate, rhythmMode);
     case DEVICE_OPL3:
     case DEVICE_OPN3_L3:   return createCOPL3(port, sampleRate);
-    case DEVICE_OPL3_2:    return createCOPL3_2(port, sampleRate);
+    case DEVICE_OPL3_2:    return createCOPL3_2(port, sampleRate, rhythmMode);
     case DEVICE_OPL_RHY:   return createCOPLRhythm(port, sampleRate);
 
     case DEVICE_OPLL:      return createCOPLL(port, sampleRate, mode);

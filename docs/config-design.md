@@ -296,7 +296,7 @@ FITOM_X側が`resolveChipDeviceId()`に使うための情報であり、その�
 
 | フィールド | 必須 | 説明 |
 |---|---|---|
-| `rhythm_mode` | - | `true`でチップ内蔵リズム音源を有効化（デフォルト`false`）。OPLL系（COPLL/COPLL2/COPLLP/COPLLX）で対応済み。OPL系は将来対応予定。特定チップ専用の名前ではなく、内蔵リズム音源を持つチップ全般で共通のフィールド名とする |
+| `rhythm_mode` | - | `true`でチップ内蔵リズム音源(ch6-8)を無効化し、`DEVICE_*_RHY`サブデバイス専用に明け渡す（デフォルト`false`）。OPLL系（COPLL/COPLL2/COPLLP/COPLLX）・OPL系（OPL/Y8950/OPL2/OPL3/OPL4、`DEVICE_OPL_RHY`）双方で対応済み(2026年7月)。特定チップ専用の名前ではなく、内蔵リズム音源を持つチップ全般で共通のフィールド名とする。`DEVICE_*_RHY`サブデバイス自体は`rhythm_mode`の値に関わらず常に生成されるが、`rhythm_mode=true`にしないとch6-8のレジスタがFM本体側と衝突する点に注意(`auto_devices`経由のプロファイルはこのフラグを個別指定する手段が無いため、OPL内蔵リズムを実機同等の動作にするには`devices[]`を手書きする必要がある) |
 | `extra_slot` | - | 2ポートチップ（OPNA/OPN2/OPL3等）用、2番目のSPFMスロット番号 |
 
 ### MIDI デバイス (`midi_inputs`, `midi_outputs`)
