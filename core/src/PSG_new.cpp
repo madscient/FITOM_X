@@ -644,12 +644,17 @@ protected:
 
     // HWエンベロープ未使用時のみ5bit音量を計算 (旧FITOM完全準拠、
     // Linear2dBの結果を31から引く反転極性)。
+    // linear2dBの最終シフト(7-range-bw)で既にレジスタ幅相当のdBステップに
+    // 変換されるため、evol側はSTEP075DB(無マスク)で0-127をフルレンジの
+    // まま渡す必要がある。STEP150DBでマスクするとevolの上位bitが失われ、
+    // 64以上の値が0-63へ折り返されて音量が不連続になるバグになる
+    // (OPLLで発見された同種の不具合と同一原因)。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         if (s.hwPatch.hwOp[0].EGT & 0x08) return; // HW EG使用時はチップが自動制御
         uint8_t loudness = computeFinalLoudness(ch);
         uint8_t vol = static_cast<uint8_t>(
-            31 - fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 5));
+            31 - fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 5));
         setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(vol & 0x1F), false);
     }
 
