@@ -531,10 +531,13 @@ void CSoundDevice::timerCallback(uint32_t tick)
             ++s.noteOnAge;
         }
 
-        // FmVoice を組み立てて VoiceProcessor に渡す
-        FmVoice fv;
-        fv.hw   = s.hwPatch.hw;
-        for (int i = 0; i < 4; ++i) fv.hwOp[i] = s.hwPatch.hwOp[i];
+        // FmVoice を組み立てて VoiceProcessor に渡す。sw/swOp
+        // (LFR/LWF/depthCents等、ソフトウェアLFOのパラメータ)を含めず
+        // hw/hwOpのみ埋めていたため、onTick()内のrecalcChLfo/recalcOpLfoが
+        // 常にsw側デフォルト値(LFR=0等)を参照し、音色固有のソフトウェア
+        // ピッチLFO/トレモロが実質常にデプス0で無効化されていたバグを修正
+        // (buildVoiceForCh()と同じ組み立てに統一)。
+        FmVoice fv = buildVoiceForCh(static_cast<uint8_t>(ch));
 
         auto result = s.proc.onTick(fv);
 
