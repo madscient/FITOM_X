@@ -127,17 +127,21 @@ protected:
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         // OPLL はキャリア (op1) の effectiveTL (TL空間、0=最大音量) をラウドネスに反転してから
-        // 正しいdB変換 (48dB/1.5dBステップ、4bit) を行う。
+        // 正しいdB変換 (48dB/3dBステップ、4bit) を行う。ステップ幅は
+        // linear2dB内の最終シフト (7-range-bw) で決まるため、evol側は
+        // STEP075DB (無マスク) で0-127をフルレンジのまま渡す必要がある。
+        // STEP150DBでマスクすると evol の上位bitが失われ、64以上の値が
+        // 0-63へ折り返されて音量が不連続に無音化するバグになる。
         uint8_t loudness = 127u - s.proc.effectiveTL(1);
-        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 4);
+        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
         setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
     }
 
     void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t lev) override {
-        // OPLL はボリュームレジスタ (0x30 下位 4bit) のみ
+        // OPLL はボリュームレジスタ (0x30 下位 4bit) のみ (STEP075DBの理由は updateVolExp 参照)
         uint8_t loudness = 127u - lev;
-        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 4);
+        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
         setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
     }
@@ -340,7 +344,8 @@ protected:
         // 旧FITOM: CalcLinearLevel(GetVolume(), 127-velocity) という
         // MIDI Volume(CC#7)とベロシティの組み合わせ (Expressionは含まない)。
         uint8_t loudness = fitom::calcVolExpVel(s.volume, 127u, 127u - s.velocity);
-        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP150DB, 4);
+        // STEP075DB (無マスク) で渡す理由は updateVolExp (トーンパート側) 参照
+        uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint16_t addr = kRhythmReg[ch];
         // ch&5: ch=1,3,4 は上位nibble、ch=0,2 は下位nibble (旧FITOM完全移植)
         bool highNibble = (ch & 5) != 0;
