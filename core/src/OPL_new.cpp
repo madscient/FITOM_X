@@ -314,7 +314,7 @@ public:
 
     void init() override {
         setReg(0x01, 0x20, true);  // Wave Select Enable (port1)
-        setReg(0x105, 0x01, true); // OPL3 NEW1 (port2経由、OPL3モード有効)
+        setReg(0x105, 0x03, true); // OPL3 NEW1 (port2経由、OPL3モード有効, OPL4モード有効)
     }
 
     void reset() override {
@@ -672,7 +672,7 @@ public:
         chip1_->setReg(0x01, 0x20, true); // 0x001
         chip2_->setReg(0x01, 0x20, true); // 0x101 (OffsetPort 経由)
         // OPL3 NEW1: port2 の 0x05 → OffsetPort で 0x105 に書かれる
-        chip2_->setReg(0x05, 0x01, true); // 0x105: OPL3 モード有効
+        chip2_->setReg(0x05, 0x03, true); // 0x105: OPL3 モード有効、 OPL4モード有効
     }
 
     void reset() override { CMultiDevice::reset(); }
