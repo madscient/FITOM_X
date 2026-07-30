@@ -46,6 +46,7 @@ std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr);
 }
 
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")
@@ -591,6 +592,66 @@ TEST_CASE("CC#1 soft LFO forced push during the Assigned window (after assignCh,
 // 衝突していた)。このテストはOffsetPort越しにCOPL4AWMを駆動し、実際に
 // 書き込まれるアドレスが全てa_high=2の範囲(0x200-0x2FF)に収まることを
 // 確認する回帰テスト。
+// ユーザー報告: OPL系のピッチLFO(ソフトウェアビブラート)が「大変不自然に
+// 聞こえる」、レジスタダンプ上KONビットも反転しているように見える、との
+// こと。調査の結果、KONビット自体はCOPL::updateFreq()がgetReg(0xB0+ch)から
+// 読み出したビットをOR合成して書き戻す設計になっており正しく保持されていた
+// (OPL_new.cpp参照)。実際の根本原因は別にあった: CSoundDevice::timerCallback()
+// がVoiceProcessor::onTick()へ渡すFmVoiceを手組みしており、hw/hwOpのみ埋めて
+// sw/swOpを埋め忘れていたため(buildVoiceForCh()と不整合)、tick毎に
+// recalcChLfo/recalcOpLfoが常にsw側デフォルト値(LFR=0/depthCents=0等)を
+// 参照し、音色固有のソフトウェアピッチLFO/トレモロが実質常にデプス0で
+// 無効化されていた(2026年7月修正、timerCallback()もbuildVoiceForCh()を
+// 使うよう統一)。このテストは、ノートオン中にソフトウェアピッチLFOを
+// 回した場合に (1) tick毎のFnum再書き込みでKONビットが落ちないこと、
+// (2) LFOが実際にFnumへ反映されること、の両方を検証する。
+TEST_CASE("OPL soft pitch LFO ticks keep the KON bit set in reg 0xB0 across Fnum updates",
+          "[sounddevice][opl]")
+{
+    RecordingPort port;
+    auto dev = createCOPL(&port, 3579545);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    SwPatch sw;
+    sw.id = 1;
+    sw.sw.LFR = 64;          // ソフトLFO有効 (rate中程度)
+    sw.sw.LFD = 0;           // ディレイなし、即座に開始
+    sw.sw.LFI = 0;           // フェードインなし、即フルデプス
+    sw.sw.LWF = 6;           // sine
+    sw.sw.LFM = 0;           // repeat
+    sw.sw.depthCents = 200;  // ±200セント、明確にFnumが変化する深さ
+
+    uint8_t ch = dev->allocCh(nullptr, &patch, 100, &sw);
+    REQUIRE(ch != 0xFF);
+    dev->setNoteFine(ch, 60, 0, true);
+    dev->noteOn(ch, 100);
+    REQUIRE(dev->getChState(ch)->proc.channelLfoActive());
+
+    uint16_t a0reg = static_cast<uint16_t>(0xA0 + ch); // fnum[8:1]
+    uint16_t b0reg = static_cast<uint16_t>(0xB0 + ch); // KON | block | fnum[10:9]
+    REQUIRE((port.regs[b0reg] & 0x20) != 0); // noteOn直後、KONは立っているはず
+
+    bool fnumChanged = false;
+    uint8_t initialA0 = port.regs[a0reg];
+    uint8_t initialB0 = port.regs[b0reg];
+    for (uint32_t t = 0; t < 60; ++t) {
+        dev->timerCallback(t);
+        INFO("tick=" << t << " reg[0xA0+ch]=0x" << std::hex << (int)port.regs[a0reg]
+             << " reg[0xB0+ch]=0x" << (int)port.regs[b0reg]);
+        // ソフトLFOがアクティブな間、ノートオン中は常にKONビットが
+        // 立っていなければならない(Fnum更新の副作用でKONが落ちてはならない)。
+        CHECK((port.regs[b0reg] & 0x20) != 0);
+        if (port.regs[a0reg] != initialA0 || port.regs[b0reg] != initialB0)
+            fnumChanged = true;
+    }
+    // LFOが実際にFnum/Blockを動かしていること(そもそも変調が起きていない
+    // 状態でKONが落ちないのは当然のため、変調が起きた上での検証であることを保証)。
+    CHECK(fnumChanged);
+}
+
 TEST_CASE("COPL4AWM writes land in the 0x200 high bank via OffsetPort, "
           "not the FM part's 0x000/0x100 banks", "[sounddevice][opl4]")
 {
