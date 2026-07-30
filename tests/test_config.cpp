@@ -342,7 +342,7 @@ TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
 
     // ② entries[]からnamed patchが自動合成され、sampleRegistry()経由で見える
     CHECK(pm.sampleRegistry().listBankNumbers(VOICE_PATCH_ADPCMA) == std::vector<int>{7});
-    const auto* sampleBank = pm.sampleRegistry().find(7);
+    const auto* sampleBank = pm.sampleRegistry().find(VOICE_PATCH_ADPCMA, 7);
     REQUIRE(sampleBank != nullptr);
     CHECK(sampleBank->voicePatchType == VOICE_PATCH_ADPCMA);
 
@@ -363,6 +363,76 @@ TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
     CHECK(p1.zones[0].rootNote == 69); // root_note省略時のデフォルト(A4)
     CHECK(p1.zones[0].swBank == -1);   // swpatches[]未指定
     CHECK(p1.zones[0].swProg == -1);
+}
+
+TEST_CASE("SampleZoneBankRegistry: AWM hw_banks and PCM pcm_banks sharing the same "
+          "bank number don't collide", "[config][pcm][samplezone]")
+{
+    // 実プロファイル(unified.bankset.json)でAWMのバンク0/1(hw_banks経由)と
+    // ADPCM-B/ADPCM-Aのバンク0/1(pcm_banks経由の自動合成)が番号衝突し、
+    // 後から読み込まれるpcm_banks側がAWMの登録を上書きしてパッチピッカーの
+    // AWMバンク一覧が常に空になる不具合があった(2026年7月)。
+    // SampleZoneBankRegistryのキーにvoicePatchTypeを含めることで、番号が
+    // 同じでもチップ族が違えば独立して共存できることを確認する。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_samplezone_collision";
+    fs::create_directories(dir);
+
+    json awmBank = {
+        {"name", "AWM test bank"},
+        {"patches", json::array({
+            {{"prog", 0}, {"name", "awm patch0"},
+             {"zones", json::array({ {{"wave_index", 10}} })}}
+        })}
+    };
+    fs::path awmBankPath = dir / "awm.samplezonebank.json";
+    { std::ofstream f(awmBankPath); f << awmBank.dump(2); }
+
+    json pcmbank = {
+        {"name",  "adpcma test bank"},
+        {"codec", "adpcm-a"},
+        {"entries", json::array({
+            {{"entry_no", 0}, {"name", "kick"},
+             {"start_offset", 0}, {"end_offset", 255}, {"size", 200}, {"padded_size", 256}}
+        })}
+    };
+    fs::path pcmbankPath = dir / "adpcma.pcmbank.json";
+    { std::ofstream f(pcmbankPath); f << pcmbank.dump(2); }
+
+    json profile = {
+        {"profile_name", "samplezone collision test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"hw_banks", json::array({
+                {{"group", "AWM"}, {"bank", 0}, {"file", "awm.samplezonebank.json"}}
+            })},
+            {"pcm_banks", json::array({
+                {{"group", "ADPCMA"}, {"bank", 0}, {"file", "adpcma.pcmbank.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "collision.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    // 両チップ族ともバンク0が独立して見える(どちらかがどちらかを
+    // 上書きしていない)
+    CHECK(pm.sampleRegistry().listBankNumbers(VOICE_PATCH_AWM) == std::vector<int>{0});
+    CHECK(pm.sampleRegistry().listBankNumbers(VOICE_PATCH_ADPCMA) == std::vector<int>{0});
+
+    const auto* awm = pm.sampleRegistry().find(VOICE_PATCH_AWM, 0);
+    REQUIRE(awm != nullptr);
+    CHECK(awm->name == "AWM test bank");
+    CHECK(awm->get(0).isValid());
+    CHECK(std::string(awm->get(0).name) == "awm patch0");
+
+    const auto* adpcma = pm.sampleRegistry().find(VOICE_PATCH_ADPCMA, 0);
+    REQUIRE(adpcma != nullptr);
+    CHECK(adpcma->name == "adpcma test bank");
+    CHECK(adpcma->get(0).isValid());
+    CHECK(std::string(adpcma->get(0).name) == "kick");
 }
 
 TEST_CASE("SampleZonePatch::resolveZone: key/velocity range matching with fallback",
@@ -456,7 +526,7 @@ TEST_CASE("FITOMConfig: pcm_banks[] without group keeps legacy behavior "
     REQUIRE(bank != nullptr);
     CHECK(bank->name == "legacy adpcm-b bank");
 
-    CHECK(pm.sampleRegistry().find(3) == nullptr);
+    CHECK(pm.sampleRegistry().find(VOICE_PATCH_ADPCMB, 3) == nullptr);
 }
 
 // OPNB(YM2610無印)はFM部がYM2612/YM2608と同じOPN2世代のコアを持つため、
