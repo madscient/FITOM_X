@@ -1073,7 +1073,7 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
         // レジスタ体系のためusesExtraPort=trueとする(2026年7月、ユーザー
         // 指摘により発覚。以前はSSGと同じport1のまま割り当てておりレジスタ
         // アドレスが衝突していた。実際の高位ポートへの差し替えは
-        // CFITOM::resolveAdpcmHighPort()が行う)。
+        // CFITOM::resolveHighBankPort()が行う)。
         outSpec.push_back({baseDeviceType,      "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,          "-SSG",    false, false});
         outSpec.push_back({DEVICE_ADPCMB_OPNA,  "-ADPCMB", true,  false});
@@ -1117,8 +1117,14 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType,
 
     case DEVICE_OPL4:
         // OPL4 = OPL3(FM部、完全互換) + AWM(PCM部、YRW801 ROM音色)。
-        // FM部はOPL3と同じ3サブデバイス構成(4OP+2OP)、AWM部はさらに別ポート
-        // (メモリアクセス系、ここではport共有のみで足りる)を追加する。
+        // FM部はOPL3と同じ2サブデバイス構成(4OP+2OP、どちらもport1+port2の
+        // 2バンクを共有するためusesExtraPort=true)。AWM部は実チップ上FM部の
+        // 2バンクとは独立した3つ目のレジスタバンク(アドレス0x200以降)に
+        // 配置されるため、DeviceEntry.port2(2ポート目)ではなく
+        // CFITOM::resolveHighBankPort()が生成するOffsetPort(0x200)経由で
+        // アクセスする(usesExtraPortはfalseのままでよい。2026年7月、
+        // ユーザー指摘で発覚: 以前はAWM部がFM部のport1と同じ低位バンクに
+        // 割り当てられておりレジスタアドレスが衝突していた)。
         outSpec.push_back({DEVICE_OPL3,    "-FM-4OP", true,  false});
         outSpec.push_back({DEVICE_OPL3_2,  "-FM-2OP", true,  false});
         outSpec.push_back({DEVICE_OPL4AWM, "-AWM",    false, false});

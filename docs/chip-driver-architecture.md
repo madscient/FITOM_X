@@ -59,9 +59,35 @@ master, divide, noteOffset_)`で`fnumTable_`を生成する際、`noteOffset_`�
 同一の物理ポート(`e.port`)を共有するが、`usesExtraPort=true`のサブデバイスは
 `e.port2`も受け取る(2ポート目=`extraPort`が必要なもの。`DEVICE_ADPCMB_OPNA`/
 `DEVICE_ADPCMA`もここに該当。実チップ上これらのレジスタは`port2`側[アドレス
-0x100以降]に配置されるため。`CFITOM::resolveAdpcmHighPort()`が実際のポート
+0x100以降]に配置されるため。`CFITOM::resolveHighBankPort()`が実際のポート
 差し替えを行う。2026年7月、ユーザー指摘で発覚: 以前はSSGと同じport1のまま
 割り当てておりレジスタアドレスが衝突していた)。
+
+`DEVICE_OPL4AWM`(OPL4のAWM/PCM部)はこれとは別の仕組みで高位バンクへ
+差し替わる: `usesExtraPort=false`のまま(`e.port2`=SplitPort用の2ポート目は
+使わない)、`CFITOM::resolveHighBankPort()`がdeviceType判定で
+`OffsetPort(port, 0x200)`を自前生成して割り当てる。OPL4は実チップ上
+FM部(port1[アドレス0x000-0x0FF]+port2[アドレス0x100-0x1FF]の2バンク、
+`DEVICE_OPL3`/`DEVICE_OPL3_2`が共有)とは独立した3つ目のレジスタバンク
+(アドレス0x200以降)にAWM部が配置されるため、既存の2ポート(`port`/`port2`)
+モデルでは表現できず、ADPCM同様のオフセットポート機構を流用している
+(2026年7月、ユーザー指摘で発覚: 以前はAWM部がFM部のport1と同じ低位バンクに
+割り当てられておりレジスタアドレスが衝突していた)。オフセット量そのものは
+`CFITOM::getHighBankOffset(deviceType)`(ADPCM-A/ADPCM-B[OPNA]は0x100、
+OPL4AWMは0x200、それ以外は0)として`resolveHighBankPort()`から切り出して
+あり、下記のレジスタダンプモニターの表示サイズ算出とも共有する単一の
+情報源になっている。
+
+**レジスタダンプモニター(GUI `RegisterDumpWindow`)との整合**: `CFITOM::
+buildPhysicalChipList()`は物理ポート単位で表示サイズ(`dumpSize`)を決める際、
+同一物理ポートを共有する複数サブデバイスのうち*最初に登録されたもの*だけ
+ではなく、全サブデバイスについて「`getHighBankOffset()`+`getDeviceRegSize()`」
+を計算し、その最大値を採用する(2026年7月、ユーザー指摘で発覚。OPL4は
+`DEVICE_OPL3`[0x000-0x1FF]が先に登録されるため、後から登録される
+`DEVICE_OPL4AWM`[0x200-0x2FF、`kDevMap`にレジスタ空間サイズ0x100として
+登録]の分がダンプ表示範囲から漏れていた)。`RegisterDumpWindow.cpp`側は
+ダンプの実バイト数から表示アドレス範囲・行数を動的に組み立てる設計のため、
+`dumpSize`さえ正しければGUI側の変更は不要。
 
 ```cpp
 struct SubDeviceSpec {
@@ -80,6 +106,7 @@ struct SubDeviceSpec {
 | `DEVICE_OPNB` (OPNB無印、YM2610) | FM本体(`COPNB`、実効4ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMA`(6ch、port2側) + `DEVICE_ADPCMB`(1ch、port1側) |
 | `DEVICE_2610B` (OPNBB、YM2610B) | FM本体(6ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMA`(6ch、port2側) + `DEVICE_ADPCMB`(1ch、port1側) |
 | `DEVICE_OPL3` / `DEVICE_OPN3_L3` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) |
+| `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) |
 | `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、rhythm_mode時) |
 
 上記以外（単体`COPN`、`COPM`系、`CSSG`単体等）は展開されず、1エントリ=1デバイスのまま。
