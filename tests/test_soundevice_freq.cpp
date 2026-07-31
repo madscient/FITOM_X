@@ -47,6 +47,7 @@ std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
 }
 
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")
@@ -674,4 +675,41 @@ TEST_CASE("COPL4AWM writes land in the 0x200 high bank via OffsetPort, "
         INFO("write addr=0x" << std::hex << (int)addr);
         CHECK((addr & 0xFF00) == 0x200); // a_high=2、FM部の0x000/0x100とは衝突しない
     }
+}
+
+// ユーザー報告(2026年7月): OPLビルトインリズムでバスドラム(BD)だけ発音せず、
+// 他4楽器(HH/SD/TOM/CYM)は正常に鳴る。COPLRhythm::writeOperatorRegs()が、
+// キャリア側のエンベロープ(AR/DR/SL/SR/RR)をVoiceProcessorから読む際、
+// 実際のオペレータ番号(velOpIdx)ではなく常にop0を参照していたバグ
+// (HH/SD/TOM/CYMは単一オペレータでhwOp[0]のみ使用するため偶然op0参照が
+// 正しく、BDだけ2オペレータでキャリアがop1のため誤ってop0[モジュレータ]側
+// の値を適用してしまっていた)。ベロシティ127(sens_vel=0)ならVAR等の感度
+// に関わらずvelAR(op)==hwOp[op].ARになる(VoiceProcessor::onNoteOn参照)ため、
+// hwOp[0].ARとhwOp[1].ARを大きく異なる値にしておけば、実際に書き込まれる
+// レジスタがどちらの値を反映しているか直接判別できる。
+TEST_CASE("COPLRhythm BD (bass drum) carrier envelope uses operator 1's "
+          "VoiceProcessor values, not operator 0's (modulator)", "[sounddevice][opl][rhythm]")
+{
+    RecordingPort port;
+    auto dev = createCOPLRhythm(&port, 3579545);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+    patch.hw.ALG = 0; // 直列 (op1のみキャリア)
+    patch.hwOp[0].AR = 2;  // モジュレータ: 誤って参照されると期待値と食い違う
+    patch.hwOp[1].AR = 30; // キャリア: 本来参照されるべき値
+
+    // BD(論理ch4)は物理ch6・スロット16に固定配置される(COPLRhythmクラス
+    // 冒頭コメント参照)。PatchManager::resolveDirect()のforcedCh機構と
+    // 同様、assignCh()でチャンネル番号を直接指定する。
+    uint8_t ch = dev->assignCh(4, nullptr, &patch, 127);
+    REQUIRE(ch == 4);
+    dev->noteOn(ch, 127);
+
+    // op1(キャリア)のAR/DRレジスタ: 0x60 + opIdx(1)*3 + slot(16) = 0x73
+    uint16_t arDrReg = 0x73;
+    uint8_t writtenAR = static_cast<uint8_t>(port.regs[arDrReg] >> 4); // 上位4bit
+    CHECK(writtenAR == (30 >> 1)); // ar4(30) = 15 (修正後、op1基準)
+    CHECK(writtenAR != (2 >> 1));  // ar4(2) = 1 (修正前のバグはこちらになっていた)
 }
