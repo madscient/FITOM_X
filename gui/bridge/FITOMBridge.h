@@ -258,13 +258,15 @@ public:
     // docs/DESIGN.md D-039/D-040参照)を解決する。発音履歴(ノートオン)には
     // 依存しない。
     // outKindは"device"(直接デバイス選択モード、bankSelMSB!=0。
-    // outBankFile=*.hwbank.json、outProgNo=HW prog)または
-    // "layered"(通常モード、bankSelMSB==0。outBankFile=*.patchbank.json、
-    // outProgNo=レイヤードPatchのprog、そのPatchが実際に何層のToneLayerを
-    // 持つかに関わらずこちらになる)のいずれかを返す。performance/drumは
-    // 「チャンネルの現在のパッチ」になることが無いため対象外(D-039参照)。
-    // 解決できない場合(リズムチャンネル、AWM等HwBank/PatchBankを使わない
-    // 音色、対応するバンクが見つからない等)はfalseを返す。
+    // outBankFile=*.hwbank.json、outProgNo=HW prog)、"layered"(通常モード、
+    // bankSelMSB==0。outBankFile=*.patchbank.json、outProgNo=レイヤード
+    // Patchのprog、そのPatchが実際に何層のToneLayerを持つかに関わらず
+    // こちらになる)、"drum"(リズムチャンネル。outBankFile=*.drumkit.json、
+    // outProgNo=そのチャンネルの現在のプログラムチェンジ値)のいずれかを
+    // 返す(2026年7月、drumをdevice/layeredと同列に対応。D-040参照)。
+    // performanceは「チャンネルの現在のパッチ」になることが無いため
+    // 引き続き対象外(D-039参照)。解決できない場合(AWM等HwBank/PatchBank/
+    // DrumKitを使わない音色、対応するバンクが見つからない等)はfalseを返す。
     bool resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKind,
                                 std::string& outBankFile, int& outProgNo) const;
 

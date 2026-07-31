@@ -397,9 +397,10 @@ namespace
     // ディレクトリに配置されている想定)をキオスクモードで起動する。
     // 起動引数の仕様(<profile.json> <kind> <bank-file> <prog>)は
     // FITOM_patch_editor側 docs/DESIGN.md の D-026/D-039/D-040 参照。
-    // kindは"device"(*.hwbank.json)または"layered"(*.patchbank.json)の
-    // いずれかで、bridge.resolveChannelHwPatch()がチャンネルの現在の
-    // CC#0値(直接デバイス選択モードか通常モードか)から判定する。
+    // kindは"device"(*.hwbank.json)/"layered"(*.patchbank.json)/
+    // "drum"(*.drumkit.json、リズムチャンネル用)のいずれかで、
+    // bridge.resolveChannelHwPatch()がチャンネルの種別(リズムchか否か)と
+    // 現在のCC#0値(直接デバイス選択モードか通常モードか)から判定する。
     void launchPatchEditorForChannel(FITOMBridge &bridge, int mpuIndex, int ch)
     {
         std::string kind;
@@ -409,7 +410,7 @@ namespace
         {
             showErrorPopup(
                 "このチャンネルには現在編集可能なパッチがありません。\n"
-                "(リズムチャンネル、またはAWM等HwBankを使わない音色の可能性があります)");
+                "(AWM等HwBankを使わない音色、またはドラムキット未選択の可能性があります)");
             return;
         }
 

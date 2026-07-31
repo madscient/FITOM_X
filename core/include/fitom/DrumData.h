@@ -88,6 +88,15 @@ struct DrumPatch {
     uint32_t id       = 0xFFFFFFFFu;
     char     name[32] = {};
 
+    // 読み込み元の*.drumkit.jsonファイルパス(PatchManager::loadDrumKitJson()
+    // が設定する)。D-040(FITOM_patch_editor側)のkiosk kind="drum"は
+    // 「1ファイル=1キット」の粒度のため、DrumPatchBank::filename(バンク
+    // 単位、複数progが同じバンクを共有し最後に読んだファイルで上書き
+    // されてしまう)ではなくprog単位の本フィールドを参照する必要がある
+    // (2026年7月、FITOMBridge::resolveChannelHwPatch()のリズムチャンネル
+    // 対応で追加)。
+    std::string filename;
+
     std::array<DrumNote, 128> notes;
 
     // ─── チョークグループ ──────────────────────────────────────────
