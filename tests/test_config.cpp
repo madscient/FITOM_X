@@ -551,7 +551,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
           "FM+SSG+ADPCMA+ADPCMB", "[config]")
 {
     std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPNB, spec));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPNB, false, spec));
     REQUIRE(spec.size() == 4);
     CHECK(spec[0].deviceType == DEVICE_OPNB);
     CHECK(spec[1].deviceType == DEVICE_SSG);
@@ -559,7 +559,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
     CHECK(spec[3].deviceType == DEVICE_ADPCMB);
 
     std::vector<fitom::FITOMConfig::SubDeviceSpec> specB;
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_2610B, specB));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_2610B, false, specB));
     REQUIRE(specB.size() == 4);
     CHECK(specB[0].deviceType == DEVICE_2610B);
     CHECK(specB[3].deviceType == DEVICE_ADPCMB);
@@ -571,11 +571,12 @@ TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
 // CFITOM::resolveHighBankPort()がOffsetPort(port,0x200)で差し替える)を
 // 使うため usesExtraPort=false のままで正しい(2026年7月、ユーザー指摘で
 // 発覚したAWM部とFM部のレジスタアドレス衝突バグの回帰防止)。
-TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM+RHYTHM, "
+TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM+RHYTHM "
+          "only when rhythm_mode is enabled for that instance, "
           "AWM does not share the FM subdevices' extraPort", "[config]")
 {
     std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL4, spec));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL4, true, spec));
     REQUIRE(spec.size() == 4);
     CHECK(spec[0].deviceType == DEVICE_OPL3);
     CHECK(spec[0].usesExtraPort == true);
@@ -586,15 +587,25 @@ TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM+RHYTHM, 
     CHECK(spec[2].usesExtraPort == false);
     CHECK(spec[3].deviceType == DEVICE_OPL_RHY);
     CHECK(spec[3].usesExtraPort == false);
+
+    // rhythm_mode:false (既定値) では COPLRhythm はFM本体側のch6-8と
+    // レジスタを奪い合うだけでDVA上の調整が無いため、リズムサブデバイス
+    // 自体を生成しない(2026年7月修正)。
+    spec.clear();
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL4, false, spec));
+    REQUIRE(spec.size() == 3);
+    CHECK(spec[0].deviceType == DEVICE_OPL3);
+    CHECK(spec[1].deviceType == DEVICE_OPL3_2);
+    CHECK(spec[2].deviceType == DEVICE_OPL4AWM);
 }
 
 TEST_CASE("FITOMConfig: DEVICE_OPL/DEVICE_OPL2/DEVICE_OPL3 composite specs "
-          "include a DEVICE_OPL_RHY sub-device sharing the primary port "
-          "(2026年7月, OPL系リズムモード対応)", "[config]")
+          "add a DEVICE_OPL_RHY sub-device sharing the primary port only when "
+          "rhythm_mode is enabled for that instance (2026年7月修正)", "[config]")
 {
     std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
 
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL, spec));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL, true, spec));
     REQUIRE(spec.size() == 2);
     CHECK(spec[0].deviceType == DEVICE_OPL);
     CHECK(spec[0].rhythmCapable == true);
@@ -602,27 +613,65 @@ TEST_CASE("FITOMConfig: DEVICE_OPL/DEVICE_OPL2/DEVICE_OPL3 composite specs "
     CHECK(spec[1].usesExtraPort == false);
     CHECK(spec[1].rhythmCapable == false);
 
+    // rhythm_mode:false ならリズムサブデバイスは生成されず、FM本体のみ
+    // (9ch フル、ch6-8も通常の楽音chのまま)。
     spec.clear();
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_Y8950, spec));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL, false, spec));
+    REQUIRE(spec.size() == 1);
+    CHECK(spec[0].deviceType == DEVICE_OPL);
+
+    spec.clear();
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_Y8950, true, spec));
     REQUIRE(spec.size() == 2);
     CHECK(spec[0].deviceType == DEVICE_Y8950);
     CHECK(spec[1].deviceType == DEVICE_OPL_RHY);
 
     spec.clear();
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL2, spec));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_Y8950, false, spec));
+    REQUIRE(spec.size() == 1);
+
+    spec.clear();
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL2, true, spec));
     REQUIRE(spec.size() == 2);
     CHECK(spec[0].deviceType == DEVICE_OPL2);
     CHECK(spec[0].rhythmCapable == true);
     CHECK(spec[1].deviceType == DEVICE_OPL_RHY);
 
     spec.clear();
-    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL3, spec));
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL2, false, spec));
+    REQUIRE(spec.size() == 1);
+
+    spec.clear();
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL3, true, spec));
     REQUIRE(spec.size() == 3);
     CHECK(spec[0].deviceType == DEVICE_OPL3);
     CHECK(spec[1].deviceType == DEVICE_OPL3_2);
     CHECK(spec[1].rhythmCapable == true);
     CHECK(spec[2].deviceType == DEVICE_OPL_RHY);
     CHECK(spec[2].usesExtraPort == false);
+
+    spec.clear();
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL3, false, spec));
+    REQUIRE(spec.size() == 2);
+    CHECK(spec[0].deviceType == DEVICE_OPL3);
+    CHECK(spec[1].deviceType == DEVICE_OPL3_2);
+}
+
+TEST_CASE("FITOMConfig: DEVICE_OPLL composite spec adds DEVICE_OPLL_RHY only "
+          "when rhythm_mode is enabled for that instance (2026年7月修正)", "[config]")
+{
+    std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
+
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPLL, true, spec));
+    REQUIRE(spec.size() == 2);
+    CHECK(spec[0].deviceType == DEVICE_OPLL);
+    CHECK(spec[0].rhythmCapable == true);
+    CHECK(spec[1].deviceType == DEVICE_OPLL_RHY);
+
+    spec.clear();
+    REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPLL, false, spec));
+    REQUIRE(spec.size() == 1);
+    CHECK(spec[0].deviceType == DEVICE_OPLL);
 }
 
 // ================================================================
