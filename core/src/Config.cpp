@@ -339,6 +339,20 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
             if (p.value("auto_devices", false)) {
                 auto plugin = hwPluginRegistry_.get(name);
                 if (plugin) {
+                    // auto_devices_rhythm_mode: HWPlugin_Enumerate()自身は
+                    // rhythm_mode(FITOM_X固有のデバイス合成概念)を知らない
+                    // ため返さない。ここで列挙結果の"chip"名と突き合わせ、
+                    // 一致するチップにだけdevices[]相当のrhythm_mode:trueを
+                    // 補って渡す(2026年7月、auto_devices経由のOPL/OPLL系
+                    // プロファイルではビルトインリズムを一切有効化できな
+                    // かった制約を解消するため新設)。
+                    std::vector<std::string> rhythmChips;
+                    if (p.contains("auto_devices_rhythm_mode") &&
+                        p["auto_devices_rhythm_mode"].is_array()) {
+                        for (const auto& c : p["auto_devices_rhythm_mode"]) {
+                            if (c.is_string()) rhythmChips.push_back(c.get<std::string>());
+                        }
+                    }
                     try {
                         json arr = json::parse(plugin->enumerate());
                         if (arr.is_array()) {
@@ -351,6 +365,12 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                                     std::string base = devJson.value("chip",
                                         devJson.value("type", name));
                                     devJson["label"] = base + "#" + std::to_string(autoIdx);
+                                }
+                                const std::string chip = devJson.value("chip", "");
+                                if (!chip.empty() &&
+                                    std::find(rhythmChips.begin(), rhythmChips.end(), chip)
+                                        != rhythmChips.end()) {
+                                    devJson["rhythm_mode"] = true;
                                 }
                                 buildDevice(devJson);
                                 ++autoIdx;

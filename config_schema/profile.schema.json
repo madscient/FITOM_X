@@ -576,6 +576,21 @@
             "default": false,
             "description": "推奨: trueの場合、HWPlugin_Enumerate()が返すJSON配列の各要素をそのままdevices[]エントリとして自動生成する。チップ接続情報の管理は実機・エミュレータ問わずHWプラグイン側に委譲する設計方針のため、実機用プラグインもエミュレーター統合プラグイン(FitomEmuIF等)と同様、自身の設定ファイルでチップ構成を管理し、Enumerate()はその内容を返す想定。実際に動作するかはHWPlugin_Enumerate()の実装に依存する。devices[]側で同じpluginを指定した追加エントリと併用も可能。"
           },
+          "auto_devices_rhythm_mode": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "auto_devices:true時のみ有効。HWPlugin_Enumerate()自身はrhythm_mode(devices[]側の同名フィールドと同じ、チップ内蔵リズム音源[ch6-8]を有効化しFM本体側と切り離すFITOM_X固有の概念)を返さないため、列挙結果の\"chip\"名がここに列挙された文字列のいずれかと一致するエントリにだけ、自動生成後にrhythm_mode:trueを補って渡す(2026年7月新設)。OPL/Y8950/OPL2/OPL3/OPL4/OPLL系でビルトインリズムを使う場合に指定する。",
+            "examples": [
+              [
+                "OPL",
+                "OPL2",
+                "OPL3",
+                "OPL4"
+              ]
+            ]
+          },
           "_comment": {
             "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
             "type": [
