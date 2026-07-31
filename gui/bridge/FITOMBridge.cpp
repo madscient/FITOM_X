@@ -724,12 +724,27 @@ bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKi
     if (!processor) return false;
 
     fitom::IMidiCh* midich = processor->getChannel(static_cast<uint8_t>(ch));
-    // リズムチャンネルはCC#0/#32を無視し、ノート単位で複数のHwPatchを
-    // 使いうる(単一の「現在のパッチ」という概念が無い)ため対象外とする。
-    if (!midich || midich->isRhythm()) return false;
+    if (!midich) return false;
 
     auto& pm  = fitomInst.getPatchManager();
     auto& cfg = fitomInst.getConfig();
+
+    // リズムチャンネルはCC#0/#32を無視し、ノート単位で複数のHwPatchを
+    // 使いうる(単一の「現在のパッチ」という概念が無い)ため、個々の
+    // HwPatchではなくドラムキット自体(kind="drum"、FITOM_patch_editor側
+    // D-040)をキオスク対象にする。bank-fileだけでキットが一意に決まり、
+    // prog引数はエディタ側で「プロファイルのdrum_banks[].progと一致するか」
+    // の整合性チェックにのみ使われる(単一ファイル=単一キットのため、
+    // 探すためのキーではない)。
+    if (midich->isRhythm()) {
+        const auto* dp = pm.drumRegistry().resolve(midich->getBankNo(), midich->getProgramNo());
+        if (!dp || dp->filename.empty()) return false;
+
+        outKind     = "drum";
+        outBankFile = dp->filename;
+        outProgNo   = static_cast<int>(midich->getProgramNo());
+        return true;
+    }
 
     // 発音履歴(ChState/ノートオン)には依存しない。CInstCh::progChange()が
     // 実際に参照しているのと同じ値(このチャンネルの「現在のCC#0/#32/

@@ -1274,6 +1274,7 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
 
         DrumPatch dp;
         dp.id = (uint32_t(0) << 16) | prog; // ドラムバンクは常に固定バンク番号0
+        dp.filename = path.string();
         if (j.contains("name")) {
             std::string n = j["name"].get<std::string>();
             std::strncpy(dp.name, n.c_str(), sizeof(dp.name) - 1);

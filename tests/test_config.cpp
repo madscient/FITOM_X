@@ -285,6 +285,43 @@ TEST_CASE("FITOMConfig: bank_overrides matches drum_banks by 'prog' (not 'bank',
     CHECK(std::string(kit1->name) == "added kit prog1");
 }
 
+// FITOMBridge::resolveChannelHwPatch()のkind="drum"対応(2026年7月、
+// リズムチャンネルの外部パッチエディタ起動)は、各progが自分自身の
+// 読み込み元ファイル(DrumPatch::filename)を正しく保持していることに
+// 依存する。DrumPatchBank::filename(バンク単位、複数progが共有し
+// 最後に読んだファイルで上書きされる)と混同していないことを検証する
+// (fitom_testsはfitom_core単体のみリンクしFITOMBridgeを含まないため、
+// ここではPatchManager::loadDrumKitJson()が設定するprog単位の
+// DrumPatch::filenameを直接検証する)。
+TEST_CASE("PatchManager: loadDrumKitJson() records each prog's own source file "
+          "in DrumPatch::filename (not just the bank-level, last-writer-wins one)",
+          "[config][drumkit]")
+{
+    fs::path dir = fs::temp_directory_path() / "fitom_test_drumkit_filename";
+    fs::create_directories(dir);
+
+    auto writeKit = [](const fs::path& p, const std::string& name) {
+        json kit = {{"name", name}, {"notes", json::array()}};
+        std::ofstream f(p);
+        f << kit.dump(2);
+    };
+    const fs::path kit0Path = dir / "kit0.drumkit.json";
+    const fs::path kit1Path = dir / "kit1.drumkit.json";
+    writeKit(kit0Path, "kit prog0");
+    writeKit(kit1Path, "kit prog1");
+
+    fitom::PatchManager pm;
+    REQUIRE(pm.loadDrumKitJson(kit0Path, 0));
+    REQUIRE(pm.loadDrumKitJson(kit1Path, 1));
+
+    const auto* kit0 = pm.resolveDrum(0, 0);
+    const auto* kit1 = pm.resolveDrum(0, 1);
+    REQUIRE(kit0 != nullptr);
+    REQUIRE(kit1 != nullptr);
+    CHECK(kit0->filename == kit0Path.string());
+    CHECK(kit1->filename == kit1Path.string());
+}
+
 TEST_CASE("FITOMConfig: system config defaults", "[config]")
 {
     fitom::FITOMConfig cfg;
