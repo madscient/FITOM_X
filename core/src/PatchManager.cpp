@@ -337,8 +337,16 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
         return result;
     }
 
-    ISoundDevice* dev = config.getDevice(deviceIndex);
-    const uint8_t chCount = dev ? dev->getChCount() : 0;
+    // chCountはchipType固有の固定値であり、実際に稼働中のISoundDevice
+    // インスタンスを必要としない(そもそもFITOMConfigはISoundDeviceを
+    // 所有しない設計 — CFITOM::devices_が所有し、FITOMConfig::getDevice()
+    // は常にnullptrしか返さない未使用コード。2026年7月、OPLビルトイン
+    // リズムのデバイス配線修正で初めてこのコードパスに実際に到達する
+    // ようになった際に発覚。以前はresolveDirect()側で「一致するデバイス
+    // 自体が無い」により早期returnしていたため、このバグ自体が一度も
+    // 顕在化していなかった)。DeviceFactory::defaultChCount()で
+    // deviceType固有の固定chCountを引く。
+    const uint8_t chCount = DeviceFactory::defaultChCount(targetDeviceType);
     if (hwProg >= chCount) {
         FITOM_LOG_WARN(ctx << " builtin-rhythm: prog=" << (int)hwProg
             << " is out of range for deviceType=0x" << std::hex << targetDeviceType
@@ -511,8 +519,16 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // 範囲外は解決失敗として扱う(誤った楽器が鳴るより無音の方が安全、
     // という判断は0x70と同じ)。
     if (voicePatchType == VOICE_PATCH_OPL_RHY) {
-        ISoundDevice* dev = config.getDevice(deviceIndex);
-        const uint8_t chCount = dev ? dev->getChCount() : 0;
+        // chCountはchipType固有の固定値であり、実際に稼働中の
+        // ISoundDeviceインスタンスを必要としない(そもそもFITOMConfigは
+        // ISoundDeviceを所有しない設計 — CFITOM::devices_が所有し、
+        // FITOMConfig::getDevice()は常にnullptrしか返さない未使用
+        // コードだった。2026年7月、OPLビルトインリズムのデバイス配線
+        // 修正で初めてこのコードパスに実際に到達するようになった際に
+        // 発覚。以前はresolveDirect()側で「一致するデバイス自体が無い」
+        // により早期returnしていたため、このバグ自体が一度も顕在化して
+        // いなかった。resolveBuiltinRhythm()の同種修正も参照)。
+        const uint8_t chCount = DeviceFactory::defaultChCount(config.getDeviceType(deviceIndex));
         const uint8_t rhythmCh = hwPatch->ext.rhythmCh;
         if (rhythmCh >= chCount) {
             FITOM_LOG_WARN(ctx << " OPL_RHY: bank=" << (int)hwBank
