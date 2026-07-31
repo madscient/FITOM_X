@@ -105,13 +105,15 @@ struct SubDeviceSpec {
 | `DEVICE_OPNA` / `DEVICE_F286` / `DEVICE_OPN3` | FM本体(6ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMB_OPNA`(port2側) + `DEVICE_OPNA_RHY`(6パート) |
 | `DEVICE_OPNB` (OPNB無印、YM2610) | FM本体(`COPNB`、実効4ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMA`(6ch、port2側) + `DEVICE_ADPCMB`(1ch、port1側) |
 | `DEVICE_2610B` (OPNBB、YM2610B) | FM本体(6ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMA`(6ch、port2側) + `DEVICE_ADPCMB`(1ch、port1側) |
-| `DEVICE_OPL` / `DEVICE_Y8950` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、rhythm_mode時) |
-| `DEVICE_OPL2` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、rhythm_mode時) |
-| `DEVICE_OPL3` / `DEVICE_OPN3_L3` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL_RHY`(5パート、rhythm_mode時はCOPL3_2側port1サブチップのch6-8を専有) |
-| `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、rhythm_mode時) |
-| `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、rhythm_mode時) |
+| `DEVICE_OPL` / `DEVICE_Y8950` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、そのインスタンスの`rhythm_mode:true`時のみ) |
+| `DEVICE_OPL2` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
+| `DEVICE_OPL3` / `DEVICE_OPN3_L3` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ。COPL3_2側port1サブチップのch6-8を専有) |
+| `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
+| `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 
 上記以外（単体`COPN`、`COPM`系、`CSSG`単体等）は展開されず、1エントリ=1デバイスのまま。
+`DEVICE_OPNA`系の`DEVICE_OPNA_RHY`のみ例外で、`rhythm_mode`の値に関わらず常に
+生成される(下記「OPL/OPLL系ビルトインリズムのプロファイル明示化」参照)。
 
 **OPL系リズムモード対応(2026年7月)**: `COPLRhythm`(`DEVICE_OPL_RHY`)自体の実装・
 `VOICE_PATCH_OPL_RHY`によるパッチ解決経路・HwBank/DrumKitデータは先行して
@@ -124,6 +126,27 @@ OPL系にもそのまま適用して解消した。OPL3/OPL4はch6-8が`COPL3_2`
 port1サブチップにあるため、`rhythm_mode`時はport1のch6-8のみを無効化し、
 port2側の3chは通常の2OPとして引き続き使える(`COPL3_2`のコンストラクタ
 コメント参照)。
+
+**OPL/OPLL系ビルトインリズムのプロファイル明示化(2026年7月追加修正)**:
+上記対応の直後、`_RHY`サブデバイス自体が`rhythm_mode`の値に関わらず
+`resolveCompositeSpec`内で常に生成されており(=そのチップ種別が
+devices[]に1つでもあれば、rhythm_mode指定の有無に関係なくリズム
+チャンネル用デバイスが生成されてしまう)、`rhythm_mode:false`(既定値)の
+インスタンスではFM本体側のch6-8が通常の楽音chとして有効なまま
+`COPLRhythm`/`COPLLRhythm`と同じレジスタを無調整で共有する状態だったと
+判明。ビルトインリズムと通常の楽音chをまたいだDVA(動的ボイス割当)は
+実装されていないため、この共有状態はレジスタの奪い合いを招く。
+`resolveCompositeSpec`の第2引数にそのデバイスインスタンス自身の
+`rhythm_mode`設定値(`rhythmModeFromProfile`)を渡すよう変更し、OPL系/OPLL系
+(`DEVICE_OPL_RHY`/`DEVICE_OPLL_RHY`)は`rhythmModeFromProfile==true`の
+場合に限りリズムサブデバイスをoutSpecへ追加するよう修正した。これにより
+チップインスタンスごとにビルトインリズムの使用可否を明示的に選べるように
+なり、同一チップ種別を複数instances持つ場合でも、`rhythm_mode:true`が
+1つも無ければリズムサブデバイス自体が一切生成されない(devices_全体に
+`DEVICE_OPL_RHY`/`DEVICE_OPLL_RHY`が存在しない)。OPNA系の`DEVICE_OPNA_RHY`
+はFM本体と完全に独立したレジスタ空間(0x10/0x11/0x18+ch)を持ち、ch0-5との
+共有・DVA調整の必要が無いため、この対応の対象外とし従来通り常時生成する
+(`resolveCompositeSpec`の第2引数はOPNA系のcase文では単に無視される)。
 
 `DEVICE_OPNB`と`DEVICE_2610B`のサブデバイス構成(SSG/ADPCM-A/ADPCM-B)は同一。
 両者の違いはFMチャンネル数(無印=実効4ch、B=6ch)のみで、それ以外のケーパビリティ

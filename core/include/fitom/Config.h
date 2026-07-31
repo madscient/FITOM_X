@@ -218,7 +218,17 @@ public:
     // 複数サブデバイスへの展開を必要とするかどうか。
     // 展開が必要なら true を返し、outSpec に構成一覧を書き込む。
     // 展開不要 (単独デバイスのまま) なら false を返す。
-    static bool resolveCompositeSpec(uint32_t baseDeviceType,
+    // rhythmModeFromProfile: そのデバイスインスタンスの"rhythm_mode"設定値。
+    // OPL系/OPLL系は内蔵リズムがFM本体側のch6-8とハードウェアレジスタを
+    // 共有するため、trueの場合のみ`DEVICE_OPL_RHY`/`DEVICE_OPLL_RHY`
+    // サブデバイスをoutSpecに追加する(falseならFM本体のみのまま=ch6-8を
+    // 通常の楽音chとして使う。2026年7月、ビルトインリズムと通常楽音chを
+    // またいだDVAは未実装のため、両者を同時に有効化しないようにする形で
+    // 修正。同一チップ種別の複数インスタンス中、rhythm_mode:trueが1つも
+    // 無ければリズムサブデバイス自体が生成されない)。OPNA系の内蔵リズムは
+    // FM本体と完全に独立したレジスタ空間を持つためこの制約の対象外で、
+    // rhythmModeFromProfileの値に関わらず常に生成する。
+    static bool resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeFromProfile,
                                       std::vector<SubDeviceSpec>& outSpec);
 
     int                getMidiInputCount()          const;
