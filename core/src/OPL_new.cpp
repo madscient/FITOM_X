@@ -791,8 +791,23 @@ protected:
     // 物理ch+オペレータindex1個分のレジスタを書き込む。carrier=trueなら
     // ベロシティ補正値(VoiceProcessor経由)を使う。単一オペレータ楽器は
     // 常にcarrier=true(単独の発振器として出力されるため)。
+    //
+    // opIdxとvelOpIdxは異なる意味を持つ別々の添字である点に注意
+    // (2026年7月、BDだけ発音しないバグの修正で分離。それまでは両方に
+    // opIdxを流用しており、HH/SD/TOM/CYM[単一オペレータ、hwOp[0]のみ
+    // 使用]がたまたま正しく動いていた[proc側もop0で計算されるため]一方、
+    // BD[2オペレータ、キャリアはop1]だけキャリアのエンベロープに誤って
+    // モジュレータ側[op0]のVoiceProcessor補正値を適用してしまい無音化
+    // していた)。
+    //   opIdx:    物理レジスタスロット番号(0/1、0x20+opIdx*3+slot等の
+    //             アドレス計算に使う)。HH/TOM=0、SD/CYM=1、BDは呼び出し
+    //             ごとに0/1(kRhythmOpIndex/updateVoice参照)。
+    //   velOpIdx: HwPatch自身のオペレータ番号(proc.velAR()等、
+    //             VoiceProcessor::onNoteOn()がhwOp[]の並びに基づいて
+    //             計算した補正値配列への添字)。単一オペレータ楽器は
+    //             hwOp[0]のみが実体を持つため常に0。BDはhwOp[i]と同じi。
     void writeOperatorRegs(uint8_t physCh, uint8_t opIdx, const FmHwOp& o,
-                            const VoiceProcessor& proc, bool carrier) {
+                            const VoiceProcessor& proc, bool carrier, uint8_t velOpIdx) {
         uint8_t slot = kSlot[physCh];
 
         // EGT: SR>0 (RR位置に書くSRで減衰させたい) なら decay(0)、
@@ -808,12 +823,12 @@ protected:
                    static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)));
         }
 
-        const uint8_t ar = carrier ? proc.velAR(0) : (o.AR & 0x1F);
-        const uint8_t dr = carrier ? proc.velDR(0) : (o.DR & 0x1F);
+        const uint8_t ar = carrier ? proc.velAR(velOpIdx) : (o.AR & 0x1F);
+        const uint8_t dr = carrier ? proc.velDR(velOpIdx) : (o.DR & 0x1F);
         setReg(static_cast<uint16_t>(0x60 + opIdx * 3 + slot),
                static_cast<uint8_t>((ar4(ar) << 4) | ar4(dr)));
 
-        const uint8_t sl = carrier ? proc.velSL(0) : (o.SL & 0xF);
+        const uint8_t sl = carrier ? proc.velSL(velOpIdx) : (o.SL & 0xF);
         // EGT/SR制御(パーカッシブ/サステインモード切替)は、carrier/
         // modulatorを問わず全オペレータに適用する(2026年7月に訂正)。
         // 通常のCOPL::updateVoiceでcarrierを見ているのは、サスティン
@@ -821,8 +836,8 @@ protected:
         // 作用するためであり、EGT/SR制御そのものとは別の話。リズム
         // チャンネルはサスティンペダル非対応のため、そちらのロジックは
         // 元々不要(kFallbackRR相当の分岐は追加しない)。
-        const uint8_t srValue = carrier ? proc.velSR(0) : o.SR;
-        const uint8_t rrValue = carrier ? proc.velRR(0) : o.RR;
+        const uint8_t srValue = carrier ? proc.velSR(velOpIdx) : o.SR;
+        const uint8_t rrValue = carrier ? proc.velRR(velOpIdx) : o.RR;
         const uint8_t rr = srValue ? ar4(srValue) : rrValue;
         setReg(static_cast<uint16_t>(0x80 + opIdx * 3 + slot),
                static_cast<uint8_t>(((sl & 0xF) << 4) | (rr & 0xF)));
@@ -840,13 +855,16 @@ protected:
             // isCarrier規則: op1は常にキャリア、ALG=1(並列)ならop0も)。
             for (int i = 0; i < 2; ++i) {
                 bool carrier = (i == 1) || ((p.hw.ALG & 1) != 0);
-                writeOperatorRegs(physCh, static_cast<uint8_t>(i), p.hwOp[i], s.proc, carrier);
+                writeOperatorRegs(physCh, static_cast<uint8_t>(i), p.hwOp[i], s.proc, carrier,
+                                   static_cast<uint8_t>(i));
             }
         } else {
             // HH/CYM/TOM/SD: 単一オペレータ(hwOp[0]のみ使用)、常にキャリア
             // 扱い(単独の発振器として出力されるため、isCarrier規則は
-            // 適用しない)。
-            writeOperatorRegs(physCh, kRhythmOpIndex[ch], p.hwOp[0], s.proc, true);
+            // 適用しない)。VoiceProcessor側もhwOp[0]基準で計算されている
+            // ため、velOpIdxは(物理スロットのkRhythmOpIndexに関わらず)
+            // 常に0。
+            writeOperatorRegs(physCh, kRhythmOpIndex[ch], p.hwOp[0], s.proc, true, 0);
         }
 
         // FB/ALG/Panは物理ch単位のレジスタ(0xC0+physCh)。ch7(HH/SD)・
