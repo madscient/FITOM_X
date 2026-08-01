@@ -657,15 +657,21 @@ TEST_CASE("FITOMConfig: DEVICE_OPL/DEVICE_OPL2/DEVICE_OPL3 composite specs "
     REQUIRE(spec.size() == 1);
     CHECK(spec[0].deviceType == DEVICE_OPL);
 
+    // Y8950(MSX-AUDIO)はADPCM-Bを内蔵するため、OPL/OPL2と異なりFM本体+
+    // ADPCM-Bの2つが常に生成され、rhythm_mode:trueの場合のみさらに
+    // リズムサブデバイスが加わる(2026年8月修正)。
     spec.clear();
     REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_Y8950, true, spec));
-    REQUIRE(spec.size() == 2);
+    REQUIRE(spec.size() == 3);
     CHECK(spec[0].deviceType == DEVICE_Y8950);
-    CHECK(spec[1].deviceType == DEVICE_OPL_RHY);
+    CHECK(spec[1].deviceType == DEVICE_ADPCMB_Y8950);
+    CHECK(spec[2].deviceType == DEVICE_OPL_RHY);
 
     spec.clear();
     REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_Y8950, false, spec));
-    REQUIRE(spec.size() == 1);
+    REQUIRE(spec.size() == 2);
+    CHECK(spec[0].deviceType == DEVICE_Y8950);
+    CHECK(spec[1].deviceType == DEVICE_ADPCMB_Y8950);
 
     spec.clear();
     REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL2, true, spec));
