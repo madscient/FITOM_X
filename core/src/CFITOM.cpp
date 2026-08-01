@@ -515,8 +515,16 @@ void CFITOM::initDevices()
                 // ポートへ差し替える(spanGroup配下にはconfiguredPort2の概念が
                 // 無いため常にOffsetPortを自前生成する)。
                 sp = resolveHighBankPort(subDeviceType, sp, nullptr);
+                // rhythm_modeも代表デバイス(config_->getDeviceRhythmMode(i))を
+                // 流用せず、このポート本来の値を使う(deviceTypeと同じ理由。
+                // 2026年8月修正: 以前は代表の値を全サブチップへ適用していた
+                // ため、rhythm_mode:trueのチップが別のrhythm_mode:falseチップと
+                // spanGroupとして束ねられると、束ねられた側のch6-8無効化が
+                // 効かなくなっていた[逆に代表側がtrueだと束ねられた側にも
+                // 無効化が誤って波及していた])。
+                bool subRhythmMode = config_->getDeviceSpanGroupRhythmMode(i, k);
                 auto subDev = createLeveledDevice(subDeviceType, sp, spStereo, sampleRate,
-                                                   nullptr, config_->getDeviceRhythmMode(i));
+                                                   nullptr, subRhythmMode);
                 if (!subDev) {
                     FITOM_LOG_WARN("Device[" << i << "]: span sub-chip[" << k
                         << "] creation failed, skipped");
