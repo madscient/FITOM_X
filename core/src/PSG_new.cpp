@@ -366,7 +366,7 @@ class CDCSG : public CPSGBase {
 public:
     CDCSG(IPort* port, int sampleRate)
         : CPSGBase(DEVICE_DCSG, port, 0x10, 4, sampleRate,
-                   2, -576, FnumTableType::TonePeriod)
+                   2, FNUM_OFFSET, FnumTableType::TonePeriod)
         , prevNoise_(0)
     {
         std::fill(prevVol_,  prevVol_  + 4, 0u);

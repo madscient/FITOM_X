@@ -36,7 +36,7 @@ public:
          bool fxCapable = true)
         : CSoundDevice(deviceId, 3, port,
                        fnumMaster, 144,
-                       -576,
+                       FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        256)
         , fxCapable_(fxCapable)
