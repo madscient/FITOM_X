@@ -188,13 +188,17 @@ design.md`の「チョークグループ」節を参照。`ResolvedLayer::forced
 点に注意。
 
 COPNARhythmは各チャンネルが固定ピッチの打楽器を鳴らすのみで、ノート
-番号に依存する処理は不要。一方COPLLRhythmは、ノート番号に応じて
-Fnum/Blockレジスタを計算し、内蔵ドラム音のピッチシフト演奏を可能に
-している(基底クラス`CSoundDevice::getFnumber()`の標準的なノート→Fnum
-変換をそのまま使う)。COPLLRhythmは5つの楽器に対し3ch分のFnum
-レジスタしかなく、一部の楽器(HH/SD、CYM/TOM)が同じレジスタを共有する
-構造のため、異なるノート番号で同時発音すると後着優先で上書きされる
-(仕様として許容)。
+番号に依存する処理は不要。一方COPLLRhythm(・OPL系のCOPLRhythm)は、
+ノート番号に応じてFnum/Blockレジスタを計算し、内蔵ドラム音のピッチ
+シフト演奏を可能にしている(基底クラス`CSoundDevice::getFnumber()`の
+標準的なノート→Fnum変換をそのまま使う)。これらは5つの楽器に対し3ch分の
+Fnumレジスタしかなく、一部の楽器(HH/SD、CYM/TOM)が同じレジスタを
+共有する構造だが、HH・CYMはノイズ性の発振でFnumがほぼ発音に寄与しない
+ため、HH・CYM側はFnum更新自体を行わない(2026年7月、ユーザー要望。
+以前は異なるノート番号で同時発音すると後着優先で上書きされる仕様
+だったため、ピッチ変化に意味のあるSD・TOM側のFnumがHH・CYMに意図せず
+上書きされることがあった)。結果として、共有チャンネルのFnumは実質的に
+SD・TOM側が排他的に制御する形になる。
 
 DrumNote経由で使う場合は、`voice_patch_type=0x70`,
 `patch_bank=chipSel`, `patch_prog=instIndex`と設定する。

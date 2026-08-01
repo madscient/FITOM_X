@@ -908,10 +908,19 @@ protected:
     }
 
     // リズムパートはノート番号に応じてピッチシフトできる(COPLLRhythmと
-    // 同じ設計)。ch7(HH/SD)・ch8(TOM/CYM)は物理チャンネルを共有する
-    // ため、2つの楽器が異なるノート番号で発音すると後着優先で上書き
-    // される(仕様として許容)。
+    // 同じ設計)。ch7(HH/SD)・ch8(TOM/CYM)は物理チャンネルを共有するが、
+    // HH/CYM側がFnum更新自体を行わない(下記参照)ため、実質的にSD/TOM
+    // 側が各共有チャンネルのFnumを排他的に制御する形になる(2026年7月、
+    // ユーザー要望によりHH/CYMのFnum更新を無効化。以前はch7/ch8とも
+    // 2つの楽器が異なるノート番号で発音すると後着優先で上書きされる
+    // 仕様だった)。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        // HH(ch0)・CYM(ch1)はノイズ性の発振でFnumがほぼ発音に寄与しない
+        // ため、Fnum更新自体を行わない。ch7(HH/SD共有)・ch8(CYM/TOM共有)
+        // では物理チャンネルをピッチ変化に意味のあるSD/TOM側が排他的に
+        // 制御できるようにするため(2026年7月、ユーザー要望。HH/CYMが
+        // 後着で書き込むとSD/TOMのFnumを意図せず上書きしてしまっていた)。
+        if (ch == 0 || ch == 1) return;
         uint8_t physCh = kRhythmMapCh[ch];
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         uint8_t b0cur = getReg(static_cast<uint16_t>(0xB0 + physCh)) & 0x20;
