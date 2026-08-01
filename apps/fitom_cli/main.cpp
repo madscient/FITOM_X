@@ -324,12 +324,17 @@ int main(int argc, char** argv)
                 MidiProcessor* proc = fitomInst.getMidiProcessor(static_cast<uint8_t>(i));
                 if (!proc) { openFailed[i] = true; continue; }
                 auto counter = byteCounts[i];
+                const uint8_t mpuIndex = static_cast<uint8_t>(i);
                 try {
                     midiPorts.push_back(std::make_unique<MidiInPort>(
                         midiPlugin, midiInNames[i],
-                        [proc, counter](const uint8_t* data, size_t len, uint64_t ts) {
+                        [&fitomInst, mpuIndex, counter](const uint8_t* data, size_t len, uint64_t ts) {
                             counter->fetch_add(len, std::memory_order_relaxed);
-                            proc->receiveByte(data, len, ts);
+                            // receiveByte()を直接呼ばずCFITOM::receiveMpuByte()
+                            // 経由にする(processMutex_でロックしてタイマー
+                            // スレッドとのデータ競合を防ぐため。詳細は
+                            // CFITOM.hのコメント参照)。
+                            fitomInst.receiveMpuByte(mpuIndex, data, len, ts);
                         }));
                 } catch (const std::exception& e) {
                     std::cerr << "MIDI入力 \"" << midiInNames[i]
@@ -362,8 +367,12 @@ int main(int argc, char** argv)
                     internalPipePlugin = MidiPluginInstance::load(pipeDllPath);
                     internalPipePort = std::make_unique<MidiInPort>(
                         internalPipePlugin, kInternalPipeDeviceName,
-                        [pipeProc](const uint8_t* data, size_t len, uint64_t ts) {
-                            pipeProc->receiveByte(data, len, ts);
+                        [&fitomInst](const uint8_t* data, size_t len, uint64_t ts) {
+                            // receiveByte()を直接呼ばずCFITOM::receiveInternalPipeByte()
+                            // 経由にする(processMutex_でロックしてタイマー
+                            // スレッドとのデータ競合を防ぐため。詳細は
+                            // CFITOM.hのコメント参照)。
+                            fitomInst.receiveInternalPipeByte(data, len, ts);
                         });
                     std::cerr << "内部用MIDIパイプを有効化しました\n";
                 } catch (const std::exception& e) {

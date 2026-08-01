@@ -290,6 +290,26 @@ public:
     // midi_pipeをロードするかどうか)とは無関係にnullptrにはならない。
     MidiProcessor* getInternalPipeProcessor() { return internalPipeProcessor_.get(); }
 
+    // MidiInPortのコールバック(バックエンドDLL固有のスレッド上で呼ばれる)
+    // から、指定MPUのMidiProcessor::receiveByte()へprocessMutex_のロックを
+    // 取った上で中継する(2026年8月新設)。timerCallback()等、他の全ての
+    // processors_[]/channels_[]アクセス経路は既にprocessMutex_でロック
+    // されているが、実MIDI入力の生バイト列だけがreceiveByte()を未ロックで
+    // 直接呼んでおり、タイマースレッド(CFITOM::timerCallback()、
+    // CRhythmCh::timerCallback()がnoteSlots_を反復処理中)とのデータ競合で
+    // LayerSlot::devが反復処理中にnullptrへクリアされ、nullptr参照クラッシュ
+    // する不具合があった。GUI等からの構造化メッセージ送出
+    // (sendChannelControlChange()等、直上参照)と同じロック方針に統一する。
+    void receiveMpuByte(uint8_t mpuIndex, const uint8_t* data, size_t len, uint64_t timestampNs) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->receiveByte(data, len, timestampNs);
+    }
+    // 内部用MIDIパイプ(getInternalPipeProcessor())専用の同経路。
+    void receiveInternalPipeByte(const uint8_t* data, size_t len, uint64_t timestampNs) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        if (internalPipeProcessor_) internalPipeProcessor_->receiveByte(data, len, timestampNs);
+    }
+
     // GUI等から、指定MPU/chへ直接コントロールチェンジ/プログラムチェンジを
     // 送出する(2026年7月新設、GUIのCH設定ダイアログ用)。timerCallback()
     // 等と同じprocessMutex_でロックする(MidiProcessor::sendControlChange/
