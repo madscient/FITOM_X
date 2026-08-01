@@ -35,6 +35,13 @@ struct PortGroup {
     // 属していたDeviceEntry自身のdeviceTypeを保持する
     // (CFITOM::initDevices()が各サブチップ生成時に参照する)。
     uint32_t                deviceType = 0;
+    // このポートグループ本来のrhythm_mode。代表デバイス(devices_[i].
+    // rhythmMode)を流用せず、このポートが元々属していたDeviceEntry
+    // 自身の値を保持する(deviceTypeと同じ理由。2026年8月、OPL/OPLL系で
+    // rhythm_mode:trueのチップが別のrhythm_mode:false chipとspanGroup
+    // として束ねられた場合に、束ねられた側のch6-8無効化が代表デバイスの
+    // 値で上書きされ効かなくなっていたバグの修正で追加)。
+    bool                     rhythmMode = false;
 };
 
 struct DeviceEntry {
@@ -158,6 +165,12 @@ public:
     // CFITOM::initDevices() はサブチップ生成時に代表のdeviceTypeではなく
     // こちらを使う。
     uint32_t         getDeviceSpanGroupDeviceType(int index, int k) const;
+    // k番目の追加ポートグループ本来のrhythm_mode。代表デバイスと
+    // rhythm_modeが異なりうる(OPL/OPLL系でrhythm_mode:trueのチップと
+    // falseのチップが同一VoicePatchTypeでspanGroupとして束ねられる場合)
+    // ため、CFITOM::initDevices() はサブチップ生成時に代表の
+    // getDeviceRhythmMode(index)ではなくこちらを使う(2026年8月新設)。
+    bool             getDeviceSpanGroupRhythmMode(int index, int k) const;
 
     // リニアステレオ化 (CLinearPanDevice): このデバイス自身がステレオペア化
     // されている場合、相手(R側)のポートを返す。nullptr = モノラル単体。

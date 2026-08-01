@@ -192,6 +192,22 @@ ADPCM-Bのレジスタ空間はFM本体のオペレータレジスタ・リズ�
 バックしてしまい急速減衰が効かない）を発見し、`CSpanDevice`/`CUnison`双方に明示的な
 委譲実装を追加済み。
 
+**サブチップごとのdeviceType/rhythm_modeの独立性**: グループ化キーは
+`VoicePatchType`のみで判定するため、束ねられる複数のデバイスエントリは
+`deviceType`(実装クラス、例:`DEVICE_OPNB`のch0/ch3無効化)や`rhythm_mode`
+(OPL/OPLL系、ch6-8の内蔵リズム専用化)がそれぞれ異なりうる。そのため
+`PortGroup`(`Config.h`)は`deviceType`・`rhythmMode`の両方を代表デバイスから
+独立してサブチップごとに保持し、`CFITOM::initDevices()`のサブチップ生成
+ループは代表の値(`config_->getDeviceType(i)`/`getDeviceRhythmMode(i)`)では
+なく`config_->getDeviceSpanGroupDeviceType(i,k)`/`getDeviceSpanGroupRhythmMode(i,k)`
+を使う。rhythmMode側は2026年8月に追加(それまでは代表デバイスの
+`rhythm_mode`値を全サブチップへ一律適用していたため、`rhythm_mode:true`の
+チップが別の`rhythm_mode:false`チップと同一`VoicePatchType`で束ねられると、
+どちらが代表になるかによって「束ねられた側のch6-8無効化が効かない」または
+「無効化不要な側にまで誤って波及する」のいずれかが起きていた。ユーザーが
+「OPL/OPLLビルトインリズム使用時、元チップのch6-8はDVA対象外のはずなので
+レベルメーター上も無効表示にしたい」と指摘したのを機に発覚・修正)。
+
 ---
 
 ## 4. チップファミリー別クラス階層

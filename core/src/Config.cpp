@@ -1025,11 +1025,16 @@ void FITOMConfig::mergeSpannableDevices()
             if (!(keyI == keyJ)) continue;
 
             // devices_[j] (モノラルまたはステレオペア済み) を devices_[i] に統合する。
-            // devices_[j]自身のdeviceTypeを保持する(VoicePatchTypeが同じでも
-            // 実装クラスが異なる場合があるため、代表devices_[i]のdeviceTypeを
-            // 流用してはならない。CFITOM::initDevices()参照)。
+            // devices_[j]自身のdeviceType・rhythmModeを保持する(VoicePatchType
+            // が同じでも実装クラスやrhythm_mode指定が異なる場合があるため、
+            // 代表devices_[i]の値を流用してはならない。CFITOM::initDevices()
+            // 参照。rhythmModeは2026年8月追加: 以前はdeviceTypeのみ保持して
+            // おり、rhythm_mode:trueのチップがfalseのチップとspanGroupとして
+            // 束ねられた場合に束ねられた側のch6-8無効化が代表の値で上書き
+            // され効かなくなっていた)。
             devices_[i].spanGroups.push_back(
-                {devices_[j].port, devices_[j].stereoPairPort, devices_[j].deviceType});
+                {devices_[j].port, devices_[j].stereoPairPort, devices_[j].deviceType,
+                 devices_[j].rhythmMode});
             for (auto& g : devices_[j].spanGroups) devices_[i].spanGroups.push_back(g);
             merged[j] = true;
             FITOM_LOG_INFO("mergeSpannableDevices: '" << devices_[j].label
@@ -1071,6 +1076,13 @@ uint32_t FITOMConfig::getDeviceSpanGroupDeviceType(int index, int k) const {
     const auto& sg = devices_[index].spanGroups;
     if (k < 0 || k >= static_cast<int>(sg.size())) return DEVICE_NONE;
     return sg[k].deviceType;
+}
+
+bool FITOMConfig::getDeviceSpanGroupRhythmMode(int index, int k) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
+    const auto& sg = devices_[index].spanGroups;
+    if (k < 0 || k >= static_cast<int>(sg.size())) return false;
+    return sg[k].rhythmMode;
 }
 
 IPort* FITOMConfig::getDeviceStereoPairPort(int index) const {
