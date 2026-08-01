@@ -48,6 +48,7 @@ std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
 }
 
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")
@@ -712,4 +713,66 @@ TEST_CASE("COPLRhythm BD (bass drum) carrier envelope uses operator 1's "
     uint8_t writtenAR = static_cast<uint8_t>(port.regs[arDrReg] >> 4); // 上位4bit
     CHECK(writtenAR == (30 >> 1)); // ar4(30) = 15 (修正後、op1基準)
     CHECK(writtenAR != (2 >> 1));  // ar4(2) = 1 (修正前のバグはこちらになっていた)
+}
+
+// ユーザー要望(2026年7月): OPL/OPLLビルトインリズムでFnumを共有する
+// チャンネル(ch7=HH/SD共有、ch8=CYM/TOM共有)のうち、HH・CYMはノイズ性の
+// 発振でFnumがほぼ発音に寄与しないため、この2チャンネルではFnum更新を
+// 無効化してほしい。ピッチ変化に意味のあるSD・TOM側と競合するため。
+TEST_CASE("COPLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
+          "to their shared physical channel (ch7)", "[sounddevice][opl][rhythm]")
+{
+    RecordingPort port;
+    auto dev = createCOPLRhythm(&port, 3579545);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    uint8_t sdCh = dev->assignCh(3, nullptr, &patch, 100); // SD
+    REQUIRE(sdCh == 3);
+    dev->setNoteFine(sdCh, 40, 0, true);
+    dev->noteOn(sdCh, 100);
+
+    uint16_t a0reg = 0xA0 + 7; // physCh7 (HH/SD共有)
+    uint16_t b0reg = 0xB0 + 7;
+    uint8_t sdA0 = port.regs[a0reg];
+    uint8_t sdB0 = port.regs[b0reg] & 0x1F; // block(bit4-2)+fnum上位(bit1-0)。bit5=KONは除外
+
+    uint8_t hhCh = dev->assignCh(0, nullptr, &patch, 100); // HH (SDと異なる論理ch)
+    REQUIRE(hhCh == 0);
+    dev->setNoteFine(hhCh, 100, 0, true); // SD(note=40)と大きく異なるノート
+    dev->noteOn(hhCh, 100);
+
+    CHECK(port.regs[a0reg] == sdA0);
+    CHECK((port.regs[b0reg] & 0x1F) == sdB0);
+}
+
+TEST_CASE("COPLLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
+          "to their shared physical channel (ch7)", "[sounddevice][opll][rhythm]")
+{
+    RecordingPort port;
+    auto dev = createCOPLLRhythm(&port, 3579545);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    uint8_t sdCh = dev->assignCh(3, nullptr, &patch, 100); // SD
+    REQUIRE(sdCh == 3);
+    dev->setNoteFine(sdCh, 40, 0, true);
+    dev->noteOn(sdCh, 100);
+
+    uint16_t fnumLoReg = 0x10 + 7; // physCh7 (HH/SD共有)
+    uint16_t blockReg  = 0x20 + 7;
+    uint8_t sdFnumLo = port.regs[fnumLoReg];
+    uint8_t sdBlock  = port.regs[blockReg] & 0x0F; // block(bit3-1)+fnum上位(bit0)。bit5-4=KON/sus等は除外
+
+    uint8_t hhCh = dev->assignCh(0, nullptr, &patch, 100); // HH
+    REQUIRE(hhCh == 0);
+    dev->setNoteFine(hhCh, 100, 0, true); // SD(note=40)と大きく異なるノート
+    dev->noteOn(hhCh, 100);
+
+    CHECK(port.regs[fnumLoReg] == sdFnumLo);
+    CHECK((port.regs[blockReg] & 0x0F) == sdBlock);
 }

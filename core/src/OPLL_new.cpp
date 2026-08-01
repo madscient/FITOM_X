@@ -318,15 +318,20 @@ protected:
     // ノート→Fnum変換をそのまま使う(COPLLRhythmのコンストラクタで
     // 既にFnumTableType::Fnumber+FNUM_OFFSETが設定済みなので、
     // 通常のOPLL FMチャンネルと全く同じ変換になる)。
-    // ch7(HH/SD共用)・ch8(CYM/TOM共用)は物理チャンネルを共有するため、
-    // 2つの楽器が異なるノート番号で発音すると、後から書き込まれた方の
-    // Fnum/Blockで上書きされる(後発優先、仕様として許容)。
+    // ch7(HH/SD共用)・ch8(CYM/TOM共用)は物理チャンネルを共有するが、
+    // HH(ch0)・CYM(ch1)側がFnum更新自体を行わない(updateFreq参照)ため、
+    // 実質的にSD/TOM側が各共有チャンネルのFnumを排他的に制御する形に
+    // なる(2026年7月、ユーザー要望。HH/CYMはノイズ性の発振でFnumが
+    // ほぼ発音に寄与しないため、後着で書き込むとSD/TOMのFnumを意図せず
+    // 上書きしてしまっていた。以前はch7/ch8とも後着優先で上書きされる
+    // 仕様だった)。
     void updateVoice(uint8_t ch) override {
         updateFreq(ch, nullptr);
         updateVolExp(ch);
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        if (ch == 0 || ch == 1) return; // HH/CYM: Fnum更新を行わない(上記コメント参照)
         uint8_t vch = kRhythmMapCh[ch];
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         uint8_t b0cur = getReg(static_cast<uint16_t>(0x20 + vch)) & 0x30;
