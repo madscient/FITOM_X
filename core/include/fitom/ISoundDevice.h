@@ -301,7 +301,7 @@ class CSoundDevice : public ISoundDevice {
 public:
     CSoundDevice(uint8_t deviceType, uint8_t maxChs, IPort* port,
                  int fnumMaster, int fnumDivide,
-                 int noteOffset = -576,
+                 int noteOffset = FNUM_OFFSET,
                  FnumTableType fnumType = FnumTableType::Fnumber,
                  int regSize = 0);
     ~CSoundDevice() override;
