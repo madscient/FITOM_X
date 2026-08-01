@@ -105,7 +105,8 @@ struct SubDeviceSpec {
 | `DEVICE_OPNA` / `DEVICE_F286` / `DEVICE_OPN3` | FM本体(6ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMB_OPNA`(port2側) + `DEVICE_OPNA_RHY`(6パート) |
 | `DEVICE_OPNB` (OPNB無印、YM2610) | FM本体(`COPNB`、実効4ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMA`(6ch、port2側) + `DEVICE_ADPCMB`(1ch、port1側) |
 | `DEVICE_2610B` (OPNBB、YM2610B) | FM本体(6ch) + `DEVICE_SSG`(3ch) + `DEVICE_ADPCMA`(6ch、port2側) + `DEVICE_ADPCMB`(1ch、port1側) |
-| `DEVICE_OPL` / `DEVICE_Y8950` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、そのインスタンスの`rhythm_mode:true`時のみ) |
+| `DEVICE_OPL` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、そのインスタンスの`rhythm_mode:true`時のみ) |
+| `DEVICE_Y8950` | FM本体(9ch) + `DEVICE_ADPCMB_Y8950`(1ch、内蔵ADPCM-B、常に生成) + `DEVICE_OPL_RHY`(5パート、そのインスタンスの`rhythm_mode:true`時のみ) |
 | `DEVICE_OPL2` | FM本体(9ch) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_OPL3` / `DEVICE_OPN3_L3` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ。COPL3_2側port1サブチップのch6-8を専有) |
 | `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
@@ -153,6 +154,19 @@ devices[]に1つでもあれば、rhythm_mode指定の有無に関係なくリ�
 (SSG・ADPCM-A・ADPCM-Bの搭載)は共通(2026年7月、ステージング環境からの指摘で
 訂正: 以前は無印にADPCM-B用メモリ空間が無いという誤った前提でADPCM-Bサブ
 デバイスを生成していなかった)。
+
+**Y8950のADPCM-B登録漏れ(2026年8月修正)**: `DEVICE_Y8950`(YM3801、
+MSX-AUDIO)は実機にADPCM-B(Delta-T方式)を内蔵しており、`DEVICE_ADPCMB_Y8950`
+というdeviceType・`DeviceFactory`のルーティング・`CYmDelta`による実体・
+`VoicePatchType`変換(`VOICE_PATCH_ADPCMB`)まで一通り実装済みだったが、
+`resolveCompositeSpec()`側では`DEVICE_OPL`と同一の`case`にまとめられており
+FM本体+(rhythm_mode時のみ)`DEVICE_OPL_RHY`しか生成していなかった。この
+ためプロファイルに`chip: "Y8950"`と書いても内蔵ADPCM-Bのインスタンスが
+一切生成されない状態だった。`DEVICE_OPL`(YM3526、ADPCM非搭載)から`case`を
+分離し、`DEVICE_Y8950`のみ`DEVICE_ADPCMB_Y8950`を追加するよう修正した。
+ADPCM-Bのレジスタ空間はFM本体のオペレータレジスタ・リズム用ch6-8とは
+独立しているため、OPNAの`DEVICE_ADPCMB_OPNA`と同様`rhythm_mode`の値に
+関わらず常に生成する。
 
 ---
 

@@ -1127,17 +1127,36 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         return true;
 
     case DEVICE_OPL:
-    case DEVICE_Y8950:
-        // OPL/Y8950(YM3526系): FM本体(9ch、rhythm_mode時はch6-8無効化) +
-        // リズム(5パート、DEVICE_OPL_RHY)。同一の物理ポートを共有する
-        // (OPLLと同じ構成パターン)。COPLRhythmはFM本体側のch6-8と
-        // ハードウェアレジスタを共有し、両者を跨いだDVA(動的ボイス割当)は
-        // 実装されていないため、rhythm_mode:trueのインスタンスに限り
-        // リズムサブデバイスを追加する(2026年7月修正。以前は
+        // OPL(YM3526系、ADPCM非搭載): FM本体(9ch、rhythm_mode時はch6-8
+        // 無効化) + リズム(5パート、DEVICE_OPL_RHY)。同一の物理ポートを
+        // 共有する(OPLLと同じ構成パターン)。COPLRhythmはFM本体側の
+        // ch6-8とハードウェアレジスタを共有し、両者を跨いだDVA(動的ボイス
+        // 割当)は実装されていないため、rhythm_mode:trueのインスタンスに
+        // 限りリズムサブデバイスを追加する(2026年7月修正。以前は
         // rhythm_modeの値に関わらず常にDEVICE_OPL_RHYを生成しており、
         // rhythm_mode:falseのままだとFM本体のch6-8[通常の楽音ch]と
         // リズムパートが同じレジスタを無調整で奪い合っていた)。
         outSpec.push_back({baseDeviceType, "-FM",     false, true});
+        if (rhythmModeFromProfile) {
+            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+        }
+        return true;
+
+    case DEVICE_Y8950:
+        // Y8950(YM3801 a.k.a. MSX-AUDIO): OPLコア(FM本体9ch、rhythm_mode時は
+        // ch6-8無効化) + 内蔵ADPCM-B(Delta-T方式、DEVICE_ADPCMB_Y8950) +
+        // (rhythm_mode時のみ)リズム(5パート、DEVICE_OPL_RHY)。全サブ
+        // デバイスが同一の物理ポートを共有する。ADPCM-BはFM本体のオペレータ
+        // レジスタとは独立したレジスタ空間(実機のADPCM関連レジスタ群)を
+        // 持ち、ch6-8のリズム専用化とは無関係なため、OPNAの
+        // DEVICE_ADPCMB_OPNAと同様rhythm_modeの値に関わらず常に生成する
+        // (2026年8月修正。以前はDEVICE_OPLと同一caseにまとめられており、
+        // DEVICE_ADPCMB_Y8950というdeviceType自体・ファクトリ・
+        // VoicePatchType変換は用意されていたのにoutSpecへの登録が
+        // 漏れていたため、Y8950をプロファイルに指定してもADPCM-B
+        // インスタンスが一切生成されていなかった)。
+        outSpec.push_back({baseDeviceType,      "-FM",     false, true});
+        outSpec.push_back({DEVICE_ADPCMB_Y8950, "-ADPCMB", false, false});
         if (rhythmModeFromProfile) {
             outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
         }
