@@ -163,6 +163,14 @@ public:
 
     bool hasBank(int bankNo) const { return banks_.count(bankNo) > 0; }
 
+    // SysExによるドラムキット直接編集(PatchManager::mergeDrumPatchFromJsonText
+    // 経由)用。未登録バンクにはnullptrを返す(HwBankRegistry::findMutable()と
+    // 同じ方針。SysEx側からバンクを新規作成することはできない)。
+    DrumPatchBank* findMutable(int bankNo) {
+        auto it = banks_.find(bankNo);
+        return (it != banks_.end()) ? &it->second : nullptr;
+    }
+
 private:
     std::unordered_map<int, DrumPatchBank> banks_;
 };

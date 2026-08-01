@@ -1123,3 +1123,106 @@ TEST_CASE("FITOMConfig: getSf2BankRegistry().resolvePresetName() works end-to-en
     REQUIRE(cfg.getSf2BankRegistry().resolvePresetName(0, 0, name));
     CHECK(name == "Grand Piano");
 }
+
+// パッチエディタ永続化用SysEx(sub-cmd 0x06、docs/manuals/midi-message-reference.md
+// 8.1節)のマージロジック。null/{}=現状維持、"remove"=デフォルト値へリセット、
+// オブジェクト=差分マージの3通りを検証する。
+TEST_CASE("PatchManager::mergePatchFromJsonText: partial merge, skip, and \"remove\" "
+          "sentinel on layers[]", "[config][patch][sysex]")
+{
+    fitom::PatchManager pm;
+
+    fitom::Patch patch;
+    patch.id = 1; // isValid()にはid != 0xFFFFFFFFuが必要
+    std::strncpy(patch.name, "Test Patch", sizeof(patch.name) - 1);
+    patch.layers[0].voicePatchType = 1;
+    patch.layers[0].hwBank = 0;
+    patch.layers[0].hwProg = 5;
+    patch.layers[0].enabled = true;
+    patch.layers[1].voicePatchType = 2;
+    patch.layers[1].hwBank = 1;
+    patch.layers[1].hwProg = 3;
+    patch.layers[1].enabled = true;
+
+    pm.getPatchBank(10).set(0, patch);
+    fitom::PatchBank* bank = pm.findMutablePatchBank(10);
+    REQUIRE(bank != nullptr);
+    fitom::Patch& target = bank->patches[0];
+
+    json j;
+    j["poly"] = 4;
+    j["layers"] = json::array({
+        json{{"pan_offset", -10}}, // layer0: 部分マージ(hw_prog等は現状維持)
+        nullptr,                   // layer1: 現状維持(null=スキップ)
+        "remove"                   // layer2: 元々未設定だがremove指定(既定値のまま)
+    });
+    std::string err;
+    REQUIRE(pm.mergePatchFromJsonText(j.dump(), target, &err));
+
+    CHECK(target.poly == 4);
+    CHECK(target.layers[0].panOffset == -10);
+    CHECK(target.layers[0].hwProg == 5);      // 変更していないフィールドは維持される
+    CHECK(target.layers[1].hwProg == 3);      // null指定なので変更なし
+    CHECK(target.layers[1].enabled == true);
+    CHECK(target.layers[2].enabled == false); // 既定値のまま
+
+    // 既に設定済みのレイヤーを"remove"すると、デフォルト値へリセットされる
+    json j2;
+    j2["layers"] = json::array({ nullptr, "remove" });
+    REQUIRE(pm.mergePatchFromJsonText(j2.dump(), target, &err));
+    CHECK(target.layers[1].enabled == false);
+    CHECK(target.layers[1].hwProg == 0);
+    CHECK(target.layers[0].hwProg == 5); // layer0はnullなので維持
+}
+
+// パッチエディタ永続化用SysEx(sub-cmd 0x07)のマージロジック。ノート単位の
+// 微調整(部分マージ)・削除("remove")・新規追加が"notes"オブジェクト
+// (キー=ノート番号文字列)1つで表現できることを検証する。
+TEST_CASE("PatchManager::mergeDrumPatchFromJsonText: partial merge, skip, and \"remove\" "
+          "sentinel on notes{}", "[config][drum][sysex]")
+{
+    fitom::PatchManager pm;
+
+    fitom::DrumPatch dp;
+    dp.id = 1;
+    std::strncpy(dp.name, "Test Kit", sizeof(dp.name) - 1);
+    dp.notes[35].enabled   = true;
+    dp.notes[35].patchBank = 0;
+    dp.notes[35].patchProg = 0;
+    dp.notes[35].playNote  = 24;
+    dp.notes[42].enabled   = true;
+    dp.notes[42].patchBank = 0;
+    dp.notes[42].patchProg = 1;
+    dp.notes[42].playNote  = 61;
+
+    pm.drumRegistry().getOrCreate(20).set(0, dp);
+    fitom::DrumPatchBank* bank = pm.drumRegistry().findMutable(20);
+    REQUIRE(bank != nullptr);
+    fitom::DrumPatch& target = bank->patches[0];
+
+    json notes = json::object();
+    notes["35"] = json{{"pan", 10}};   // 部分マージ(既存フィールドは維持)
+    notes["42"] = "remove";            // 削除
+    notes["46"] = json{{"patch_bank", 0}, {"patch_prog", 1},
+                        {"play_note", 66}, {"enabled", true}}; // 新規追加
+
+    json j;
+    j["choke_groups"] = json::array({ json::array({42, 46}) });
+    j["notes"] = notes;
+
+    std::string err;
+    REQUIRE(pm.mergeDrumPatchFromJsonText(j.dump(), target, &err));
+
+    REQUIRE(target.chokeGroups.size() == 1);
+    CHECK(target.chokeGroups[0] == std::vector<uint8_t>{42, 46});
+
+    CHECK(target.notes[35].pan == 10);
+    CHECK(target.notes[35].playNote == 24); // 変更していないフィールドは維持される
+
+    CHECK(target.notes[42].enabled == false); // removeされ、既定値にリセットされた
+    CHECK(target.notes[42].playNote == 60);   // DrumNoteの既定値(remove前は61だった)
+
+    CHECK(target.notes[46].enabled == true);
+    CHECK(target.notes[46].playNote == 66);
+    CHECK(target.notes[46].patchProg == 1);
+}
