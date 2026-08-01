@@ -8,6 +8,9 @@
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <fstream>
+#include <cstring>
+#include <tuple>
+#include <vector>
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -937,4 +940,186 @@ TEST_CASE("FITOMConfig: sf2_banks parse into getSf2BankRegistry() when a chip=\"
     fitom::Sf2BankRegistry::Resolved r;
     REQUIRE(reg.resolve(2, r));
     CHECK(r.sf2Bank == 128);
+}
+
+// ================================================================
+//  SF2プリセット名解決 (phdrパース、docs/sf2-fluidsynth-integration.md ⑧節)
+// ================================================================
+
+namespace {
+
+void appendU32LE(std::vector<uint8_t>& buf, uint32_t v) {
+    buf.push_back(static_cast<uint8_t>(v & 0xFF));
+    buf.push_back(static_cast<uint8_t>((v >> 8) & 0xFF));
+    buf.push_back(static_cast<uint8_t>((v >> 16) & 0xFF));
+    buf.push_back(static_cast<uint8_t>((v >> 24) & 0xFF));
+}
+void appendU16LE(std::vector<uint8_t>& buf, uint16_t v) {
+    buf.push_back(static_cast<uint8_t>(v & 0xFF));
+    buf.push_back(static_cast<uint8_t>((v >> 8) & 0xFF));
+}
+void appendFourCC(std::vector<uint8_t>& buf, const char* cc) {
+    buf.insert(buf.end(), cc, cc + 4);
+}
+void appendPhdrRecord(std::vector<uint8_t>& buf, const std::string& name,
+                       uint16_t preset, uint16_t bank) {
+    char nameBuf[20] = {};
+    std::memcpy(nameBuf, name.data(), std::min<size_t>(name.size(), 20));
+    buf.insert(buf.end(), nameBuf, nameBuf + 20);
+    appendU16LE(buf, preset);
+    appendU16LE(buf, bank);
+    appendU16LE(buf, 0); // wPresetBagNdx
+    appendU32LE(buf, 0); // dwLibrary
+    appendU32LE(buf, 0); // dwGenre
+    appendU32LE(buf, 0); // dwMorphology
+}
+
+// 最小限のSoundFont2(RIFF/sfbk)ファイルを組み立てる。phdrサブチャンクのみが
+// 実際のプリセット+終端センチネル(EOP)を持ち、INFO/sdtaは空のLISTチャンク
+// として「pdta以外は読み飛ばす」経路もあわせて検証する。
+// presets: {name, preset(program), bank} のリスト。
+std::vector<uint8_t> buildMinimalSf2(
+    const std::vector<std::tuple<std::string, uint16_t, uint16_t>>& presets)
+{
+    std::vector<uint8_t> phdrData;
+    for (const auto& [name, preset, bank] : presets) {
+        appendPhdrRecord(phdrData, name, preset, bank);
+    }
+    appendPhdrRecord(phdrData, "EOP", 0, 0); // 終端センチネル(実プリセットに含めない)
+
+    std::vector<uint8_t> phdrChunk;
+    appendFourCC(phdrChunk, "phdr");
+    appendU32LE(phdrChunk, static_cast<uint32_t>(phdrData.size()));
+    phdrChunk.insert(phdrChunk.end(), phdrData.begin(), phdrData.end());
+
+    std::vector<uint8_t> pdtaList;
+    appendFourCC(pdtaList, "pdta");
+    pdtaList.insert(pdtaList.end(), phdrChunk.begin(), phdrChunk.end());
+
+    std::vector<uint8_t> pdtaChunk;
+    appendFourCC(pdtaChunk, "LIST");
+    appendU32LE(pdtaChunk, static_cast<uint32_t>(pdtaList.size()));
+    pdtaChunk.insert(pdtaChunk.end(), pdtaList.begin(), pdtaList.end());
+
+    std::vector<uint8_t> infoList; appendFourCC(infoList, "INFO");
+    std::vector<uint8_t> infoChunk;
+    appendFourCC(infoChunk, "LIST");
+    appendU32LE(infoChunk, static_cast<uint32_t>(infoList.size()));
+    infoChunk.insert(infoChunk.end(), infoList.begin(), infoList.end());
+
+    std::vector<uint8_t> sdtaList; appendFourCC(sdtaList, "sdta");
+    std::vector<uint8_t> sdtaChunk;
+    appendFourCC(sdtaChunk, "LIST");
+    appendU32LE(sdtaChunk, static_cast<uint32_t>(sdtaList.size()));
+    sdtaChunk.insert(sdtaChunk.end(), sdtaList.begin(), sdtaList.end());
+
+    std::vector<uint8_t> riffData;
+    appendFourCC(riffData, "sfbk");
+    riffData.insert(riffData.end(), infoChunk.begin(), infoChunk.end());
+    riffData.insert(riffData.end(), sdtaChunk.begin(), sdtaChunk.end());
+    riffData.insert(riffData.end(), pdtaChunk.begin(), pdtaChunk.end());
+
+    std::vector<uint8_t> file;
+    appendFourCC(file, "RIFF");
+    appendU32LE(file, static_cast<uint32_t>(riffData.size()));
+    file.insert(file.end(), riffData.begin(), riffData.end());
+    return file;
+}
+
+fs::path writeTempBinary(const std::string& name, const std::vector<uint8_t>& data) {
+    fs::path p = fs::temp_directory_path() / name;
+    std::ofstream f(p, std::ios::binary);
+    f.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+    return p;
+}
+
+} // namespace
+
+TEST_CASE("parseSf2PresetHeaders: reads name/bank/preset from a minimal SF2 file, "
+          "excluding the terminal sentinel record and skipping INFO/sdta", "[config][sf2]")
+{
+    auto data = buildMinimalSf2({
+        {"Grand Piano", 0, 0},
+        {"Standard Kit", 0, 128}
+    });
+    fs::path p = writeTempBinary("fitom_test_minimal.sf2", data);
+
+    auto presets = fitom::parseSf2PresetHeaders(p);
+    REQUIRE(presets.size() == 2); // 終端センチネル(EOP)は含まれない
+    CHECK(presets[0].name == "Grand Piano");
+    CHECK(presets[0].bank == 0);
+    CHECK(presets[0].preset == 0);
+    CHECK(presets[1].name == "Standard Kit");
+    CHECK(presets[1].bank == 128);
+    CHECK(presets[1].preset == 0);
+}
+
+TEST_CASE("parseSf2PresetHeaders: gracefully returns empty for a non-SF2/nonexistent file",
+          "[config][sf2]")
+{
+    fs::path p = writeTempBinary("fitom_test_not_sf2.sf2",
+        {'N', 'O', 'P', 'E', '1', '2', '3', '4'});
+    CHECK(fitom::parseSf2PresetHeaders(p).empty());
+    CHECK(fitom::parseSf2PresetHeaders("/nonexistent/does_not_exist.sf2").empty());
+}
+
+TEST_CASE("Sf2BankRegistry: resolvePresetName resolves via phdr, returns false for "
+          "unknown bank/program", "[config][sf2]")
+{
+    auto data = buildMinimalSf2({
+        {"Grand Piano", 0, 0},
+        {"Standard Kit", 0, 128}
+    });
+    fs::path p = writeTempBinary("fitom_test_registry.sf2", data);
+
+    json arr = json::array({
+        {{"bank", 0}, {"file", p.filename().string()}, {"sf2_bank", 0}},
+        {{"bank", 1}, {"file", p.filename().string()}, {"sf2_bank", 128}},
+    });
+
+    fitom::Sf2BankRegistry reg;
+    reg.load(arr, p.parent_path());
+
+    std::string name;
+    REQUIRE(reg.resolvePresetName(0, 0, name));
+    CHECK(name == "Grand Piano");
+
+    REQUIRE(reg.resolvePresetName(1, 0, name));
+    CHECK(name == "Standard Kit");
+
+    CHECK_FALSE(reg.resolvePresetName(0, 99, name)); // sf2_bank=0内に存在しないprogram
+    CHECK_FALSE(reg.resolvePresetName(99, 0, name)); // sf2_banksに無いCC#32値
+}
+
+TEST_CASE("FITOMConfig: getSf2BankRegistry().resolvePresetName() works end-to-end "
+          "through loadProfile()", "[config][sf2]")
+{
+    fs::path dir = fs::temp_directory_path() / "fitom_test_sf2_presetname_e2e";
+    fs::create_directories(dir);
+
+    auto data = buildMinimalSf2({{"Grand Piano", 0, 0}});
+    fs::path sf2Path = dir / "orchestral.sf2";
+    { std::ofstream f(sf2Path, std::ios::binary);
+      f.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size())); }
+
+    json profile = {
+        {"profile_name", "test"},
+        {"devices", json::array({
+            {{"if", "HW"}, {"chip", "SF2"}, {"plugin", "NoSuchPlugin"}}
+        })},
+        {"banks", {
+            {"sf2_banks", json::array({
+                {{"bank", 0}, {"file", "orchestral.sf2"}, {"sf2_bank", 0}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "sf2_presetname.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    REQUIRE(cfg.loadProfile(profilePath));
+
+    std::string name;
+    REQUIRE(cfg.getSf2BankRegistry().resolvePresetName(0, 0, name));
+    CHECK(name == "Grand Piano");
 }

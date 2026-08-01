@@ -2,9 +2,9 @@
 
 **ステータス**: 設計は確定し、**FITOM_X本体側(このリポジトリのスコープ)のコード実装は完了**(2026年7月)。決定事項は下記の通り: `fluid_synth_t`は専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込め、FITOM_X本体は他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_WriteBlock`で生MIDIバイト列を渡すだけ)で扱う。`IHWPlugin.h`への新規追加は無い(既存プラグインへの埋め込み案・FITOM_Xコア本体への直接リンク案とも不採用。音声出力はこのプラグインが他のhwifと同じく自己完結し、ソフトウェアミックスは行わない)/ SF2直行パスへの切替方式(MPU×ch単位の「窓」をプロファイル+SysExで割り当て、CC#0は不使用)/ CC#32からSF2ファイル/内部バンクへの対応方式(`sf2_banks`による間接参照)/ MPU×chの窓割り当て方式(トップレベルプロパティ`sf2_channel_windows`)/ (**両スキーマとも`config_schema/profile.schema.json`に実装済み**)/ FITOM_Xを「CH変換付きMIDIパッチベイ」に徹させる方針(状態管理・クリーンアップ・ポリフォニー調整・`sf2_banks`未一致時のフォールバックを一切行わない)/ GUIスコープ(デバイス一覧・PatchPickerDialog対応は見送り、`sf2_channel_windows`編集用の専用ダイアログは新設)/ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録方式(`chip:"SF2"`→既存の`DEVICE_NONE`スキップ経路を流用、`soundfonts`一覧は`sf2_banks`から自動導出、複数`devices[]`が`chip=="SF2"`を使った場合は起動時エラー)/ マスターボリューム/ピッチは新規プロトコルを設計せず、既存のGM2 Universal Realtime SysEx(8節、マスターボリューム`04 01`・マスターファインチューニング`04 03`)をそのまま`HWPlugin_WriteBlock`で転送するだけで済ませる/ `Sf2BankRegistry`はCC#32解決用マップと`soundfonts`一覧・`soundfont_index`解決用マップの両方を1回のパースから導出する単一クラスとし、`devices[]`ビルドより前に構築するだけで初期化順序の問題も解消する。ドキュメント面は`docs/manuals/midi-message-reference.md`(2.6節・8.2節・3.1/3.2/3.3節)・`docs/plugin-hwif.md`(`fitom_sf2if.dll`将来実装節)・`docs/patch-structure-design.md`(相対パス解決基点の一覧)へ反映済み(2026年7月)。
 
-**実装済み(このリポジトリのスコープ、2026年7月)**: `core/include(src)/fitom/Sf2BankRegistry.{h,cpp}`(CC#32解決・`soundfonts`一覧の導出)/ `FITOMConfig`(`banks.sf2_banks`・トップレベル`sf2_channel_windows`の読み込みとバリデーション、`chip:"SF2"`の`devices[]`エントリへの`soundfonts`自動注入、`resolveChipDeviceId("SF2")`→`DEVICE_NONE`、複数`chip=="SF2"`宣言や設定と対応デバイスの不一致を起動時エラーにする検証)/ `CFITOM::initDevices()`(SF2ラッパーデバイスの`IPort`特定、意図したスキップの警告抑制)/ `MidiProcessor`(`mpuIndex_`を持たせ、`processMessage()`が窓に含まれる(mpu,ch)を`CInstCh`/`CRhythmCh`へのディスパッチより前に`CFITOM::routeSf2ChannelMessage()`へ振り分け。CC#0破棄・CC#32のsf2_banks解決・プログラムチェンジとの組み合わせによるsub-cmd 0x05送出・それ以外の生MIDIメッセージのchan付け替え転送を実装)/ プライベートSysEx sub-cmd 0x04(窓の動的割り当て・解除、`CFITOM::setSf2ChannelWindow()`、fluidsynth_chan重複は要求ごと拒否)/ マスターボリューム・マスターピッチ変更時のGM2 Universal Realtime SysEx(マスターボリューム`04 01`・マスターファインチューニング`04 03`)のSF2デバイスへの転送(`CFITOM::setMasterVolume()`/`setMasterPitch()`)。ユニットテストは`tests/test_config.cpp`に追加済み(`Sf2BankRegistry`の解決・重複除去、`sf2_banks`/`sf2_channel_windows`のバリデーション各種)。
+**実装済み(このリポジトリのスコープ、2026年7月)**: `core/include(src)/fitom/Sf2BankRegistry.{h,cpp}`(CC#32解決・`soundfonts`一覧の導出)/ `FITOMConfig`(`banks.sf2_banks`・トップレベル`sf2_channel_windows`の読み込みとバリデーション、`chip:"SF2"`の`devices[]`エントリへの`soundfonts`自動注入、`resolveChipDeviceId("SF2")`→`DEVICE_NONE`、複数`chip=="SF2"`宣言や設定と対応デバイスの不一致を起動時エラーにする検証)/ `CFITOM::initDevices()`(SF2ラッパーデバイスの`IPort`特定、意図したスキップの警告抑制。レジスタダンプモニター用の物理チップ一覧`buildPhysicalChipList()`からもSF2ラッパーを除外済み)/ `MidiProcessor`(`mpuIndex_`を持たせ、`processMessage()`が窓に含まれる(mpu,ch)を`CInstCh`/`CRhythmCh`へのディスパッチより前に`CFITOM::routeSf2ChannelMessage()`へ振り分け。CC#0破棄・CC#32のsf2_banks解決・プログラムチェンジとの組み合わせによるsub-cmd 0x05送出・それ以外の生MIDIメッセージのchan付け替え転送を実装)/ プライベートSysEx sub-cmd 0x04(窓の動的割り当て・解除、`CFITOM::setSf2ChannelWindow()`、fluidsynth_chan重複は要求ごと拒否)/ マスターボリューム・マスターピッチ変更時のGM2 Universal Realtime SysEx(マスターボリューム`04 01`・マスターファインチューニング`04 03`)のSF2デバイスへの転送(`CFITOM::setMasterVolume()`/`setMasterPitch()`)/ **⑧節: SF2プリセット名解決のための`phdr`パース**(`fitom::parseSf2PresetHeaders()`、RIFF/sfbkの`LIST/pdta/phdr`サブチャンクのみを読み、音声サンプル本体[`LIST/sdta`]はチャンクサイズでシークして読み飛ばす軽量パーサー。`Sf2BankRegistry`が新規`file`の初出時に一度だけ呼び、`(sf2_bank, program) → プリセット名`のルックアップテーブルを`soundfont_index`のキャッシュと同じタイミングで構築し、`Sf2BankRegistry::resolvePresetName(cc32Bank, prog, outName)`で解決できる)。ユニットテストは`tests/test_config.cpp`に追加済み(`Sf2BankRegistry`の解決・重複除去、`sf2_banks`/`sf2_channel_windows`のバリデーション各種、最小限の合成SF2バイナリを使った`phdr`パース・プリセット名解決のend-to-end確認)。
 
-**未着手(このリポジトリのスコープ外、または別途対応が必要)**: `FitomSf2IF`プラグイン本体(fluidsynthへの実際のリンク、別リポジトリ)/ `sf2_channel_windows`編集用のGUI専用ダイアログ/ MIDIモニターのDevice/Fnumber列でのSF2直行パス表示(5節参照)。`FitomSf2IF`が存在しない現状、`sf2Port_`は常に`nullptr`のままであり、窓に含まれるメッセージはSF2エンジンへの実際の転送先が無いため単純に読み捨てられる(通常運用に影響はない)。
+**未着手(このリポジトリのスコープ外、または別途対応が必要)**: `FitomSf2IF`プラグイン本体(fluidsynthへの実際のリンク、別リポジトリ)/ `sf2_channel_windows`編集用のGUI専用ダイアログ/ `Sf2BankRegistry::resolvePresetName()`を実際にMIDIモニターのBank/Program列表示へ配線する作業(GUI側のDevice/Fnumber列の詳細とあわせて5節で未確定のまま)。`FitomSf2IF`が存在しない現状、`sf2Port_`は常に`nullptr`のままであり、窓に含まれるメッセージはSF2エンジンへの実際の転送先が無いため単純に読み捨てられる(通常運用に影響はない)。
 
 **検討日**: 2026年7月
 **検討の目的**: FITOM_Xに`fluidsynth`を組み込み、SF2サウンドフォントをシームレスに扱えるようにする(例: 特定のMIDIチャンネルをSF2音源へ振り分け、FITOM_X固有バンクと動的に共存させる)ことが、現在の構造のまま可能かどうかを検証する。
@@ -204,7 +204,7 @@ F0 00 48 01 05 <chan> <soundfont_index> <sf2_bank_msb> <sf2_bank_lsb> <prog> F7
 - **`soundfonts`一覧は静的**:`sf2_channel_windows`と異なり`sf2_banks`には演奏中に変更するSysExを設計していないため、プロファイル読み込み時に一度確定すれば以降変化せず、実行時の再同期を考える必要はない。
 - **食い違う構成は非合法プロファイルとして起動時エラーとする**:複数`devices[]`が`chip=="SF2"`を使う場合と同様、`sf2_banks`または`sf2_channel_windows`に何らかのエントリがあるにもかかわらず`chip=="SF2"`のdevices[]エントリが存在しない(ディスパッチ経路が無い)場合も、起動時エラーで停止する。逆に`chip=="SF2"`のデバイスは存在するが`sf2_banks`/`sf2_channel_windows`が空、という構成(SF2を将来使う準備だけしておく等)はエラーにしない。
 
-### ⑧ プリセット名表示のための`phdr`パース
+### ⑧ プリセット名表示のための`phdr`パース(**実装済み**、2026年7月)
 
 MIDIモニターのBank/Program列にSF2プリセット名を表示するには、FITOM_Xがそのプリセット名を知っている必要がある。現状の設計では、実際にSF2ファイルを読み込む(`fluid_synth_sfload()`)のはSF2ラッパープラグイン内部だけであり、FITOM_Xコアはファイルパスを`sf2_banks[].file`として知っているだけで、中身(どんなプリセットが何個入っているか)を一切知らない。
 
@@ -224,8 +224,8 @@ MIDIモニターのBank/Program列にSF2プリセット名を表示するには�
 ## 5. 残る検討事項(実装時に詰める必要がある点)
 
 - **RPN/NRPNの引き継ぎ範囲**:方針決定済み。マニュアル本体(`docs/manuals/midi-message-reference.md`)の3.1/3.2/3.3節・新設2.6節へ反映済み(2026年7月)。未実装の機能であることは2.6節冒頭に明記した。
-- **GUIでの見え方**:方針は決定済み(デバイス一覧・PatchPickerDialogのSF2対応は見送り、`sf2_channel_windows`編集用の専用ダイアログを新設)。パッチ名解決は⑧の`phdr`パースで方針決定済み。ダイアログ自体の実装、および以下の表示詳細は未着手。
-  - **MIDIモニターバンドのDevice/Fnumber列表示**:実装時に個別に詰める(Device列は`sf2_banks[].file`のファイル名またはfluidsynth chan番号、Fnumber列は空欄が妥当と思われるが未確定)。
+- **GUIでの見え方**:方針は決定済み(デバイス一覧・PatchPickerDialogのSF2対応は見送り、`sf2_channel_windows`編集用の専用ダイアログを新設)。パッチ名解決は⑧の`phdr`パースとして**実装済み**(`Sf2BankRegistry::resolvePresetName()`、2026年7月)。ダイアログ自体の実装、およびMIDIモニターへの実際の配線は未着手。
+  - **MIDIモニターバンドのDevice/Fnumber列表示**:実装時に個別に詰める(Device列は`sf2_banks[].file`のファイル名またはfluidsynth chan番号、Fnumber列は空欄が妥当と思われるが未確定)。Bank/Program列は`resolvePresetName()`が使えるようになったため、名前解決自体はそれを呼ぶだけで済む(該当エントリが無い場合の数値フォールバックも含め、他モードの名前解決と同じ扱いにできる)。
 
 ---
 
