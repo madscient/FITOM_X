@@ -134,11 +134,19 @@ bool LfoControl::tick() noexcept
         }
         fade_level_ = static_cast<uint8_t>(
             127u - static_cast<uint32_t>(fadeout_tick_) * 127u / fadeout_len_);
-        // 位相は継続して更新（波形が途切れないように）
-        ++phase_tick_;
-        if (phase_tick_ >= period_) {
-            phase_tick_ = 0;
-            seed_ = static_cast<uint16_t>(seed_ * 6364u + 1u);
+        // 位相更新: Repeatモードのみ継続（波形が途切れないように）。
+        // OneShotHold/OneShotZeroはfadeout開始時点の位相で凍結し、
+        // デプス(fade_level_)だけを減衰させる。凍結しないと、Held中
+        // (一周期完了・末尾値保持中)や一周期完了前にfadeout()が呼ばれた
+        // 場合に位相が回り続け、ワンショットのはずのLFOがフェードアウト
+        // 期間中(NoteOff〜kReleasingHoldMs)ずっと繰り返し再生されて
+        // しまうバグがあった。
+        if (mode_ == LfoMode::Repeat) {
+            ++phase_tick_;
+            if (phase_tick_ >= period_) {
+                phase_tick_ = 0;
+                seed_ = static_cast<uint16_t>(seed_ * 6364u + 1u);
+            }
         }
         return true;
     }
