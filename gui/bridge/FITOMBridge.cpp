@@ -212,8 +212,11 @@ void FITOMBridge::initInternalMidiPipe()
         midiState_->internalPipePlugin = fitom::MidiPluginInstance::load(pipeDllPath);
         midiState_->internalPipePort = std::make_unique<fitom::MidiInPort>(
             midiState_->internalPipePlugin, kInternalPipeDeviceName,
-            [proc](const uint8_t* data, size_t len, uint64_t ts) {
-                proc->receiveByte(data, len, ts);
+            [](const uint8_t* data, size_t len, uint64_t ts) {
+                // receiveByte()を直接呼ばずCFITOM::receiveInternalPipeByte()
+                // 経由にする(processMutex_でロックしてタイマースレッドとの
+                // データ競合を防ぐため。詳細はCFITOM.hのコメント参照)。
+                fitom::CFITOM::instance().receiveInternalPipeByte(data, len, ts);
             });
         FITOM_LOG_INFO("FITOMBridge: 内部用MIDIパイプを有効化しました");
     } catch (const std::exception& e) {
@@ -266,11 +269,15 @@ void FITOMBridge::reopenMidiPorts()
             midiState_->ports.push_back(nullptr);
             continue;
         }
+        const uint8_t mpuIndex = static_cast<uint8_t>(i);
         try {
             midiState_->ports.push_back(std::make_unique<fitom::MidiInPort>(
                 midiState_->plugin, portName,
-                [proc](const uint8_t* data, size_t len, uint64_t ts) {
-                    proc->receiveByte(data, len, ts);
+                [mpuIndex](const uint8_t* data, size_t len, uint64_t ts) {
+                    // receiveByte()を直接呼ばずCFITOM::receiveMpuByte()経由に
+                    // する(processMutex_でロックしてタイマースレッドとの
+                    // データ競合を防ぐため。詳細はCFITOM.hのコメント参照)。
+                    fitom::CFITOM::instance().receiveMpuByte(mpuIndex, data, len, ts);
                 }));
         } catch (const std::exception& e) {
             FITOM_LOG_ERR("FITOMBridge: MIDI入力 \"" << portName
