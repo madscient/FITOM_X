@@ -70,6 +70,12 @@ const PatchBank* PatchManager::findPatchBank(int bankNo) const
     return (it != patchBanks_.end()) ? &it->second : nullptr;
 }
 
+PatchBank* PatchManager::findMutablePatchBank(int bankNo)
+{
+    auto it = patchBanks_.find(bankNo);
+    return (it != patchBanks_.end()) ? &it->second : nullptr;
+}
+
 std::vector<int> PatchManager::listPatchBankNumbers() const
 {
     std::vector<int> result;
@@ -799,6 +805,111 @@ ToneLayer jsonToToneLayer(const json& j) {
     return l;
 }
 
+// SysExによるレイヤードパッチ(Patch)オーバーライド用のマージ実装
+// (2026年8月新設)。mergeHwPatchFromJson()と同じ設計方針(既存targetへの
+// 差分マージ)だが、jsonToToneLayer()のようにまっさらなToneLayerを
+// 構築するのではなく、既存のtarget.layers[i]へ差分マージする点が異なる。
+static void mergeToneLayerFromJson(const json& j, ToneLayer& target) {
+    if (j.contains("voice_patch_type")) target.voicePatchType = j["voice_patch_type"].get<uint8_t>();
+    if (j.contains("hw_bank"))       target.hwBank       = j["hw_bank"].get<uint8_t>();
+    if (j.contains("hw_prog"))       target.hwProg       = j["hw_prog"].get<uint8_t>();
+    if (j.contains("note_range_lo")) target.noteRangeLo  = j["note_range_lo"].get<uint8_t>();
+    if (j.contains("note_range_hi")) target.noteRangeHi  = j["note_range_hi"].get<uint8_t>();
+    if (j.contains("transpose"))     target.transpose    = j["transpose"].get<int8_t>();
+    if (j.contains("volume_offset")) target.volumeOffset = j["volume_offset"].get<int8_t>();
+    if (j.contains("pan_offset"))    target.panOffset    = j["pan_offset"].get<int8_t>();
+    if (j.contains("enabled"))       target.enabled      = j["enabled"].get<bool>();
+}
+
+// Patch.layers[] / DrumPatch.notes{} 共通の削除センチネル。文字列"remove"を
+// 指定すると、null/{}(現状維持)ではなく該当要素をデフォルト値へリセット
+// する(2026年8月新設、パッチエディタ側でのレイヤー/ドラムノート削除用)。
+static bool isRemoveSentinel(const json& v) {
+    return v.is_string() && v.get<std::string>() == "remove";
+}
+
+// SysExによるレイヤードパッチ(Patch)直接編集用。"layers"は0-4要素の
+// 可変長配列で、各要素は3通りの意味を持つ:
+//   null または {} : そのインデックスは変更しない(現状維持)
+//   文字列 "remove" : そのインデックスのレイヤーを削除する(デフォルト値へ
+//                      リセット、enabled=falseになり事実上無音化する)
+//   オブジェクト : mergeToneLayerFromJson()で既存レイヤーへ差分マージ
+// id/nameの"id"はこの経路では対象外(意図的に無視する、HwPatch等と同じ方針)。
+static void mergePatchFromJson(const json& j, Patch& target) {
+    if (j.contains("name")) {
+        std::string n = j["name"].get<std::string>();
+        std::strncpy(target.name, n.c_str(), sizeof(target.name) - 1);
+    }
+    if (j.contains("poly")) target.poly = j["poly"].get<uint8_t>();
+    if (j.contains("layers") && j["layers"].is_array()) {
+        const auto& layersArr = j["layers"];
+        for (int i = 0; i < MAX_TONE_LAYERS && i < static_cast<int>(layersArr.size()); ++i) {
+            const auto& lj = layersArr[i];
+            if (lj.is_null()) continue;                 // null = スキップ
+            if (lj.is_object() && lj.empty()) continue; // {} = スキップ
+            if (isRemoveSentinel(lj)) { target.layers[i] = ToneLayer{}; continue; }
+            if (lj.is_object()) mergeToneLayerFromJson(lj, target.layers[i]);
+        }
+    }
+}
+
+// SysExによるドラムノート(DrumNote)直接編集用。キー名は
+// drumkit.schema.jsonのnotes[]要素と同じ(差分マージ、既存フィールドは
+// 現状維持)。
+static void mergeDrumNoteFromJson(const json& j, DrumNote& target) {
+    if (j.contains("name")) {
+        std::string n = j["name"].get<std::string>();
+        std::strncpy(target.name, n.c_str(), sizeof(target.name) - 1);
+    }
+    if (j.contains("enabled"))          target.enabled       = j["enabled"].get<bool>();
+    if (j.contains("voice_patch_type")) target.voicePatchType= j["voice_patch_type"].get<uint8_t>();
+    if (j.contains("patch_bank"))       target.patchBank     = j["patch_bank"].get<uint8_t>();
+    if (j.contains("patch_prog"))       target.patchProg     = j["patch_prog"].get<uint8_t>();
+    if (j.contains("play_note"))        target.playNote      = j["play_note"].get<uint8_t>();
+    if (j.contains("fine_tune"))        target.fineTune      = j["fine_tune"].get<int16_t>();
+    if (j.contains("sw_bank"))          target.swBank        = static_cast<int8_t>(j["sw_bank"].get<int>());
+    if (j.contains("sw_prog"))          target.swProg        = static_cast<int8_t>(j["sw_prog"].get<int>());
+    if (j.contains("pan"))              target.pan           = static_cast<int8_t>(j["pan"].get<int>());
+    if (j.contains("gate_time"))        target.gateTime      = j["gate_time"].get<uint16_t>();
+}
+
+// SysExによるドラムキット(DrumPatch)直接編集用。"notes"はオブジェクトで、
+// キーはMIDIノート番号の文字列("0"-"127")。各値はPatch.layers[]の各要素と
+// 同じ3通りの意味を持つ(null/{}=現状維持、"remove"=削除、オブジェクト=
+// 差分マージ)。"choke_groups"は指定時に全置換する(部分マージの概念が
+// 馴染まない構造のため)。
+static void mergeDrumPatchFromJson(const json& j, DrumPatch& target) {
+    if (j.contains("name")) {
+        std::string n = j["name"].get<std::string>();
+        std::strncpy(target.name, n.c_str(), sizeof(target.name) - 1);
+    }
+    if (j.contains("choke_groups") && j["choke_groups"].is_array()) {
+        target.chokeGroups.clear();
+        for (const auto& gj : j["choke_groups"]) {
+            if (!gj.is_array()) continue;
+            std::vector<uint8_t> group;
+            for (const auto& nv : gj) group.push_back(nv.get<uint8_t>());
+            target.chokeGroups.push_back(std::move(group));
+        }
+    }
+    if (j.contains("notes") && j["notes"].is_object()) {
+        for (auto it = j["notes"].begin(); it != j["notes"].end(); ++it) {
+            int noteNo;
+            try {
+                noteNo = std::stoi(it.key());
+            } catch (const std::exception&) {
+                continue; // 数値に変換できないキーは無視
+            }
+            if (noteNo < 0 || noteNo >= 128) continue;
+            const auto& nv = it.value();
+            if (nv.is_null()) continue;                 // null = スキップ
+            if (nv.is_object() && nv.empty()) continue;  // {} = スキップ
+            if (isRemoveSentinel(nv)) { target.notes[noteNo] = DrumNote{}; continue; }
+            if (nv.is_object()) mergeDrumNoteFromJson(nv, target.notes[noteNo]);
+        }
+    }
+}
+
 // ────────────────────────────────────────────────────────────────
 //  SampleZonePatch JSON変換 (VOICE_PATCH_AWM等、サンプルベース音源系)
 //  HwPatchとは完全に独立したスキーマ。vel_min/vel_max/root_noteは
@@ -884,6 +995,44 @@ bool PatchManager::mergeSwPatchFromJsonText(const std::string& jsonText, SwPatch
         return false;
     }
     mergeSwPatchFromJson(j, target);
+    return true;
+}
+
+// レイヤードパッチ(Patch)版。詳細はmergeHwPatchFromJsonText()参照。
+bool PatchManager::mergePatchFromJsonText(const std::string& jsonText, Patch& target,
+                                           std::string* errorOut) const
+{
+    json j;
+    try {
+        j = json::parse(jsonText);
+    } catch (const std::exception& e) {
+        if (errorOut) *errorOut = std::string("JSON parse error: ") + e.what();
+        return false;
+    }
+    if (!j.is_object()) {
+        if (errorOut) *errorOut = "JSON root must be an object";
+        return false;
+    }
+    mergePatchFromJson(j, target);
+    return true;
+}
+
+// ドラムキット(DrumPatch)版。詳細はmergeHwPatchFromJsonText()参照。
+bool PatchManager::mergeDrumPatchFromJsonText(const std::string& jsonText, DrumPatch& target,
+                                               std::string* errorOut) const
+{
+    json j;
+    try {
+        j = json::parse(jsonText);
+    } catch (const std::exception& e) {
+        if (errorOut) *errorOut = std::string("JSON parse error: ") + e.what();
+        return false;
+    }
+    if (!j.is_object()) {
+        if (errorOut) *errorOut = "JSON root must be an object";
+        return false;
+    }
+    mergeDrumPatchFromJson(j, target);
     return true;
 }
 

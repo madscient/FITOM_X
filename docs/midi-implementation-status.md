@@ -121,7 +121,36 @@ JSONのフィールドマージは`PatchManager::mergeHwPatchFromJsonText()`/`me
 **target-type=0x01(プリセットバンク)**:
 - HwPatch: `HwBankRegistry::findMutable()`(2026年7月新設、既存の`find()`のconst版と対になる可変アクセサ)で対象`HwBank`を取得し、`bank->patches[hwProg]`へマージする。
 - SwPatch: `SwBankRegistry::findMutable()`(同、2026年7月新設)で対象`SwBank`を取得し、`bank->patches[swProg]`へマージする。
-- いずれも対象スロットが`isValid()==false`(未定義)の場合は無視する(このSysExは既存プリセットの編集専用、新規作成用途ではないため)。**メモリ上のみの変更で、ディスクへの永続化は行わない**(将来の別機能として追加予定、今回のスコープ外)。
+- いずれも対象スロットが`isValid()==false`(未定義)の場合は無視する(このSysExは既存プリセットの編集専用、新規作成用途ではないため)。**メモリ上のみの変更で、ディスクへの永続化は行わない**(パッチエディタ側が別途バンクファイルへ書き込む前提。「プライベートSysEx — レイヤードパッチ/ドラムキット直接編集」節も参照)。
+
+---
+
+## プライベートSysEx (manufacturer 00H 48H 01H) — レイヤードパッチ/ドラムキット直接編集
+
+2026年8月新設。外部パッチエディタ(別リポジトリ)がバンクファイルへの保存と対にして送る、パッチ編集結果の永続化用メッセージ。HwPatch/SwPatchの`target-type=0x01`(プリセットバンク直接編集)と同じ「メモリ上のバンク/プログラムデータを直接書き換える」性質を持つが、対象が`Patch`(レイヤードパッチ)/`DrumPatch`(ドラムキット)であるため、`target-type`/`layer`の枠組みは使わない(この単位のチャンネルスコープ一時上書きは、既存のNRPN97「ToneLayerオーバーライド」・NRPN24/26/28「ドラムインストゥルメント系」が既に担っているため、バンク直接編集の1系統のみでよい)。
+
+```
+[0..2] 00 48 01
+[3]    sub-cmd (0x06=Patch / 0x07=DrumPatch)
+[4]    バンク番号 (sub-cmd=0x06: PatchBank番号 / sub-cmd=0x07: DrumBank番号)
+[5]    prog番号
+[6..]  JSONペイロード(ASCII)
+```
+
+JSONのフィールドマージは`PatchManager::mergePatchFromJsonText()`/`mergeDrumPatchFromJsonText()`(内部的にはそれぞれ匿名名前空間の`mergePatchFromJson()`/`mergeDrumPatchFromJson()`に委譲)で行う。既存プリセットの編集専用で、対象スロットが`isValid()==false`の場合は無視する点、メモリ上のみの変更でディスクへは保存しない点はHwPatch/SwPatchと同じ。
+
+**sub-cmd=0x06(Patch)**:
+- `PatchManager::findMutablePatchBank()`(2026年8月新設)で対象`PatchBank`を取得し、`bank->patches[prog]`へマージする。
+- JSONフィールド: `name`/`poly`/`layers`(0-4要素の可変長配列、`patchbank.schema.json`の`layers[]`と同じキー名で各`ToneLayer`へ差分マージ)。
+- `layers[]`の各要素は3通りの意味を持つ:
+  - `null` または `{}`: そのインデックスは変更しない(現状維持)
+  - 文字列 `"remove"`: そのインデックスのレイヤーを削除する(`ToneLayer`をデフォルト値へリセット、`enabled=false`になり事実上無音化する)
+  - オブジェクト: 既存の`ToneLayer`へ差分マージ
+
+**sub-cmd=0x07(DrumPatch)**:
+- `DrumBankRegistry::findMutable()`(2026年8月新設、`HwBankRegistry::findMutable()`等と同じ設計)で対象`DrumPatchBank`を取得し、`bank->patches[prog]`へマージする。
+- JSONフィールド: `name`/`choke_groups`(指定時は全置換)/`notes`(オブジェクト、キー=MIDIノート番号の文字列"0"-"127"、値は`drumkit.schema.json`の`notes[]`要素と同じキー名で各`DrumNote`へ差分マージ)。
+- `notes{}`の各値は`layers[]`と同じ3通りの意味を持つ(`null`/`{}`=現状維持、`"remove"`=`DrumNote`をデフォルト値へリセット、オブジェクト=差分マージ)。ノート単位の微調整もキット全体の一括反映も、この1つのメッセージ形式に収まる。
 
 ---
 

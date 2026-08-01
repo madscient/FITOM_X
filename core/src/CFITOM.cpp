@@ -1502,6 +1502,12 @@ void MidiProcessor::processSysEx()
 //     [5]=SwBankインデックス [6]=SwProg番号                              (2byte)
 //     (SwBankはHwBankと異なりチップ族に依存しない単一の番号空間のため
 //      VoicePatchTypeを指定する必要がない)
+//
+// sub-cmd=0x06(レイヤードパッチ)/0x07(ドラムキット)は、上記と異なり
+// target-type/layerの枠組みを持たない(バンク直接編集専用、チャンネル
+// スコープの一時上書きは既存の NRPN97/NRPN24-28 が担うため不要)。
+//   [3]=sub-cmd  [4]=バンク番号  [5]=prog番号  [6..]=JSON
+// 詳細はdocs/manuals/midi-message-reference.md 8.1節参照。
 void MidiProcessor::processPrivateSysEx()
 {
     if (sysexPt_ < 5) {
@@ -1521,6 +1527,91 @@ void MidiProcessor::processPrivateSysEx()
         }
         if (parent_) {
             parent_->setSf2ChannelWindow(sysexBuf_[4], sysexBuf_[5], sysexBuf_[6]);
+        }
+        return;
+    }
+
+    // sub-cmd=0x06: レイヤードパッチ(Patch)直接編集。パッチエディタが
+    // バンクファイルへの保存と対にして送る、永続化用のバンク確定専用
+    // メッセージ(docs/manuals/midi-message-reference.md 8.1節、
+    // docs/plugin-midi-pipe.md「後片付け」節参照)。target-type/layerの
+    // 枠組みは使わず(このPatch単位ではチャンネルスコープの一時上書きは
+    // 既にNRPN97「ToneLayerオーバーライド」が担っているため、バンク直接
+    // 編集の1系統のみでよい)、常にバンク直接編集として扱う。
+    //   F0 00 48 01 06 <patchBank> <prog> <JSON> F7
+    if (subCmd == 0x06) {
+        if (sysexPt_ < 6) {
+            FITOM_LOG_DEBUG("SysEx: Patch override message too short, ignored");
+            return;
+        }
+        if (!parent_) return;
+        const uint8_t patchBankNo = sysexBuf_[4];
+        const uint8_t prog        = sysexBuf_[5];
+        const std::string jsonText(reinterpret_cast<const char*>(&sysexBuf_[6]), sysexPt_ - 6);
+
+        PatchManager& pm = parent_->getPatchManager();
+        PatchBank* bank = pm.findMutablePatchBank(patchBankNo);
+        if (!bank) {
+            FITOM_LOG_WARN("SysEx: Patch override (bank) target not found: patchBank="
+                << (int)patchBankNo);
+            return;
+        }
+        if (prog >= BANK_PROG_SIZE) {
+            FITOM_LOG_WARN("SysEx: Patch override (bank) prog out of range: " << (int)prog);
+            return;
+        }
+        Patch& target = bank->patches[prog];
+        if (!target.isValid()) {
+            // HwPatch/SwPatchのバンク直接編集と同じ方針: 空きスロットから
+            // 新規パッチを作る用途ではない(idを設定する手段がこの経路には
+            // 無いため)。
+            FITOM_LOG_WARN("SysEx: Patch override (bank) target slot is empty (patchBank="
+                << (int)patchBankNo << " prog=" << (int)prog << "), ignored");
+            return;
+        }
+        std::string err;
+        if (!pm.mergePatchFromJsonText(jsonText, target, &err)) {
+            FITOM_LOG_WARN("SysEx: Patch override (bank) JSON parse failed: " << err);
+        }
+        return;
+    }
+
+    // sub-cmd=0x07: ドラムキット(DrumPatch)直接編集。0x06と同じ性質
+    // (バンク確定専用、ディスク保存はしない)。ノート単位の微調整も
+    // キット全体の一括反映も、JSON側の"notes"(ノート番号キーのオブジェクト)
+    // で同じメッセージ形式に収める(docs/manuals/midi-message-reference.md
+    // 8.1節参照)。
+    //   F0 00 48 01 07 <drumBank> <prog> <JSON> F7
+    if (subCmd == 0x07) {
+        if (sysexPt_ < 6) {
+            FITOM_LOG_DEBUG("SysEx: DrumPatch override message too short, ignored");
+            return;
+        }
+        if (!parent_) return;
+        const uint8_t drumBankNo = sysexBuf_[4];
+        const uint8_t prog       = sysexBuf_[5];
+        const std::string jsonText(reinterpret_cast<const char*>(&sysexBuf_[6]), sysexPt_ - 6);
+
+        PatchManager& pm = parent_->getPatchManager();
+        DrumPatchBank* bank = pm.drumRegistry().findMutable(drumBankNo);
+        if (!bank) {
+            FITOM_LOG_WARN("SysEx: DrumPatch override (bank) target not found: drumBank="
+                << (int)drumBankNo);
+            return;
+        }
+        if (prog >= BANK_PROG_SIZE) {
+            FITOM_LOG_WARN("SysEx: DrumPatch override (bank) prog out of range: " << (int)prog);
+            return;
+        }
+        DrumPatch& target = bank->patches[prog];
+        if (!target.isValid()) {
+            FITOM_LOG_WARN("SysEx: DrumPatch override (bank) target slot is empty (drumBank="
+                << (int)drumBankNo << " prog=" << (int)prog << "), ignored");
+            return;
+        }
+        std::string err;
+        if (!pm.mergeDrumPatchFromJsonText(jsonText, target, &err)) {
+            FITOM_LOG_WARN("SysEx: DrumPatch override (bank) JSON parse failed: " << err);
         }
         return;
     }

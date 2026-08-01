@@ -63,6 +63,10 @@ public:
     // パッチバンクの取得・登録
     PatchBank& getPatchBank(int bankNo);
     const PatchBank* findPatchBank(int bankNo) const;
+    // SysExによるレイヤードパッチ直接編集(mergePatchFromJsonText)用。
+    // 未登録バンクにはnullptrを返す(HwBankRegistry::findMutable()と同じ
+    // 方針。SysEx側からバンクを新規作成することはできない)。
+    PatchBank* findMutablePatchBank(int bankNo);
     // 登録済みのPatchBank番号一覧を昇順で返す(GUIのパッチピッカー
     // ダイアログ向け、通常モードのCC#32階層列挙用、2026年7月新設)。
     std::vector<int> listPatchBankNumbers() const;
@@ -86,6 +90,29 @@ public:
     // 詳細な規約はmergeHwPatchFromJsonText()と同じ。
     bool mergeSwPatchFromJsonText(const std::string& jsonText, SwPatch& target,
                                    std::string* errorOut = nullptr) const;
+
+    // レイヤードパッチ(Patch)版。フィールドは"name"・"poly"・"layers"
+    // (0-4要素の可変長配列)。"layers"の各要素は3通りの意味を持つ:
+    //   - null または {} : そのインデックスのレイヤーは変更しない(現状維持)
+    //   - 文字列 "remove" : そのインデックスのレイヤーを削除する
+    //     (ToneLayerをデフォルト値へリセットし、事実上無音化する)
+    //   - オブジェクト(1つ以上のキー) : 既存のToneLayerへ差分マージ
+    //     (キー名はpatchbank.schema.jsonのlayers[]要素と同じ)
+    // "id"はこの経路では対象外(意図的に無視する)。
+    bool mergePatchFromJsonText(const std::string& jsonText, Patch& target,
+                                 std::string* errorOut = nullptr) const;
+
+    // ドラムキット(DrumPatch)版。フィールドは"name"・"choke_groups"
+    // (指定時は全置換)・"notes"(オブジェクト、キー=MIDIノート番号の
+    // 文字列"0"-"127")。"notes"の各値は"layers"要素と同じ3通りの意味を持つ:
+    //   - null または {} : そのノートは変更しない
+    //   - 文字列 "remove" : そのノートを削除する
+    //     (DrumNoteをデフォルト値へリセットし、enabled=falseになる)
+    //   - オブジェクト : 既存のDrumNoteへ差分マージ
+    //     (キー名はdrumkit.schema.jsonのnotes[]要素と同じ)
+    // "id"はこの経路では対象外。
+    bool mergeDrumPatchFromJsonText(const std::string& jsonText, DrumPatch& target,
+                                     std::string* errorOut = nullptr) const;
 
     // ─── プログラムチェンジ解決 ──────────────────────────────────
 
