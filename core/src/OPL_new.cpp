@@ -638,7 +638,16 @@ protected:
 };
 
 const uint8_t COPL3::opmap[4] = {0x0, 0x3, 0x8, 0xb};
-const uint8_t COPL3::carmsk[8] = {0x2, 0x3, 0x8, 0xc, 0x8, 0x9, 0xa, 0xd};
+// AL(=hw.ALG&7)下位2bit: bit0=前半ペアCON, bit1=後半ペアCON。
+// AL&4=0(ConnectionSEL無効、前半・後半が独立2OPペア×2)の場合は、
+// 前半ペア単体のキャリアマスク(CON=0→0x2/CON=1→0x3)と後半ペア単体の
+// キャリアマスク(CON=0→0x8/CON=1→0xc)を"両方"合成する必要がある。
+// 旧実装は前半ペアのみ、または後半ペアのみの値をそのまま流用しており、
+// 独立2OPペアモードで一方のペアのキャリアopがvol/exp/vel/VTLの影響を
+// 一切受けないバグがあった(2026年8月修正。ConnectionSEL有効時
+// (AL&4=1、インデックス4-7)は実機YMF262(Nuked-OPL3で検証)と一致して
+// おり変更なし)。
+const uint8_t COPL3::carmsk[8] = {0xa, 0xb, 0xe, 0xf, 0x8, 0x9, 0xa, 0xd};
 
 
 //

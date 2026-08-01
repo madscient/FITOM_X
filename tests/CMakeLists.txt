@@ -22,6 +22,7 @@ add_executable(fitom_tests
     test_plugin_loader.cpp
     test_config.cpp
     test_soundevice_freq.cpp
+    test_opl3_carrier.cpp
 )
 
 # 内部用MIDIパイプ(fitom_midi_pipe)の回帰テスト。DLL自体が
