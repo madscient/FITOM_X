@@ -82,16 +82,26 @@ protected:
         return getFnumberFromHz(hz);
     }
 
+    // 波形番号bit8(reg 0x20)を、下位8bit(reg 0x08)より先に書く必要がある。
+    // ymfm(pcm_engine::write())はreg 0x08-0x1F(波形番号下位8bit)への書き込みで
+    // 即座にload_wavetable()をトリガーし、その時点のreg 0x20+ch bit0を上位
+    // 1bitとして結合して波形テーブルヘッダを読みに行く。順序を逆にすると、
+    // 新しい波形番号のbit8が反映される前(=1つ前のノートのbit8のまま)で
+    // ロードが実行され、意図した波形と異なる(wavenumが256ずれた)波形が
+    // 鳴ってしまう(2026年7月、ユーザー報告「音は出るが意図した波形でない」
+    // により発覚。extern/ymfm/src/ymfm_pcm.cppのload_wavetable()呼び出し
+    // 箇所と、OPN系F-number書き込み[reg 0xA4→0xA0の順、高位バイトを先に
+    // 書いてから低位バイトで確定させる同種の設計]との比較で判明)。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         uint16_t waveNum = 0;
         if (const SampleZone* zone = s.samplePatch ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr) {
             waveNum = zone->waveIndex;
         }
-        setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(waveNum & 0xFF), true);
         uint8_t reg20cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xFE;
         setReg(static_cast<uint16_t>(0x20 + ch),
                static_cast<uint8_t>(reg20cur | ((waveNum >> 8) & 1)), true);
+        setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(waveNum & 0xFF), true);
         updateVolExp(ch);
         updatePanpot(ch);
     }
