@@ -74,21 +74,19 @@ public:
     // 一切変更しないため、実際のMIDI入力と混在させても安全。
     // processControl()と同じ経路(CC#0特殊値によるリズム/メロディ
     // 動的切替を含む)を通るため、MIDI受信時と全く同じ挙動になる。
-    void sendControlChange(uint8_t ch, uint8_t cc, uint8_t val) {
-        if (ch < 16) processControl(ch, cc, val);
-    }
-    void sendProgramChange(uint8_t ch, uint8_t prog) {
-        if (ch < 16 && channels_[ch]) channels_[ch]->progChange(prog);
-    }
+    // (mpuIndex_, ch)がSF2直行パスの窓に含まれる場合は、processMessage()
+    // と同様routeSf2ChannelMessage()へ振り分ける(2026年8月新設。CH設定
+    // ダイアログのSF2パッチピッカーがCC#32/Prog.chg/Note On/Offをこの
+    // 経路で送るため、実MIDI入力と同じ挙動に揃える必要がある)。CFITOM
+    // (parent_)がこの時点では前方宣言のみで未完成のため、定義はCFITOM.cpp
+    // 側(CFITOM本体の定義より後ろ)に置く。
+    void sendControlChange(uint8_t ch, uint8_t cc, uint8_t val);
+    void sendProgramChange(uint8_t ch, uint8_t prog);
     // GUI等からの音色試聴用(2026年7月新設、パッチピッカーのプログラム
     // 選択時のプレビュー再生)。processMessage()のNote On/Off分岐と同じ
     // 呼び出しをそのまま行う。
-    void sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel) {
-        if (ch < 16 && channels_[ch]) channels_[ch]->noteOn(note, vel);
-    }
-    void sendNoteOff(uint8_t ch, uint8_t note) {
-        if (ch < 16 && channels_[ch]) channels_[ch]->noteOff(note);
-    }
+    void sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel);
+    void sendNoteOff(uint8_t ch, uint8_t note);
 
 private:
     std::array<std::unique_ptr<IMidiCh>, 16>& channels_;
@@ -375,6 +373,7 @@ public:
         bool    bankResolved     = false;
         int     soundfontIndex   = 0;
         int     sf2Bank          = 0;
+        int     lastCc32Bank     = -1;  // 最後に解決に成功したCC#32の生値(sf2_banks[].bank相当)
         int     lastProg         = -1;
         bool    hasLastNoteOn    = false;
         uint8_t lastNoteOnStatus = 0;
@@ -390,12 +389,35 @@ public:
         info.bankResolved     = w.bankResolved;
         info.soundfontIndex   = w.soundfontIndex;
         info.sf2Bank          = w.sf2Bank;
+        info.lastCc32Bank     = w.lastCc32Bank;
         info.lastProg         = w.lastProg;
         info.hasLastNoteOn    = w.hasLastNoteOn;
         info.lastNoteOnStatus = w.lastNoteOnStatus;
         info.lastNoteOnNote   = w.lastNoteOnNote;
         info.lastNoteOnVel    = w.lastNoteOnVel;
         return info;
+    }
+
+    // CH設定ダイアログ用(2026年8月新設): 現在fluid_synth_chanとして
+    // 使用中の(mpu, ch, fluidsynthChan)一覧を返す。窓の新規割り当て時に
+    // 未使用のchanをGUI側が提案できるようにするため
+    // (setSf2ChannelWindow()自体も重複割り当てを拒否するが、GUIでは
+    // 送信前に候補を絞り込みたい)。
+    struct Sf2WindowAssignment {
+        uint8_t mpu;
+        uint8_t ch;
+        uint8_t fluidsynthChan;
+    };
+    std::vector<Sf2WindowAssignment> listAssignedSf2Windows() const {
+        std::vector<Sf2WindowAssignment> out;
+        for (uint8_t p = 0; p < MAX_MPUS; ++p) {
+            for (uint8_t c = 0; c < 16; ++c) {
+                if (sf2Windows_[p][c].assigned) {
+                    out.push_back(Sf2WindowAssignment{p, c, sf2Windows_[p][c].fluidsynthChan});
+                }
+            }
+        }
+        return out;
     }
 
     // ─── タイマー・ポーリング ────────────────────────────────────
@@ -527,6 +549,7 @@ private:
         // (⑤節)、GUI表示のためだけに「最後に送出した値」を保持することは
         // レジスタダンプモニターのシャドウレジスタと同じ考え方であり、
         // ノート所有権の追跡・クリーンアップとは無関係(=設計方針に反しない)。
+        int     lastCc32Bank   = -1;    // 最後に解決に成功したCC#32の生値(GUIのCH設定ダイアログ表示用)
         int     lastProg       = -1;    // 最後にsub-cmd 0x05で送出したprog(-1=未送出)
         bool    hasLastNoteOn  = false; // Note On(velocity>0)を一度でも送出したか
         uint8_t lastNoteOnStatus = 0;   // 送出した生ステータスバイト(0x90|fluidsynthChan)

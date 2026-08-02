@@ -78,11 +78,32 @@ public:
     bool resolvePresetNameByIndex(int soundfontIndex, int sf2Bank, uint8_t prog,
                                    std::string& outName) const;
 
+    // ─── GUI用列挙API (2026年8月新設、CH設定ダイアログのSF2パッチピッカー用) ───
+    // banks.sf2_banks[]で設定されたCC#32インデックス(bank)一覧。
+    // bank番号の昇順(他のバンク一覧系API[getPatchBankList()等]と同じ並び)。
+    struct BankEntry {
+        int bank;           // CC#32で選択するインデックス
+        int soundfontIndex; // soundfontFiles()内のインデックス
+        int sf2Bank;        // SF2ファイル内部のネイティブbank番号
+    };
+    const std::vector<BankEntry>& listBanks() const { return bankList_; }
+
+    // 指定bank(CC#32インデックス)が解決するSF2ファイル内の全プリセットを、
+    // program番号昇順で返す。該当エントリが無い場合は空配列。
+    std::vector<Sf2Preset> listPresetsInBank(uint8_t cc32Bank) const;
+    // soundfontIndex/sf2Bankを直接指定する版(resolvePresetNameByIndex()と
+    // 同じ理由で、窓が既にキャッシュ済みの値から辿る場合に使う)。
+    std::vector<Sf2Preset> listPresetsByIndex(int soundfontIndex, int sf2Bank) const;
+
 private:
     struct Entry { int fileIndex; int sf2Bank; };
     std::unordered_map<int, Entry>        byBank_;
     std::vector<std::string>              files_;
     std::unordered_map<std::string, int>  fileIndex_;
+    // byBank_と同じ内容を、bank番号昇順の一覧として保持する
+    // (byBank_は列挙順序を保証しないunordered_mapのため、GUI表示用に
+    // load()完了時点で1回だけ構築する)。
+    std::vector<BankEntry>                bankList_;
 
     // files_と同じ添字(soundfontIndex)で対応する、(bank<<16|preset)→名前の
     // ルックアップテーブル。load()内、新規fileの初出時に一度だけ構築する。

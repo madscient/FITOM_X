@@ -154,6 +154,25 @@ struct FITOMChannelSettings {
     uint8_t  bankSelMSB = 0;   // CC#0 (0=通常モード, 1-0x6F=直接デバイス選択モード)
     uint16_t bankNo     = 0;   // getBankNo()相当 (CC#32が意味する値)
     uint8_t  progNo     = 0;
+
+    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年8月新設) ───
+    // isSf2Windowed==trueの場合、このチャンネルは(mpu,ch)の窓に含まれており
+    // CInstCh/CRhythmCh経由のbankSelMSB/bankNo/progNo等は意味を持たない
+    // (上記フィールドは常に既定値のまま)。sf2Bank/sf2Progは、sf2_banks[].bank
+    // (CC#32生値)・最後に送出したprog番号(いずれも未送出ならCC#32相当は0、
+    // progは0)。
+    bool     isSf2Windowed     = false;
+    uint8_t  sf2FluidsynthChan = 0;
+    int      sf2Bank           = 0;
+    int      sf2Prog           = 0;
+};
+
+// SF2直行パスの窓割り当て1件分(CH設定ダイアログの「未使用chan」候補
+// 算出用、2026年8月新設)。
+struct FITOMSf2WindowAssignment {
+    int mpu;
+    int ch;
+    int fluidsynthChan;
 };
 
 // ─── ブリッジクラス ─────────────────────────────────────────────────────────
@@ -231,6 +250,25 @@ public:
     // 指定チャンネルの現在設定値(CH設定ダイアログの初期値用、
     // 2026年7月新設)。範囲外・未初期化の場合は既定値のFITOMChannelSettingsを返す。
     FITOMChannelSettings getChannelSettings(int mpuIndex, int ch) const;
+
+    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年8月新設) ───
+    // CH設定ダイアログの「SF2直行パス」トグル用。fluidsynthChanOr7Fは
+    // 0-15で窓を割り当て、0x7F(127)で解除する(プライベートSysEx
+    // sub-cmd 0x04と同じ意味論)。同じfluidsynthChanが既に別の(mpu,ch)へ
+    // 割り当て済みの場合、コア側が要求そのものを無視する(重複不可)。
+    void setSf2ChannelWindow(int mpuIndex, int ch, int fluidsynthChanOr7F);
+
+    // 現在割り当て済みの全SF2窓一覧(未使用のfluidsynth chan候補を
+    // GUI側で算出するために使う)。
+    std::vector<FITOMSf2WindowAssignment> getAssignedSf2Windows() const;
+
+    // banks.sf2_banks[]で設定されたバンク(CC#32インデックス)一覧。
+    // FITOMBankInfo::bankNoがsf2_banks[].bank、nameはファイル名(basename)+
+    // SF2内部bank番号を組み立てた表示用文字列。
+    std::vector<FITOMBankInfo> getSf2BankList() const;
+    // 指定バンク内のプログラム一覧(phdrから解決した名前つき、
+    // program番号昇順)。FITOMPatchInfo::bankはbank引数をそのまま返す。
+    std::vector<FITOMPatchInfo> getSf2BankPatches(int bank) const;
 
     // ─── MIDI送信 (CH設定ダイアログのOKで使う、2026年7月新設) ────────────
     // 生バイト列(receiveByte())を経由せず、コアのMIDI処理経路

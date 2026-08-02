@@ -713,6 +713,23 @@ FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
     if (ch < 0 || ch >= 16) return settings;
 
     auto& fitomInst = fitom::CFITOM::instance();
+
+    // SF2直行パス(2026年8月新設): 窓に含まれる(mpu,ch)はCInstCh/CRhythmCh
+    // へのディスパッチ自体が行われないため(getChannelMonitors()と同じ
+    // 理由)、midich由来の解決を一切行わない。Volume/Expression/Panpot/
+    // Monoは読み戻す手段が無い(fluidsynth側の現在値をFITOM_Xは把握
+    // していない)ため既定値のままにする(スライダー自体は引き続き有効で、
+    // 操作すればCC#7/#10/#11/#126/#127がそのままfluidsynthへ転送される)。
+    const auto sf2 = fitomInst.getSf2ChannelWindowInfo(
+        static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch));
+    if (sf2.assigned) {
+        settings.isSf2Windowed     = true;
+        settings.sf2FluidsynthChan = sf2.fluidsynthChan;
+        settings.sf2Bank           = (sf2.lastCc32Bank >= 0) ? sf2.lastCc32Bank : 0;
+        settings.sf2Prog           = (sf2.lastProg >= 0) ? sf2.lastProg : 0;
+        return settings;
+    }
+
     auto* processor = fitomInst.getMidiProcessor(static_cast<uint8_t>(mpuIndex));
     if (!processor) return settings;
 
@@ -728,6 +745,70 @@ FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
     settings.bankNo     = midich->getBankNo();
     settings.progNo     = midich->getProgramNo();
     return settings;
+}
+
+// ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年8月新設) ───
+
+void FITOMBridge::setSf2ChannelWindow(int mpuIndex, int ch, int fluidsynthChanOr7F)
+{
+    if (!initialized_) return;
+    if (mpuIndex < 0 || mpuIndex >= fitom::CFITOM::getMpuCount()) return;
+    if (ch < 0 || ch >= 16) return;
+    if (fluidsynthChanOr7F < 0 || fluidsynthChanOr7F > 0x7F) return;
+
+    fitom::CFITOM::instance().setSf2ChannelWindow(
+        static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch),
+        static_cast<uint8_t>(fluidsynthChanOr7F));
+}
+
+std::vector<FITOMSf2WindowAssignment> FITOMBridge::getAssignedSf2Windows() const
+{
+    std::vector<FITOMSf2WindowAssignment> result;
+    if (!initialized_) return result;
+
+    for (const auto& a : fitom::CFITOM::instance().listAssignedSf2Windows()) {
+        result.push_back(FITOMSf2WindowAssignment{
+            static_cast<int>(a.mpu), static_cast<int>(a.ch), static_cast<int>(a.fluidsynthChan)});
+    }
+    return result;
+}
+
+std::vector<FITOMBankInfo> FITOMBridge::getSf2BankList() const
+{
+    std::vector<FITOMBankInfo> result;
+    if (!initialized_) return result;
+
+    auto& cfg = fitom::CFITOM::instance().getConfig();
+    const auto& reg = cfg.getSf2BankRegistry();
+    const auto& files = reg.soundfontFiles();
+    for (const auto& b : reg.listBanks()) {
+        FITOMBankInfo info;
+        info.bankNo = b.bank;
+        if (b.soundfontIndex >= 0 && static_cast<size_t>(b.soundfontIndex) < files.size()) {
+            info.name = fs::path(files[b.soundfontIndex]).filename().string()
+                + " (bank " + std::to_string(b.sf2Bank) + ")";
+        }
+        result.push_back(std::move(info));
+    }
+    return result;
+}
+
+std::vector<FITOMPatchInfo> FITOMBridge::getSf2BankPatches(int bank) const
+{
+    std::vector<FITOMPatchInfo> result;
+    if (!initialized_) return result;
+    if (bank < 0 || bank > 127) return result;
+
+    auto& cfg = fitom::CFITOM::instance().getConfig();
+    for (const auto& p : cfg.getSf2BankRegistry().listPresetsInBank(static_cast<uint8_t>(bank))) {
+        FITOMPatchInfo info;
+        info.bank       = bank;
+        info.prog       = p.preset;
+        info.name       = p.name;
+        info.layerCount = 0; // SF2プリセットにFITOM_X側のToneLayer概念は無い
+        result.push_back(std::move(info));
+    }
+    return result;
 }
 
 // ================================================================
