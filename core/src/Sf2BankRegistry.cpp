@@ -2,6 +2,7 @@
 #include "fitom/Sf2BankRegistry.h"
 #include "fitom/Log.h"
 
+#include <algorithm>
 #include <fstream>
 
 namespace fitom {
@@ -199,6 +200,17 @@ void Sf2BankRegistry::load(const nlohmann::json& arr, const fs::path& baseDir)
         }
         byBank_[bank] = Entry{fileIdx, sf2Bank};
     }
+
+    // GUI列挙用のbank番号昇順一覧を、byBank_の最終状態から再構築する
+    // (bank重複による後勝ち上書きも含めて反映させるため、ループ完了後に
+    // まとめて構築する)。
+    bankList_.clear();
+    bankList_.reserve(byBank_.size());
+    for (const auto& [bank, entry] : byBank_) {
+        bankList_.push_back(BankEntry{bank, entry.fileIndex, entry.sf2Bank});
+    }
+    std::sort(bankList_.begin(), bankList_.end(),
+              [](const BankEntry& a, const BankEntry& b) { return a.bank < b.bank; });
 }
 
 bool Sf2BankRegistry::resolve(uint8_t cc32Bank, Resolved& out) const
@@ -230,6 +242,32 @@ bool Sf2BankRegistry::resolvePresetNameByIndex(int soundfontIndex, int sf2Bank, 
     if (it == names.end()) return false;
     outName = it->second;
     return true;
+}
+
+std::vector<Sf2Preset> Sf2BankRegistry::listPresetsInBank(uint8_t cc32Bank) const
+{
+    Resolved r;
+    if (!resolve(cc32Bank, r)) return {};
+    return listPresetsByIndex(r.soundfontIndex, r.sf2Bank);
+}
+
+std::vector<Sf2Preset> Sf2BankRegistry::listPresetsByIndex(int soundfontIndex, int sf2Bank) const
+{
+    std::vector<Sf2Preset> result;
+    if (soundfontIndex < 0
+        || static_cast<size_t>(soundfontIndex) >= presetNamesByFile_.size()) {
+        return result;
+    }
+    const auto& names = presetNamesByFile_[soundfontIndex];
+    for (const auto& [key, name] : names) {
+        const uint16_t bank   = static_cast<uint16_t>(key >> 16);
+        const uint16_t preset = static_cast<uint16_t>(key & 0xFFFF);
+        if (bank != static_cast<uint16_t>(sf2Bank)) continue;
+        result.push_back(Sf2Preset{name, bank, preset});
+    }
+    std::sort(result.begin(), result.end(),
+              [](const Sf2Preset& a, const Sf2Preset& b) { return a.preset < b.preset; });
+    return result;
 }
 
 } // namespace fitom

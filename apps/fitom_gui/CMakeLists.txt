@@ -8,6 +8,7 @@ add_executable(fitom_gui
     main.cpp
     ChSettingsDialog.cpp
     PatchPickerDialog.cpp
+    Sf2PatchPickerDialog.cpp
     MidiPortSettingsDialog.cpp
     SystemSettingsDialog.cpp
     RegisterDumpWindow.cpp

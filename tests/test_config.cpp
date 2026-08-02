@@ -1124,6 +1124,53 @@ TEST_CASE("FITOMConfig: getSf2BankRegistry().resolvePresetName() works end-to-en
     CHECK(name == "Grand Piano");
 }
 
+TEST_CASE("Sf2BankRegistry: listBanks() enumerates configured banks in ascending order, "
+          "listPresetsInBank()/listPresetsByIndex() enumerate presets sorted by program",
+          "[config][sf2]")
+{
+    auto data = buildMinimalSf2({
+        {"Grand Piano", 0, 0},
+        {"Standard Kit", 0, 128},
+        {"Bright Piano", 3, 0},
+    });
+    fs::path p = writeTempBinary("fitom_test_sf2_listbanks.sf2", data);
+
+    json arr = json::array({
+        {{"bank", 5}, {"file", p.filename().string()}, {"sf2_bank", 0}},
+        {{"bank", 2}, {"file", p.filename().string()}, {"sf2_bank", 128}},
+    });
+
+    fitom::Sf2BankRegistry reg;
+    reg.load(arr, p.parent_path());
+
+    const auto& banks = reg.listBanks();
+    REQUIRE(banks.size() == 2);
+    // bank番号(CC#32インデックス)の昇順であること
+    CHECK(banks[0].bank == 2);
+    CHECK(banks[0].sf2Bank == 128);
+    CHECK(banks[1].bank == 5);
+    CHECK(banks[1].sf2Bank == 0);
+    CHECK(banks[0].soundfontIndex == banks[1].soundfontIndex); // 同一fileを共有
+
+    const auto presetsBank5 = reg.listPresetsInBank(5); // sf2_bank=0側
+    REQUIRE(presetsBank5.size() == 2);
+    CHECK(presetsBank5[0].preset == 0);
+    CHECK(presetsBank5[0].name == "Grand Piano");
+    CHECK(presetsBank5[1].preset == 3);
+    CHECK(presetsBank5[1].name == "Bright Piano");
+
+    const auto presetsBank2 = reg.listPresetsInBank(2); // sf2_bank=128側
+    REQUIRE(presetsBank2.size() == 1);
+    CHECK(presetsBank2[0].name == "Standard Kit");
+
+    CHECK(reg.listPresetsInBank(99).empty()); // 未設定のCC#32値
+
+    // soundfontIndex/sf2Bankを直接指定する版も同じ結果を返す
+    const auto viaIndex = reg.listPresetsByIndex(banks[1].soundfontIndex, 0);
+    REQUIRE(viaIndex.size() == 2);
+    CHECK(viaIndex[0].name == "Grand Piano");
+}
+
 // パッチエディタ永続化用SysEx(sub-cmd 0x06、docs/manuals/midi-message-reference.md
 // 8.1節)のマージロジック。null/{}=現状維持、"remove"=デフォルト値へリセット、
 // オブジェクト=差分マージの3通りを検証する。

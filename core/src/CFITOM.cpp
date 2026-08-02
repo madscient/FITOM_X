@@ -1064,6 +1064,7 @@ bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t
                 w.bankResolved   = true;
                 w.soundfontIndex = r.soundfontIndex;
                 w.sf2Bank        = r.sf2Bank;
+                w.lastCc32Bank   = static_cast<int>(val); // MIDIモニター/CH設定ダイアログ表示用
             }
             return true;
         }
@@ -1201,6 +1202,37 @@ MidiProcessor::MidiProcessor(
     CFITOM* parent, bool clockEnabled, int mpuIndex)
     : channels_(channels), parent_(parent), clockEnabled_(clockEnabled), mpuIndex_(mpuIndex)
 {}
+
+// GUI等からの構造化送出(CFITOM.h宣言コメント参照)。(mpuIndex_, ch)が
+// SF2直行パスの窓に含まれる場合はrouteSf2ChannelMessage()へ振り分け、
+// 実MIDI入力(processMessage())と同じ挙動にする(2026年8月新設)。
+void MidiProcessor::sendControlChange(uint8_t ch, uint8_t cc, uint8_t val)
+{
+    if (ch >= 16) return;
+    if (mpuIndex_ >= 0 && parent_->routeSf2ChannelMessage(mpuIndex_, ch, 0xB0, cc, val)) return;
+    processControl(ch, cc, val);
+}
+
+void MidiProcessor::sendProgramChange(uint8_t ch, uint8_t prog)
+{
+    if (ch >= 16) return;
+    if (mpuIndex_ >= 0 && parent_->routeSf2ChannelMessage(mpuIndex_, ch, 0xC0, prog, 0)) return;
+    if (channels_[ch]) channels_[ch]->progChange(prog);
+}
+
+void MidiProcessor::sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel)
+{
+    if (ch >= 16) return;
+    if (mpuIndex_ >= 0 && parent_->routeSf2ChannelMessage(mpuIndex_, ch, 0x90, note, vel)) return;
+    if (channels_[ch]) channels_[ch]->noteOn(note, vel);
+}
+
+void MidiProcessor::sendNoteOff(uint8_t ch, uint8_t note)
+{
+    if (ch >= 16) return;
+    if (mpuIndex_ >= 0 && parent_->routeSf2ChannelMessage(mpuIndex_, ch, 0x80, note, 0)) return;
+    if (channels_[ch]) channels_[ch]->noteOff(note);
+}
 
 void MidiProcessor::receiveByte(const uint8_t* data, size_t len,
                                 uint64_t /*timestampNs*/)

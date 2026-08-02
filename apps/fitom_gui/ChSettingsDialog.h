@@ -16,6 +16,7 @@
 
 #include "FITOMBridge.h"
 #include "PatchPickerDialog.h"
+#include "Sf2PatchPickerDialog.h"
 #include <cstdint>
 
 class ChSettingsDialog {
@@ -55,6 +56,21 @@ private:
     PatchSelection  patch_;
     bool            patchChanged_ = false; // ピッカーで実際に選び直したか
 
+    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月新設)。
+    // isRhythm_と相互排他(どちらか一方のみtrue、isSf2_ON時はisRhythm_を
+    // 強制falseにしチェックボックス自体も無効化する。窓に含まれる限り
+    // メロディ/リズムの区別と無関係という設計のため)。isSf2_のON/OFF・
+    // sf2FluidsynthChan_の変更は、リズム切替と同じくOK確定
+    // (applyAndClose())まで実際には送信しない(ライブプレビューなし)。
+    // これはsf2Picker_を開いた時点ではまだ窓が割り当てられておらず、
+    // 試聴を実装しても音が出せないため(Sf2PatchPickerDialog.hの
+    // コメント参照)、そもそもピッカー側に試聴機能自体を持たせていない
+    // ことと対になっている。
+    bool               isSf2_             = false;
+    int                sf2FluidsynthChan_ = 0;
+    Sf2PatchSelection  sf2Patch_;
+    Sf2PatchPickerDialog sf2Picker_;
+
     PatchPickerDialog picker_;
     bool              drumPickerPending_ = false;
     int               drumSelectedProg_  = -1;
@@ -63,7 +79,8 @@ private:
     // falseなら試聴は一度も起きていないため復元メッセージの送信を省略する)。
     bool              pickerEverOpened_  = false;
 
-    // 現在のpatch_が指すパッチの表示名を解決する("<bank>:<prog> <name>"形式)。
+    // 現在のpatch_/sf2Patch_が指すパッチの表示名を解決する
+    // ("<bank>:<prog> <name>"形式)。
     std::string currentPatchLabel(FITOMBridge& bridge) const;
     void        renderDrumPicker(FITOMBridge& bridge);
     void        applyAndClose(FITOMBridge& bridge);
