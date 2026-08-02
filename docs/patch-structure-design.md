@@ -256,6 +256,24 @@ OPLL系かつ`hwBank==0`の場合にこの専用ロジックへ分岐する。�
 要求されたチップ種別が接続されていない場合、フォールバックは行わず
 無音になる(ROM音色は相互互換性が無いため)。
 
+**GUIパッチピッカーでの列挙(2026年8月新設)**: バンク0はHwBankRegistry
+を一切経由しないため、AWMのSampleZoneBankRegistry同様、GUIのパッチ
+ピッカーが素通しでhwRegistry()を検索するだけでは一覧に出てこない
+(ステージング環境からの指摘で発覚)。`PatchManager::getOpllRomPatches
+(voicePatchType)`(カテゴリ単位で16音色[添字0=無音]を返す、ピッカーの
+バンク/プログラム一覧向け)と`getOpllRomPatchByProg(hwProg)`
+(resolveOpllRomVoice()と全く同じデコード規則でhwProgから直接1件を
+解決する、MIDIモニターのパッチ名表示向け)を新設し、`FITOMBridge::
+getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`が
+バンク0を「ROM Preset」として合成表示するよう対応した。
+**実装上の注意**: `resolveOpllRomVoice()`はhwProgの上位3bitで実際の
+チップ種別を決定し、呼び出し時に渡されたCC#0(voicePatchType)の値には
+依存しない。そのためピッカーが「OPLLXカテゴリのバンク0」を列挙する際も、
+表示上はOPLLX用の15音色に絞り込むが、実際に送信するProgram Change値
+(`HwPatch::id` = `variantSel<<4 | instIndex`)は配列の生添字ではなく
+このidをそのまま使う必要がある(生添字を使うと、OPLL以外のカテゴリで
+variantSelがずれて別チップの音色が鳴ってしまう)。
+
 ### OPLL ROM音色へのパフォーマンスパッチ紐づけ（builtin参照、2026年7月新設）
 
 ROM音色は`opllRomPatches_`内で機械的に合成されるため(前節参照)、
@@ -419,6 +437,22 @@ YM2608(OPNA)/YM2413(OPLL)系は、通常のFM/PSGチャンネルとは別に、�
 点(音色データではなくチップ選択+チャンネル番号がデバイスを選ぶ)は
 変わらない(詳細な経路・レジスタ構造は`docs/terminology.md`の「内蔵
 リズム音源専用バンク」節を参照)。
+
+**GUIパッチピッカーでの列挙(2026年8月新設)**: この経路も上記OPLL ROM
+音色と同様、通常のHwBankRegistry/SampleZoneBankRegistryを一切経由
+しないため、GUIのパッチピッカーに何も表示されない不具合があった
+(ステージング環境からの指摘で発覚)。CC#0のカテゴリ一覧に`0x70`
+(「内蔵リズム(OPNA/OPLL)」)を追加し、バンクレベルには対象チップ
+(`VOICE_PATCH_OPN2`=OPNA、`VOICE_PATCH_OPLL`=OPLL、`resolveBuiltinRhythm`
+の`chipSel`引数と同じ規約)を固定選択肢として、プログラムレベルには
+各チップの内蔵リズムパート名(実機固定・チャンネル番号順、OPNA=Bass
+Drum/Snare Drum/Top Cymbal/Hi-Hat/Tom/Rim Shotの6パート、OPLL=Hi-Hat/
+Top Cymbal/Tom/Snare Drum/Bass Drumの5パート)を列挙するよう
+`FITOMBridge`(`getHwBankList()`/`getHwBankPatches()`/
+`getChannelMonitors()`)に対応した。パート数がチップごとに異なる点は
+共有できないため、チップごとに別々の固定配列として実装している
+(`DeviceFactory::defaultChCount(DEVICE_OPNA_RHY/DEVICE_OPLL_RHY)`が
+返す6/5と一致)。
 
 **OPL系内蔵リズムチャンネル(`COPLRhythm`)は、この`0x70`経路を使わない**
 点に注意。OPLのリズム音はBD以外1オペレータのみの実際のFM音色パラメータ

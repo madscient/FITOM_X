@@ -475,6 +475,54 @@ TEST_CASE("SampleZoneBankRegistry: AWM hw_banks and PCM pcm_banks sharing the sa
     CHECK(std::string(adpcma->get(0).name) == "kick");
 }
 
+TEST_CASE("PatchManager: OPLL-family ROM voice accessors for the patch picker",
+          "[patchdata][opll]")
+{
+    // パッチピッカーでOPLLビルトインROM音色(バンク0固定)が常に空欄に
+    // なる不具合(AWMと同種、HwBankRegistryに一切現れないバンクをGUIが
+    // 列挙できていなかった)の指摘を受けて追加(2026年8月)。
+    fitom::PatchManager pm;
+
+    const auto* opll  = pm.getOpllRomPatches(VOICE_PATCH_OPLL);
+    const auto* opllx = pm.getOpllRomPatches(VOICE_PATCH_OPLLX);
+    const auto* opllp = pm.getOpllRomPatches(VOICE_PATCH_OPLLP);
+    const auto* vrc7  = pm.getOpllRomPatches(VOICE_PATCH_VRC7);
+    REQUIRE(opll  != nullptr);
+    REQUIRE(opllx != nullptr);
+    REQUIRE(opllp != nullptr);
+    REQUIRE(vrc7  != nullptr);
+    // OPLL系以外はnullptr(通常のHwBankRegistry経由のカテゴリ)
+    CHECK(pm.getOpllRomPatches(VOICE_PATCH_OPN2) == nullptr);
+
+    // 添字0は無音として意図的に予約(名前は空文字)
+    CHECK(std::string((*opll)[0].name).empty());
+    // 添字1以降は有効な名前を持つ
+    CHECK((*opll)[1].isValid());
+    CHECK(!std::string((*opll)[1].name).empty());
+
+    // 【重要】各エントリのidはvariantSel<<4|instIndexでエンコードされて
+    // いる(パッチピッカーがProgram Change値として送るべき値そのもの。
+    // 配列添字[instIndexのみ]をそのまま送ると、OPLL以外のカテゴリで
+    // 誤ったチップの音色を選んでしまう実装バグが見つかったため、この
+    // エンコードを直接検証する)。
+    CHECK((*opll)[3].id  == 0x03);
+    CHECK((*opllx)[3].id == 0x13);
+    CHECK((*opllp)[3].id == 0x23);
+    CHECK((*vrc7)[3].id  == 0x33);
+
+    // hwProgからの直接解決(PatchManager::resolveOpllRomVoice()と同じ
+    // デコード規則)は、どのCC#0カテゴリを経由したかに一切依存しない。
+    SECTION("getOpllRomPatchByProgはvoicePatchTypeを介さず直接解決する") {
+        const fitom::HwPatch* p = pm.getOpllRomPatchByProg(0x13); // OPLLX inst3
+        REQUIRE(p != nullptr);
+        CHECK(p == &(*opllx)[3]);
+
+        CHECK(pm.getOpllRomPatchByProg(0x00) == nullptr); // instIndex=0(無音)
+        CHECK(pm.getOpllRomPatchByProg(0x10) == nullptr); // OPLLX inst0(無音)
+        CHECK(pm.getOpllRomPatchByProg(0x41) == nullptr); // variantSel=4(未定義)
+    }
+}
+
 TEST_CASE("SampleZonePatch::resolveZone: key/velocity range matching with fallback",
           "[patchdata][samplezone]")
 {

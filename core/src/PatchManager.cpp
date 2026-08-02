@@ -311,6 +311,30 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     return result;
 }
 
+const std::array<HwPatch, 16>* PatchManager::getOpllRomPatches(uint8_t voicePatchType) const
+{
+    // resolveOpllRomVoice()のkVariantMapと同じ対応(variantSel: 0=OPLL,
+    // 1=OPLLX, 2=OPLLP, 3=VRC7)の逆引き。
+    switch (voicePatchType) {
+    case VOICE_PATCH_OPLL:  return &opllRomPatches_[0];
+    case VOICE_PATCH_OPLLX: return &opllRomPatches_[1];
+    case VOICE_PATCH_OPLLP: return &opllRomPatches_[2];
+    case VOICE_PATCH_VRC7:  return &opllRomPatches_[3];
+    default: return nullptr;
+    }
+}
+
+const HwPatch* PatchManager::getOpllRomPatchByProg(uint8_t hwProg) const
+{
+    // resolveOpllRomVoice()と全く同じデコード規則(voicePatchTypeには
+    // 一切依存しない)。
+    uint8_t variantSel = static_cast<uint8_t>((hwProg >> 4) & 0x7);
+    uint8_t instIndex   = static_cast<uint8_t>(hwProg & 0xF);
+    if (variantSel >= 4 || instIndex == 0) return nullptr;
+    const HwPatch& p = opllRomPatches_[variantSel][instIndex];
+    return p.isValid() ? &p : nullptr;
+}
+
 // 内蔵リズム音源専用の解決ロジック。voicePatchType ==
 // VOICE_PATCH_BUILTIN_RHYTHM(0x70)の場合にresolveTriple()から呼ばれる。
 // 「対象チップ(デバイス)の解決」に加え、hwProgをそのままチャンネル
