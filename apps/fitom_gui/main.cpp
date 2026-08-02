@@ -537,7 +537,18 @@ namespace
         }
 
         ImGui::SameLine(C::fnumber);
-        if (mon.sounding)
+        if (mon.isSf2Windowed)
+        {
+            // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月
+            // 新設): block:fnumという概念自体が存在しないため、代わりに
+            // fluidsynthへ実際に送出したNote Onの生バイト列(ステータス
+            // バイトにはfluidsynth chan付け替え後の値を含む)を表示する。
+            if (mon.sounding && !mon.sf2NoteOnHex.empty())
+            {
+                ImGui::TextUnformatted(mon.sf2NoteOnHex.c_str());
+            }
+        }
+        else if (mon.sounding)
         {
             ImGui::Text("%d:%d", mon.fnumBlock, mon.fnum);
         }

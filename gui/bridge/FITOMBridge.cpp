@@ -10,6 +10,7 @@
 
 #include <nlohmann/json.hpp>
 #include <filesystem>
+#include <cstdio>
 
 #if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
@@ -566,6 +567,56 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         fitom::IMidiCh* midich = processor->getChannel(static_cast<uint8_t>(ch));
         FITOMChannelMonitor mon;
         mon.ch = ch;
+
+        // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月新設):
+        // 窓に含まれる(mpu,ch)はMidiProcessor::processMessage()がCInstCh/
+        // CRhythmChへのディスパッチ自体を行わないため、以下のmidich由来の
+        // 解決(bankNo/progNo/deviceName等)はいずれも意味を持たない。
+        // CFITOM::sf2Windows_の表示専用キャッシュから、Bank/Prog列には
+        // ファイル名+phdrで解決したプリセット名を、Fnumber列には実際に
+        // fluidsynthへ送出したNote Onの生バイト列を組み立てて差し替える。
+        const auto sf2 = fitomInst.getSf2ChannelWindowInfo(
+            static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch));
+        if (sf2.assigned) {
+            mon.isSf2Windowed     = true;
+            mon.sf2FluidsynthChan = sf2.fluidsynthChan;
+
+            if (sf2.bankResolved) {
+                const auto& reg   = fitomInst.getConfig().getSf2BankRegistry();
+                const auto& files = reg.soundfontFiles();
+                if (sf2.soundfontIndex >= 0
+                    && static_cast<size_t>(sf2.soundfontIndex) < files.size()) {
+                    mon.bankName = fs::path(files[sf2.soundfontIndex]).filename().string();
+                }
+                mon.bankNo = sf2.sf2Bank;
+                if (sf2.lastProg >= 0) {
+                    mon.progNo = sf2.lastProg;
+                    std::string presetName;
+                    if (reg.resolvePresetNameByIndex(sf2.soundfontIndex, sf2.sf2Bank,
+                            static_cast<uint8_t>(sf2.lastProg), presetName)) {
+                        mon.progName = presetName;
+                    }
+                }
+            }
+
+            mon.deviceName  = "SF2 fluidsynth ch" + std::to_string(static_cast<int>(sf2.fluidsynthChan));
+            mon.deviceIndex = -1;
+
+            if (sf2.hasLastNoteOn) {
+                mon.sounding = true;
+                mon.lastNote = sf2.lastNoteOnNote;
+                mon.velocity = sf2.lastNoteOnVel;
+                mon.noteName = midiNoteName(mon.lastNote);
+                char hexBuf[16];
+                std::snprintf(hexBuf, sizeof(hexBuf), "%02X %02X %02X",
+                    sf2.lastNoteOnStatus, sf2.lastNoteOnNote, sf2.lastNoteOnVel);
+                mon.sf2NoteOnHex = hexBuf;
+            }
+
+            result.push_back(mon);
+            continue;
+        }
+
         if (!midich) { result.push_back(mon); continue; }
 
         mon.isRhythm = midich->isRhythm();

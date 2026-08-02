@@ -214,12 +214,18 @@ bool Sf2BankRegistry::resolvePresetName(uint8_t cc32Bank, uint8_t prog, std::str
 {
     Resolved r;
     if (!resolve(cc32Bank, r)) return false;
-    if (r.soundfontIndex < 0
-        || static_cast<size_t>(r.soundfontIndex) >= presetNamesByFile_.size()) {
+    return resolvePresetNameByIndex(r.soundfontIndex, r.sf2Bank, prog, outName);
+}
+
+bool Sf2BankRegistry::resolvePresetNameByIndex(int soundfontIndex, int sf2Bank, uint8_t prog,
+                                                std::string& outName) const
+{
+    if (soundfontIndex < 0
+        || static_cast<size_t>(soundfontIndex) >= presetNamesByFile_.size()) {
         return false;
     }
-    const auto& names = presetNamesByFile_[r.soundfontIndex];
-    const uint32_t key = (static_cast<uint32_t>(r.sf2Bank) << 16) | prog;
+    const auto& names = presetNamesByFile_[soundfontIndex];
+    const uint32_t key = (static_cast<uint32_t>(sf2Bank) << 16) | prog;
     auto it = names.find(key);
     if (it == names.end()) return false;
     outName = it->second;
