@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <cstdio>
+#include <iterator>
 
 #if defined(_WIN32)
 #  define WIN32_LEAN_AND_MEAN
@@ -123,6 +124,47 @@ void logAvailableMidiInPorts(const fitom::MidiPluginInstance& plugin)
         list += "\"" + names[i] + "\"";
     }
     FITOM_LOG_WARN("FITOMBridge: 利用可能なMIDI入力ポート: " << list);
+}
+
+// ─── 内蔵リズム音源(VOICE_PATCH_BUILTIN_RHYTHM、CC#0=0x70)専用 ──────────
+// PatchManager::resolveBuiltinRhythm()と同じ規約: hwBank相当値として
+// 対象チップのVoicePatchTypeをそのまま使う(バンク番号ではない、
+// 通常のHwBankRegistry/SampleZoneBankRegistryを一切経由しないため
+// JSON設定によるバンク一覧が存在しない。2026年7月新設、パッチピッカー
+// でAWM同様に表示されない不具合の指摘を受けて追加)。
+struct BuiltinRhythmChip {
+    uint8_t     chipSel; // hwBank相当値 (resolveBuiltinRhythmのchipSel引数)
+    const char* label;
+};
+constexpr BuiltinRhythmChip kBuiltinRhythmChips[] = {
+    { VOICE_PATCH_OPN2, "OPNA" },
+    { VOICE_PATCH_OPLL, "OPLL" },
+};
+
+// 各チップの内蔵リズムパート名(実機固定、hwProg=パート番号=デバイス
+// チャンネル番号の順序に対応。OPN2_new.cpp::COPNARhythm/OPLL_new.cpp::
+// COPLLRhythmのレジスタ割り当てコメントと同じ並び)。
+constexpr const char* kOpnaRhythmNames[] = {
+    "Bass Drum", "Snare Drum", "Top Cymbal", "Hi-Hat", "Tom", "Rim Shot"
+};
+constexpr const char* kOpllRhythmNames[] = {
+    "Hi-Hat", "Top Cymbal", "Tom", "Snare Drum", "Bass Drum"
+};
+
+// chipSel(VOICE_PATCH_OPN2/VOICE_PATCH_OPLL)から、対応する内蔵リズム
+// パート名テーブルとその要素数を引く。該当なしならnullptr/0を返す。
+void getBuiltinRhythmNames(uint8_t chipSel, const char* const*& names, size_t& count)
+{
+    if (chipSel == VOICE_PATCH_OPN2) {
+        names = kOpnaRhythmNames;
+        count = std::size(kOpnaRhythmNames);
+    } else if (chipSel == VOICE_PATCH_OPLL) {
+        names = kOpllRhythmNames;
+        count = std::size(kOpllRhythmNames);
+    } else {
+        names = nullptr;
+        count = 0;
+    }
 }
 
 } // namespace
@@ -654,6 +696,20 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                     const auto& sp = sampleBank->get(mon.progNo);
                     if (sp.isValid()) mon.progName = sp.name;
                 }
+            } else if (mon.bankNo == 0 && pm.getOpllRomPatches(bankSelMSB) != nullptr) {
+                // OPLL系ROM音色(バンク0固定、getHwBankList()/getHwBankPatches()
+                // と同じ理由、2026年7月追加修正)。JSON定義のバンクを一切
+                // 経由しないため、HwBankRegistryには現れない。
+                // 【注意】実際の解決(resolveOpllRomVoice)はCC#0の値
+                // (bankSelMSB)ではなくhwProg(mon.progNo)自身の上位3bitで
+                // チップ種別を決定するため、名前解決もgetOpllRomPatchByProg()
+                // でmon.progNoから直接行う(getOpllRomPatches(bankSelMSB)は
+                // ここでは「OPLL系バンク0か」の判定にのみ使う)。
+                mon.bankName = "ROM Preset";
+                if (mon.progNo >= 0 && mon.progNo <= 0xFF) {
+                    const fitom::HwPatch* p = pm.getOpllRomPatchByProg(static_cast<uint8_t>(mon.progNo));
+                    if (p) mon.progName = p->name;
+                }
             } else {
                 const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(bankSelMSB);
                 const auto* hwBank = pm.hwRegistry().find(group, mon.bankNo);
@@ -662,6 +718,20 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                     const auto& hp = hwBank->get(mon.progNo);
                     if (hp.isValid()) mon.progName = hp.name;
                 }
+            }
+        } else if (bankSelMSB == VOICE_PATCH_BUILTIN_RHYTHM) {
+            // 内蔵リズム音源(2026年7月追加修正、getHwBankList()/
+            // getHwBankPatches()と同じ理由)。mon.bankNoがchipSel
+            // (VOICE_PATCH_OPN2/VOICE_PATCH_OPLL)、mon.progNoが
+            // パート番号(=デバイスチャンネル番号)を表す。
+            for (const auto& c : kBuiltinRhythmChips) {
+                if (c.chipSel == mon.bankNo) { mon.bankName = c.label; break; }
+            }
+            const char* const* names = nullptr;
+            size_t count = 0;
+            getBuiltinRhythmNames(static_cast<uint8_t>(mon.bankNo), names, count);
+            if (names && mon.progNo >= 0 && static_cast<size_t>(mon.progNo) < count) {
+                mon.progName = names[mon.progNo];
             }
         }
 
@@ -1021,8 +1091,36 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         return result;
     }
 
+    // 内蔵リズム音源(VOICE_PATCH_BUILTIN_RHYTHM、2026年7月追加修正)。
+    // 通常のHwBankRegistryを一切経由しないため、対象チップ(OPNA/OPLL)を
+    // 固定の選択肢として列挙する(JSON設定によるバンク一覧が存在しない)。
+    if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
+        for (const auto& c : kBuiltinRhythmChips) {
+            FITOMBankInfo info;
+            info.bankNo = c.chipSel;
+            info.name   = c.label;
+            result.push_back(std::move(info));
+        }
+        return result;
+    }
+
+    // OPLL系ROM音色(バンク0固定、2026年7月追加修正)。バンク0はJSON定義
+    // 不可の予約領域のため、通常のhwRegistry検索とは別に合成して先頭へ
+    // 追加する(hwRegistry側にバンク0が誤って登録されていても、
+    // resolveTriple()側で常に無視される[docs/patch-structure-design.md
+    // 参照]のと同じ優先順位に揃えるため、hwRegistry側のバンク0は
+    // スキップする)。
+    const bool hasOpllRom = (pm.getOpllRomPatches(voicePatchType) != nullptr);
+    if (hasOpllRom) {
+        FITOMBankInfo info;
+        info.bankNo = 0;
+        info.name   = "ROM Preset";
+        result.push_back(std::move(info));
+    }
+
     const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
     for (int bankNo : pm.hwRegistry().listBankNumbers(group)) {
+        if (hasOpllRom && bankNo == 0) continue;
         FITOMBankInfo info;
         info.bankNo = bankNo;
         const auto* bank = pm.hwRegistry().find(group, bankNo);
@@ -1055,6 +1153,49 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
             result.push_back(std::move(info));
         }
         return result;
+    }
+
+    // 内蔵リズム音源: getHwBankList()と同じ理由。hwBankがchipSel
+    // (VOICE_PATCH_OPN2/VOICE_PATCH_OPLL)、progが対象チップのパート番号
+    // (=デバイスチャンネル番号)を表す。
+    if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
+        const char* const* names = nullptr;
+        size_t count = 0;
+        getBuiltinRhythmNames(static_cast<uint8_t>(hwBank), names, count);
+        for (size_t i = 0; i < count; ++i) {
+            FITOMPatchInfo info;
+            info.bank       = hwBank;
+            info.prog       = static_cast<int>(i);
+            info.name       = names[i];
+            info.layerCount = 1;
+            result.push_back(std::move(info));
+        }
+        return result;
+    }
+
+    // OPLL系ROM音色(バンク0固定): getHwBankList()と同じ理由。
+    if (hwBank == 0) {
+        const auto* patches = pm.getOpllRomPatches(voicePatchType);
+        if (patches) {
+            for (size_t i = 0; i < patches->size(); ++i) {
+                if (i == 0) continue; // 下位4bit=0は無音として意図的に予約(resolveOpllRomVoice参照)
+                const auto& p = (*patches)[i];
+                if (!p.isValid()) continue;
+                FITOMPatchInfo info;
+                info.bank       = hwBank;
+                // 【重要】progは配列添字(=instIndexのみ)ではなくp.id
+                // (variantSel<<4|instIndex)を使うこと。実際の発音解決
+                // (PatchManager::resolveOpllRomVoice)はこのProgram Change
+                // 値自体からvariantSelを再デコードするため、生の添字を
+                // 送るとOPLL以外のカテゴリ(OPLLX/OPLLP/VRC7、variantSel
+                // >0)で誤ったチップの音色が鳴ってしまう。
+                info.prog       = static_cast<int>(p.id);
+                info.name       = p.name;
+                info.layerCount = 1;
+                result.push_back(std::move(info));
+            }
+            return result;
+        }
     }
 
     const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);

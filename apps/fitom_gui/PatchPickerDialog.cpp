@@ -42,6 +42,7 @@ constexpr CategoryEntry kCategories[] = {
     { 0x52, "ADPCM-A" },
     { 0x53, "PCMD8" },
     { 0x54, "AWM" },
+    { 0x70, "内蔵リズム(OPNA/OPLL)" },
 };
 
 const char* categoryLabel(uint8_t value)

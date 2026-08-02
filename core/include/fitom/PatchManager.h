@@ -133,6 +133,29 @@ public:
     ResolvedPatch resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
                                 const FITOMConfig& config, Patch& storage) const;
 
+    // OPLL系ROM音色(バンク0固定、resolveOpllRomVoice()参照)をvoicePatchType
+    // 単位で列挙するための読み取り専用アクセサ(GUIのパッチピッカーの
+    // カテゴリ別バンク0一覧向け、2026年7月新設)。voicePatchTypeが
+    // OPLL/OPLLP/OPLLX/VRC7以外ならnullptrを返す。添字0は無音(ユーザー
+    // 音色との衝突回避のため予約)のため、呼び出し側で除外すること。
+    // 【注意】実際の発音解決(resolveOpllRomVoice)は、このvoicePatchType
+    // (CC#0の値)ではなくhwProg自身の上位3bitでチップ種別を決定するため
+    // (下記getOpllRomPatchByProg()参照)、この関数はあくまで「ある
+    // カテゴリ配下に何を列挙するか」というピッカー表示専用の分類であり、
+    // 実際に送信されるProgram Change値(HwPatch::id)がその変種の上位
+    // ビットと一致するよう、呼び出し側はid値をそのままProgram Changeに
+    // 使うこと(生の配列添字を使ってはならない)。
+    const std::array<HwPatch, 16>* getOpllRomPatches(uint8_t voicePatchType) const;
+
+    // hwProg(Program Changeの値そのもの)から直接ROM音色を解決する
+    // (resolveOpllRomVoice()の合成ロジックのみを公開する読み取り専用版、
+    // GUI[MIDIモニター]のパッチ名表示向け、2026年7月新設)。上位3bitで
+    // チップ種別・下位4bitでROM音色インデックスを決定する(CC#0の値には
+    // 一切依存しない、resolveOpllRomVoice()と全く同じ規約)。
+    // variantSel>=4(未定義)またはinstIndex==0(無音として予約)の場合は
+    // nullptrを返す。
+    const HwPatch* getOpllRomPatchByProg(uint8_t hwProg) const;
+
     // ─── バンクファイル I/O ───────────────────────────────────────
 
     // JSON 形式でバンクを読み込む
