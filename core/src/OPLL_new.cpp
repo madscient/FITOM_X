@@ -16,6 +16,15 @@
 
 namespace fitom {
 
+// OPLL系(YM2413/YM2420/YMF281/YM2423/FS1001=VRC7)の実機マスタークロック。
+// OPL系と同じ3.579545MHz(NTSC colorburst由来)を使う共通ファミリーのため、
+// OPL_new.cppのkMasterClockと同値・同じdivide=72。
+// sampleRate引数は他チップドライバとのファクトリ関数シグネチャ一貫性のために
+// 残すが、Fnum計算には使用しない(OPL_new.cppで2026年7月に発見・修正した
+// 「誤ってsampleRateをfnumMasterとして使っていたため、Fnumberが常に65535に
+// クランプされ意図した音程にならない」バグと同種のものがOPLLにも残っていた)。
+constexpr int kOpllMasterClock = 3579545;
+
 class COPLL : public CSoundDevice {
 public:
     // mode: 0=トーンのみ (9ch), 1=リズムモード (6ch + リズム)
@@ -24,10 +33,10 @@ public:
     //         maxChs自体で打ち切る(VRC7のmaxChs=6は現状常にmode=0で
     //         呼ばれるため実際には到達しないが、範囲外アクセス防止の
     //         防御的チェックとして残す)。
-    COPLL(IPort* port, int sampleRate, uint8_t mode = 0,
+    COPLL(IPort* port, int /*sampleRate*/, uint8_t mode = 0,
           uint8_t devId = DEVICE_OPLL, uint8_t maxChs = 9)
         : CSoundDevice(devId, maxChs, port,
-                       sampleRate, 72,
+                       kOpllMasterClock, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x40)
@@ -126,21 +135,28 @@ protected:
 
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        // OPLL はキャリア (op1) の effectiveTL (TL空間、0=最大音量) をラウドネスに反転してから
-        // 正しいdB変換 (48dB/3dBステップ、4bit) を行う。ステップ幅は
-        // linear2dB内の最終シフト (7-range-bw) で決まるため、evol側は
-        // STEP075DB (無マスク) で0-127をフルレンジのまま渡す必要がある。
-        // STEP150DBでマスクすると evol の上位bitが失われ、64以上の値が
-        // 0-63へ折り返されて音量が不連続に無音化するバグになる。
-        uint8_t loudness = 127u - s.proc.effectiveTL(1);
+        // OPLL はキャリア (op1) の effectiveTL (ラウドネス空間、0=無音,127=最大音量。
+        // OPN_new.cppのeffTLToReg()コメント参照) をそのままdB変換
+        // (48dB/3dBステップ、4bit) する。ステップ幅はlinear2dB内の最終シフト
+        // (7-range-bw) で決まるため、evol側はSTEP075DB (無マスク) で
+        // 0-127をフルレンジのまま渡す必要がある。STEP150DBでマスクすると
+        // evolの上位bitが失われ、64以上の値が0-63へ折り返されて音量が
+        // 不連続に無音化するバグになる。
+        // (2026年8月、ユーザーの実機確認で「Vol最大で無音、最低で最大音量」
+        // という極性反転を発見。effectiveTL()は既にラウドネス空間のため、
+        // ここで127-反転を挟むと二重反転になり結果が逆になっていた。
+        // ADPCM-A/ADPCM-Bで発見・修正済みの同種バグと同じ誤り)
+        uint8_t loudness = s.proc.effectiveTL(1);
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
         setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
     }
 
     void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t lev) override {
-        // OPLL はボリュームレジスタ (0x30 下位 4bit) のみ (STEP075DBの理由は updateVolExp 参照)
-        uint8_t loudness = 127u - lev;
+        // OPLL はボリュームレジスタ (0x30 下位 4bit) のみ。lev は呼び出し元
+        // (トレモロLFO等) から既にラウドネス空間(0=無音,127=最大音量)で
+        // 渡されるため反転不要 (STEP075DBの理由は updateVolExp 参照)
+        uint8_t loudness = lev;
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
         setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
@@ -295,9 +311,9 @@ protected:
 // ================================================================
 class COPLLRhythm : public CSoundDevice {
 public:
-    COPLLRhythm(IPort* port, int sampleRate)
+    COPLLRhythm(IPort* port, int /*sampleRate*/)
         : CSoundDevice(DEVICE_OPLL_RHY, 5, port,
-                       sampleRate, 72,
+                       kOpllMasterClock, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x40)
@@ -346,9 +362,16 @@ protected:
 
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        // 旧FITOM: CalcLinearLevel(GetVolume(), 127-velocity) という
         // MIDI Volume(CC#7)とベロシティの組み合わせ (Expressionは含まない)。
-        uint8_t loudness = fitom::calcVolExpVel(s.volume, 127u, 127u - s.velocity);
+        // 旧FITOMはCalcLinearLevel(vev, tl)(第2引数が減衰量[高いほど静か])
+        // を使い127-velocityで変換していたが、新しいcalcVolExpVel(vol, exp,
+        // vel)は3引数とも同じラウドネス空間(高いほど大きい音、OPL4AWM/
+        // PSGのcalcVolExpVel(s.volume, s.expression, s.velocity)呼び出しと
+        // 同じ規約)のため、旧来の127-反転をそのまま持ち込むと強く叩くほど
+        // 静かに、弱く叩くほど大きく鳴る逆転バグになっていた
+        // (2026年8月、メロディパートのTL極性反転バグ修正を受けたユーザーの
+        // 指摘でビルトインリズム側も確認し発覚)。
+        uint8_t loudness = fitom::calcVolExpVel(s.volume, 127u, s.velocity);
         // STEP075DB (無マスク) で渡す理由は updateVolExp (トーンパート側) 参照
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint16_t addr = kRhythmReg[ch];
