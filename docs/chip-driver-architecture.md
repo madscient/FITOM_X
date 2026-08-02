@@ -106,6 +106,35 @@ bit0)を下位8bit(reg 0x08+ch)より**先に**書かなければならない。
 F-number書き込み(reg 0xA4[高位]→reg 0xA0[低位]の順で、低位バイト書き込みが
 確定トリガーになる設計)と同種のYamaha FMチップ共通の慣習でもある。
 
+**Fnumber/Octave計算式と波形ごとのピッチ/音量校正**: 上記の書き込み順を
+直しても、ユーザーから「まだ意図した波形ではないような鳴り方」と報告があり、
+ALSAドライバとの突き合わせでさらに2件の根本原因が判明した(2026年8月)。
+
+1. **計算式そのものがAWM用ではなかった**: `COPL4AWM::getFnumber()`が誤って
+   共通の`getFnumberFromHz()`(OPN/OPM系FM合成のFnum位相累算器用、`fnumMaster_`/
+   `fnumDivide_`という無関係な定数を使い、Octaveを0〜7[常に非負]にクランプ
+   する)を流用していた。実際のAWMエンジン(`extern/ymfm/src/ymfm_pcm.cpp`)は
+   `step=((0x400|fnum)<<(octave+7))>>2`(ROM上のバイトを1出力サンプルあたり
+   何byte進めるか)という全く別の式で、Octave(reg 0x38 bit7-4)は符号付き4bit
+   (-8〜+7、`int8_t(ch_octave<<4)>>4`で符号拡張)。ALSAの
+   `snd_opl4_update_pitch()`も`octave=pitch/0x600-8`と明示的に符号付き計算
+   している。`getFnumber()`をALSAと同じ基準点(note=60・オフセット0で
+   `pitch=60*128=7680→octave=-3,fnum=0`)を持つ専用式に書き換えた。
+2. **波形ごとの校正データが欠落**: ROM波形は実測でないと絶対ピッチ・音量が
+   分からない(ウェーブヘッダにその情報が無い)ため、1を直しただけでは
+   波形によって数オクターブ単位でピッチがずれたままだった。ALSAの
+   `sound/drivers/opl4/yrw801.c`(`opl4_sound`構造体の`pitch_offset`
+   [100/128セント単位]・`key_scaling`[%]・`tone_attenuate`[加算減衰]・
+   `volume_factor`[0-254の乗算スケール])をPythonスクリプトで機械的に
+   パースし、`SampleZone`に追加した同名4フィールド
+   (`pitchOffset`/`keyScaling`/`toneAttenuate`/`volumeFactor`、
+   `config_schema/samplezonebank.schema.json`にもスキーマ追加)へ、既存の
+   `config/profiles/opl4awm_yrw801_gm/drum.samplezonebank.json`の各ゾーンを
+   `wave_index`(+key範囲)完全一致でマージした(GM 553ゾーン・ドラム57
+   ゾーンとも欠落・曖昧一致ゼロで全件マッチ)。`COPL4AWM::getFnumber()`/
+   `updateVolExp()`はこれらの値を解決したゾーンから読み、ALSAの
+   `snd_opl4_update_pitch()`/`snd_opl4_update_volume()`と同じ規約で適用する。
+
 ```cpp
 struct SubDeviceSpec {
     uint32_t    deviceType;

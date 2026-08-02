@@ -381,12 +381,27 @@ HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェ�
 | `key_min`/`key_max` | このゾーンが適用されるMIDIノート範囲 |
 | `vel_min`/`vel_max` | ベロシティレイヤー範囲 (省略時0-127=無制限) |
 | `wave_index` | YRW801内蔵ROMの波形番号 (チップ側の生値) |
-| `root_note` | 録音時の基準ノート (OPL4AWMはFnumber計算がチップ側で完結するため未使用。将来のADPCM系転用に備えた予約フィールド) |
+| `root_note` | 録音時の基準ノート (OPL4AWMは下記`pitch_offset`/`key_scaling`ベースの計算を使うため未使用。将来のADPCM系転用に備えた予約フィールド) |
+| `pitch_offset` | **OPL4AWM専用**。波形ごとのピッチ校正値(100/128セント単位)。ROM波形は実測でないと絶対ピッチが分からないため必須(下記参照)。既定0 |
+| `key_scaling` | **OPL4AWM専用**。波形ごとのノート追従率(%、100=通常追従、0=固定ピッチ)。既定100 |
+| `tone_attenuate` | **OPL4AWM専用**。波形ごとの追加減衰量(7bit、加算)。既定0 |
+| `volume_factor` | **OPL4AWM専用**。波形ごとの音量スケール(0-254、254=無補正)。既定254 |
 | `sw_bank`/`sw_prog` | パフォーマンスパッチ(SwPatch)参照(`HwPatch::swBank/swProg`と同じ規約、-1=参照なし、2026年7月新設)。DrumNote側の個別上書きが優先される。**対応範囲**: ADPCM-B/PCMD8=全機能、ADPCM-A=ベロシティ感度/トレモロのみ(ピッチ制御不可のため)、AWM=参照は解決されるが音には未反映(実機LFO/VIBレジスタとの整合設計が別途必要)。詳細は`patch-structure-design.md`の「サンプルベース音源系へのパフォーマンスパッチ紐づけ」節参照 |
 
 ノートオン時、`zones[]`を先頭から線形探索し、`key_min <= note <= key_max` かつ
 `vel_min <= velocity <= vel_max` を満たす最初のゾーンの`wave_index`を使う。
 該当ゾーンが無ければ`zones[0]`にフォールバックする。
+
+**波形ごとのピッチ/音量校正 (`pitch_offset`/`key_scaling`/`tone_attenuate`/
+`volume_factor`)**: OPL4AWMのFnumber/Octaveは、ROM波形が実際にどのピッチ・
+音量で収録されているかを表す情報を一切持たない(ワーブルテーブルヘッダ
+にも記載が無い)ため、絶対Hz(A440基準)からの汎用計算だけでは正しい音高・
+音量にならない。`COPL4AWM::getFnumber()`/`updateVolExp()`
+(`core/src/OPL4.cpp`)は、ALSAドライバが波形ごとに実測して埋め込んでいる
+校正値と全く同じ規約・同じ数値を使う(2026年8月新設。ユーザー報告
+「AWMは音は出るが意図した波形と異なる」の調査で、この校正が無いと波形に
+よっては数オクターブ単位でピッチがずれることが判明したため、下記の
+校正値ごとALSAの表を移植した)。
 
 バンクファイルは`hw_banks[].group: "AWM"`で指定し、通常の`.hwbank.json`とは
 異なる専用スキーマ (`prog`ごとに`zones[]`を持つ、`*.samplezonebank.json`) で
@@ -395,8 +410,14 @@ HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェ�
 (メロディ128プログラム分) および
 `config/profiles/opl4awm_yrw801_drum.samplezonebank.json`
 (ドラム、`ws>=128`固定テーブル相当) として提供済み
-(Linuxカーネルドライバ`sound/drivers/opl4/yrw801.c`から機械的に抽出し、
-元のハードコードロジックとの完全一致を32768通り全組み合わせで検証済み)。
+(Linuxカーネルドライバ`sound/drivers/opl4/yrw801.c`
+[`opl4_local.h`/`opl4_synth.c`/`yrw801.c`]から機械的に抽出。`wave_index`/
+`key_min`/`key_max`は2026年7月時点で既に移植済みだったが、`pitch_offset`/
+`key_scaling`/`tone_attenuate`/`volume_factor`は2026年8月に追加移植した。
+移植スクリプトはyrw801.cの`regions_XX[]`配列をプログラム番号ごと・
+`regions_drums[]`をドラム用としてパースし、既存JSONの各ゾーンへ
+`wave_index`[+key範囲]完全一致でマージするもので、GM 553ゾーン・
+ドラム57ゾーンとも欠落・曖昧一致ゼロで全件マッチした)。
 
 例:
 ```json
@@ -407,8 +428,12 @@ HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェ�
       "prog": 0,
       "name": "Acoustic Grand Piano",
       "zones": [
-        { "key_min": 20, "key_max": 39, "wave_index": 300 },
-        { "key_min": 40, "key_max": 45, "wave_index": 301 }
+        { "key_min": 20, "key_max": 39, "wave_index": 300,
+          "pitch_offset": 7474, "key_scaling": 100,
+          "tone_attenuate": 0, "volume_factor": 200 },
+        { "key_min": 40, "key_max": 45, "wave_index": 301,
+          "pitch_offset": 6816, "key_scaling": 100,
+          "tone_attenuate": 0, "volume_factor": 200 }
       ]
     }
   ]

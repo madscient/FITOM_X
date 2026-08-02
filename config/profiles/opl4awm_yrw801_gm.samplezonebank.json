@@ -8,52 +8,92 @@
         {
           "key_min": 20,
           "key_max": 39,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7474,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6816,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5899,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5290,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4260,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 200
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3625,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 200
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3116,
+          "key_scaling": 100,
+          "tone_attenuate": 4,
+          "volume_factor": 200
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2081,
+          "key_scaling": 100,
+          "tone_attenuate": 3,
+          "volume_factor": 200
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1444,
+          "key_scaling": 100,
+          "tone_attenuate": 7,
+          "volume_factor": 200
         },
         {
           "key_min": 89,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1915,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         }
       ]
     },
@@ -64,52 +104,92 @@
         {
           "key_min": 20,
           "key_max": 45,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7474,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6816,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5899,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5290,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4260,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 200
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3625,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 200
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3116,
+          "key_scaling": 100,
+          "tone_attenuate": 4,
+          "volume_factor": 200
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2081,
+          "key_scaling": 100,
+          "tone_attenuate": 7,
+          "volume_factor": 200
         },
         {
           "key_min": 89,
           "key_max": 94,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1444,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 200
         },
         {
           "key_min": 95,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1915,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         }
       ]
     },
@@ -120,57 +200,101 @@
         {
           "key_min": 20,
           "key_max": 45,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7476,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6818,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5901,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5292,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4262,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3627,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3118,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2083,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 89,
           "key_max": 94,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1446,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 95,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1917,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 108
+          "wave_index": 108,
+          "pitch_offset": 6375,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -181,102 +305,182 @@
         {
           "key_min": 20,
           "key_max": 39,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7474,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6816,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5899,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5290,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4260,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 180
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3625,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 180
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3116,
+          "key_scaling": 100,
+          "tone_attenuate": 4,
+          "volume_factor": 180
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2081,
+          "key_scaling": 100,
+          "tone_attenuate": 3,
+          "volume_factor": 180
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1444,
+          "key_scaling": 100,
+          "tone_attenuate": 7,
+          "volume_factor": 180
         },
         {
           "key_min": 89,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1915,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 20,
           "key_max": 39,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7474,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6816,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5899,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5290,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4260,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 180
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3625,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 180
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3116,
+          "key_scaling": 100,
+          "tone_attenuate": 4,
+          "volume_factor": 180
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2081,
+          "key_scaling": 100,
+          "tone_attenuate": 3,
+          "volume_factor": 180
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1444,
+          "key_scaling": 100,
+          "tone_attenuate": 7,
+          "volume_factor": 180
         },
         {
           "key_min": 89,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1915,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         }
       ]
     },
@@ -287,12 +491,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 11
+          "wave_index": 11,
+          "pitch_offset": 6570,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 40
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 108
+          "wave_index": 108,
+          "pitch_offset": 6375,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 176
         }
       ]
     },
@@ -303,102 +515,182 @@
         {
           "key_min": 20,
           "key_max": 39,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7476,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6818,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5901,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5292,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4262,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 162
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3627,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 162
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3118,
+          "key_scaling": 100,
+          "tone_attenuate": 4,
+          "volume_factor": 162
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2083,
+          "key_scaling": 100,
+          "tone_attenuate": 3,
+          "volume_factor": 162
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1446,
+          "key_scaling": 100,
+          "tone_attenuate": 7,
+          "volume_factor": 162
         },
         {
           "key_min": 89,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1917,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 20,
           "key_max": 45,
-          "wave_index": 300
+          "wave_index": 300,
+          "pitch_offset": 7472,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 301
+          "wave_index": 301,
+          "pitch_offset": 6814,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 302
+          "wave_index": 302,
+          "pitch_offset": 5897,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 303
+          "wave_index": 303,
+          "pitch_offset": 5288,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 304
+          "wave_index": 304,
+          "pitch_offset": 4258,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 162
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 305
+          "wave_index": 305,
+          "pitch_offset": 3623,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 162
         },
         {
           "key_min": 76,
           "key_max": 82,
-          "wave_index": 306
+          "wave_index": 306,
+          "pitch_offset": 3114,
+          "key_scaling": 100,
+          "tone_attenuate": 4,
+          "volume_factor": 162
         },
         {
           "key_min": 83,
           "key_max": 88,
-          "wave_index": 307
+          "wave_index": 307,
+          "pitch_offset": 2079,
+          "key_scaling": 100,
+          "tone_attenuate": 7,
+          "volume_factor": 162
         },
         {
           "key_min": 89,
           "key_max": 94,
-          "wave_index": 308
+          "wave_index": 308,
+          "pitch_offset": 1442,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 162
         },
         {
           "key_min": 95,
           "key_max": 109,
-          "wave_index": 309
+          "wave_index": 309,
+          "pitch_offset": 1913,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         }
       ]
     },
@@ -409,27 +701,47 @@
         {
           "key_min": 21,
           "key_max": 57,
-          "wave_index": 128
+          "wave_index": 128,
+          "pitch_offset": 5158,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 178
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 129
+          "wave_index": 129,
+          "pitch_offset": 4408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 178
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 130
+          "wave_index": 130,
+          "pitch_offset": 3622,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 178
         },
         {
           "key_min": 70,
           "key_max": 77,
-          "wave_index": 131
+          "wave_index": 131,
+          "pitch_offset": 2843,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 178
         },
         {
           "key_min": 78,
           "key_max": 108,
-          "wave_index": 132
+          "wave_index": 132,
+          "pitch_offset": 1307,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 178
         }
       ]
     },
@@ -440,12 +752,20 @@
         {
           "key_min": 21,
           "key_max": 81,
-          "wave_index": 39
+          "wave_index": 39,
+          "pitch_offset": 5009,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         },
         {
           "key_min": 82,
           "key_max": 108,
-          "wave_index": 40
+          "wave_index": 40,
+          "pitch_offset": 3495,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         }
       ]
     },
@@ -456,7 +776,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 43
+          "wave_index": 43,
+          "pitch_offset": 3267,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         }
       ]
     },
@@ -467,7 +791,11 @@
         {
           "key_min": 21,
           "key_max": 120,
-          "wave_index": 243
+          "wave_index": 243,
+          "pitch_offset": 285,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -478,12 +806,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 243
+          "wave_index": 243,
+          "pitch_offset": 3362,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 182
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 257
+          "wave_index": 257,
+          "pitch_offset": 4773,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 170
         }
       ]
     },
@@ -494,7 +830,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 257
+          "wave_index": 257,
+          "pitch_offset": 4778,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         }
       ]
     },
@@ -505,22 +845,38 @@
         {
           "key_min": 21,
           "key_max": 63,
-          "wave_index": 244
+          "wave_index": 244,
+          "pitch_offset": 4778,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 64,
           "key_max": 76,
-          "wave_index": 245
+          "wave_index": 245,
+          "pitch_offset": 3217,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 77,
           "key_max": 90,
-          "wave_index": 245
+          "wave_index": 245,
+          "pitch_offset": 3217,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 91,
           "key_max": 127,
-          "wave_index": 245
+          "wave_index": 245,
+          "pitch_offset": 3218,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         }
       ]
     },
@@ -531,7 +887,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 310
+          "wave_index": 310,
+          "pitch_offset": 1729,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         }
       ]
     },
@@ -542,7 +902,11 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 255
+          "wave_index": 255,
+          "pitch_offset": 3999,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 144
         }
       ]
     },
@@ -553,12 +917,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 63
+          "wave_index": 63,
+          "pitch_offset": 4236,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 64
+          "wave_index": 64,
+          "pitch_offset": 4236,
+          "key_scaling": 100,
+          "tone_attenuate": 14,
+          "volume_factor": 148
         }
       ]
     },
@@ -569,7 +941,11 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 142
+          "wave_index": 142,
+          "pitch_offset": 4394,
+          "key_scaling": 100,
+          "tone_attenuate": 20,
+          "volume_factor": 194
         }
       ]
     },
@@ -580,12 +956,20 @@
         {
           "key_min": 21,
           "key_max": 59,
-          "wave_index": 140
+          "wave_index": 140,
+          "pitch_offset": 6062,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 60,
           "key_max": 108,
-          "wave_index": 141
+          "wave_index": 141,
+          "pitch_offset": 2984,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -596,27 +980,47 @@
         {
           "key_min": 21,
           "key_max": 48,
-          "wave_index": 296
+          "wave_index": 296,
+          "pitch_offset": 6574,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 49,
           "key_max": 60,
-          "wave_index": 297
+          "wave_index": 297,
+          "pitch_offset": 5040,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 61,
           "key_max": 72,
-          "wave_index": 298
+          "wave_index": 298,
+          "pitch_offset": 3498,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 73,
           "key_max": 84,
-          "wave_index": 299
+          "wave_index": 299,
+          "pitch_offset": 1957,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 85,
           "key_max": 108,
-          "wave_index": 295
+          "wave_index": 295,
+          "pitch_offset": 423,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         }
       ]
     },
@@ -627,27 +1031,47 @@
         {
           "key_min": 21,
           "key_max": 41,
-          "wave_index": 135
+          "wave_index": 135,
+          "pitch_offset": 7466,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 42,
           "key_max": 48,
-          "wave_index": 136
+          "wave_index": 136,
+          "pitch_offset": 6456,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 49,
           "key_max": 56,
-          "wave_index": 137
+          "wave_index": 137,
+          "pitch_offset": 5428,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 57,
           "key_max": 65,
-          "wave_index": 138
+          "wave_index": 138,
+          "pitch_offset": 4408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 66,
           "key_max": 108,
-          "wave_index": 139
+          "wave_index": 139,
+          "pitch_offset": 3406,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         }
       ]
     },
@@ -658,12 +1082,20 @@
         {
           "key_min": 0,
           "key_max": 83,
-          "wave_index": 172
+          "wave_index": 172,
+          "pitch_offset": 5570,
+          "key_scaling": 100,
+          "tone_attenuate": 6,
+          "volume_factor": 192
         },
         {
           "key_min": 84,
           "key_max": 127,
-          "wave_index": 173
+          "wave_index": 173,
+          "pitch_offset": 2497,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         }
       ]
     },
@@ -674,17 +1106,29 @@
         {
           "key_min": 21,
           "key_max": 76,
-          "wave_index": 6
+          "wave_index": 6,
+          "pitch_offset": 4261,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 77,
           "key_max": 108,
-          "wave_index": 7
+          "wave_index": 7,
+          "pitch_offset": 1530,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 112
+          "wave_index": 112,
+          "pitch_offset": 4391,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 138
         }
       ]
     },
@@ -695,7 +1139,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 112
+          "wave_index": 112,
+          "pitch_offset": 4408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         }
       ]
     },
@@ -706,17 +1154,29 @@
         {
           "key_min": 0,
           "key_max": 83,
-          "wave_index": 172
+          "wave_index": 172,
+          "pitch_offset": 5573,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 84,
           "key_max": 127,
-          "wave_index": 173
+          "wave_index": 173,
+          "pitch_offset": 2500,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 65
+          "wave_index": 65,
+          "pitch_offset": 8479,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 106
         }
       ]
     },
@@ -727,27 +1187,47 @@
         {
           "key_min": 21,
           "key_max": 47,
-          "wave_index": 179
+          "wave_index": 179,
+          "pitch_offset": 6964,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 202
         },
         {
           "key_min": 48,
           "key_max": 54,
-          "wave_index": 183
+          "wave_index": 183,
+          "pitch_offset": 5567,
+          "key_scaling": 100,
+          "tone_attenuate": 12,
+          "volume_factor": 202
         },
         {
           "key_min": 55,
           "key_max": 60,
-          "wave_index": 181
+          "wave_index": 181,
+          "pitch_offset": 4653,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 61,
           "key_max": 67,
-          "wave_index": 180
+          "wave_index": 180,
+          "pitch_offset": 3892,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 68,
           "key_max": 96,
-          "wave_index": 182
+          "wave_index": 182,
+          "pitch_offset": 2723,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         }
       ]
     },
@@ -758,22 +1238,38 @@
         {
           "key_min": 21,
           "key_max": 49,
-          "wave_index": 12
+          "wave_index": 12,
+          "pitch_offset": 6937,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 50,
           "key_max": 56,
-          "wave_index": 13
+          "wave_index": 13,
+          "pitch_offset": 5410,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 57,
           "key_max": 71,
-          "wave_index": 14
+          "wave_index": 14,
+          "pitch_offset": 4379,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 72,
           "key_max": 108,
-          "wave_index": 15
+          "wave_index": 15,
+          "pitch_offset": 2843,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         }
       ]
     },
@@ -784,17 +1280,29 @@
         {
           "key_min": 21,
           "key_max": 49,
-          "wave_index": 90
+          "wave_index": 90,
+          "pitch_offset": 6832,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 50,
           "key_max": 63,
-          "wave_index": 91
+          "wave_index": 91,
+          "pitch_offset": 4897,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 64,
           "key_max": 108,
-          "wave_index": 92
+          "wave_index": 92,
+          "pitch_offset": 3218,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         }
       ]
     },
@@ -805,42 +1313,74 @@
         {
           "key_min": 21,
           "key_max": 44,
-          "wave_index": 97
+          "wave_index": 97,
+          "pitch_offset": 7053,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 45,
           "key_max": 49,
-          "wave_index": 96
+          "wave_index": 96,
+          "pitch_offset": 6434,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 50,
           "key_max": 56,
-          "wave_index": 99
+          "wave_index": 99,
+          "pitch_offset": 5764,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 57,
           "key_max": 63,
-          "wave_index": 98
+          "wave_index": 98,
+          "pitch_offset": 4627,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 64,
           "key_max": 68,
-          "wave_index": 101
+          "wave_index": 101,
+          "pitch_offset": 3963,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 69,
           "key_max": 75,
-          "wave_index": 100
+          "wave_index": 100,
+          "pitch_offset": 3313,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 76,
           "key_max": 84,
-          "wave_index": 102
+          "wave_index": 102,
+          "pitch_offset": 2462,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 85,
           "key_max": 108,
-          "wave_index": 103
+          "wave_index": 103,
+          "pitch_offset": 1307,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         }
       ]
     },
@@ -851,7 +1391,11 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 104
+          "wave_index": 104,
+          "pitch_offset": 4408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         }
       ]
     },
@@ -862,12 +1406,20 @@
         {
           "key_min": 0,
           "key_max": 64,
-          "wave_index": 165
+          "wave_index": 165,
+          "pitch_offset": 6589,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         },
         {
           "key_min": 65,
           "key_max": 127,
-          "wave_index": 166
+          "wave_index": 166,
+          "pitch_offset": 5428,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         }
       ]
     },
@@ -878,47 +1430,83 @@
         {
           "key_min": 21,
           "key_max": 42,
-          "wave_index": 81
+          "wave_index": 81,
+          "pitch_offset": 6928,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 43,
           "key_max": 46,
-          "wave_index": 82
+          "wave_index": 82,
+          "pitch_offset": 6433,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 47,
           "key_max": 50,
-          "wave_index": 83
+          "wave_index": 83,
+          "pitch_offset": 5944,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 51,
           "key_max": 54,
-          "wave_index": 84
+          "wave_index": 84,
+          "pitch_offset": 5391,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 55,
           "key_max": 58,
-          "wave_index": 85
+          "wave_index": 85,
+          "pitch_offset": 4897,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 59,
           "key_max": 62,
-          "wave_index": 86
+          "wave_index": 86,
+          "pitch_offset": 4408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 63,
           "key_max": 66,
-          "wave_index": 87
+          "wave_index": 87,
+          "pitch_offset": 3892,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 67,
           "key_max": 70,
-          "wave_index": 88
+          "wave_index": 88,
+          "pitch_offset": 3361,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 71,
           "key_max": 108,
-          "wave_index": 89
+          "wave_index": 89,
+          "pitch_offset": 2784,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         }
       ]
     },
@@ -929,17 +1517,29 @@
         {
           "key_min": 21,
           "key_max": 68,
-          "wave_index": 94
+          "wave_index": 94,
+          "pitch_offset": 5499,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 69,
           "key_max": 73,
-          "wave_index": 93
+          "wave_index": 93,
+          "pitch_offset": 4850,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 226
         },
         {
           "key_min": 74,
           "key_max": 108,
-          "wave_index": 95
+          "wave_index": 95,
+          "pitch_offset": 4259,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         }
       ]
     },
@@ -950,12 +1550,20 @@
         {
           "key_min": 21,
           "key_max": 48,
-          "wave_index": 4
+          "wave_index": 4,
+          "pitch_offset": 8053,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 226
         },
         {
           "key_min": 49,
           "key_max": 108,
-          "wave_index": 5
+          "wave_index": 5,
+          "pitch_offset": 4754,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 226
         }
       ]
     },
@@ -966,22 +1574,38 @@
         {
           "key_min": 1,
           "key_max": 32,
-          "wave_index": 74
+          "wave_index": 74,
+          "pitch_offset": 8762,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         },
         {
           "key_min": 33,
           "key_max": 37,
-          "wave_index": 75
+          "wave_index": 75,
+          "pitch_offset": 8114,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         },
         {
           "key_min": 38,
           "key_max": 42,
-          "wave_index": 76
+          "wave_index": 76,
+          "pitch_offset": 7475,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         },
         {
           "key_min": 43,
           "key_max": 127,
-          "wave_index": 77
+          "wave_index": 77,
+          "pitch_offset": 6841,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         }
       ]
     },
@@ -992,27 +1616,47 @@
         {
           "key_min": 21,
           "key_max": 35,
-          "wave_index": 79
+          "wave_index": 79,
+          "pitch_offset": 7954,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 36,
           "key_max": 42,
-          "wave_index": 80
+          "wave_index": 80,
+          "pitch_offset": 7318,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 204
         },
         {
           "key_min": 43,
           "key_max": 47,
-          "wave_index": 107
+          "wave_index": 107,
+          "pitch_offset": 6654,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 48,
           "key_max": 71,
-          "wave_index": 105
+          "wave_index": 105,
+          "pitch_offset": 6031,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 72,
           "key_max": 108,
-          "wave_index": 106
+          "wave_index": 106,
+          "pitch_offset": 5393,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         }
       ]
     },
@@ -1023,7 +1667,11 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 78
+          "wave_index": 78,
+          "pitch_offset": 5297,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         }
       ]
     },
@@ -1034,7 +1682,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 163
+          "wave_index": 163,
+          "pitch_offset": 7606,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         }
       ]
     },
@@ -1045,7 +1697,11 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 162
+          "wave_index": 162,
+          "pitch_offset": 6694,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 218
         }
       ]
     },
@@ -1056,7 +1712,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 190
+          "wave_index": 190,
+          "pitch_offset": 7466,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 184
         }
       ]
     },
@@ -1067,7 +1727,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 279
+          "wave_index": 279,
+          "pitch_offset": 8103,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         }
       ]
     },
@@ -1078,52 +1742,92 @@
         {
           "key_min": 21,
           "key_max": 58,
-          "wave_index": 261
+          "wave_index": 261,
+          "pitch_offset": 5158,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 59,
           "key_max": 63,
-          "wave_index": 258
+          "wave_index": 258,
+          "pitch_offset": 4754,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 64,
           "key_max": 65,
-          "wave_index": 262
+          "wave_index": 262,
+          "pitch_offset": 4132,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 66,
           "key_max": 68,
-          "wave_index": 263
+          "wave_index": 263,
+          "pitch_offset": 4033,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 69,
           "key_max": 71,
-          "wave_index": 264
+          "wave_index": 264,
+          "pitch_offset": 3580,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 72,
           "key_max": 74,
-          "wave_index": 266
+          "wave_index": 266,
+          "pitch_offset": 2957,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 75,
           "key_max": 76,
-          "wave_index": 267
+          "wave_index": 267,
+          "pitch_offset": 2724,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 77,
           "key_max": 78,
-          "wave_index": 268
+          "wave_index": 268,
+          "pitch_offset": 2530,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 79,
           "key_max": 81,
-          "wave_index": 269
+          "wave_index": 269,
+          "pitch_offset": 2166,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 82,
           "key_max": 108,
-          "wave_index": 265
+          "wave_index": 265,
+          "pitch_offset": 1825,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         }
       ]
     },
@@ -1134,62 +1838,110 @@
         {
           "key_min": 21,
           "key_max": 50,
-          "wave_index": 259
+          "wave_index": 259,
+          "pitch_offset": 5780,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 51,
           "key_max": 53,
-          "wave_index": 260
+          "wave_index": 260,
+          "pitch_offset": 5534,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 54,
           "key_max": 56,
-          "wave_index": 261
+          "wave_index": 261,
+          "pitch_offset": 5158,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 57,
           "key_max": 61,
-          "wave_index": 258
+          "wave_index": 258,
+          "pitch_offset": 4754,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 62,
           "key_max": 63,
-          "wave_index": 262
+          "wave_index": 262,
+          "pitch_offset": 4132,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 64,
           "key_max": 66,
-          "wave_index": 263
+          "wave_index": 263,
+          "pitch_offset": 4033,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 67,
           "key_max": 69,
-          "wave_index": 264
+          "wave_index": 264,
+          "pitch_offset": 3580,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 70,
           "key_max": 72,
-          "wave_index": 266
+          "wave_index": 266,
+          "pitch_offset": 2957,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 73,
           "key_max": 74,
-          "wave_index": 267
+          "wave_index": 267,
+          "pitch_offset": 2724,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 75,
           "key_max": 76,
-          "wave_index": 268
+          "wave_index": 268,
+          "pitch_offset": 2530,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 77,
           "key_max": 79,
-          "wave_index": 269
+          "wave_index": 269,
+          "pitch_offset": 2166,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 80,
           "key_max": 108,
-          "wave_index": 265
+          "wave_index": 265,
+          "pitch_offset": 1825,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         }
       ]
     },
@@ -1200,27 +1952,47 @@
         {
           "key_min": 21,
           "key_max": 45,
-          "wave_index": 274
+          "wave_index": 274,
+          "pitch_offset": 6545,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         },
         {
           "key_min": 46,
           "key_max": 55,
-          "wave_index": 275
+          "wave_index": 275,
+          "pitch_offset": 5764,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         },
         {
           "key_min": 56,
           "key_max": 62,
-          "wave_index": 277
+          "wave_index": 277,
+          "pitch_offset": 4378,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         },
         {
           "key_min": 63,
           "key_max": 68,
-          "wave_index": 278
+          "wave_index": 278,
+          "pitch_offset": 3998,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         },
         {
           "key_min": 69,
           "key_max": 108,
-          "wave_index": 276
+          "wave_index": 276,
+          "pitch_offset": 3218,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         }
       ]
     },
@@ -1231,12 +2003,20 @@
         {
           "key_min": 21,
           "key_max": 41,
-          "wave_index": 272
+          "wave_index": 272,
+          "pitch_offset": 7713,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 42,
           "key_max": 108,
-          "wave_index": 273
+          "wave_index": 273,
+          "pitch_offset": 6162,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -1247,27 +2027,47 @@
         {
           "key_min": 21,
           "key_max": 59,
-          "wave_index": 176
+          "wave_index": 176,
+          "pitch_offset": 4810,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 222
         },
         {
           "key_min": 60,
           "key_max": 65,
-          "wave_index": 53
+          "wave_index": 53,
+          "pitch_offset": 4035,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 222
         },
         {
           "key_min": 66,
           "key_max": 71,
-          "wave_index": 51
+          "wave_index": 51,
+          "pitch_offset": 3129,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 222
         },
         {
           "key_min": 72,
           "key_max": 82,
-          "wave_index": 52
+          "wave_index": 52,
+          "pitch_offset": 2625,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 222
         },
         {
           "key_min": 83,
           "key_max": 108,
-          "wave_index": 175
+          "wave_index": 175,
+          "pitch_offset": 936,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         }
       ]
     },
@@ -1278,27 +2078,47 @@
         {
           "key_min": 21,
           "key_max": 50,
-          "wave_index": 184
+          "wave_index": 184,
+          "pitch_offset": 6186,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 51,
           "key_max": 59,
-          "wave_index": 185
+          "wave_index": 185,
+          "pitch_offset": 5031,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 60,
           "key_max": 66,
-          "wave_index": 187
+          "wave_index": 187,
+          "pitch_offset": 4146,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 67,
           "key_max": 72,
-          "wave_index": 186
+          "wave_index": 186,
+          "pitch_offset": 3245,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 73,
           "key_max": 108,
-          "wave_index": 188
+          "wave_index": 188,
+          "pitch_offset": 2352,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         }
       ]
     },
@@ -1309,12 +2129,20 @@
         {
           "key_min": 21,
           "key_max": 70,
-          "wave_index": 126
+          "wave_index": 126,
+          "pitch_offset": 3740,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         },
         {
           "key_min": 71,
           "key_max": 108,
-          "wave_index": 127
+          "wave_index": 127,
+          "pitch_offset": 2319,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         }
       ]
     },
@@ -1325,7 +2153,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 256
+          "wave_index": 256,
+          "pitch_offset": 6570,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 248
         }
       ]
     },
@@ -1336,27 +2168,47 @@
         {
           "key_min": 21,
           "key_max": 59,
-          "wave_index": 316
+          "wave_index": 316,
+          "pitch_offset": 4806,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 60,
           "key_max": 65,
-          "wave_index": 318
+          "wave_index": 318,
+          "pitch_offset": 4035,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 66,
           "key_max": 71,
-          "wave_index": 317
+          "wave_index": 317,
+          "pitch_offset": 3122,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 72,
           "key_max": 82,
-          "wave_index": 319
+          "wave_index": 319,
+          "pitch_offset": 2629,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 83,
           "key_max": 108,
-          "wave_index": 320
+          "wave_index": 320,
+          "pitch_offset": 950,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -1367,27 +2219,47 @@
         {
           "key_min": 21,
           "key_max": 59,
-          "wave_index": 176
+          "wave_index": 176,
+          "pitch_offset": 4810,
+          "key_scaling": 100,
+          "tone_attenuate": 10,
+          "volume_factor": 190
         },
         {
           "key_min": 60,
           "key_max": 65,
-          "wave_index": 53
+          "wave_index": 53,
+          "pitch_offset": 4035,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 190
         },
         {
           "key_min": 66,
           "key_max": 71,
-          "wave_index": 51
+          "wave_index": 51,
+          "pitch_offset": 3129,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 190
         },
         {
           "key_min": 72,
           "key_max": 82,
-          "wave_index": 52
+          "wave_index": 52,
+          "pitch_offset": 2625,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 190
         },
         {
           "key_min": 83,
           "key_max": 108,
-          "wave_index": 175
+          "wave_index": 175,
+          "pitch_offset": 936,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -1398,12 +2270,20 @@
         {
           "key_min": 5,
           "key_max": 113,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 6045,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 166
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 174
+          "wave_index": 174,
+          "pitch_offset": 3261,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 198
         }
       ]
     },
@@ -1414,12 +2294,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4513,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4513,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 180
         }
       ]
     },
@@ -1430,22 +2318,38 @@
         {
           "key_min": 21,
           "key_max": 58,
-          "wave_index": 24
+          "wave_index": 24,
+          "pitch_offset": 5010,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 59,
           "key_max": 64,
-          "wave_index": 25
+          "wave_index": 25,
+          "pitch_offset": 4370,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 65,
           "key_max": 71,
-          "wave_index": 26
+          "wave_index": 26,
+          "pitch_offset": 3478,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 72,
           "key_max": 108,
-          "wave_index": 27
+          "wave_index": 27,
+          "pitch_offset": 2197,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -1456,7 +2360,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 41
+          "wave_index": 41,
+          "pitch_offset": 3596,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         }
       ]
     },
@@ -1467,7 +2375,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 42
+          "wave_index": 42,
+          "pitch_offset": 3482,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -1478,7 +2390,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 73
+          "wave_index": 73,
+          "pitch_offset": 4394,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 254
         }
       ]
     },
@@ -1489,32 +2405,56 @@
         {
           "key_min": 21,
           "key_max": 60,
-          "wave_index": 246
+          "wave_index": 246,
+          "pitch_offset": 4706,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 61,
           "key_max": 67,
-          "wave_index": 248
+          "wave_index": 248,
+          "pitch_offset": 3894,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 68,
           "key_max": 72,
-          "wave_index": 247
+          "wave_index": 247,
+          "pitch_offset": 3118,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 73,
           "key_max": 78,
-          "wave_index": 250
+          "wave_index": 250,
+          "pitch_offset": 2322,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 79,
           "key_max": 85,
-          "wave_index": 249
+          "wave_index": 249,
+          "pitch_offset": 1634,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 86,
           "key_max": 108,
-          "wave_index": 251
+          "wave_index": 251,
+          "pitch_offset": 786,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         }
       ]
     },
@@ -1525,17 +2465,29 @@
         {
           "key_min": 21,
           "key_max": 58,
-          "wave_index": 240
+          "wave_index": 240,
+          "pitch_offset": 5053,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 59,
           "key_max": 63,
-          "wave_index": 241
+          "wave_index": 241,
+          "pitch_offset": 4290,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 64,
           "key_max": 108,
-          "wave_index": 242
+          "wave_index": 242,
+          "pitch_offset": 3580,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         }
       ]
     },
@@ -1546,12 +2498,20 @@
         {
           "key_min": 21,
           "key_max": 45,
-          "wave_index": 133
+          "wave_index": 133,
+          "pitch_offset": 7096,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         },
         {
           "key_min": 46,
           "key_max": 108,
-          "wave_index": 134
+          "wave_index": 134,
+          "pitch_offset": 6014,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         }
       ]
     },
@@ -1562,12 +2522,20 @@
         {
           "key_min": 21,
           "key_max": 69,
-          "wave_index": 177
+          "wave_index": 177,
+          "pitch_offset": 4135,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 70,
           "key_max": 108,
-          "wave_index": 178
+          "wave_index": 178,
+          "pitch_offset": 2599,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         }
       ]
     },
@@ -1578,12 +2546,20 @@
         {
           "key_min": 21,
           "key_max": 73,
-          "wave_index": 124
+          "wave_index": 124,
+          "pitch_offset": 3624,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 74,
           "key_max": 108,
-          "wave_index": 125
+          "wave_index": 125,
+          "pitch_offset": 2664,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         }
       ]
     },
@@ -1594,12 +2570,20 @@
         {
           "key_min": 21,
           "key_max": 66,
-          "wave_index": 252
+          "wave_index": 252,
+          "pitch_offset": 4375,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 67,
           "key_max": 108,
-          "wave_index": 253
+          "wave_index": 253,
+          "pitch_offset": 2854,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         }
       ]
     },
@@ -1610,122 +2594,218 @@
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 211
+          "wave_index": 211,
+          "pitch_offset": 9094,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 218
+          "wave_index": 218,
+          "pitch_offset": 8335,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 212
+          "wave_index": 212,
+          "pitch_offset": 7558,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 219
+          "wave_index": 219,
+          "pitch_offset": 6785,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 213
+          "wave_index": 213,
+          "pitch_offset": 6042,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 220
+          "wave_index": 220,
+          "pitch_offset": 5257,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 214
+          "wave_index": 214,
+          "pitch_offset": 4493,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 221
+          "wave_index": 221,
+          "pitch_offset": 3741,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 215
+          "wave_index": 215,
+          "pitch_offset": 3012,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 222
+          "wave_index": 222,
+          "pitch_offset": 2167,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 94,
           "key_max": 99,
-          "wave_index": 216
+          "wave_index": 216,
+          "pitch_offset": 1421,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 100,
           "key_max": 127,
-          "wave_index": 217
+          "wave_index": 217,
+          "pitch_offset": -115,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9103,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8340,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7565,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6804,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6042,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5277,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4520,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3741,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3012,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2166,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 94,
           "key_max": 100,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1421,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 101,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -115,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -1736,67 +2816,119 @@
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9113,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8350,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7575,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6814,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6052,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5287,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4530,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3751,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3022,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2176,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 94,
           "key_max": 100,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1431,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 101,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -105,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 292
+          "wave_index": 292,
+          "pitch_offset": 4034,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         }
       ]
     },
@@ -1807,32 +2939,56 @@
         {
           "key_min": 21,
           "key_max": 63,
-          "wave_index": 227
+          "wave_index": 227,
+          "pitch_offset": 4228,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 228
+          "wave_index": 228,
+          "pitch_offset": 3495,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 229
+          "wave_index": 229,
+          "pitch_offset": 2660,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 230
+          "wave_index": 230,
+          "pitch_offset": 2002,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 82,
           "key_max": 89,
-          "wave_index": 231
+          "wave_index": 231,
+          "pitch_offset": 1186,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 89,
           "key_max": 108,
-          "wave_index": 232
+          "wave_index": 232,
+          "pitch_offset": 1730,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         }
       ]
     },
@@ -1843,67 +2999,119 @@
         {
           "key_min": 21,
           "key_max": 50,
-          "wave_index": 146
+          "wave_index": 146,
+          "pitch_offset": 6204,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 51,
           "key_max": 53,
-          "wave_index": 150
+          "wave_index": 150,
+          "pitch_offset": 5812,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 54,
           "key_max": 58,
-          "wave_index": 153
+          "wave_index": 153,
+          "pitch_offset": 5318,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 59,
           "key_max": 59,
-          "wave_index": 143
+          "wave_index": 143,
+          "pitch_offset": 5076,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 60,
           "key_max": 62,
-          "wave_index": 147
+          "wave_index": 147,
+          "pitch_offset": 4706,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 63,
           "key_max": 65,
-          "wave_index": 151
+          "wave_index": 151,
+          "pitch_offset": 4321,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 66,
           "key_max": 68,
-          "wave_index": 154
+          "wave_index": 154,
+          "pitch_offset": 3893,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 69,
           "key_max": 71,
-          "wave_index": 144
+          "wave_index": 144,
+          "pitch_offset": 3497,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 72,
           "key_max": 74,
-          "wave_index": 148
+          "wave_index": 148,
+          "pitch_offset": 3119,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 75,
           "key_max": 77,
-          "wave_index": 152
+          "wave_index": 152,
+          "pitch_offset": 2726,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 78,
           "key_max": 80,
-          "wave_index": 155
+          "wave_index": 155,
+          "pitch_offset": 2393,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 81,
           "key_max": 83,
-          "wave_index": 145
+          "wave_index": 145,
+          "pitch_offset": 2088,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 84,
           "key_max": 108,
-          "wave_index": 149
+          "wave_index": 149,
+          "pitch_offset": 1732,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -1914,37 +3122,65 @@
         {
           "key_min": 36,
           "key_max": 48,
-          "wave_index": 233
+          "wave_index": 233,
+          "pitch_offset": 6301,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 49,
           "key_max": 52,
-          "wave_index": 234
+          "wave_index": 234,
+          "pitch_offset": 5781,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 53,
           "key_max": 58,
-          "wave_index": 235
+          "wave_index": 235,
+          "pitch_offset": 5053,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 59,
           "key_max": 65,
-          "wave_index": 237
+          "wave_index": 237,
+          "pitch_offset": 4165,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 66,
           "key_max": 71,
-          "wave_index": 236
+          "wave_index": 236,
+          "pitch_offset": 3218,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 72,
           "key_max": 81,
-          "wave_index": 238
+          "wave_index": 238,
+          "pitch_offset": 2462,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 82,
           "key_max": 108,
-          "wave_index": 239
+          "wave_index": 239,
+          "pitch_offset": 1421,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         }
       ]
     },
@@ -1955,22 +3191,38 @@
         {
           "key_min": 21,
           "key_max": 45,
-          "wave_index": 223
+          "wave_index": 223,
+          "pitch_offset": 6714,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 46,
           "key_max": 52,
-          "wave_index": 225
+          "wave_index": 225,
+          "pitch_offset": 5552,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 53,
           "key_max": 57,
-          "wave_index": 226
+          "wave_index": 226,
+          "pitch_offset": 5178,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 58,
           "key_max": 108,
-          "wave_index": 224
+          "wave_index": 224,
+          "pitch_offset": 4437,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         }
       ]
     },
@@ -1981,32 +3233,56 @@
         {
           "key_min": 21,
           "key_max": 60,
-          "wave_index": 66
+          "wave_index": 66,
+          "pitch_offset": 4493,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         },
         {
           "key_min": 61,
           "key_max": 67,
-          "wave_index": 68
+          "wave_index": 68,
+          "pitch_offset": 3702,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 68,
           "key_max": 73,
-          "wave_index": 67
+          "wave_index": 67,
+          "pitch_offset": 2956,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 74,
           "key_max": 79,
-          "wave_index": 70
+          "wave_index": 70,
+          "pitch_offset": 2166,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 80,
           "key_max": 85,
-          "wave_index": 69
+          "wave_index": 69,
+          "pitch_offset": 1420,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 86,
           "key_max": 108,
-          "wave_index": 71
+          "wave_index": 71,
+          "pitch_offset": 630,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         }
       ]
     },
@@ -2017,17 +3293,29 @@
         {
           "key_min": 21,
           "key_max": 56,
-          "wave_index": 60
+          "wave_index": 60,
+          "pitch_offset": 5098,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 57,
           "key_max": 62,
-          "wave_index": 59
+          "wave_index": 59,
+          "pitch_offset": 4291,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 63,
           "key_max": 108,
-          "wave_index": 61
+          "wave_index": 61,
+          "pitch_offset": 3540,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         }
       ]
     },
@@ -2038,17 +3326,29 @@
         {
           "key_min": 21,
           "key_max": 34,
-          "wave_index": 56
+          "wave_index": 56,
+          "pitch_offset": 7833,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 198
         },
         {
           "key_min": 35,
           "key_max": 46,
-          "wave_index": 58
+          "wave_index": 58,
+          "pitch_offset": 7070,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 198
         },
         {
           "key_min": 47,
           "key_max": 108,
-          "wave_index": 57
+          "wave_index": 57,
+          "pitch_offset": 6302,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 198
         }
       ]
     },
@@ -2059,22 +3359,38 @@
         {
           "key_min": 21,
           "key_max": 59,
-          "wave_index": 158
+          "wave_index": 158,
+          "pitch_offset": 5900,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 60,
           "key_max": 65,
-          "wave_index": 160
+          "wave_index": 160,
+          "pitch_offset": 5158,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 66,
           "key_max": 74,
-          "wave_index": 159
+          "wave_index": 159,
+          "pitch_offset": 4260,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 75,
           "key_max": 108,
-          "wave_index": 161
+          "wave_index": 161,
+          "pitch_offset": 2957,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         }
       ]
     },
@@ -2085,27 +3401,47 @@
         {
           "key_min": 21,
           "key_max": 64,
-          "wave_index": 113
+          "wave_index": 113,
+          "pitch_offset": 4803,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         },
         {
           "key_min": 65,
           "key_max": 77,
-          "wave_index": 114
+          "wave_index": 114,
+          "pitch_offset": 3314,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         },
         {
           "key_min": 78,
           "key_max": 83,
-          "wave_index": 115
+          "wave_index": 115,
+          "pitch_offset": 1731,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         },
         {
           "key_min": 84,
           "key_max": 95,
-          "wave_index": 116
+          "wave_index": 116,
+          "pitch_offset": 2085,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         },
         {
           "key_min": 96,
           "key_max": 108,
-          "wave_index": 117
+          "wave_index": 117,
+          "pitch_offset": 1421,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         }
       ]
     },
@@ -2116,17 +3452,29 @@
         {
           "key_min": 21,
           "key_max": 64,
-          "wave_index": 113
+          "wave_index": 113,
+          "pitch_offset": 4803,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 65,
           "key_max": 77,
-          "wave_index": 114
+          "wave_index": 114,
+          "pitch_offset": 3314,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 78,
           "key_max": 108,
-          "wave_index": 115
+          "wave_index": 115,
+          "pitch_offset": 1731,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 230
         }
       ]
     },
@@ -2137,7 +3485,11 @@
         {
           "key_min": 21,
           "key_max": 111,
-          "wave_index": 189
+          "wave_index": 189,
+          "pitch_offset": 4897,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 236
         }
       ]
     },
@@ -2148,7 +3500,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 119
+          "wave_index": 119,
+          "pitch_offset": 2359,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 222
         }
       ]
     },
@@ -2159,12 +3515,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 119
+          "wave_index": 119,
+          "pitch_offset": 2359,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 293
+          "wave_index": 293,
+          "pitch_offset": 7372,
+          "key_scaling": 100,
+          "tone_attenuate": 30,
+          "volume_factor": 128
         }
       ]
     },
@@ -2175,12 +3539,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 171
+          "wave_index": 171,
+          "pitch_offset": 4548,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 118
+          "wave_index": 118,
+          "pitch_offset": 3716,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 162
         }
       ]
     },
@@ -2191,7 +3563,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 170
+          "wave_index": 170,
+          "pitch_offset": 1731,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         }
       ]
     },
@@ -2202,7 +3578,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 170
+          "wave_index": 170,
+          "pitch_offset": 1731,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         }
       ]
     },
@@ -2213,62 +3593,110 @@
         {
           "key_min": 1,
           "key_max": 42,
-          "wave_index": 204
+          "wave_index": 204,
+          "pitch_offset": 9853,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 43,
           "key_max": 54,
-          "wave_index": 205
+          "wave_index": 205,
+          "pitch_offset": 6785,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 55,
           "key_max": 66,
-          "wave_index": 202
+          "wave_index": 202,
+          "pitch_offset": 5248,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 67,
           "key_max": 78,
-          "wave_index": 207
+          "wave_index": 207,
+          "pitch_offset": 3713,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 79,
           "key_max": 90,
-          "wave_index": 206
+          "wave_index": 206,
+          "pitch_offset": 2176,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 91,
           "key_max": 127,
-          "wave_index": 203
+          "wave_index": 203,
+          "pitch_offset": 640,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 1,
           "key_max": 42,
-          "wave_index": 204
+          "wave_index": 204,
+          "pitch_offset": 9853,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 43,
           "key_max": 54,
-          "wave_index": 205
+          "wave_index": 205,
+          "pitch_offset": 6785,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 55,
           "key_max": 66,
-          "wave_index": 202
+          "wave_index": 202,
+          "pitch_offset": 5248,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 67,
           "key_max": 78,
-          "wave_index": 207
+          "wave_index": 207,
+          "pitch_offset": 3713,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 79,
           "key_max": 90,
-          "wave_index": 206
+          "wave_index": 206,
+          "pitch_offset": 2176,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 91,
           "key_max": 127,
-          "wave_index": 203
+          "wave_index": 203,
+          "pitch_offset": 640,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         }
       ]
     },
@@ -2279,122 +3707,218 @@
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9108,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8345,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7570,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6809,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6047,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5282,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4525,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3746,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3017,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2171,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 94,
           "key_max": 102,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1426,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 103,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -110,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9108,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8345,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7570,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6809,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6047,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5282,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4525,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3746,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3017,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2171,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 94,
           "key_max": 102,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1426,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 103,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -110,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         }
       ]
     },
@@ -2405,12 +3929,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 170
+          "wave_index": 170,
+          "pitch_offset": 1731,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 118
+          "wave_index": 118,
+          "pitch_offset": 3716,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 182
         }
       ]
     },
@@ -2421,12 +3953,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 314
+          "wave_index": 314,
+          "pitch_offset": 3665,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 254
+          "wave_index": 254,
+          "pitch_offset": 3660,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -2437,72 +3977,128 @@
         {
           "key_min": 0,
           "key_max": 64,
-          "wave_index": 165
+          "wave_index": 165,
+          "pitch_offset": 6594,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 186
         },
         {
           "key_min": 65,
           "key_max": 127,
-          "wave_index": 166
+          "wave_index": 166,
+          "pitch_offset": 5433,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 186
         },
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9098,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8335,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7560,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6799,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6037,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5272,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4515,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3736,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3007,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2161,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 94,
           "key_max": 102,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1416,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 103,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -120,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         }
       ]
     },
@@ -2513,12 +4109,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 170
+          "wave_index": 170,
+          "pitch_offset": 1739,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 140
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 42
+          "wave_index": 42,
+          "pitch_offset": 3474,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 216
         }
       ]
     },
@@ -2529,67 +4133,119 @@
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 8468,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 7705,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 6930,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6169,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 5407,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 4642,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 3885,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3106,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 2377,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 1531,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 94,
           "key_max": 100,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 786,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 101,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -750,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         },
         {
           "key_min": 5,
           "key_max": 113,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4503,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 184
         }
       ]
     },
@@ -2600,67 +4256,119 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 279
+          "wave_index": 279,
+          "pitch_offset": 8109,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9097,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8334,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7559,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6798,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6036,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5271,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4514,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3735,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3006,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2160,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 94,
           "key_max": 102,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1415,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         },
         {
           "key_min": 103,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -121,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 188
         }
       ]
     },
@@ -2671,12 +4379,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4501,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 164
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 243
+          "wave_index": 243,
+          "pitch_offset": 4253,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 140
         }
       ]
     },
@@ -2687,12 +4403,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 78
+          "wave_index": 78,
+          "pitch_offset": 5306,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 146
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 41
+          "wave_index": 41,
+          "pitch_offset": 3575,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     },
@@ -2703,67 +4427,119 @@
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 280
+          "wave_index": 280,
+          "pitch_offset": 9111,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 281
+          "wave_index": 281,
+          "pitch_offset": 8348,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 282
+          "wave_index": 282,
+          "pitch_offset": 7573,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 283
+          "wave_index": 283,
+          "pitch_offset": 6812,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 284
+          "wave_index": 284,
+          "pitch_offset": 6050,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 285
+          "wave_index": 285,
+          "pitch_offset": 5285,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 286
+          "wave_index": 286,
+          "pitch_offset": 4528,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 287
+          "wave_index": 287,
+          "pitch_offset": 3749,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 288
+          "wave_index": 288,
+          "pitch_offset": 3020,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 289
+          "wave_index": 289,
+          "pitch_offset": 2174,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 94,
           "key_max": 102,
-          "wave_index": 290
+          "wave_index": 290,
+          "pitch_offset": 1429,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 103,
           "key_max": 127,
-          "wave_index": 291
+          "wave_index": 291,
+          "pitch_offset": -107,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 292
+          "wave_index": 292,
+          "pitch_offset": 4024,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         }
       ]
     },
@@ -2774,27 +4550,47 @@
         {
           "key_min": 21,
           "key_max": 58,
-          "wave_index": 24
+          "wave_index": 24,
+          "pitch_offset": 5010,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 176
         },
         {
           "key_min": 59,
           "key_max": 64,
-          "wave_index": 25
+          "wave_index": 25,
+          "pitch_offset": 4370,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 176
         },
         {
           "key_min": 65,
           "key_max": 71,
-          "wave_index": 26
+          "wave_index": 26,
+          "pitch_offset": 3478,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 176
         },
         {
           "key_min": 72,
           "key_max": 108,
-          "wave_index": 27
+          "wave_index": 27,
+          "pitch_offset": 2197,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 176
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 42
+          "wave_index": 42,
+          "pitch_offset": 3482,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 152
         }
       ]
     },
@@ -2805,12 +4601,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 257
+          "wave_index": 257,
+          "pitch_offset": 4790,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 170
+          "wave_index": 170,
+          "pitch_offset": 1720,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 148
         }
       ]
     },
@@ -2821,27 +4625,47 @@
         {
           "key_min": 21,
           "key_max": 49,
-          "wave_index": 12
+          "wave_index": 12,
+          "pitch_offset": 6943,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 160
         },
         {
           "key_min": 50,
           "key_max": 56,
-          "wave_index": 13
+          "wave_index": 13,
+          "pitch_offset": 5416,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 160
         },
         {
           "key_min": 57,
           "key_max": 71,
-          "wave_index": 14
+          "wave_index": 14,
+          "pitch_offset": 4385,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 160
         },
         {
           "key_min": 72,
           "key_max": 108,
-          "wave_index": 15
+          "wave_index": 15,
+          "pitch_offset": 2849,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 160
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 63
+          "wave_index": 63,
+          "pitch_offset": 4224,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 156
         }
       ]
     },
@@ -2852,12 +4676,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 292
+          "wave_index": 292,
+          "pitch_offset": 4038,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 166
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 42
+          "wave_index": 42,
+          "pitch_offset": 3471,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         }
       ]
     },
@@ -2868,122 +4700,218 @@
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 211
+          "wave_index": 211,
+          "pitch_offset": 9100,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 218
+          "wave_index": 218,
+          "pitch_offset": 8341,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 212
+          "wave_index": 212,
+          "pitch_offset": 7564,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 219
+          "wave_index": 219,
+          "pitch_offset": 6791,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 213
+          "wave_index": 213,
+          "pitch_offset": 6048,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 220
+          "wave_index": 220,
+          "pitch_offset": 5263,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 214
+          "wave_index": 214,
+          "pitch_offset": 4499,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 221
+          "wave_index": 221,
+          "pitch_offset": 3747,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 215
+          "wave_index": 215,
+          "pitch_offset": 3018,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 222
+          "wave_index": 222,
+          "pitch_offset": 2173,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 94,
           "key_max": 99,
-          "wave_index": 216
+          "wave_index": 216,
+          "pitch_offset": 1427,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 100,
           "key_max": 127,
-          "wave_index": 217
+          "wave_index": 217,
+          "pitch_offset": -109,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 1,
           "key_max": 39,
-          "wave_index": 211
+          "wave_index": 211,
+          "pitch_offset": 9100,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 40,
           "key_max": 45,
-          "wave_index": 218
+          "wave_index": 218,
+          "pitch_offset": 8341,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 46,
           "key_max": 51,
-          "wave_index": 212
+          "wave_index": 212,
+          "pitch_offset": 7564,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 52,
           "key_max": 57,
-          "wave_index": 219
+          "wave_index": 219,
+          "pitch_offset": 6791,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 58,
           "key_max": 63,
-          "wave_index": 213
+          "wave_index": 213,
+          "pitch_offset": 6048,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 64,
           "key_max": 69,
-          "wave_index": 220
+          "wave_index": 220,
+          "pitch_offset": 5263,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 70,
           "key_max": 75,
-          "wave_index": 214
+          "wave_index": 214,
+          "pitch_offset": 4499,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 76,
           "key_max": 81,
-          "wave_index": 221
+          "wave_index": 221,
+          "pitch_offset": 3747,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 82,
           "key_max": 87,
-          "wave_index": 215
+          "wave_index": 215,
+          "pitch_offset": 3018,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 88,
           "key_max": 93,
-          "wave_index": 222
+          "wave_index": 222,
+          "pitch_offset": 2173,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 94,
           "key_max": 99,
-          "wave_index": 216
+          "wave_index": 216,
+          "pitch_offset": 1427,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         },
         {
           "key_min": 100,
           "key_max": 127,
-          "wave_index": 217
+          "wave_index": 217,
+          "pitch_offset": -109,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         }
       ]
     },
@@ -2994,12 +4922,20 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 78
+          "wave_index": 78,
+          "pitch_offset": 9345,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 323
+          "wave_index": 323,
+          "pitch_offset": 5586,
+          "key_scaling": 20,
+          "tone_attenuate": 0,
+          "volume_factor": 110
         }
       ]
     },
@@ -3010,12 +4946,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4501,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 182
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 243
+          "wave_index": 243,
+          "pitch_offset": 1160,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 168
         }
       ]
     },
@@ -3026,22 +4970,38 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 243
+          "wave_index": 243,
+          "pitch_offset": 1826,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 184
         },
         {
           "key_min": 21,
           "key_max": 44,
-          "wave_index": 109
+          "wave_index": 109,
+          "pitch_offset": 7454,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 45,
           "key_max": 54,
-          "wave_index": 110
+          "wave_index": 110,
+          "pitch_offset": 5925,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 172
         },
         {
           "key_min": 55,
           "key_max": 108,
-          "wave_index": 111
+          "wave_index": 111,
+          "pitch_offset": 4403,
+          "key_scaling": 100,
+          "tone_attenuate": 9,
+          "volume_factor": 172
         }
       ]
     },
@@ -3052,32 +5012,56 @@
         {
           "key_min": 5,
           "key_max": 113,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4509,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 21,
           "key_max": 47,
-          "wave_index": 179
+          "wave_index": 179,
+          "pitch_offset": 6964,
+          "key_scaling": 100,
+          "tone_attenuate": 5,
+          "volume_factor": 194
         },
         {
           "key_min": 48,
           "key_max": 54,
-          "wave_index": 183
+          "wave_index": 183,
+          "pitch_offset": 5567,
+          "key_scaling": 100,
+          "tone_attenuate": 12,
+          "volume_factor": 194
         },
         {
           "key_min": 55,
           "key_max": 60,
-          "wave_index": 181
+          "wave_index": 181,
+          "pitch_offset": 4653,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 61,
           "key_max": 67,
-          "wave_index": 180
+          "wave_index": 180,
+          "pitch_offset": 3892,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 68,
           "key_max": 96,
-          "wave_index": 182
+          "wave_index": 182,
+          "pitch_offset": 2723,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -3088,12 +5072,20 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 311
+          "wave_index": 311,
+          "pitch_offset": 5285,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 42
+          "wave_index": 42,
+          "pitch_offset": 3481,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         }
       ]
     },
@@ -3104,12 +5096,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4501,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 9
+          "wave_index": 9,
+          "pitch_offset": 9679,
+          "key_scaling": 20,
+          "tone_attenuate": 0,
+          "volume_factor": 60
         }
       ]
     },
@@ -3120,12 +5120,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 42
+          "wave_index": 42,
+          "pitch_offset": 3487,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 292
+          "wave_index": 292,
+          "pitch_offset": 4027,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 174
         }
       ]
     },
@@ -3136,27 +5144,47 @@
         {
           "key_min": 21,
           "key_max": 49,
-          "wave_index": 12
+          "wave_index": 12,
+          "pitch_offset": 6940,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 50,
           "key_max": 56,
-          "wave_index": 13
+          "wave_index": 13,
+          "pitch_offset": 5413,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 57,
           "key_max": 71,
-          "wave_index": 14
+          "wave_index": 14,
+          "pitch_offset": 4382,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 72,
           "key_max": 108,
-          "wave_index": 15
+          "wave_index": 15,
+          "pitch_offset": 2846,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 2
+          "wave_index": 2,
+          "pitch_offset": 4498,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 212
         }
       ]
     },
@@ -3167,7 +5195,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 271
+          "wave_index": 271,
+          "pitch_offset": 4408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         }
       ]
     },
@@ -3178,32 +5210,56 @@
         {
           "key_min": 21,
           "key_max": 52,
-          "wave_index": 19
+          "wave_index": 19,
+          "pitch_offset": 5685,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 53,
           "key_max": 56,
-          "wave_index": 20
+          "wave_index": 20,
+          "pitch_offset": 5009,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 57,
           "key_max": 60,
-          "wave_index": 18
+          "wave_index": 18,
+          "pitch_offset": 4520,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 61,
           "key_max": 68,
-          "wave_index": 21
+          "wave_index": 21,
+          "pitch_offset": 3622,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 69,
           "key_max": 76,
-          "wave_index": 23
+          "wave_index": 23,
+          "pitch_offset": 2661,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 77,
           "key_max": 109,
-          "wave_index": 22
+          "wave_index": 22,
+          "pitch_offset": 1632,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         }
       ]
     },
@@ -3214,7 +5270,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 270
+          "wave_index": 270,
+          "pitch_offset": 3273,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         }
       ]
     },
@@ -3225,7 +5285,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 169
+          "wave_index": 169,
+          "pitch_offset": 4033,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 198
         }
       ]
     },
@@ -3236,7 +5300,11 @@
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 311
+          "wave_index": 311,
+          "pitch_offset": 3749,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         }
       ]
     },
@@ -3247,17 +5315,29 @@
         {
           "key_min": 21,
           "key_max": 57,
-          "wave_index": 164
+          "wave_index": 164,
+          "pitch_offset": 7683,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 192
         },
         {
           "key_min": 21,
           "key_max": 57,
-          "wave_index": 167
+          "wave_index": 167,
+          "pitch_offset": 7680,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 170
         },
         {
           "key_min": 58,
           "key_max": 108,
-          "wave_index": 168
+          "wave_index": 168,
+          "pitch_offset": 3697,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 170
         }
       ]
     },
@@ -3268,52 +5348,92 @@
         {
           "key_min": 21,
           "key_max": 58,
-          "wave_index": 261
+          "wave_index": 261,
+          "pitch_offset": 5158,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 59,
           "key_max": 63,
-          "wave_index": 258
+          "wave_index": 258,
+          "pitch_offset": 4754,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 64,
           "key_max": 65,
-          "wave_index": 262
+          "wave_index": 262,
+          "pitch_offset": 4132,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 66,
           "key_max": 68,
-          "wave_index": 263
+          "wave_index": 263,
+          "pitch_offset": 4033,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 69,
           "key_max": 71,
-          "wave_index": 264
+          "wave_index": 264,
+          "pitch_offset": 3580,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 72,
           "key_max": 74,
-          "wave_index": 266
+          "wave_index": 266,
+          "pitch_offset": 2957,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 75,
           "key_max": 76,
-          "wave_index": 267
+          "wave_index": 267,
+          "pitch_offset": 2724,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 77,
           "key_max": 78,
-          "wave_index": 268
+          "wave_index": 268,
+          "pitch_offset": 2530,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 79,
           "key_max": 81,
-          "wave_index": 269
+          "wave_index": 269,
+          "pitch_offset": 2166,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 82,
           "key_max": 108,
-          "wave_index": 265
+          "wave_index": 265,
+          "pitch_offset": 1825,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         }
       ]
     },
@@ -3324,7 +5444,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 65
+          "wave_index": 65,
+          "pitch_offset": 6946,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         }
       ]
     },
@@ -3335,12 +5459,20 @@
         {
           "key_min": 21,
           "key_max": 115,
-          "wave_index": 243
+          "wave_index": 243,
+          "pitch_offset": 1821,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 200
         },
         {
           "key_min": 0,
           "key_max": 127,
-          "wave_index": 311
+          "wave_index": 311,
+          "pitch_offset": 5669,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 102
         }
       ]
     },
@@ -3351,7 +5483,11 @@
         {
           "key_min": 21,
           "key_max": 116,
-          "wave_index": 11
+          "wave_index": 11,
+          "pitch_offset": 2474,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 210
         }
       ]
     },
@@ -3362,12 +5498,20 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 254
+          "wave_index": 254,
+          "pitch_offset": 3670,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 202
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 256
+          "wave_index": 256,
+          "pitch_offset": 9602,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 84
         }
       ]
     },
@@ -3378,7 +5522,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 44
+          "wave_index": 44,
+          "pitch_offset": 2963,
+          "key_scaling": 50,
+          "tone_attenuate": 7,
+          "volume_factor": 212
         }
       ]
     },
@@ -3389,7 +5537,11 @@
         {
           "key_min": 19,
           "key_max": 108,
-          "wave_index": 62
+          "wave_index": 62,
+          "pitch_offset": 1194,
+          "key_scaling": 50,
+          "tone_attenuate": 0,
+          "volume_factor": 170
         }
       ]
     },
@@ -3400,7 +5552,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 199
+          "wave_index": 199,
+          "pitch_offset": 6418,
+          "key_scaling": 50,
+          "tone_attenuate": 0,
+          "volume_factor": 228
         }
       ]
     },
@@ -3411,7 +5567,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 38
+          "wave_index": 38,
+          "pitch_offset": 3898,
+          "key_scaling": 50,
+          "tone_attenuate": 0,
+          "volume_factor": 208
         }
       ]
     },
@@ -3422,7 +5582,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 49
+          "wave_index": 49,
+          "pitch_offset": 4138,
+          "key_scaling": 50,
+          "tone_attenuate": 0,
+          "volume_factor": 254
         }
       ]
     },
@@ -3433,7 +5597,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 312
+          "wave_index": 312,
+          "pitch_offset": 5266,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 160
         }
       ]
     },
@@ -3444,7 +5612,11 @@
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 293
+          "wave_index": 293,
+          "pitch_offset": 4269,
+          "key_scaling": 100,
+          "tone_attenuate": 30,
+          "volume_factor": 208
         }
       ]
     },
@@ -3455,12 +5627,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 8
+          "wave_index": 8,
+          "pitch_offset": 2965,
+          "key_scaling": 20,
+          "tone_attenuate": 0,
+          "volume_factor": 254
         },
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 55
+          "wave_index": 55,
+          "pitch_offset": 4394,
+          "key_scaling": 20,
+          "tone_attenuate": 20,
+          "volume_factor": 254
         }
       ]
     },
@@ -3471,12 +5651,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 9
+          "wave_index": 9,
+          "pitch_offset": 8078,
+          "key_scaling": 5,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 9
+          "wave_index": 9,
+          "pitch_offset": 8078,
+          "key_scaling": 5,
+          "tone_attenuate": 0,
+          "volume_factor": 194
         }
       ]
     },
@@ -3487,7 +5675,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 3
+          "wave_index": 3,
+          "pitch_offset": 3602,
+          "key_scaling": 10,
+          "tone_attenuate": 0,
+          "volume_factor": 206
         }
       ]
     },
@@ -3498,12 +5690,20 @@
         {
           "key_min": 12,
           "key_max": 127,
-          "wave_index": 1
+          "wave_index": 1,
+          "pitch_offset": 2965,
+          "key_scaling": 10,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 1,
           "key_max": 127,
-          "wave_index": 55
+          "wave_index": 55,
+          "pitch_offset": 4394,
+          "key_scaling": 10,
+          "tone_attenuate": 68,
+          "volume_factor": 118
         }
       ]
     },
@@ -3514,12 +5714,20 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 54
+          "wave_index": 54,
+          "pitch_offset": 8273,
+          "key_scaling": 20,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         },
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 54
+          "wave_index": 54,
+          "pitch_offset": 8273,
+          "key_scaling": 20,
+          "tone_attenuate": 0,
+          "volume_factor": 196
         }
       ]
     },
@@ -3530,7 +5738,11 @@
         {
           "key_min": 21,
           "key_max": 108,
-          "wave_index": 313
+          "wave_index": 313,
+          "pitch_offset": 2858,
+          "key_scaling": 20,
+          "tone_attenuate": 0,
+          "volume_factor": 190
         }
       ]
     }

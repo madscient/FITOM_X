@@ -742,6 +742,67 @@ TEST_CASE("COPL4AWM writes the wave-number high bit (reg 0x20) before the "
     CHECK((port.regs[reg20] & 0x01) == 1);
 }
 
+// OPL4 AWMのFnumber/Octaveはymfm(extern/ymfm/src/ymfm_pcm.cpp)の
+// 「符号付き4bit octave(-8〜+7) + 1024〜2047正規化fnum」形式に従う必要が
+// あり、かつ波形ごとの校正値(SampleZone::pitchOffset/keyScaling、ALSAの
+// sound/drivers/opl4/yrw801.cから移植)を反映しなければならない
+// (2026年8月、ユーザー報告「AWMは音は出るが意図した波形と異なる」の
+// 調査で発覚。以前はOPN用のgetFnumberFromHz()を誤用しており、波形ごとの
+// 校正が反映されず、octaveも0〜7にクランプされ負のoctaveを表現できて
+// いなかった)。
+// ALSAのsnd_opl4_update_pitch()の基準点(note=60, pitch_offset=0,
+// key_scaling=100 → pitch=60*128=7680 → octave=7680/0x600-8=-3,
+// fnum=snd_opl4_pitch_map[0]=0)と一致することを、独立した手計算値で確認する。
+TEST_CASE("COPL4AWM Fnumber/Octave matches the ALSA opl4_synth.c reference "
+          "point and honors per-wave pitch calibration (pitch_offset)",
+          "[sounddevice][opl4]")
+{
+    RecordingPort port;
+    OffsetPort awmPort(&port, 0x200);
+    auto dev = createCOPL4AWM(&awmPort, 44100);
+    dev->init();
+
+    auto makePatch = [](int16_t pitchOffset) {
+        SampleZonePatch patch;
+        patch.id = 1;
+        SampleZone zone{};
+        zone.keyMin = 0; zone.keyMax = 127;
+        zone.waveIndex = 300;
+        zone.pitchOffset = pitchOffset;
+        zone.keyScaling = 100;
+        patch.zones.push_back(zone);
+        return patch;
+    };
+
+    // pitch_offset=0: ALSAの基準点そのもの。octave=-3(2の補数4bitで0xD)、fnum=0。
+    SampleZonePatch patch0 = makePatch(0);
+    uint8_t ch0 = dev->allocCh(nullptr, nullptr, 100, nullptr, &patch0);
+    REQUIRE(ch0 != 0xFF);
+    dev->setNoteFine(ch0, 60, 0, true);
+    dev->noteOn(ch0, 100);
+
+    const uint16_t reg38_0 = static_cast<uint16_t>(0x200 + 0x38 + ch0);
+    const uint16_t reg20_0 = static_cast<uint16_t>(0x200 + 0x20 + ch0);
+    CHECK(((port.regs[reg38_0] >> 4) & 0xF) == 0xD);      // octave=-3
+    CHECK((port.regs[reg38_0] & 0x07) == 0);              // fnum上位3bit=0
+    CHECK(((port.regs[reg20_0] >> 1) & 0x7F) == 0);       // fnum下位7bit=0
+
+    // pitch_offset=0x600(=1536、ちょうど1オクターブ分): 同じnote/key_scalingで
+    // octaveだけ+1され、fnumは変わらないはず(within=0のまま)。
+    SampleZonePatch patch1 = makePatch(0x600);
+    uint8_t ch1 = dev->allocCh(nullptr, nullptr, 100, nullptr, &patch1);
+    REQUIRE(ch1 != 0xFF);
+    REQUIRE(ch1 != ch0);
+    dev->setNoteFine(ch1, 60, 0, true);
+    dev->noteOn(ch1, 100);
+
+    const uint16_t reg38_1 = static_cast<uint16_t>(0x200 + 0x38 + ch1);
+    const uint16_t reg20_1 = static_cast<uint16_t>(0x200 + 0x20 + ch1);
+    CHECK(((port.regs[reg38_1] >> 4) & 0xF) == 0xE);      // octave=-2 (-3+1)
+    CHECK((port.regs[reg38_1] & 0x07) == 0);
+    CHECK(((port.regs[reg20_1] >> 1) & 0x7F) == 0);
+}
+
 // ユーザー報告(2026年7月): OPLビルトインリズムでバスドラム(BD)だけ発音せず、
 // 他4楽器(HH/SD/TOM/CYM)は正常に鳴る。COPLRhythm::writeOperatorRegs()が、
 // キャリア側のエンベロープ(AR/DR/SL/SR/RR)をVoiceProcessorから読む際、
