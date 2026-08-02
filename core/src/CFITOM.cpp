@@ -1377,23 +1377,26 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
     case 121: midicch->resetAllCtrl(); break;
     case 123: midicch->allNoteOff(); break;
     // RPN / NRPN
-    case 98:  rpn_[ch].reg = (rpn_[ch].reg & 0x3F80) | val; rpn_[ch].isNrpn = true;  break;
-    case 99:  rpn_[ch].reg = (rpn_[ch].reg & 0x007F) | (static_cast<uint16_t>(val) << 7); rpn_[ch].isNrpn = true; break;
-    case 100: rpn_[ch].reg = (rpn_[ch].reg & 0x3F80) | val; rpn_[ch].isNrpn = false; break;
-    case 101: rpn_[ch].reg = (rpn_[ch].reg & 0x007F) | (static_cast<uint16_t>(val) << 7); rpn_[ch].isNrpn = false; break;
+    // パラメータ番号を選び直したら、保持中のデータエントリー値は破棄する
+    // (CFITOM.h の RpnState コメント参照)。
+    case 98:  rpn_[ch].reg = (rpn_[ch].reg & 0x3F80) | val; rpn_[ch].isNrpn = true;  selectRpnParam(ch); break;
+    case 99:  rpn_[ch].reg = (rpn_[ch].reg & 0x007F) | (static_cast<uint16_t>(val) << 7); rpn_[ch].isNrpn = true; selectRpnParam(ch); break;
+    case 100: rpn_[ch].reg = (rpn_[ch].reg & 0x3F80) | val; rpn_[ch].isNrpn = false; selectRpnParam(ch); break;
+    case 101: rpn_[ch].reg = (rpn_[ch].reg & 0x007F) | (static_cast<uint16_t>(val) << 7); rpn_[ch].isNrpn = false; selectRpnParam(ch); break;
     case 6:   // Data Entry MSB
-    {
-        // RPN 7F/7F (RPN NULL): 明示的にRPN/NRPNの選択を解除する規格上の
-        // 値。この状態でData Entryを受けても何も適用しない
-        // (MIDI規格上の必須動作。現状はrpn_[ch].regの初期値も0x3FFFの
-        //  ため、未選択状態と区別できるようにするための明示ガード)。
-        if (rpn_[ch].reg == 0x3FFF) break;
-        uint16_t data = (static_cast<uint16_t>(val) << 7) | rpn_[ch].lsb;
-        if (rpn_[ch].isNrpn) midicch->setNRPNRegister(rpn_[ch].reg, data);
-        else                  midicch->setRPNRegister(rpn_[ch].reg, data);
+        rpn_[ch].msb = val;
+        rpn_[ch].msbReceived = true;
+        applyDataEntry(ch, midicch);
         break;
-    }
-    case 38: rpn_[ch].lsb = val; break; // Data Entry LSB
+    case 38:  // Data Entry LSB
+        rpn_[ch].lsb = val;
+        // MSB受信済みのときのみ、MSBと合成した14bit値で「上書き」適用する。
+        // これが無いと、CC#6→CC#38の通常の送信順でLSBが一切反映されない
+        // (2026年8月修正。RPN#1チャンネルファインチューニングのように
+        //  14bit全体を使うパラメータで、指定値と実際のピッチが食い違う
+        //  原因になっていた)。
+        applyDataEntry(ch, midicch);
+        break;
     case 96:  // Data Increment
         if (rpn_[ch].reg != 0x3FFF) midicch->dataIncrement(rpn_[ch].reg, rpn_[ch].isNrpn);
         break;
@@ -1406,6 +1409,27 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
         FITOM_LOG_DEBUG("CC#" << (int)cc << "=" << (int)val << " ch=" << (int)ch << " unhandled");
         break;
     }
+}
+
+void MidiProcessor::selectRpnParam(uint8_t ch)
+{
+    rpn_[ch].msb = 0;
+    rpn_[ch].lsb = 0;
+    rpn_[ch].msbReceived = false;
+}
+
+void MidiProcessor::applyDataEntry(uint8_t ch, IMidiCh* midicch)
+{
+    // RPN 7F/7F (RPN NULL): 明示的にRPN/NRPNの選択を解除する規格上の
+    // 値。この状態でData Entryを受けても何も適用しない
+    // (MIDI規格上の必須動作。現状はrpn_[ch].regの初期値も0x3FFFの
+    //  ため、未選択状態と区別できるようにするための明示ガード)。
+    if (rpn_[ch].reg == 0x3FFF) return;
+    // MSB未受信(CC#38単独)では適用しない。
+    if (!rpn_[ch].msbReceived) return;
+    uint16_t data = (static_cast<uint16_t>(rpn_[ch].msb) << 7) | rpn_[ch].lsb;
+    if (rpn_[ch].isNrpn) midicch->setNRPNRegister(rpn_[ch].reg, data);
+    else                 midicch->setRPNRegister(rpn_[ch].reg, data);
 }
 
 void MidiProcessor::processSysEx()

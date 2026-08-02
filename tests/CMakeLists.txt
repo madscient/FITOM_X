@@ -22,6 +22,7 @@ add_executable(fitom_tests
     test_plugin_loader.cpp
     test_config.cpp
     test_soundevice_freq.cpp
+    test_midi_tuning.cpp
     test_opl3_carrier.cpp
     test_voiceprocessor_lfo.cpp
 )
