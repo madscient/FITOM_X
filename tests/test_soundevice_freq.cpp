@@ -678,6 +678,70 @@ TEST_CASE("COPL4AWM writes land in the 0x200 high bank via OffsetPort, "
     }
 }
 
+// ymfm(pcm_engine::write(), extern/ymfm/src/ymfm_pcm.cpp。YMEngineが使う
+// エミュレーションコア)は、reg 0x08-0x1F(波形番号下位8bit)への書き込みで
+// 即座にload_wavetable()をトリガーし、その時点のreg 0x20+ch bit0(波形番号
+// 上位1bit)と組み合わせて9bit波形番号を確定させる。この順序を逆にする
+// (reg 0x08を先に書く)と、新しいノートのbit0が反映される前の(1つ前の
+// ノートの)bit0でロードがトリガーされ、意図した波形と256ずれた別の波形が
+// 鳴ってしまう(2026年7月、ユーザー報告「AWMの音は出るが意図した波形でない」
+// により発覚)。ALSAのopl4_synth.c(snd_opl4_note_on())でも
+// OPL4_REG_F_NUMBER(reg 0x20+ch)をOPL4_REG_TONE_NUMBER(reg 0x08+ch)より
+// 先に書いており、後者のコメントに明示的に「triggers header loading」と
+// 書かれている(実チップ・エミュレータ双方でこの順序が必須であることの
+// 裏付け)。
+TEST_CASE("COPL4AWM writes the wave-number high bit (reg 0x20) before the "
+          "low byte (reg 0x08) so ymfm's load-trigger sees the correct "
+          "combined wave number", "[sounddevice][opl4]")
+{
+    RecordingPort port;
+    OffsetPort awmPort(&port, 0x200);
+    auto dev = createCOPL4AWM(&awmPort, 44100);
+    dev->init();
+
+    SampleZonePatch patch;
+    patch.id = 1;
+    patch.zones.push_back(SampleZone{0, 63, 0, 127, 44});    // bit8=0
+    patch.zones.push_back(SampleZone{64, 127, 0, 127, 304}); // bit8=1 (0x130)
+
+    uint8_t ch = dev->allocCh(nullptr, nullptr, 100, nullptr, &patch);
+    REQUIRE(ch != 0xFF);
+
+    // 1本目: bit8=0の波形を鳴らし、reg 0x20 bit0を0で確定させておく。
+    dev->setNoteFine(ch, 40, 0, true);
+    dev->noteOn(ch, 100);
+    dev->noteOff(ch);
+
+    port.history.clear(); // 2本目のノートオンで実際に書かれるレジスタだけを見る
+
+    // 2本目: bit8=1の波形に切り替える。
+    dev->setNoteFine(ch, 90, 0, true);
+    dev->noteOn(ch, 100);
+
+    // reg 0x20はupdateFnumber()(Fnum bits、bit0保持)とupdateVoice()
+    // (bit0そのもの)の両方から書かれるため、「最初の」出現ではなく
+    // updateVoice()内で最後に書かれる箇所(=各レジスタへの最後の書き込み)
+    // で比較する必要がある(そうしないと、updateVoice()より前のupdateFnumber()
+    // による無関係なreg 0x20書き込みを誤って捉えてしまい、updateVoice()内の
+    // 順序バグを検出できない)。
+    const uint16_t reg20 = static_cast<uint16_t>(0x200 + 0x20 + ch);
+    const uint16_t reg08 = static_cast<uint16_t>(0x200 + 0x08 + ch);
+    int lastIdx20 = -1, lastIdx08 = -1;
+    for (size_t i = 0; i < port.history.size(); ++i) {
+        if (port.history[i].first == reg20) lastIdx20 = static_cast<int>(i);
+        if (port.history[i].first == reg08) lastIdx08 = static_cast<int>(i);
+    }
+    REQUIRE(lastIdx20 >= 0);
+    REQUIRE(lastIdx08 >= 0);
+    // updateVoice()内で、reg 0x20(bit8)への書き込みがreg 0x08(下位8bit、
+    // ロード起動)への書き込みより後にずれ込んでいないこと。
+    CHECK(lastIdx20 < lastIdx08);
+    // reg 0x08書き込み(ロード起動)の時点で、reg 0x20のbit0が既に新しい
+    // 波形の上位bitに更新されていること(=誤った波形番号でロードされていない
+    // ことの直接的な確認)。
+    CHECK((port.regs[reg20] & 0x01) == 1);
+}
+
 // ユーザー報告(2026年7月): OPLビルトインリズムでバスドラム(BD)だけ発音せず、
 // 他4楽器(HH/SD/TOM/CYM)は正常に鳴る。COPLRhythm::writeOperatorRegs()が、
 // キャリア側のエンベロープ(AR/DR/SL/SR/RR)をVoiceProcessorから読む際、

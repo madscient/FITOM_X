@@ -89,6 +89,23 @@ buildPhysicalChipList()`は物理ポート単位で表示サイズ(`dumpSize`)�
 ダンプの実バイト数から表示アドレス範囲・行数を動的に組み立てる設計のため、
 `dumpSize`さえ正しければGUI側の変更は不要。
 
+**波形番号レジスタ(reg 0x08/reg 0x20)の書き込み順**: `COPL4AWM::
+updateVoice()`(`core/src/OPL4.cpp`)は、波形番号の上位1bit(reg 0x20+ch
+bit0)を下位8bit(reg 0x08+ch)より**先に**書かなければならない。YMEngineが
+使うエミュレーションコア`ymfm`(`extern/ymfm/src/ymfm_pcm.cpp`の
+`pcm_engine::write()`)は、reg 0x08-0x1Fへの書き込みで即座に
+`load_wavetable()`をトリガーし、その時点のreg 0x20+ch bit0と組み合わせて
+9bit波形番号を確定させる。順序を逆にすると、新しい波形番号のbit8が反映
+される前(1つ前のノートのbit8のまま)でロードが実行され、意図した波形と
+256ずれた別の波形が鳴ってしまう(2026年8月、ユーザー報告「AWMは音は出るが
+意図した波形でない」により発覚)。ALSAの`sound/drivers/opl4/opl4_synth.c`
+(`snd_opl4_note_on()`)でも、`OPL4_REG_F_NUMBER`(reg 0x20+ch)を
+`OPL4_REG_TONE_NUMBER`(reg 0x08+ch)より先に書いており、後者の呼び出しに
+「triggers header loading」と明示的にコメントされている(実チップ・
+エミュレータ双方でこの順序が必須であることの裏付け)。この制約はOPN系の
+F-number書き込み(reg 0xA4[高位]→reg 0xA0[低位]の順で、低位バイト書き込みが
+確定トリガーになる設計)と同種のYamaha FMチップ共通の慣習でもある。
+
 ```cpp
 struct SubDeviceSpec {
     uint32_t    deviceType;
