@@ -288,7 +288,15 @@ private:
     struct NoteHist {
         uint8_t        layerIdx = 0xFF;
         uint8_t        devCh   = 0xFF;
+        // 受信したMIDIノート番号。NoteOffの一致判定に使う。
         uint8_t        note    = 0xFF;
+        // 実際にデバイスへ渡した(=鳴っている)ノート番号。ToneLayer.transpose
+        // とSwPatch.fineTransposeの半音成分を反映済みで、noteとは異なりうる。
+        // ピッチ再計算(applyPitchBendToAll)はこちらを使わなければならない
+        // (2026年8月、noteの方を渡していたため、トランスポーズを持つ
+        //  レイヤー/音色でピッチベンドやRPN受信の瞬間に音程が飛んでいた
+        //  バグの修正)。
+        uint8_t        devNote = 0xFF;
         ISoundDevice*  dev     = nullptr;
         // Sostenuto (CC#66): ペダル押下時に鳴っていたノートに立つフラグ。
         // true の間、MIDI NoteOff が来ても実際の noteOff() を遅延させる。
@@ -300,6 +308,12 @@ private:
         // イベントで生成された全レイヤーのエントリは同じ値を持つ
         // (noteOn()の先頭で1回だけ採番するため)。
         uint32_t seq = 0;
+        // SwPatch.fineTransposeの半音未満の端数(kfs単位)。レイヤーごとに
+        // 異なりうるためノートごとに保持する。noteOn()以降にピッチベンド
+        // やRPNで再計算(applyPitchBendToAll)が走った際、この端数を
+        // 取りこぼさないために必要(2026年8月、再計算のたびに端数が
+        // 消えていたバグの修正)。
+        int16_t swFineKfs = 0;
         bool isValid() const { return devCh != 0xFF; }
     };
     static constexpr int MAX_NOTES = 16;
@@ -308,7 +322,8 @@ private:
     uint32_t noteSeq_ = 0;  // enterNote()の発音順を追跡する単調増加カウンタ
 
     NoteHist* findNote(uint8_t note, int layerIdx = -1);
-    void enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev, uint32_t seq);
+    void enterNote(int layerIdx, uint8_t devCh, uint8_t note, uint8_t devNote,
+                   ISoundDevice* dev, uint32_t seq, int16_t swFineKfs);
 
     // ボイス数上限(voiceLimit_)によるスティール。noteOn()の先頭で、
     // 新しいノートを受け付ける前に呼ぶ。現在保持中の「ノート」
@@ -345,6 +360,16 @@ private:
     void applyPanpotToAll();
     void applyPitchBendToAll();
     void applyLFOToAll();
+    // チャンネル全体に共通のピッチオフセット(kfs単位、1半音=64)。
+    // ピッチベンド(CC#0のセンシティビティ込み)+ RPN#1チャンネル
+    // ファインチューニング + RPN#2チャンネルコースチューニングの合計。
+    // ノートごとに異なる成分(スケールチューニング・SwPatchの端数)は
+    // 含まないため、呼び出し側で加算する。noteOn()・applyPitchBendToAll()・
+    // ポルタメント更新の3経路が同じ値を使うための共通実装
+    // (2026年8月、3経路の計算式が食い違っていたバグの修正)。
+    int16_t commonFineKfs() const;
+    // Scale/Octave Tuning (Universal SysEx) のノート別オフセット(kfs単位)。
+    int16_t scaleTuningKfs(uint8_t note) const;
 
     // ─── MIDI チャンネル状態 ───────────────────────────────────────
     uint8_t  ch_;

@@ -115,11 +115,29 @@ private:
     void processControl(uint8_t ch, uint8_t cc, uint8_t val);
     void processRPN(uint8_t ch);
     void processNRPN(uint8_t ch);
+    // CC#98/99/100/101受信時: 保持中のデータエントリー値を破棄する。
+    void selectRpnParam(uint8_t ch);
+    // CC#6/CC#38受信時: 現在のMSB/LSBを14bit値へ合成して適用する。
+    void applyDataEntry(uint8_t ch, IMidiCh* midicch);
 
     // RPN / NRPN ステート
+    //
+    // データエントリーはCC#6(MSB)→CC#38(LSB)の順に送られるのが通常の
+    // MIDI送信順のため、CC#38受信時にも「MSBと合成した14bit値」で
+    // 再適用する必要がある(CC#6受信時にしか適用しないと、LSBが常に
+    // 1メッセージ分遅れて次のCC#6に紛れ込む)。そのためMSBも保持する。
+    //
+    // msb/lsbはパラメータ番号(CC#98/99/100/101)を選び直した時点で
+    // クリアする。クリアしないと、直前に別のパラメータへ書いた
+    // データエントリーの残骸が次のパラメータへ混入する。
+    // msbReceived_は「現在のreg選択後にCC#6を受け取ったか」。
+    // CC#38単独(MSB未受信)では適用しない — MSBを0とみなして適用すると
+    // 中央値0x2000が前提のRPN#1等でピッチが飛ぶため。
     struct RpnState {
         uint16_t reg  = 0x3FFF;
+        uint8_t  msb  = 0;
         uint8_t  lsb  = 0;
+        bool     msbReceived = false;
         bool     isNrpn = false;
     };
     std::array<RpnState, 16> rpn_;

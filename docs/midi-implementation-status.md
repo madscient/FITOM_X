@@ -60,7 +60,7 @@ GM2 規格を完全網羅するものではなく、意図的に対応範囲を�
 | RPN | 名称 | 状態 |
 |---|---|---|
 | 0x0000 | Pitch Bend Range | ✅ |
-| 0x0001 | Fine Tuning | ✅ (14bit全体を使用、±100cents相当) |
+| 0x0001 | Fine Tuning | ✅ (14bit全体を使用、中央値8192で±100cents。実効分解能は1半音=64kfsの粒度が上限で約1.5625cents/step、丸めは四捨五入) |
 | 0x0002 | Coarse Tuning | ✅ MSBのみ有効、±64semitones |
 | 0x0005 | Modulation Depth Range | ✅ |
 | 0x7F7F | RPN Null | ✅ Data Entry無効化 |
@@ -166,8 +166,29 @@ JSONのフィールドマージは`PatchManager::mergePatchFromJsonText()`/`merg
 により適用対象chを絞れる仕様だが、**現状はチャンネルマスクを読み飛ばし、
 常に全チャンネルへ適用する**簡略実装になっている。12半音(C,C#,D...B)ごとの
 centsオフセットは`CFITOM::scaleTuning_`にグローバル保持し、各`CInstCh`の
-`applyPitchBendToAll()`がノート(mod 12)に応じて加算する。`CRhythmCh`(ドラム
-チャンネル)には未適用。2byte形式(より高精度)は非対応。
+`scaleTuningKfs()`が「実際に鳴っているノート」(`NoteHist::devNote`。
+`ToneLayer.transpose`と`SwPatch.fineTranspose`の半音成分を適用済み)の
+mod 12で引く。`CRhythmCh`(ドラムチャンネル)には未適用。2byte形式
+(より高精度)は非対応。
+
+**チャンネルのピッチオフセット計算の一元化**: `CInstCh`が`setNoteFine()`へ
+渡すfine値(kfs単位、1半音=64)は、以下の3経路すべてが同じ内訳で計算する。
+経路ごとに計算式が食い違っていると、「発音直後」と「その後CC/RPNを受けた後」
+「ポルタメント中」でピッチが変わってしまうため、共通部分は
+`CInstCh::commonFineKfs()`に集約してある(2026年8月)。
+
+| 成分 | 実装 | 単位 |
+|---|---|---|
+| ピッチベンド × RPN#0センシティビティ | `commonFineKfs()` | kfs |
+| RPN#1 チャンネルファインチューニング(14bit) | `commonFineKfs()` | kfs |
+| RPN#2 チャンネルコースチューニング(MSBのみ) | `commonFineKfs()` | kfs |
+| Scale/Octave Tuning(ノート別) | `scaleTuningKfs(devNote)` | kfs |
+| `SwPatch.fineTranspose`の半音未満の端数 | `NoteHist::swFineKfs` | kfs |
+
+3経路とは`noteOn()`・`applyPitchBendToAll()`・`timerCallback()`の
+ポルタメント更新。また、`setNoteFine()`へ渡すノート番号は受信した
+MIDIノート(`NoteHist::note`、NoteOffの一致判定用)ではなく、必ず
+`NoteHist::devNote`(トランスポーズ適用後)を使う。
 
 ## Sustain (CC#64) のチップ依存実装
 

@@ -374,7 +374,9 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
                     // 下のallocChWithFallback経路にフォールバックさせる。
                     if (notes_[hi].dev && notes_[hi].dev->isChOwnedBy(notes_[hi].devCh, this)) {
                         devCh = notes_[hi].devCh;
-                        prevNote = notes_[hi].note;   // ポルタメント用に記録
+                        // ポルタメント用に記録。ポルタメントが扱うのは
+                        // 実際に鳴っているノート(トランスポーズ適用後)。
+                        prevNote = notes_[hi].devNote;
                         if (!legato_) dev->noteOff(devCh);
                     }
                     leaveNote(hi);
@@ -475,20 +477,24 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // portaActive の場合、上の portamento_.start() で isRunning()==true に
         // なっているため、ここでは即座に書き込まず timerCallback の
         // portamento_.update() に滑らかな追従を任せる。
+        // SwPatch.fineTransposeのセント端数部分をkfs単位に変換
+        // (fineFreq = 64kfs/半音)。noteOn以降の再計算でも使えるよう
+        // NoteHistへ保存する(enterNote参照)。
+        const int16_t swFineKfs = static_cast<int16_t>(swTransposeFineCents * 64 / 100);
+
         int16_t fine = 0; // kfs単位 (1半音=64ステップ、docs/terminology.md参照)
         if (!portaActive) {
-            // bendKfs/tuneKfs: 変数名の通りkfs単位(旧bendCents/tuneCentsから
-            // 改名。実体はプレーンなセントではなくkfsだったため、実体に
-            // 合わせて2026年7月にリネームした)。
-            int16_t bendKfs = static_cast<int16_t>(bendRange_)
-                             * (static_cast<int16_t>(pitchBend_ >> 7) - 64);
-            int16_t tuneKfs = static_cast<int16_t>(tuning_ >> 7) - 64;
-            fine = bendKfs + tuneKfs;
-            // SwPatch.fineTransposeのセント端数部分をkfs単位に変換して加算
-            // (fineFreq = 64kfs/半音)。
-            if (swTransposeFineCents != 0) {
-                fine = static_cast<int16_t>(fine + swTransposeFineCents * 64 / 100);
-            }
+            // ピッチベンド + RPN#1ファインチューニング + RPN#2コース
+            // チューニングはapplyPitchBendToAll()と共通の実装を使う
+            // (2026年8月修正。以前はここだけ独自に計算しており、
+            //  ファインチューニングをMSBのみで扱って下位7bitを捨て、
+            //  さらにコースチューニングとスケールチューニングを一切
+            //  加算していなかったため、発音直後と「その後CC/ベンドを
+            //  受けた後」でピッチが食い違っていた)。
+            fine = static_cast<int16_t>(
+                commonFineKfs()
+                + scaleTuningKfs(static_cast<uint8_t>(transposed))
+                + swFineKfs);
         }
         dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !portaActive);
 
@@ -508,7 +514,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             dev->setVelocity(devCh, vel);
         }
 
-        enterNote(li, devCh, note, dev, thisSeq);
+        enterNote(li, devCh, note, static_cast<uint8_t>(transposed), dev, thisSeq, swFineKfs);
     }
 }
 
@@ -1070,11 +1076,20 @@ void CInstCh::timerCallback(uint32_t tick)
     // 残留したグライド状態がポリの和音に影響しないことを保証する。
     if (mono_ && portamento_.isEnabled() && portamento_.isRunning()) {
         portamento_.update();
+        // グライド途中のピッチにも、チャンネル共通のオフセット
+        // (ピッチベンド/RPN#1/RPN#2)とノート別のオフセット
+        // (スケールチューニング/SwPatchの端数)を加算する。
+        // 2026年8月まではグライド分だけを書いており、ポルタメント中は
+        // これらのチューニングが丸ごと無視されていた。
+        const int16_t commonFine = commonFineKfs();
+        const uint8_t portaNote  = portamento_.getCurrentNote();
         for (int hi = 0; hi < MAX_NOTES; ++hi) {
             auto& h = notes_[hi];
             if (!h.isValid() || !h.dev) continue;
-            int16_t fine = static_cast<int16_t>(portamento_.getCurrentFine());
-            h.dev->setNoteFine(h.devCh, portamento_.getCurrentNote(), fine);
+            int16_t fine = static_cast<int16_t>(
+                static_cast<int16_t>(portamento_.getCurrentFine())
+                + commonFine + scaleTuningKfs(portaNote) + h.swFineKfs);
+            h.dev->setNoteFine(h.devCh, portaNote, fine);
         }
     }
 }
@@ -1159,16 +1174,19 @@ CInstCh::NoteHist* CInstCh::findNote(uint8_t note, int layerIdx)
     return nullptr;
 }
 
-void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice* dev, uint32_t seq)
+void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, uint8_t devNote,
+                        ISoundDevice* dev, uint32_t seq, int16_t swFineKfs)
 {
     // 空きスロットを探す
     for (auto& h : notes_) {
         if (!h.isValid()) {
-            h.layerIdx = static_cast<uint8_t>(layerIdx);
-            h.devCh    = devCh;
-            h.note     = note;
-            h.dev      = dev;
-            h.seq      = seq;
+            h.layerIdx  = static_cast<uint8_t>(layerIdx);
+            h.devCh     = devCh;
+            h.note      = note;
+            h.devNote   = devNote;
+            h.dev       = dev;
+            h.seq       = seq;
+            h.swFineKfs = swFineKfs;
             ++timbres_;
             return;
         }
@@ -1184,8 +1202,10 @@ void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, ISoundDevice*
     notes_[0].layerIdx = static_cast<uint8_t>(layerIdx);
     notes_[0].devCh    = devCh;
     notes_[0].note     = note;
+    notes_[0].devNote  = devNote;
     notes_[0].dev      = dev;
     notes_[0].seq      = seq;
+    notes_[0].swFineKfs = swFineKfs;
     notes_[0].sostenutoHeld  = false;
     notes_[0].pendingRelease = false;
     FITOM_LOG_DEBUG("CInstCh ch=" << (int)ch_ << ": note history overflow");
@@ -1270,33 +1290,48 @@ void CInstCh::applyPanpotToAll()
     }
 }
 
-void CInstCh::applyPitchBendToAll()
+int16_t CInstCh::commonFineKfs() const
 {
     // fineFreq(setNoteFineの引数)の単位は「1半音 = 64ステップ」
     // (CSoundDevice::getFnumberのindex計算: lastNote*64 + ... 参照)。
     // 以下、bendRange_[半音]の適用も含めて、全てこの単位系に揃える。
-    int16_t bendSteps = static_cast<int16_t>(bendRange_)
-                      * (static_cast<int16_t>(pitchBend_ >> 7) - 64);
+    int32_t bendSteps = static_cast<int32_t>(bendRange_)
+                      * (static_cast<int32_t>(pitchBend_ >> 7) - 64);
     // RPN#1 Channel Fine Tuning: 14bit全体(LSBまで)を使う。中心0x2000(8192)。
-    // MIDI規格上の範囲は概ね±100cents(=約±1半音=±64ステップ)。
-    int16_t fineTuneSteps = static_cast<int16_t>(
-        (static_cast<int32_t>(tuning_) - 8192) * 64 / 8192);
+    // MIDI規格上の範囲は±100cents(=1半音=64ステップ)。
+    // 分解能はkfsの粒度(1ステップ=100/64≒1.5625cents)が上限のため、
+    // 切り捨てではなく四捨五入で最も近いステップへ丸める(2026年8月修正。
+    // 以前は0方向への切り捨てで、指定値に対し常に最大1.56cents手前へ
+    // 寄る系統誤差があった)。
+    int32_t fineNum = (static_cast<int32_t>(tuning_) - 8192) * 64;
+    int32_t fineTuneSteps = (fineNum >= 0 ? (fineNum + 4096) : (fineNum - 4096)) / 8192;
     // RPN#2 Channel Coarse Tuning: MSBのみ有効。中心0x40(64)。
     // 範囲-64〜+63半音 → ×64でステップ数に変換。
-    int16_t coarseTuneSteps = static_cast<int16_t>(
-        (static_cast<int16_t>(coarseTune_ >> 7) - 64) * 64);
-    int16_t commonFine = bendSteps + fineTuneSteps + coarseTuneSteps;
+    int32_t coarseTuneSteps = (static_cast<int32_t>(coarseTune_ >> 7) - 64) * 64;
+    return static_cast<int16_t>(bendSteps + fineTuneSteps + coarseTuneSteps);
+}
+
+// Scale/Octave Tuning (Universal SysEx): ノート(音名, mod12)ごとに
+// 異なるcentsオフセットを持つため、共通分とは別にノートごとに加算する。
+// fineFreq単位(1半音=64ステップ)に変換。
+int16_t CInstCh::scaleTuningKfs(uint8_t note) const
+{
+    int16_t cents = fitom_ ? fitom_->getScaleTuningCents(note) : 0;
+    return static_cast<int16_t>(static_cast<int32_t>(cents) * 64 / 100);
+}
+
+void CInstCh::applyPitchBendToAll()
+{
+    const int16_t commonFine = commonFineKfs();
 
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (!h.isValid() || !h.dev) continue;
-        // Scale/Octave Tuning (Universal SysEx): ノート(音名, mod12)ごとに
-        // 異なるcentsオフセットを持つため、共通finalとは別にノートごとに
-        // 加算する。fineFreq単位(1半音=64ステップ)に変換。
-        int16_t scaleCents = fitom_ ? fitom_->getScaleTuningCents(h.note) : 0;
-        int16_t scaleSteps = static_cast<int16_t>(
-            static_cast<int32_t>(scaleCents) * 64 / 100);
-        h.dev->setNoteFine(h.devCh, h.note, commonFine + scaleSteps);
+        // 渡すノート番号はh.note(受信したMIDIノート)ではなくh.devNote
+        // (トランスポーズ適用後の実際に鳴っているノート)。スケール
+        // チューニングも、実際に鳴っているノートの音名(mod 12)で引く。
+        h.dev->setNoteFine(h.devCh, h.devNote,
+                           commonFine + scaleTuningKfs(h.devNote) + h.swFineKfs);
     }
 }
 
