@@ -67,19 +67,67 @@ public:
     }
 
 protected:
+    // OPL4 AWM(PCM)部のFnumber/Octaveは、OPN/OPM系FM合成のFnum位相累算器
+    // (getFnumberFromHz()が実装するもの)とは全く別物である。実際は
+    // ymfm(extern/ymfm/src/ymfm_pcm.cpp pcm_channel::cache_operator_data())が
+    //   int32_t octave = int8_t(ch_octave(choffs) << 4) >> 4;  // 符号付き4bit(-8〜+7)
+    //   step = ((0x400 | fnum) << (octave + 7)) >> 2;          // ROM上のバイトを
+    //                                                           // 1出力サンプルあたり
+    //                                                           // 何byte進めるか
+    // という「ROMバイトの消費レートを、符号付きoctaveで表すオクターブと
+    // 1024〜2047に正規化されたfnumで指数/仮数表現する」形式であり、
+    // Octave(reg 0x38 bit7-4)は0〜7にクランプされる不動小数点ではなく
+    // 符号付き4bit(2の補数)である(ALSAのsound/drivers/opl4/opl4_synth.c
+    // snd_opl4_update_pitch()も`octave = pitch/0x600 - 8`と明示的に符号付き
+    // 計算している)。
+    //
+    // さらに、ROM波形は「どのfnum/octaveで鳴らせば正しい絶対音高になるか」
+    // が波形ごとに実測でしか分からない(ROM側にそれを示す情報が無いため)。
+    // ALSAドライバはYRW801実機向けに実測したpitch_offset(100/128セント
+    // 単位)・key_scaling(%)をwave_index(tone)ごとに埋め込んだ表
+    // (sound/drivers/opl4/yrw801.c)を持ち、これをSampleZone::pitchOffset/
+    // keyScalingとして移植してある(config/profiles/opl4awm_yrw801_*.
+    // samplezonebank.json)。
+    //
+    // (2026年8月、ユーザー報告「AWMは音は出るが意図した波形と異なる」の
+    // 調査で判明。以前はgetFnumberFromHz()[OPN用]を誤用しており、
+    // 波形ごとの校正が全く反映されず、しかもoctaveが0〜7にクランプされて
+    // 負のoctaveを一切表現できていなかった)。
     ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
-        // OPL4のFnumberは10bit・Octave4bitのOPN/OPM系に近い形式。
-        // CAdPcmBaseが強制するFnumTableType::DeltaN用テーブルは使わず、
-        // OPL3と同じ11bit精度計算式を直接使う (getFnumberFromHz等と同系統)。
         ChState::Fnum ret;
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;
+
+        const SampleZone* zone = s.samplePatch
+            ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr;
+        double keyScaling       = zone ? static_cast<double>(zone->keyScaling) / 100.0 : 1.0;
+        double pitchOffset128th = zone ? static_cast<double>(zone->pitchOffset) : 0.0;
+
+        // s.fineFreq/offset/チャンネルLFOは「1/64セント」単位(他チップと共通の
+        // 規約)。ALSAと同じ「1/128半音」単位(100/128セント=0.78125セント)へ
+        // 変換する: (totalOffset/64セント) * (1半音/100セント) * 128 = totalOffset*128/6400。
         int32_t totalOffset = static_cast<int32_t>(s.fineFreq) + offset
                              + (s.proc.channelLfoActive() ? s.proc.channelLfoValue() : 0);
-        double semitone = (static_cast<double>(s.lastNote) - 69.0)
-                         + static_cast<double>(totalOffset) / 64.0 / 100.0;
-        double hz = 440.0 * std::pow(2.0, semitone / 12.0);
-        return getFnumberFromHz(hz);
+        double fineOffset128th = static_cast<double>(totalOffset) * 128.0 / 6400.0;
+
+        // ALSA snd_opl4_update_pitch()と同じ基準点(note=60, offset=0 →
+        // pitch=60*128=7680)からの計算式。
+        double pitch = (static_cast<double>(s.lastNote) - 60.0) * 128.0 * keyScaling
+                     + 60.0 * 128.0
+                     + pitchOffset128th
+                     + fineOffset128th;
+        pitch = std::clamp(pitch, 0.0, static_cast<double>(0x5fff));
+
+        int32_t ipitch  = static_cast<int32_t>(std::llround(pitch));
+        int32_t octave  = ipitch / 0x600 - 8;               // 符号付き(-8〜+7)
+        int32_t within  = ipitch % 0x600;                   // オクターブ内位置(0〜1535)
+        // snd_opl4_pitch_map[]と等価な閉形式(1024*(2^(x/1536)-1))。
+        double fnumD = 1024.0 * (std::pow(2.0, static_cast<double>(within) / 1536.0) - 1.0);
+
+        ret.fnum  = static_cast<uint16_t>(std::clamp<long long>(std::llround(fnumD), 0, 1023));
+        // 2の補数4bitとしてそのまま使われる(updateFreq()の`fnum.block & 0xF`参照)。
+        ret.block = static_cast<uint8_t>(octave);
+        return ret;
     }
 
     // 波形番号bit8(reg 0x20)を、下位8bit(reg 0x08)より先に書く必要がある。
@@ -118,12 +166,26 @@ protected:
                true);
     }
 
+    // toneAttenuate(加算)・volumeFactor(「最大からの余白」への乗算、
+    // 254=無補正)は波形ごとの音量校正値。ALSA snd_opl4_update_volume()
+    // (sound/drivers/opl4/yrw801.cのopl4_sound::tone_attenuate/
+    // volume_factor)と同じ規約で、CC#7/CC#11/velocity由来の減衰量
+    // (calcVolExpVel、GM準拠のdBログ加算)に対して波形固有の補正を
+    // 追加で適用する(2026年8月新設。GM楽器間の音量バランスを取るための
+    // 校正値で、無いと一部楽器が相対的に大きすぎ/小さすぎに聞こえる)。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
+        const SampleZone* zone = s.samplePatch
+            ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr;
         uint8_t loudness = fitom::calcVolExpVel(s.volume, s.expression, s.velocity);
-        uint8_t totalLevel = 127u - loudness; // 7bit、大きいほど減衰
+        int totalLevel = 127 - static_cast<int>(loudness); // 7bit、大きいほど減衰
+        if (zone) {
+            totalLevel += zone->toneAttenuate;
+            totalLevel = 127 - (127 - totalLevel) * zone->volumeFactor / 254;
+        }
+        totalLevel = std::clamp(totalLevel, 0, 127);
         setReg(static_cast<uint16_t>(0x50 + ch),
-               static_cast<uint8_t>((totalLevel & 0x7F) << 1), false); // LevelDirect=0
+               static_cast<uint8_t>((static_cast<uint8_t>(totalLevel) & 0x7F) << 1), false); // LevelDirect=0
     }
 
     void updatePanpot(uint8_t ch) override {

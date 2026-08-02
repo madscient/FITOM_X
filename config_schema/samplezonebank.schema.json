@@ -76,6 +76,34 @@
                   "maximum": 511,
                   "description": "チップ側のROM/PCM波形番号(チップ依存の生値)。YRW801実機の波形総数を踏まえた安全マージンとしてmaximum=511としている(実データの最大観測値は324、2026年7月時点)。"
                 },
+                "pitch_offset": {
+                  "type": "integer",
+                  "minimum": -32768,
+                  "maximum": 32767,
+                  "default": 0,
+                  "description": "OPL4AWM波形ごとのピッチ校正値(100/128セント単位、ALSA sound/drivers/opl4/yrw801.cのopl4_sound::pitch_offsetと同一規約)。ROM波形は実測でないと絶対ピッチが分からないため、この値が無いと(key_scalingと合わせて)正しい音高で鳴らせない。OPL4AWM以外のチップ(ADPCM-B/PCMD8等、root_noteベースでピッチを計算する)では未使用(2026年8月新設。ユーザー報告『AWMが意図した波形と違う音に聞こえる』の調査で、絶対Hz基準の汎用計算式では波形ごとの校正が反映できないと判明したため)。"
+                },
+                "key_scaling": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000,
+                  "default": 100,
+                  "description": "OPL4AWM波形ごとのノート追従率(%、100=1半音ごとに1半音分ピッチが変化する通常の追従。0=ノートに関わらず固定ピッチ、一部のパーカッション系波形で使用)。ALSA yrw801.cのopl4_sound::key_scalingと同一規約。OPL4AWM以外のチップでは未使用。"
+                },
+                "tone_attenuate": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 127,
+                  "default": 0,
+                  "description": "OPL4AWM波形ごとの追加減衰量(7bit、加算方式)。ALSA yrw801.cのopl4_sound::tone_attenuateと同一規約。OPL4AWM以外のチップでは未使用。"
+                },
+                "volume_factor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 254,
+                  "default": 254,
+                  "description": "OPL4AWM波形ごとの音量スケール(0-254、254=無補正)。GM楽器間の相対的な音量バランスを取るための波形固有の乗算係数。ALSA yrw801.cのopl4_sound::volume_factorと同一規約(実装側は`(254-att)*volume_factor/254`のように「最大からの余白」に乗算する)。OPL4AWM以外のチップでは未使用。"
+                },
                 "root_note": {
                   "type": "integer",
                   "minimum": 0,

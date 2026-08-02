@@ -337,8 +337,9 @@ struct SampleZone {
     uint16_t waveIndex = 0;   // チップ側のROM/PCM波形番号 (チップ依存の生値)
     // 録音時の基準ノート (MIDI note番号)。ピッチ可変のPCM系チップ
     // (ADPCM-B/PCMD8等)がノートからの相対ピッチシフト量を計算するのに
-    // 使う。ピッチ固定チップ(OPL4AWM等、Fnumber計算がチップ側で完結する
-    // 場合)は未使用 (0のままでよい)。将来のADPCM系転用に備えた予約。
+    // 使う。OPL4AWMは下記pitchOffset/keyScalingベースの計算(ALSA
+    // sound/drivers/opl4/yrw801.cと同一規約)を使うため未使用
+    // (0のままでよい)。将来のADPCM系転用に備えた予約。
     //
     // 【重要・ADPCM拡張時の必須知識】旧FITOMでは、ADPCM-Bのサンプルは
     // 「A4=440Hz(MIDI note 69)でサンプリングされている」という暗黙の
@@ -349,6 +350,22 @@ struct SampleZone {
     //  ここに残している)
     uint8_t  rootNote = 69;  // 既定: A4 (MIDI note 69)。旧FITOM ADPCM-B
                               // の暗黙の基準ピッチ規約に合わせている。
+
+    // ─── OPL4AWM専用: 波形ごとのピッチ/音量校正値 ─────────────────
+    // YRW801等のROM波形は、絶対Hz→Fnumber/Octaveの汎用計算式だけでは
+    // 正しい音高・音量にならない(ROM波形自体がどのピッチ・音量で
+    // 収録されているかは実測でしか分からないため)。ALSAドライバ
+    // (sound/drivers/opl4/yrw801.c、opl4_sound構造体)がYRW801実機向けに
+    // 実測・埋め込んでいる値と同一規約でここに持ち、COPL4AWM
+    // (core/src/OPL4.cpp)がgetFnumber()/updateVolExp()で使う
+    // (2026年8月新設。ユーザー報告『AWMが意図した波形と違う音に聞こえる』
+    // の調査で、この校正値が無いと波形によっては数オクターブ単位で
+    // ピッチがずれることが判明したため、ALSAの値を丸ごと移植した)。
+    // OPL4AWM以外のチップでは未使用(既定値のままでよい)。
+    int16_t  pitchOffset   = 0;    // 100/128セント単位
+    uint8_t  keyScaling    = 100;  // % (100=通常のノート追従、0=固定ピッチ)
+    uint8_t  toneAttenuate = 0;    // 加算減衰量(7bit)
+    uint8_t  volumeFactor  = 254;  // 音量スケール(0-254、254=無補正)
 
     // ─── パフォーマンスパッチ(SwPatch)参照 ────────────────────────
     // HwPatch::swBank/swProgと同じ意味・同じソフトフォールバック規約

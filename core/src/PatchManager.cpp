@@ -920,7 +920,9 @@ json sampleZoneToJson(const SampleZone& z) {
     json j{
         {"key_min", z.keyMin}, {"key_max", z.keyMax},
         {"vel_min", z.velMin}, {"vel_max", z.velMax},
-        {"wave_index", z.waveIndex}, {"root_note", z.rootNote}
+        {"wave_index", z.waveIndex}, {"root_note", z.rootNote},
+        {"pitch_offset", z.pitchOffset}, {"key_scaling", z.keyScaling},
+        {"tone_attenuate", z.toneAttenuate}, {"volume_factor", z.volumeFactor}
     };
     if (z.swBank >= 0) j["sw_bank"] = z.swBank;
     if (z.swProg >= 0) j["sw_prog"] = z.swProg;
@@ -934,6 +936,10 @@ SampleZone jsonToSampleZone(const json& j) {
     if (j.contains("vel_max"))    z.velMax    = j["vel_max"].get<uint8_t>();
     if (j.contains("wave_index")) z.waveIndex = j["wave_index"].get<uint16_t>();
     if (j.contains("root_note"))  z.rootNote  = j["root_note"].get<uint8_t>();
+    if (j.contains("pitch_offset"))   z.pitchOffset   = j["pitch_offset"].get<int16_t>();
+    if (j.contains("key_scaling"))    z.keyScaling    = j["key_scaling"].get<uint8_t>();
+    if (j.contains("tone_attenuate")) z.toneAttenuate = j["tone_attenuate"].get<uint8_t>();
+    if (j.contains("volume_factor"))  z.volumeFactor  = j["volume_factor"].get<uint8_t>();
     if (j.contains("sw_bank"))    z.swBank    = static_cast<int8_t>(j["sw_bank"].get<int>());
     if (j.contains("sw_prog"))    z.swProg    = static_cast<int8_t>(j["sw_prog"].get<int>());
     return z;

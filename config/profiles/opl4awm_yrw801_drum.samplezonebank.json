@@ -9,343 +9,571 @@
           "key_min": 24,
           "key_max": 24,
           "wave_index": 203,
-          "name": "Drum note #24"
+          "name": "Drum note #24",
+          "pitch_offset": 6397,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 244
         },
         {
           "key_min": 25,
           "key_max": 25,
           "wave_index": 196,
-          "name": "Drum note #25"
+          "name": "Drum note #25",
+          "pitch_offset": 3714,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 26,
           "key_max": 26,
           "wave_index": 196,
-          "name": "Drum note #26"
+          "name": "Drum note #26",
+          "pitch_offset": 3519,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 27,
           "key_max": 27,
           "wave_index": 196,
-          "name": "High Q"
+          "name": "High Q",
+          "pitch_offset": 3586,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 28,
           "key_max": 28,
           "wave_index": 196,
-          "name": "Slap"
+          "name": "Slap",
+          "pitch_offset": 3586,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 30,
           "key_max": 30,
           "wave_index": 195,
-          "name": "Scratch Pull"
+          "name": "Scratch Pull",
+          "pitch_offset": 4783,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 31,
           "key_max": 31,
           "wave_index": 209,
-          "name": "Sticks"
+          "name": "Sticks",
+          "pitch_offset": 4042,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 32,
           "key_max": 32,
           "wave_index": 210,
-          "name": "Square Click"
+          "name": "Square Click",
+          "pitch_offset": 5943,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 33,
           "key_max": 33,
           "wave_index": 17,
-          "name": "Metronome Click"
+          "name": "Metronome Click",
+          "pitch_offset": 3842,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 35,
           "key_max": 35,
           "wave_index": 17,
-          "name": "Acoustic Bass Drum"
+          "name": "Acoustic Bass Drum",
+          "pitch_offset": 4098,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 36,
           "key_max": 36,
           "wave_index": 17,
-          "name": "Bass Drum 1"
+          "name": "Bass Drum 1",
+          "pitch_offset": 4370,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 37,
           "key_max": 37,
           "wave_index": 210,
-          "name": "Side Stick"
+          "name": "Side Stick",
+          "pitch_offset": 4404,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 38,
           "key_max": 38,
           "wave_index": 209,
-          "name": "Acoustic Snare"
+          "name": "Acoustic Snare",
+          "pitch_offset": 4298,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 39,
           "key_max": 39,
           "wave_index": 10,
-          "name": "Hand Clap"
+          "name": "Hand Clap",
+          "pitch_offset": 4403,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 40,
           "key_max": 40,
           "wave_index": 209,
-          "name": "Electric Snare"
+          "name": "Electric Snare",
+          "pitch_offset": 4554,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 220
         },
         {
           "key_min": 41,
           "key_max": 41,
           "wave_index": 200,
-          "name": "Low Floor Tom"
+          "name": "Low Floor Tom",
+          "pitch_offset": 4242,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 42,
           "key_max": 42,
           "wave_index": 121,
-          "name": "Closed Hi-Hat"
+          "name": "Closed Hi-Hat",
+          "pitch_offset": 6160,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 43,
           "key_max": 43,
           "wave_index": 200,
-          "name": "High Floor Tom"
+          "name": "High Floor Tom",
+          "pitch_offset": 4626,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 44,
           "key_max": 44,
           "wave_index": 123,
-          "name": "Pedal Hi-Hat"
+          "name": "Pedal Hi-Hat",
+          "pitch_offset": 6039,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 45,
           "key_max": 45,
           "wave_index": 200,
-          "name": "Low Tom"
+          "name": "Low Tom",
+          "pitch_offset": 5394,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 46,
           "key_max": 46,
           "wave_index": 122,
-          "name": "Open Hi-Hat"
+          "name": "Open Hi-Hat",
+          "pitch_offset": 5690,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 47,
           "key_max": 47,
           "wave_index": 199,
-          "name": "Low-Mid Tom"
+          "name": "Low-Mid Tom",
+          "pitch_offset": 5185,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 48,
           "key_max": 48,
           "wave_index": 199,
-          "name": "Hi-Mid Tom"
+          "name": "Hi-Mid Tom",
+          "pitch_offset": 5650,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 49,
           "key_max": 49,
           "wave_index": 49,
-          "name": "Crash Cymbal 1"
+          "name": "Crash Cymbal 1",
+          "pitch_offset": 4395,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 50,
           "key_max": 50,
           "wave_index": 199,
-          "name": "High Tom"
+          "name": "High Tom",
+          "pitch_offset": 6162,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 51,
           "key_max": 51,
           "wave_index": 46,
-          "name": "Ride Cymbal 1"
+          "name": "Ride Cymbal 1",
+          "pitch_offset": 4391,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 52,
           "key_max": 52,
           "wave_index": 122,
-          "name": "Chinese Cymbal"
+          "name": "Chinese Cymbal",
+          "pitch_offset": 3009,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 53,
           "key_max": 53,
           "wave_index": 33,
-          "name": "Ride Bell"
+          "name": "Ride Bell",
+          "pitch_offset": 4522,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 54,
           "key_max": 54,
           "wave_index": 37,
-          "name": "Tambourine"
+          "name": "Tambourine",
+          "pitch_offset": 5163,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 55,
           "key_max": 55,
           "wave_index": 49,
-          "name": "Splash Cymbal"
+          "name": "Splash Cymbal",
+          "pitch_offset": 5287,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 56,
           "key_max": 56,
           "wave_index": 29,
-          "name": "Cowbell"
+          "name": "Cowbell",
+          "pitch_offset": 4395,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 57,
           "key_max": 57,
           "wave_index": 49,
-          "name": "Crash Cymbal 2"
+          "name": "Crash Cymbal 2",
+          "pitch_offset": 4647,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 58,
           "key_max": 58,
           "wave_index": 157,
-          "name": "Vibraslap"
+          "name": "Vibraslap",
+          "pitch_offset": 4426,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 59,
           "key_max": 59,
           "wave_index": 46,
-          "name": "Ride Cymbal 2"
+          "name": "Ride Cymbal 2",
+          "pitch_offset": 4659,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 60,
           "key_max": 60,
           "wave_index": 28,
-          "name": "Hi Bongo"
+          "name": "Hi Bongo",
+          "pitch_offset": 4769,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 61,
           "key_max": 61,
           "wave_index": 28,
-          "name": "Low Bongo"
+          "name": "Low Bongo",
+          "pitch_offset": 4611,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 62,
           "key_max": 62,
           "wave_index": 30,
-          "name": "Mute Hi Conga"
+          "name": "Mute Hi Conga",
+          "pitch_offset": 4402,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 63,
           "key_max": 63,
           "wave_index": 31,
-          "name": "Open Hi Conga"
+          "name": "Open Hi Conga",
+          "pitch_offset": 4387,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 64,
           "key_max": 64,
           "wave_index": 31,
-          "name": "Low Conga"
+          "name": "Low Conga",
+          "pitch_offset": 3983,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 65,
           "key_max": 65,
           "wave_index": 156,
-          "name": "High Timbale"
+          "name": "High Timbale",
+          "pitch_offset": 4526,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 66,
           "key_max": 66,
           "wave_index": 156,
-          "name": "Low Timbale"
+          "name": "Low Timbale",
+          "pitch_offset": 4016,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 67,
           "key_max": 67,
           "wave_index": 11,
-          "name": "High Agogo"
+          "name": "High Agogo",
+          "pitch_offset": 4739,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 68,
           "key_max": 68,
           "wave_index": 11,
-          "name": "Low Agogo"
+          "name": "Low Agogo",
+          "pitch_offset": 4179,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 69,
           "key_max": 69,
           "wave_index": 47,
-          "name": "Cabasa"
+          "name": "Cabasa",
+          "pitch_offset": 4787,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 70,
           "key_max": 70,
           "wave_index": 48,
-          "name": "Maracas"
+          "name": "Maracas",
+          "pitch_offset": 4665,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 71,
           "key_max": 71,
           "wave_index": 324,
-          "name": "Short Whistle"
+          "name": "Short Whistle",
+          "pitch_offset": 4519,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 72,
           "key_max": 72,
           "wave_index": 324,
-          "name": "Long Whistle"
+          "name": "Long Whistle",
+          "pitch_offset": 4111,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 73,
           "key_max": 73,
           "wave_index": 36,
-          "name": "Short Guiro"
+          "name": "Short Guiro",
+          "pitch_offset": 6408,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 74,
           "key_max": 74,
           "wave_index": 36,
-          "name": "Long Guiro"
+          "name": "Long Guiro",
+          "pitch_offset": 4144,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 204
         },
         {
           "key_min": 75,
           "key_max": 75,
           "wave_index": 32,
-          "name": "Claves"
+          "name": "Claves",
+          "pitch_offset": 4001,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 224
         },
         {
           "key_min": 76,
           "key_max": 76,
           "wave_index": 44,
-          "name": "Hi Wood Block"
+          "name": "Hi Wood Block",
+          "pitch_offset": 4402,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 77,
           "key_max": 77,
           "wave_index": 44,
-          "name": "Low Wood Block"
+          "name": "Low Wood Block",
+          "pitch_offset": 3612,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 78,
           "key_max": 78,
           "wave_index": 34,
-          "name": "Mute Cuica"
+          "name": "Mute Cuica",
+          "pitch_offset": 4129,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 79,
           "key_max": 79,
           "wave_index": 35,
-          "name": "Open Cuica"
+          "name": "Open Cuica",
+          "pitch_offset": 4147,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 234
         },
         {
           "key_min": 80,
           "key_max": 80,
           "wave_index": 50,
-          "name": "Mute Triangle"
+          "name": "Mute Triangle",
+          "pitch_offset": 4412,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 81,
           "key_max": 81,
           "wave_index": 50,
-          "name": "Open Triangle"
+          "name": "Open Triangle",
+          "pitch_offset": 4385,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         },
         {
           "key_min": 82,
           "key_max": 82,
           "wave_index": 47,
-          "name": "Shaker"
+          "name": "Shaker",
+          "pitch_offset": 5935,
+          "key_scaling": 100,
+          "tone_attenuate": 0,
+          "volume_factor": 214
         }
       ]
     }
