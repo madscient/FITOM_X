@@ -69,6 +69,15 @@ public:
     // falseを返す(呼び出し元は数値フォールバックする)。
     bool resolvePresetName(uint8_t cc32Bank, uint8_t prog, std::string& outName) const;
 
+    // resolvePresetName()と同じ引き(phdrルックアップ)を、CC#32の値を経由せず
+    // 既に解決済みのsoundfontIndex/sf2Bankから直接行う。MIDIモニター表示用
+    // (2026年8月新設): SF2直行パスの窓は`resolve()`結果(soundfontIndex/
+    // sf2Bank)をキャッシュしているため、cc32Bankの生値を別途保持しなくても
+    // この経路でプリセット名を引ける。soundfontIndexが範囲外、または該当
+    // プリセットが無い場合はfalseを返す。
+    bool resolvePresetNameByIndex(int soundfontIndex, int sf2Bank, uint8_t prog,
+                                   std::string& outName) const;
+
 private:
     struct Entry { int fileIndex; int sf2Bank; };
     std::unordered_map<int, Entry>        byBank_;

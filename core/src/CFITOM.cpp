@@ -1087,6 +1087,7 @@ bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t
             0xF7
         };
         sf2Port_->writeBurst(0, buf, sizeof(buf));
+        w.lastProg = static_cast<int>(d1 & 0x7F); // MIDIモニター表示用(2026年8月新設)
         return true;
     }
 
@@ -1100,6 +1101,16 @@ bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t
     } else {
         uint8_t buf[3] = { remappedStatus, d1, d2 };
         sf2Port_->writeBurst(0, buf, sizeof(buf));
+        // MIDIモニターのFnumber列表示用(2026年8月新設): fluidsynthへ実際に
+        // 送出したNote On(0x90、velocity>0)の生バイト列を保持する。
+        // velocity=0のNote On(Note Off相当)や実際のNote Offでは更新しない
+        // (「最後に送ったノートオンメッセージ」を表示する設計のため)。
+        if (type == 0x90 && d2 > 0) {
+            w.hasLastNoteOn    = true;
+            w.lastNoteOnStatus = remappedStatus;
+            w.lastNoteOnNote   = d1;
+            w.lastNoteOnVel    = d2;
+        }
     }
     return true;
 }

@@ -365,6 +365,39 @@ public:
     // MidiProcessor::processPrivateSysEx()から呼ばれる。
     void setSf2ChannelWindow(uint8_t mpu, uint8_t ch, uint8_t fluidsynthChanOr7F);
 
+    // MIDIモニター表示用、指定(mpu,ch)の現在のSF2直行パス窓の状態を
+    // 読み取り専用スナップショットで返す(2026年8月新設、FITOMBridge::
+    // getChannelMonitors()から呼ばれる)。assigned==falseの場合はその
+    // (mpu,ch)が窓に含まれていないことを意味し、他フィールドは無視すること。
+    struct Sf2WindowInfo {
+        bool    assigned         = false;
+        uint8_t fluidsynthChan   = 0;
+        bool    bankResolved     = false;
+        int     soundfontIndex   = 0;
+        int     sf2Bank          = 0;
+        int     lastProg         = -1;
+        bool    hasLastNoteOn    = false;
+        uint8_t lastNoteOnStatus = 0;
+        uint8_t lastNoteOnNote   = 0;
+        uint8_t lastNoteOnVel    = 0;
+    };
+    Sf2WindowInfo getSf2ChannelWindowInfo(uint8_t mpu, uint8_t ch) const {
+        if (mpu >= MAX_MPUS || ch >= 16) return {};
+        const Sf2WindowState& w = sf2Windows_[mpu][ch];
+        Sf2WindowInfo info;
+        info.assigned         = w.assigned;
+        info.fluidsynthChan   = w.fluidsynthChan;
+        info.bankResolved     = w.bankResolved;
+        info.soundfontIndex   = w.soundfontIndex;
+        info.sf2Bank          = w.sf2Bank;
+        info.lastProg         = w.lastProg;
+        info.hasLastNoteOn    = w.hasLastNoteOn;
+        info.lastNoteOnStatus = w.lastNoteOnStatus;
+        info.lastNoteOnNote   = w.lastNoteOnNote;
+        info.lastNoteOnVel    = w.lastNoteOnVel;
+        return info;
+    }
+
     // ─── タイマー・ポーリング ────────────────────────────────────
     void timerCallback(uint32_t tick);
     int  pollingCallback();
@@ -489,6 +522,16 @@ private:
     struct Sf2WindowState {
         bool    assigned       = false; // この(mpu,ch)は現在窓に含まれるか
         uint8_t fluidsynthChan = 0;     // 割り当て先fluidsynth chan(0-15)。assigned時のみ有効
+        // MIDIモニター表示専用のキャッシュ(2026年8月新設)。SF2直行パスは
+        // 状態を持たない「CH変換付きMIDIパッチベイ」に徹する設計だが
+        // (⑤節)、GUI表示のためだけに「最後に送出した値」を保持することは
+        // レジスタダンプモニターのシャドウレジスタと同じ考え方であり、
+        // ノート所有権の追跡・クリーンアップとは無関係(=設計方針に反しない)。
+        int     lastProg       = -1;    // 最後にsub-cmd 0x05で送出したprog(-1=未送出)
+        bool    hasLastNoteOn  = false; // Note On(velocity>0)を一度でも送出したか
+        uint8_t lastNoteOnStatus = 0;   // 送出した生ステータスバイト(0x90|fluidsynthChan)
+        uint8_t lastNoteOnNote   = 0;
+        uint8_t lastNoteOnVel    = 0;
         // CC#32解決結果のキャッシュ(CC#0を除く生MIDI転送とは別に、
         // 次のプログラムチェンジと組み合わせてsub-cmd 0x05を構築するために
         // 必要な最小限の状態。有効なCC#32が一度も解決されていない間は

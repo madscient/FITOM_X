@@ -122,6 +122,19 @@ struct FITOMChannelMonitor {
     uint8_t     fnumBlock = 0;
     uint16_t    fnum = 0;
 
+    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月新設)。
+    // trueの場合、このチャンネルは(mpu,ch)の窓に含まれており、CInstCh/
+    // CRhythmCh経由のbankNo/progNo/deviceName等の解決を一切経由しない
+    // (それらは意味を持たないため、代わりに以下のフィールドで上書きする)。
+    // Bank/Prog列にはsf2SoundfontFile(ファイル名)/progName(phdrから解決した
+    // プリセット名、未解決なら空文字)を表示する。Fnumber列は通常の
+    // block:fnumではなく、実際にfluidsynthへ送出したNote Onの生バイト列
+    // (sf2NoteOnHex、"90 3C 64"形式)を表示する(sounding/lastNote等は
+    // 通常チャンネルと同じ意味で流用し、Note列の表示にも使う)。
+    bool        isSf2Windowed = false;
+    uint8_t     sf2FluidsynthChan = 0;
+    std::string sf2NoteOnHex;         // hasLastNoteOn==falseの場合は空文字
+
     // 現在発音中の全ノート(キーボードビューでの同時発光表示用)。
     // Note/Fnumber等の他フィールドとは異なり、lastNoteだけでなく
     // 同時に鳴っている全ノートを含む。soundingがfalseの間は空。

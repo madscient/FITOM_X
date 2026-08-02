@@ -4,7 +4,9 @@
 
 **実装済み(このリポジトリのスコープ、2026年7月)**: `core/include(src)/fitom/Sf2BankRegistry.{h,cpp}`(CC#32解決・`soundfonts`一覧の導出)/ `FITOMConfig`(`banks.sf2_banks`・トップレベル`sf2_channel_windows`の読み込みとバリデーション、`chip:"SF2"`の`devices[]`エントリへの`soundfonts`自動注入、`resolveChipDeviceId("SF2")`→`DEVICE_NONE`、複数`chip=="SF2"`宣言や設定と対応デバイスの不一致を起動時エラーにする検証)/ `CFITOM::initDevices()`(SF2ラッパーデバイスの`IPort`特定、意図したスキップの警告抑制。レジスタダンプモニター用の物理チップ一覧`buildPhysicalChipList()`からもSF2ラッパーを除外済み)/ `MidiProcessor`(`mpuIndex_`を持たせ、`processMessage()`が窓に含まれる(mpu,ch)を`CInstCh`/`CRhythmCh`へのディスパッチより前に`CFITOM::routeSf2ChannelMessage()`へ振り分け。CC#0破棄・CC#32のsf2_banks解決・プログラムチェンジとの組み合わせによるsub-cmd 0x05送出・それ以外の生MIDIメッセージのchan付け替え転送を実装)/ プライベートSysEx sub-cmd 0x04(窓の動的割り当て・解除、`CFITOM::setSf2ChannelWindow()`、fluidsynth_chan重複は要求ごと拒否)/ マスターボリューム・マスターピッチ変更時のGM2 Universal Realtime SysEx(マスターボリューム`04 01`・マスターファインチューニング`04 03`)のSF2デバイスへの転送(`CFITOM::setMasterVolume()`/`setMasterPitch()`)/ **⑧節: SF2プリセット名解決のための`phdr`パース**(`fitom::parseSf2PresetHeaders()`、RIFF/sfbkの`LIST/pdta/phdr`サブチャンクのみを読み、音声サンプル本体[`LIST/sdta`]はチャンクサイズでシークして読み飛ばす軽量パーサー。`Sf2BankRegistry`が新規`file`の初出時に一度だけ呼び、`(sf2_bank, program) → プリセット名`のルックアップテーブルを`soundfont_index`のキャッシュと同じタイミングで構築し、`Sf2BankRegistry::resolvePresetName(cc32Bank, prog, outName)`で解決できる)。ユニットテストは`tests/test_config.cpp`に追加済み(`Sf2BankRegistry`の解決・重複除去、`sf2_banks`/`sf2_channel_windows`のバリデーション各種、最小限の合成SF2バイナリを使った`phdr`パース・プリセット名解決のend-to-end確認)。
 
-**未着手(このリポジトリのスコープ外、または別途対応が必要)**: `FitomSf2IF`プラグイン本体(fluidsynthへの実際のリンク、別リポジトリ)/ `sf2_channel_windows`編集用のGUI専用ダイアログ/ `Sf2BankRegistry::resolvePresetName()`を実際にMIDIモニターのBank/Program列表示へ配線する作業(GUI側のDevice/Fnumber列の詳細とあわせて5節で未確定のまま)。`FitomSf2IF`が存在しない現状、`sf2Port_`は常に`nullptr`のままであり、窓に含まれるメッセージはSF2エンジンへの実際の転送先が無いため単純に読み捨てられる(通常運用に影響はない)。
+**追加実装(2026年8月)**: MIDIモニターバンドへの配線。`CFITOM::getSf2ChannelWindowInfo()`(窓状態の読み取り専用スナップショット、`lastProg`/`hasLastNoteOn`等の表示専用キャッシュを含む)を新設し、`FITOMBridge::getChannelMonitors()`・`apps/fitom_gui/main.cpp`のMIDIモニター行描画を、SF2直行パスの窓に含まれる(mpu,ch)ではBank/Program列にファイル名+`resolvePresetNameByIndex()`で解決したプリセット名、Device列にfluidsynth chan番号、Fnumber列に実際に送出したNote Onの生バイト列(16進、例"90 3C 64")を表示するよう配線した(詳細は5節参照)。
+
+**未着手(このリポジトリのスコープ外、または別途対応が必要)**: `FitomSf2IF`プラグイン本体(fluidsynthへの実際のリンク、別リポジトリ)/ `sf2_channel_windows`編集用のGUI専用ダイアログ。`FitomSf2IF`が存在しない現状、`sf2Port_`は常に`nullptr`のままであり、窓に含まれるメッセージはSF2エンジンへの実際の転送先が無いため単純に読み捨てられる(通常運用に影響はない。MIDIモニター表示も、Note Onが一度も送出されていないためFnumber列は空欄のままになる)。
 
 **検討日**: 2026年7月
 **検討の目的**: FITOM_Xに`fluidsynth`を組み込み、SF2サウンドフォントをシームレスに扱えるようにする(例: 特定のMIDIチャンネルをSF2音源へ振り分け、FITOM_X固有バンクと動的に共存させる)ことが、現在の構造のまま可能かどうかを検証する。
@@ -224,8 +226,8 @@ MIDIモニターのBank/Program列にSF2プリセット名を表示するには�
 ## 5. 残る検討事項(実装時に詰める必要がある点)
 
 - **RPN/NRPNの引き継ぎ範囲**:方針決定済み。マニュアル本体(`docs/manuals/midi-message-reference.md`)の3.1/3.2/3.3節・新設2.6節へ反映済み(2026年7月)。未実装の機能であることは2.6節冒頭に明記した。
-- **GUIでの見え方**:方針は決定済み(デバイス一覧・PatchPickerDialogのSF2対応は見送り、`sf2_channel_windows`編集用の専用ダイアログを新設)。パッチ名解決は⑧の`phdr`パースとして**実装済み**(`Sf2BankRegistry::resolvePresetName()`、2026年7月)。ダイアログ自体の実装、およびMIDIモニターへの実際の配線は未着手。
-  - **MIDIモニターバンドのDevice/Fnumber列表示**:実装時に個別に詰める(Device列は`sf2_banks[].file`のファイル名またはfluidsynth chan番号、Fnumber列は空欄が妥当と思われるが未確定)。Bank/Program列は`resolvePresetName()`が使えるようになったため、名前解決自体はそれを呼ぶだけで済む(該当エントリが無い場合の数値フォールバックも含め、他モードの名前解決と同じ扱いにできる)。
+- **GUIでの見え方**:方針は決定済み(デバイス一覧・PatchPickerDialogのSF2対応は見送り、`sf2_channel_windows`編集用の専用ダイアログを新設)。パッチ名解決は⑧の`phdr`パースとして**実装済み**(`Sf2BankRegistry::resolvePresetName()`/`resolvePresetNameByIndex()`、2026年7月)。**MIDIモニターバンドへの配線も実装済み**(2026年8月、下記)。`sf2_channel_windows`編集用の専用ダイアログ自体は依然未着手。
+  - **MIDIモニターバンドのBank/Program/Device/Fnumber列表示(実装済み、2026年8月)**: `CFITOM::sf2Windows_`に表示専用のキャッシュ(`lastProg`・`hasLastNoteOn`・`lastNoteOnStatus/Note/Vel`)を追加し、`CFITOM::getSf2ChannelWindowInfo(mpu, ch)`で読み取り専用スナップショット(`Sf2WindowInfo`)として取得できるようにした。`FITOMBridge::getChannelMonitors()`が窓に含まれる(mpu,ch)を検出すると、`CInstCh`/`CRhythmCh`経由の解決を一切行わず`FITOMChannelMonitor`へ以下を差し替える: **Bank列**は`sf2_banks[].file`のファイル名(basename)、**Program列**は`resolvePresetNameByIndex()`で解決したプリセット名(未解決時は既存の数値フォールバック表示に自然に委ねる)、**Device列**は`"SF2 fluidsynth ch<N>"`、**Fnumber列**はfluidsynthへ実際に送出したNote On(velocity>0)の生バイト列を16進2桁×3(`"90 3C 64"`形式、ステータスバイトはfluidsynth chan付け替え後の値)。いずれもノート所有権・発音状態そのものは追跡しない(=状態を持たない設計方針を維持したまま、表示専用の「最後に送出した値」だけをレジスタダンプモニターのシャドウレジスタと同じ考え方でキャッシュする)。実機/実プラグイン接続環境でのユーザーによる目視確認は未実施。
 
 ---
 
