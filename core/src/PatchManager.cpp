@@ -228,9 +228,9 @@ void PatchManager::initOpllRomPatches()
           "Synth Brass 2", "Short Saw", "Vibraphone", "Electric Guitar 2",
           "Synth Bass 2", "Sitar" },
         // 2: OPLLP (YMF281)
-        { "", "Clarinet", "Synth Bass", "Piano", "Flute", "Square Wave",
-          "Space Oboe", "Trumpet", "Wow Bell", "Electric Guitar", "Vibes",
-          "Bass", "Vibraphone", "Vibrato Bell", "Click Sine", "Noise and Tone" },
+        {"", "Electric Strings", "Bow Wow", "Electric Guitar", "Organ", "Clarinet",
+        "Saxophone", "Trumpet", "Street Organ", "Synth Brass", "Electric Piano",
+        "Bass", "Vibraphone", "Chime", "Tom Tom 2", "Noise and Tone"},
         // 3: VRC7
         { "", "Buzzy Bell", "Guitar", "Wurly", "Flute", "Clarinet", "Synth",
           "Trumpet", "Organ", "Bells", "Vibes", "Vibraphone", "Tutti",
