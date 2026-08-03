@@ -203,17 +203,10 @@ public:
                      const SwPatch* swPatch = nullptr,
                      const SampleZonePatch* samplePatch = nullptr) override {
         for (int mode : {1, 0}) {
-            for (size_t ci = 0; ci < chips_.size(); ++ci) {
-                auto* c = chips_[ci];
+            for (auto* c : chips_) {
                 uint8_t lch = c->queryCh(owner, patch, mode);
                 if (lch != 0xFF) {
                     uint8_t gch = toGlobalCh(c, lch);
-                    // 診断用(2026年7月、束ね構成で後半チップに到達しない
-                    // 報告の調査中に一時追加): どのサブチップ・どのmode
-                    // (1=奪取なし/0=奪取あり)で割り当てられたかを記録する。
-                    FITOM_LOG_DEBUG("CSpanDevice::allocCh: chip[" << ci << "/"
-                        << chips_.size() << "] lch=" << (int)lch
-                        << " gch=" << (int)gch << " mode=" << mode);
                     assignCh(gch, owner, patch, vel, swPatch, samplePatch);
                     return gch;
                 }
