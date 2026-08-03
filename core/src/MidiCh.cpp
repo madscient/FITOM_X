@@ -1582,17 +1582,23 @@ void CRhythmCh::noteOn(uint8_t midiNote, uint8_t vel)
 // ----------------------------------------------------------------
 void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
 {
-    // 既発音を停止（同一ノートを上書き）
-    noteSlots_[midiNote].stopAll(this);
+    // 既発音を停止（同一ノートを上書き）。ここでは参照を捨てない —
+    // 下のチャンネル割り当てで同じ物理チャンネルを取り直すために使う。
+    noteSlots_[midiNote].release(this);
 
-    // チョークグループ: 同一グループの他のノートが発音中なら強制ダンプ
-    // する(例: クローズ/オープンハイハット)。ハードウェアのチャンネル
-    // 共有には依存しない、ノート単位の明示的な停止処理。全ToneLayerを
-    // 止めるためマルチレイヤーでも正しく機能する。
+    // チョークグループ: 同一グループの他のノートがまだ鳴っていれば強制
+    // ダンプする(例: クローズ/オープンハイハット)。ハードウェアの
+    // チャンネル共有には依存しない、ノート単位の明示的な停止処理。
+    // 全ToneLayerを止めるためマルチレイヤーでも正しく機能する。
+    // 自ノートは除く — 同一ノートの再打鍵は下の「同一物理チャンネルの
+    // 取り直し」による物理的リトリガーで自然に切れるため、ここで強制
+    // ダンプすると二重に止めることになる。
     if (currentPatch_) {
         const auto* group = currentPatch_->findChokeGroup(midiNote);
         if (group) {
-            for (uint8_t n : *group) noteSlots_[n].stopAll(this);
+            for (uint8_t n : *group) {
+                if (n != midiNote) noteSlots_[n].choke(this);
+            }
         }
     }
 
@@ -1678,8 +1684,23 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
             devCh = dev->assignCh(static_cast<uint8_t>(rl->forcedCh), this, patch,
                                    static_cast<uint8_t>(adjVel), effectiveSwPatch, samplePatch);
         } else {
-            devCh = dev->allocCh(this, patch, static_cast<uint8_t>(adjVel),
-                                  effectiveSwPatch, samplePatch);
+            // 同一ノートの再打鍵は、直前の発音と同じ物理チャンネルを取り
+            // 直す。assignCh()がKey Off(+各ドライバのwasReleasing事前
+            // ダンプ)を挟んでから再アタックするため、前の音は物理的な
+            // リトリガーで自然に切れる — 同一ノートに対して明示的な強制
+            // ダンプを行う必要がない(旧fixed_ch方式の「1ノート=1ボイス」
+            // と同じ挙動になる)。参照が既に別の発音へ再利用されている、
+            // あるいはレイヤー構成が変わって別デバイスになった場合は
+            // 通常のチャンネル割り当てにフォールバックする。
+            const LayerSlot& prev = slots.layers[li];
+            if (prev.dev == dev && prev.isValidRef(this)) {
+                devCh = dev->assignCh(prev.devCh, this, patch,
+                                       static_cast<uint8_t>(adjVel), effectiveSwPatch, samplePatch);
+            }
+            if (devCh == 0xFF) {
+                devCh = dev->allocCh(this, patch, static_cast<uint8_t>(adjVel),
+                                      effectiveSwPatch, samplePatch);
+            }
         }
         if (devCh == 0xFF) continue;
 
@@ -1701,9 +1722,13 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
 
         dev->noteOn(devCh, static_cast<uint8_t>(adjVel));
 
-        // 発音記録
+        // 発音記録。noteOnSeqはdev->noteOn()がインクリメントした後の値を
+        // 読む必要があるため、必ずここ(noteOn呼び出しの後)で取得する。
+        const ChState* cs = dev->getChState(devCh);
         slots.layers[li] = LayerSlot{ dev, devCh,
-                                       static_cast<uint8_t>(li) };
+                                       static_cast<uint8_t>(li),
+                                       cs ? cs->noteOnSeq : 0,
+                                       true };
     }
 }
 
@@ -1772,12 +1797,19 @@ void CRhythmCh::noteOff(uint8_t midiNote)
     if (!slots.anyActive()) return;
     // gateTime > 0 のノートは NoteOff を無視（ゲートタイムで自動停止）
     if (slots.gateRem > 0) return;
-    slots.stopAll(this);
+    slots.release(this);
 }
 
 void CRhythmCh::allNoteOff()
 {
-    for (auto& slots : noteSlots_) slots.stopAll(this);
+    for (auto& slots : noteSlots_) slots.release(this);
+}
+
+// CC#120 (All Sound Off): CInstCh::allSoundOff() と同じ方針。ADPCM-A や
+// OPNA内蔵リズムは NoteOff では消音しないため、release() では鳴り止まない。
+void CRhythmCh::allSoundOff()
+{
+    for (auto& slots : noteSlots_) slots.choke(this);
 }
 
 void CRhythmCh::resetAllCtrl()
@@ -1847,7 +1879,7 @@ void CRhythmCh::timerCallback(uint32_t /*tick*/)
         if (slots.gateRem > 0) {
             --slots.gateRem;
             if (slots.gateRem == 0) {
-                slots.stopAll(this);
+                slots.release(this);
                 continue;
             }
         }

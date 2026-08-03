@@ -49,6 +49,8 @@ std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
 }
 
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")
@@ -900,4 +902,142 @@ TEST_CASE("COPLLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
 
     CHECK(port.regs[fnumLoReg] == sdFnumLo);
     CHECK((port.regs[blockReg] & 0x0F) == sdBlock);
+}
+
+// ================================================================
+//  ワンショット系デバイス (ADPCM-A / OPNA内蔵リズム) の消音制御
+//
+//  この2つは NoteOff で音が止まらない (ワンショットのドラム音は短い
+//  ゲートタイムで途中から切られるより最後まで鳴らすほうが自然、という
+//  意図的な設計)。そのため:
+//    ① 明示的な消音要求 (チョークグループ / CC#120) は forceDamp() が
+//       実際にダンプビットを書かなければならない。ISoundDevice の
+//       forceDamp() 既定実装は noteOff() を呼ぶだけなので、これらの
+//       チップで override を怠ると「止める手段が一切ない」状態になる。
+//    ② 同一チャンネルを再割り当てするとき (CRhythmCh の同一ノート再打鍵)、
+//       前のサンプルがまだ再生中である可能性が常にあるため、キーオンの
+//       前にダンプを挟まないと確実な物理的リトリガーにならない。
+//  (2026年8月、ドラムのチョークグループが機能していなかった件の修正)
+// ================================================================
+
+TEST_CASE("CAdPcm2610A does not stop on NoteOff but forceDamp writes the dump bit",
+          "[sounddevice][adpcma][choke]")
+{
+    RecordingPort port;
+    auto dev = createCAdPcm(&port, 8000000, DEVICE_ADPCMA);
+    REQUIRE(dev);
+    dev->init();
+
+    uint8_t ch = dev->allocCh(nullptr, nullptr, 100);
+    REQUIRE(ch != 0xFF);
+    dev->noteOn(ch, 100);
+
+    // NoteOff: キーオン/ダンプレジスタ($00)へは一切書かない
+    port.history.clear();
+    dev->noteOff(ch);
+    for (const auto& [addr, data] : port.history) {
+        (void)data;
+        CHECK(addr != 0x00);
+    }
+
+    // forceDamp: 該当chのダンプビット(bit7)を立てて書く
+    port.history.clear();
+    dev->forceDamp(ch);
+    bool dumped = false;
+    for (const auto& [addr, data] : port.history) {
+        if (addr == 0x00 && data == (0x80 | (1u << ch))) dumped = true;
+    }
+    CHECK(dumped);
+}
+
+TEST_CASE("CAdPcm2610A dumps the channel before keying it on again",
+          "[sounddevice][adpcma][choke]")
+{
+    RecordingPort port;
+    auto dev = createCAdPcm(&port, 8000000, DEVICE_ADPCMA);
+    REQUIRE(dev);
+    dev->init();
+
+    uint8_t ch = dev->allocCh(nullptr, nullptr, 100);
+    REQUIRE(ch != 0xFF);
+    dev->noteOn(ch, 100);
+    dev->noteOff(ch);
+
+    // 同一chの再割り当て (CRhythmCh の同一ノート再打鍵と同じ経路)
+    port.history.clear();
+    REQUIRE(dev->assignCh(ch, nullptr, nullptr, 100) == ch);
+    dev->noteOn(ch, 100);
+
+    // reg $00 への書き込みが「ダンプ → キーオン」の順で現れること
+    int dumpIdx = -1, keyOnIdx = -1;
+    for (size_t i = 0; i < port.history.size(); ++i) {
+        const auto& [addr, data] = port.history[i];
+        if (addr != 0x00) continue;
+        if (data == (0x80 | (1u << ch)) && dumpIdx < 0) dumpIdx = static_cast<int>(i);
+        if (data == (1u << ch) && keyOnIdx < 0)         keyOnIdx = static_cast<int>(i);
+    }
+    REQUIRE(dumpIdx >= 0);
+    REQUIRE(keyOnIdx >= 0);
+    CHECK(dumpIdx < keyOnIdx);
+}
+
+TEST_CASE("COPNARhythm does not stop on NoteOff but forceDamp writes the dump bit",
+          "[sounddevice][opna][rhythm][choke]")
+{
+    RecordingPort port;
+    auto dev = createCOPNARhythm(&port, 8000000);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    uint8_t ch = dev->allocCh(nullptr, &patch, 100);
+    REQUIRE(ch != 0xFF);
+    dev->noteOn(ch, 100);
+
+    port.history.clear();
+    dev->noteOff(ch);
+    for (const auto& [addr, data] : port.history) {
+        (void)data;
+        CHECK(addr != 0x10);
+    }
+
+    port.history.clear();
+    dev->forceDamp(ch);
+    bool dumped = false;
+    for (const auto& [addr, data] : port.history) {
+        if (addr == 0x10 && data == (0x80 | (1u << ch))) dumped = true;
+    }
+    CHECK(dumped);
+}
+
+TEST_CASE("COPNARhythm dumps the part before keying it on again",
+          "[sounddevice][opna][rhythm][choke]")
+{
+    RecordingPort port;
+    auto dev = createCOPNARhythm(&port, 8000000);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    uint8_t ch = dev->allocCh(nullptr, &patch, 100);
+    REQUIRE(ch != 0xFF);
+    dev->noteOn(ch, 100);
+    dev->noteOff(ch);
+
+    port.history.clear();
+    REQUIRE(dev->assignCh(ch, nullptr, &patch, 100) == ch);
+    dev->noteOn(ch, 100);
+
+    int dumpIdx = -1, keyOnIdx = -1;
+    for (size_t i = 0; i < port.history.size(); ++i) {
+        const auto& [addr, data] = port.history[i];
+        if (addr != 0x10) continue;
+        if (data == (0x80 | (1u << ch)) && dumpIdx < 0) dumpIdx = static_cast<int>(i);
+        if (data == (1u << ch) && keyOnIdx < 0)         keyOnIdx = static_cast<int>(i);
+    }
+    REQUIRE(dumpIdx >= 0);
+    REQUIRE(keyOnIdx >= 0);
+    CHECK(dumpIdx < keyOnIdx);
 }

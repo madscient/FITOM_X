@@ -481,12 +481,42 @@ public:
         usedMem_ += length;
     }
 
+    // このチップは NoteOff で音が止まらない (updateKey 参照)。チョーク
+    // グループや CC#120 のように「今すぐ黙らせる」要求は、ISoundDevice の
+    // 契約どおりこの forceDamp() で実際にダンプする。
+    // noteOff() は ChState を Releasing へ遷移させるために続けて呼ぶ
+    // (COPL4AWM::forceDamp() と同じ形)。
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        dumpCh(ch);
+        noteOff(ch);
+    }
+
 protected:
     // ADPCM-A は各chが固定音程のサンプル再生のみ (音程制御レジスタなし)
     void updateFreq(uint8_t /*ch*/, const ChState::Fnum* /*fn*/) override {}
 
+    // キーオン/ダンプレジスタ($00)はチャンネル単位のトリガレジスタ
+    // (状態保持レジスタではないため、他chのビットをORする必要はない)。
+    // bit7(DM)=1 で指定chを強制停止、bit7=0 でキーオン。
+    void dumpCh(uint8_t ch) {
+        setReg(0x00, static_cast<uint8_t>(0x80 | (1u << ch)), true);
+    }
+
     void updateKey(uint8_t ch, bool keyOn) override {
-        if (keyOn) setReg(0x00, static_cast<uint8_t>(1u << ch), true);
+        if (ch >= maxChs_) return;
+        // NoteOff では意図的に何も書かない。ワンショットのドラムサンプルは
+        // 短いゲートタイムで途中から切られるより最後まで鳴らすほうが自然
+        // なため(旧FITOMと同じ挙動)。明示的に止めたい場合は forceDamp()。
+        if (!keyOn) return;
+        // キーオンの前に必ずダンプする。上記のとおりこのチップは NoteOff で
+        // 止まらないので、同一chを再割り当てする時点で前のサンプルがまだ
+        // 再生中である可能性が常にある。FM系ドライバが wasReleasing を見て
+        // 行う RR 最大化の事前ダンプと同じ役割だが、こちらは純粋な停止指示で
+        // 冪等なため条件を付けず常に書く(サンプルの実再生長を管理していない
+        // 以上、ChState が Empty に落ちた後もまだ鳴っている可能性がある)。
+        dumpCh(ch);
+        setReg(0x00, static_cast<uint8_t>(1u << ch), true);
     }
 
     void updateVolExp(uint8_t ch) override {

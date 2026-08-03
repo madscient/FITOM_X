@@ -548,6 +548,10 @@ public:
     void noteOn(uint8_t note, uint8_t vel) override;
     void noteOff(uint8_t note) override;
     void allNoteOff() override;
+    // CC#120 (All Sound Off): CInstCh::allSoundOff() と同じ方針で forceDamp
+    // を使い即座に消音する。ADPCM-A/OPNA 内蔵リズムのように NoteOff では
+    // 止まらないデバイスがあるため、既定実装 (allNoteOff) では鳴り止まない。
+    void allSoundOff() override;
     void resetAllCtrl() override;
     void timerCallback(uint32_t tick) override;
     void setRPNRegister(uint16_t reg, uint16_t val) override;
@@ -571,12 +575,42 @@ public:
 
 private:
     // ─── レイヤー発音単位 ─────────────────────────────────────────
-    // 1 受信ノートが最大 MAX_TONE_LAYERS 本の発音を持つ
+    // 1 受信ノートが最大 MAX_TONE_LAYERS 本の発音を持つ。
+    //
+    // dev/devCh は「発音管理としてのアクティブ状態」(active) とは独立に、
+    // ノートオフ/ゲートタイム満了の後も『直前の発音への参照』として残す。
+    // ドラムのゲートタイムはごく短く、ゲート満了時点ではチップ側でまだ
+    // 音が鳴っている(FM のリリース中 / ADPCM のサンプル再生中)のが普通
+    // なので、ここで参照を捨ててしまうと後から止める手段が無くなるため
+    // (2026年8月。チョークグループが事実上機能していなかった原因)。
+    // 保持した参照は次の 2 つの用途に使う:
+    //   ① 同一ノートの再打鍵時に同じ物理チャンネルを取り直す
+    //      (assignCh() が Key Off + 各ドライバの wasReleasing 事前ダンプを
+    //       挟むため、前の音は物理的なリトリガーで自然に切れる)
+    //   ② チョークグループによる強制ダンプ (forceDamp)
     struct LayerSlot {
         ISoundDevice* dev    = nullptr;
         uint8_t       devCh  = 0xFF;
         uint8_t       layerIdx = 0;
-        bool isActive() const { return dev != nullptr; }
+        // 割り当て時の ChState::noteOnSeq。参照がまだ「自分のあの発音」を
+        // 指しているかの世代トークンとして使う (isValidRef 参照)。
+        uint32_t      noteOnSeq = 0;
+        bool          active = false;
+
+        bool isActive() const { return active && dev != nullptr; }
+
+        // 保持している dev/devCh が今も『自分が鳴らしたあの発音』を指して
+        // いるか。isChOwnedBy() だけでは不十分な点に注意 — CRhythmCh は
+        // 128 ノート分をまたぐ単一の IMidiCh なので、同じ CRhythmCh の
+        // 別のドラムノートへ再配分された devCh も owner 一致となり、
+        // 無関係なドラム音を誤って止めて(あるいは奪って)しまう。
+        // noteOnSeq はノートオンのたびに単調増加するため、そのチャンネルが
+        // 一度でも再ノートオンされていれば O(1) で検出できる。
+        bool isValidRef(const IMidiCh* owner) const {
+            if (!dev || !dev->isChOwnedBy(devCh, owner)) return false;
+            const ChState* cs = dev->getChState(devCh);
+            return cs && cs->noteOnSeq == noteOnSeq;
+        }
     };
 
     // ─── ノート発音履歴 ───────────────────────────────────────────
@@ -588,19 +622,29 @@ private:
             for (const auto& l : layers) if (l.isActive()) return true;
             return false;
         }
-        // owner: ボイススティールで devCh が別の発音(別MIDIチャンネル/別ノート)に
-        // 再利用されていないか isChOwnedBy() で確認してから解放する
-        // (releaseSostenutoNotes()と同じパターン。確認せず呼ぶと、既に
-        //  再利用されている devCh 上の別ノートを誤って停止させてしまう)。
-        void stopAll(const IMidiCh* owner) {
+
+        // 通常の発音終了 (NoteOff / ゲートタイム満了)。dev/devCh は上記の
+        // とおり参照として残す。
+        void release(const IMidiCh* owner) {
             for (auto& l : layers) {
-                if (l.isActive()) {
-                    if (l.dev->isChOwnedBy(l.devCh, owner)) {
-                        l.dev->noteOff(l.devCh);
-                        l.dev->releaseCh(l.devCh);
-                    }
-                    l = LayerSlot{};
+                if (!l.isActive()) continue;
+                if (l.isValidRef(owner)) {
+                    l.dev->noteOff(l.devCh);
+                    l.dev->releaseCh(l.devCh);
                 }
+                l.active = false;
+            }
+            gateRem = 0;
+        }
+
+        // チョーク: まだ鳴っている可能性のある発音を強制的に消音し、参照
+        // ごと破棄する。noteOff() ではなく forceDamp() を使うのは、
+        // 「即座に消音する」ことがチョークの定義そのものだから
+        // (FM 系は RR 最大化、ADPCM-A/OPNA 内蔵リズムはダンプビット)。
+        void choke(const IMidiCh* owner) {
+            for (auto& l : layers) {
+                if (l.isValidRef(owner)) l.dev->forceDamp(l.devCh);
+                l = LayerSlot{};
             }
             gateRem = 0;
         }
