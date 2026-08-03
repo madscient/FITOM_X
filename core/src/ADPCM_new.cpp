@@ -554,10 +554,6 @@ protected:
         updateVolExp(ch);
         updatePanpot(ch);
     }
-
-    uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
-        return CSoundDevice::queryCh(owner, patch, 0);
-    }
 };
 // ================================================================
 // ================================================================
