@@ -199,15 +199,34 @@ public:
     //  3回ともmode=1のままで強制奪取が機能せず、かつ最終段でpatch=nullptr
     //  になることでデバイス制約(例: ノイズ→ch7固定)を最も必要な場面
     //  (強制奪取判断時)で失うという重大な欠陥があった)
+    //
+    // チップの試行順序は毎回 nextChipIdx_ から始まるようローテーションする
+    // (2026年8月、ユーザー指摘で追加)。GM準拠のリズムパートはほとんどの
+    // ドラムノートにゲートタイムの概念が無く(シーケンサーが送るノートオンの
+    // ゲートタイムは規格上ごく短い)、ノートオフ受信後も実際の発音は
+    // すぐには止まらない(クラッシュシンバル等の長い減衰)。そのため
+    // 「空き/Releasingのchが1つでもあれば即座にそこで確定する」という
+    // 素朴な設計のまま常に chips_[0] から試すと、1台目に(実際にはまだ
+    // 減衰中でも software 上は isReleasing()==true な)chが1つでもある限り
+    // 常に1台目だけが選ばれ続け、2台目以降のチップにほぼ到達しない
+    // (2台目が使われるのは1台目が"真に"全ch Running状態の瞬間のみ)。
+    // 実際の発音時間まで管理するのは大掛かりすぎるため、代わりに毎回
+    // 試行開始チップをローテーションし、束ねた全チップに均等にラウンド
+    // ロビンさせることで、同一物理chが短時間で再利用される頻度を下げ、
+    // 減衰中のノートが不用意にチョークされる可能性を減らす。
     uint8_t allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
                      const SwPatch* swPatch = nullptr,
                      const SampleZonePatch* samplePatch = nullptr) override {
+        const size_t n = chips_.size();
         for (int mode : {1, 0}) {
-            for (auto* c : chips_) {
+            for (size_t i = 0; i < n; ++i) {
+                size_t idx = (nextChipIdx_ + i) % n;
+                auto* c = chips_[idx];
                 uint8_t lch = c->queryCh(owner, patch, mode);
                 if (lch != 0xFF) {
                     uint8_t gch = toGlobalCh(c, lch);
                     assignCh(gch, owner, patch, vel, swPatch, samplePatch);
+                    nextChipIdx_ = (idx + 1) % n;
                     return gch;
                 }
             }
@@ -309,6 +328,10 @@ public:
         auto [dev, lch] = resolveGlobalCh(gch);
         return dev ? dev->getCurrentNote(lch) : 0xFF;
     }
+
+private:
+    // allocCh()がチップを試す開始位置(ローテーション用、上記コメント参照)。
+    size_t nextChipIdx_ = 0;
 };
 
 // ================================================================
