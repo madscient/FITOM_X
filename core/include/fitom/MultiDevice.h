@@ -15,6 +15,7 @@
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/PcmBankData.h"
+#include "fitom/Log.h"
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -211,6 +212,14 @@ public:
                 }
             }
         }
+        // CSoundDevice::allocCh()(単体チップ用)は失敗時にWARNログを出すが、
+        // こちらは全サブチップのqueryCh()を直接呼ぶ別経路のため、従来
+        // 同種のログが一切無かった(2026年7月、束ね構成での「後半チップに
+        // ボイスが割り当てられない」調査時、失敗しているのか・そもそも
+        // このパスを通っていないのか切り分けができず判明)。診断のため
+        // 同じ形式のWARNログを追加する。
+        FITOM_LOG_WARN("CSpanDevice::allocCh: no channel available across "
+            << chips_.size() << " spanned chip(s)");
         return 0xFF;
     }
 
@@ -359,6 +368,9 @@ public:
                 return gch;
             }
         }
+        // CSpanDevice::allocCh()と同じ理由(単体CSoundDevice::allocCh()と
+        // 違い、失敗時のログが従来無かった)で診断用に追加。
+        FITOM_LOG_WARN("CUnison::allocCh: no channel available");
         return 0xFF;
     }
 
