@@ -451,6 +451,8 @@ HWPort層(実際のプラグイン呼び出し)の両方のログを突き合わ
 | 120 | `forceDamp()`。sustainを無視し、RRを最大化（またはOPLL系はSUSビット解除）して急速減衰 |
 | 123 | 通常の`noteOff()`。sustain有効なら保持される |
 
+リズムチャンネル(`CRhythmCh`)も2026年8月に`allSoundOff()`を実装した(それ以前は`IMidiCh`の既定実装で`allNoteOff()`にフォールバックしていた)。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、既定実装のままではCC#120で鳴り止まなかった。両デバイスの`forceDamp()`(ダンプビット書き込み)も同時に実装している。詳細は`docs/patch-structure-design.md`の「チョークグループ」節を参照。
+
 ---
 
 ## CC#126 (Mono Mode On) / CC#127 (Poly Mode On) とボイス数上限

@@ -243,6 +243,16 @@ public:
     std::string getDescriptor() const override { return "OPNA Rhythm 6ch"; }
     void init() override {}
 
+    // 内蔵リズムは NoteOff で音が止まらない (updateKey 参照)。チョーク
+    // グループや CC#120 のように「今すぐ黙らせる」要求は、ISoundDevice の
+    // 契約どおりこの forceDamp() で実際にダンプする
+    // (CAdPcm2610A::forceDamp() と同じ設計)。
+    void forceDamp(uint8_t ch) override {
+        if (ch >= maxChs_) return;
+        dumpCh(ch);
+        noteOff(ch);
+    }
+
 protected:
     void updateVoice(uint8_t ch) override {
         updateVolExp(ch);
@@ -266,8 +276,23 @@ protected:
     void updateSustain(uint8_t /*ch*/) override {}
     void updateTL(uint8_t, uint8_t, uint8_t) override {}
 
+    // キーオン/ダンプレジスタ($10)はチャンネル単位のトリガレジスタ
+    // (状態保持レジスタではないため、他パートのビットをORする必要はない)。
+    // bit7=1 で指定パートを強制停止(ダンプ)、bit7=0 でキーオン。
+    void dumpCh(uint8_t ch) {
+        setReg(0x10, static_cast<uint8_t>(0x80 | (1u << ch)), true);
+    }
+
     void updateKey(uint8_t ch, bool keyOn) override {
-        if (keyOn) setReg(0x10, static_cast<uint8_t>(1u << ch), true);
+        if (ch >= maxChs_) return;
+        // NoteOff では意図的に何も書かない (ワンショットのリズム音は最後まで
+        // 鳴らすほうが自然。CAdPcm2610A::updateKey() と同じ判断)。
+        if (!keyOn) return;
+        // キーオン前のダンプも CAdPcm2610A と同じ理由・同じ形でそろえる
+        // (このチップはキーオンビットの再書き込みだけで再トリガーされる
+        //  実装が一般的だが、確実性とチップファミリー間の一貫性を優先する)。
+        dumpCh(ch);
+        setReg(0x10, static_cast<uint8_t>(1u << ch), true);
     }
 };
 
