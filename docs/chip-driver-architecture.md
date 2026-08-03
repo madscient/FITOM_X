@@ -577,6 +577,18 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 - **プログラム番号の統一**：`CYmDelta`/`CAdPcm2610A`/`CAdPcmZ280`全て
   `hwOp[0].WS`(7bit、0-127)を使用。B-3の`resolvePcmEntry`と統一。
   以前は`hw.ALG`(3bit、0-7)や`s.lastNote`など不統一だった。
+- **`queryCh(owner, patch, mode)`は必ず`mode`をそのまま基底
+  (`CSoundDevice::queryCh`)へ転送すること**：`mode`は1=奪取なし/0=奪取あり
+  を表し、`CSpanDevice::allocCh()`はmode=1→0の順で全サブチップを試すことで
+  「空きのあるチップを優先し、全チップが本当に埋まって初めて奪取に回る」
+  設計になっている。`CAdPcm2610A`が初期実装から`mode`引数を無視して常に
+  `queryCh(owner, patch, 0)`固定で呼んでいたため、1台目のサブチップが
+  mode=1の問い合わせでも内部で強制奪取して常に空きchを返してしまい、
+  `CSpanDevice::allocCh()`のループが1台目で必ず成功し2台目以降に一切
+  到達しないバグがあった(2026年7月、ADPCM-Aの2チップ束ねで後半chに
+  ボイスが全く割り当てられないと発覚。他のチップドライバは全て`mode`を
+  転送しており今回が唯一の例外だった)。意味のないオーバーライドだった
+  ため削除し、基底の実装をそのまま継承させて修正。
 
 ---
 
