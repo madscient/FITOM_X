@@ -225,13 +225,13 @@ protected:
 
     void updateKey(uint8_t ch, bool keyOn) override {
         // OPLLはEGT/RRの動的書き換えを行わず、キーオン/キーオフビットのみを
-        // 操作する (2026年8月、切り分けのため方式変更)。
+        // 操作する。
         // EGT/RRはupdateVoice()の静的変換 (SR>0ならEGT=0かつRRレジスタ=SR、
         // SR==0ならEGT=1かつRRレジスタ=RR) で確定済み。
         // OPL系(COPL/COPL3)は従来どおりキーオン/キーオフのたびにEGT/RRを
-        // 動的に書き換える技法を使うが、OPLLは実機のEG挙動がOPL系と異なり
-        // 発音中のEGTビット書き換えが期待どおりに効かない疑いがあるため、
-        // OPLL系のみ静的変換に切り替えている
+        // 動的に書き換える技法を使うが、実機OPLLのEG挙動はOPL系と異なり
+        // 発音中のEGTビット書き換えが期待どおりに効かないことが2026年8月の
+        // 実機検証で確認されたため、OPLL系のみ静的変換とする(確定仕様)
         // (docs/chip-driver-architecture.md 4.4節、
         //  docs/voice-parameter-reference.md OPLL節を参照)。
         uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xEF;
