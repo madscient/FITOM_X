@@ -96,24 +96,41 @@ protected:
             // ユーザー音色レジスタへ書き込み (0x00-0x07)
             for (int i = 0; i < 2; ++i) {
                 const FmHwOp& o = p.hwOp[i];
+                const bool car_opll = (i == 1); // OPLLはOP1がキャリア固定
+                // SR (キャリアはベロシティ補正後の値)。EGTビットとRRレジスタの
+                // 両方がこの値で決まるため、先に求めておく。
+                const uint8_t sr_opll = car_opll ? s.proc.velSR(i) : (o.SR & 0x1F);
                 // AM/VIB/EG/KSR/MUL
-                // EGT: SR>0 (キーオン中もRR/SRで減衰させたい) なら decay(0)、
-                // それ以外は sustained(1)。実際のキーオン/オフ時は
-                // updateKey()がこのbitを都度上書きする。
+                // EGT: SR>0 (キーオン中もRRレジスタのレートで減衰させたい)
+                // なら decay(0)、それ以外は sustained(1)。
+                // OPLLはこの静的変換のみで完結させ、キーオン/キーオフ時の
+                // 動的な書き換えは行わない (updateKey()参照)。
                 setReg(static_cast<uint16_t>(i),
                        static_cast<uint8_t>(
                            ((o.AM & 1) << 7) | ((o.VIB & 1) << 6) |
-                           ((o.SR > 0) ? 0 : 0x20) |
+                           ((sr_opll > 0) ? 0 : 0x20) |
                            ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
                 // AR / DR (キャリア=i:1 はベロシティ補正)
-                const bool car_opll = (i == 1);
                 const uint8_t ar_opll = car_opll ? s.proc.velAR(i) : (o.AR & 0x1F);
                 const uint8_t dr_opll = car_opll ? s.proc.velDR(i) : (o.DR & 0x1F);
                 setReg(static_cast<uint16_t>(4 + i),
                        static_cast<uint8_t>(((ar_opll >> 1) << 4) | (dr_opll >> 1)));
-                // SL / RR (Sustain は SUS bit で制御するため RR をそのまま書く)
+                // SL / RR
+                // RRレジスタは上のEGTビットと対で意味が決まるため、同じ静的
+                // 変換規則で値を選ぶ:
+                //   SR>0 (EGT=0/decay)     → SRを4bit変換した値 (キーオン中の
+                //                            減衰レイト。キーオフ後のリリースも
+                //                            同じレートになる)
+                //   SR==0 (EGT=1/sustain)  → RRをそのまま (キーオフ後のリリース)
+                // (SR>0の音色はレジスタイメージ由来ではRRフィールドが未使用=0で
+                //  あることが多く、ここでRRを書いてしまうと減衰しなくなる。
+                //  voice-parameter-reference.mdのOPLL節の変換表を参照)
+                // Sustain (サステインペダル) は SUS bit で制御するため、
+                // ここでRRを細工する必要はない。
                 const uint8_t sl_opll = car_opll ? s.proc.velSL(i) : (o.SL & 0xF);
-                const uint8_t rr_opll = car_opll ? s.proc.velRR(i) : (o.RR & 0xF);
+                const uint8_t rr_opll = (sr_opll > 0)
+                                      ? static_cast<uint8_t>((sr_opll >> 1) & 0xF)
+                                      : (car_opll ? s.proc.velRR(i) : (o.RR & 0xF));
                 setReg(static_cast<uint16_t>(6 + i),
                        static_cast<uint8_t>(((sl_opll & 0xF) << 4) | (rr_opll & 0xF)));
             }
@@ -207,34 +224,16 @@ protected:
     }
 
     void updateKey(uint8_t ch, bool keyOn) override {
-        const auto& s = chState_[ch];
-        const HwPatch& p = s.hwPatch;
-        bool preset = (p.ext.ALG_EXT & 1) != 0;
-
-        // EGT/RR動的書き換え (OPL3と同じ技法)。
-        // ユーザー音色のみ対象 (プリセット音色はROMのためEGパラメータ変更不可、
-        // 旧FITOM COPLL::UpdateKey と同様)。
-        // キーオン中はEGT=0(decay)に切り替えてSRをRR位置に書き、SRを
-        // キーオン中の減衰レイトとして機能させる。キーオフ時はEGT=1
-        // (sustained)に戻してRRレジスタ本来の値を書く。
-        if (!preset) {
-            for (int i = 0; i < 2; ++i) {
-                const FmHwOp& o = p.hwOp[i];
-                bool car = (i == 1); // OPLLはOP1がキャリア固定
-                uint8_t sr = car ? s.proc.velSR(i) : (o.SR & 0x1F);
-                uint8_t rr = car ? s.proc.velRR(i) : (o.RR & 0xF);
-                uint8_t sl = car ? s.proc.velSL(i) : (o.SL & 0xF);
-                bool useSR = keyOn && (sr != 0);
-                uint8_t rrReg = useSR ? ((sr >> 1) & 0xF) : (rr & 0xF); // 5bit→4bit
-
-                uint8_t egtCur = getReg(static_cast<uint16_t>(i)) & 0xDF;
-                setReg(static_cast<uint16_t>(i),
-                       static_cast<uint8_t>(egtCur | (useSR ? 0 : 0x20)), true);
-                setReg(static_cast<uint16_t>(6 + i),
-                       static_cast<uint8_t>(((sl & 0xF) << 4) | rrReg), true);
-            }
-        }
-
+        // OPLLはEGT/RRの動的書き換えを行わず、キーオン/キーオフビットのみを
+        // 操作する (2026年8月、切り分けのため方式変更)。
+        // EGT/RRはupdateVoice()の静的変換 (SR>0ならEGT=0かつRRレジスタ=SR、
+        // SR==0ならEGT=1かつRRレジスタ=RR) で確定済み。
+        // OPL系(COPL/COPL3)は従来どおりキーオン/キーオフのたびにEGT/RRを
+        // 動的に書き換える技法を使うが、OPLLは実機のEG挙動がOPL系と異なり
+        // 発音中のEGTビット書き換えが期待どおりに効かない疑いがあるため、
+        // OPLL系のみ静的変換に切り替えている
+        // (docs/chip-driver-architecture.md 4.4節、
+        //  docs/voice-parameter-reference.md OPLL節を参照)。
         uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xEF;
         setReg(static_cast<uint16_t>(0x20 + ch),
                static_cast<uint8_t>(cur | (keyOn ? 0x10 : 0)), true);

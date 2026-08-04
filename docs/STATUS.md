@@ -133,7 +133,8 @@
 | CPSGBase 責務整理 (SW-EG/SW-LFO共通化のみに純化、SSG固有コードをCSSGへ移動) | ✅ | `chip-driver-architecture.md` |
 | リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `chip-driver-architecture.md` |
 | ADPCM RegMap 全面修正 (Y8950/OPNA/OPNB個別マップ、memory/panmaskフィールド追加) | ✅ | `chip-driver-architecture.md` |
-| OPLL Fnumberビットシフト修正・EGT/RR技法適用 | ✅ | `chip-driver-architecture.md` |
+| OPLL Fnumberビットシフト修正 | ✅ | `chip-driver-architecture.md` |
+| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。キーオン/キーオフ時の動的書き換えを廃止しOPL系とは別方式に。実機OPLLのEG挙動がOPL系と異なる疑いの切り分け目的、**実機検証待ち**) | 🚧 検証中 | `chip-driver-architecture.md`, `voice-parameter-reference.md`, `manuals/hwpatch-reference.md` |
 | HWPlugin_Shutdown (未エクスポート時は何もしないオプショナルAPI、二重実行防止) | ✅ | `plugin-hwif.md` |
 | GUI MIDIモニターバンド (CH毎表示 + 128ノートキーボードビュー + 発光エフェクト) | ✅ | — |
 | GUI CH設定ダイアログ + パッチピッカーダイアログ (Volume/Expression/リズム⇔インストゥルメント切替/Poly⇔Mono切替/CC#0→CC#32→Prog.chg階層ブラウジング + Prog.chg選択時の試聴(Note On C4)・キャンセル時の復元。GUIからは`FITOMBridge`のMIDI送信メソッド経由でコアの既存MIDI処理経路を再利用) | ✅ | — |
