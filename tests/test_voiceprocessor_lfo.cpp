@@ -58,7 +58,7 @@ TEST_CASE("LfoControl up-saw/down-saw start at zero and OneShotHold holds at max
           "[voiceprocessor][lfo]")
 {
     // up-saw(0)/down-sawはいきなり最大振幅から始まるのではなく、
-    // t=0で変位0から立ち上がる/下がるように位相シフトされている。
+    // t=0で変位0から立ち上がる/下がるようになっている。
     // 一方でOneShotHoldはt=0(=変位0)ではなく、各波形が向かう方向の
     // 最大振幅側で保持する仕様(2026年8月)。
     {
@@ -67,12 +67,28 @@ TEST_CASE("LfoControl up-saw/down-saw start at zero and OneShotHold holds at max
         REQUIRE(lfo.wave(0) == 0); // up-saw: 開始直後は変位0
         REQUIRE(lfo.wave(4) == 0); // down-saw: 開始直後は変位0
 
+        // ワンショットの1周期は「エンベロープ」であり、途中に不連続点が
+        // あってはならない(あると波形が2回繰り返して聞こえる)。
+        // 周期内で単調に±120へ向かうことを検証する。
+        int prevUp = lfo.wave(0), prevDown = lfo.wave(4);
+        for (int i = 0; i < 200 && lfo.phase() != LfoControl::Phase::Held; ++i) {
+            lfo.tick();
+            if (lfo.phase() != LfoControl::Phase::Running) break;
+            const int curUp = lfo.wave(0), curDown = lfo.wave(4);
+            REQUIRE(curUp   >= prevUp);   // up-saw:   単調増加
+            REQUIRE(curDown <= prevDown); // down-saw: 単調減少
+            prevUp = curUp; prevDown = curDown;
+        }
+
         for (int i = 0; i < 200 && lfo.phase() != LfoControl::Phase::Held; ++i) {
             lfo.tick();
         }
         REQUIRE(lfo.phase() == LfoControl::Phase::Held);
         REQUIRE(lfo.wave(0) == 120);  // up-saw: 最大振幅(+側)で保持
         REQUIRE(lfo.wave(4) == -120); // down-saw: 最大振幅(-側)で保持
+        // ホールド値は周期末尾の値と連続していること(跳ね上がらない)
+        REQUIRE(prevUp   >= 100);
+        REQUIRE(prevDown <= -100);
     }
 
     // Repeatモードでは開始直後にt=0で変位0から立ち上がり、直後のtickで
