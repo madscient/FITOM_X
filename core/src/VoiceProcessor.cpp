@@ -211,11 +211,24 @@ int8_t LfoControl::wave(uint8_t waveform) const noexcept
     const uint16_t p = period_;
 
     int8_t raw = 0;
-    switch (waveform) {
-    case 0: // up-saw: -120 〜 +120
+
+    // OneShotHold: up-saw/down-sawはt=0で変位0から立ち上がる波形のため、
+    // 1周期完了で位相リセットされたt=0をそのまま保持すると無音(変位0)で
+    // 保持されてしまう。各波形が向かう方向の最大振幅側で保持する
+    if (one_shot_done_ && mode_ == LfoMode::OneShotHold &&
+        (waveform == 0 || waveform == 4)) {
+        raw = (waveform == 0) ? static_cast<int8_t>(120)
+                               : static_cast<int8_t>(-120);
+    } else switch (waveform) {
+    case 0: // up-saw: -120〜+120。半周期分位相をずらし、いきなり最大
+            // 振幅から始まるのではなくt=0で変位0から立ち上がるようにする
+            // (不連続点は周期境界ではなく中間点に移動する)
+    {
+        const uint16_t ts = static_cast<uint16_t>((t + p / 2) % p);
         raw = static_cast<int8_t>(
-            static_cast<int32_t>(t) * 240 / p - 120);
+            static_cast<int32_t>(ts) * 240 / p - 120);
         break;
+    }
     case 1: // square
         raw = (t < p / 2) ? 120 : -120;
         break;
@@ -230,10 +243,13 @@ int8_t LfoControl::wave(uint8_t waveform) const noexcept
     case 3: // S&H: seed_ は tick() で周期末尾に更新済み
         raw = static_cast<int8_t>((seed_ >> 8) ^ 0x80);
         break;
-    case 4: // down-saw
+    case 4: // down-saw: up-sawと同様に半周期分位相をずらす
+    {
+        const uint16_t ts = static_cast<uint16_t>((t + p / 2) % p);
         raw = static_cast<int8_t>(
-            120 - static_cast<int32_t>(t) * 240 / p);
+            120 - static_cast<int32_t>(ts) * 240 / p);
         break;
+    }
     case 5: // delta (impulse): 周期先頭のみ +120
         raw = (t == 0) ? 120 : 0;
         break;

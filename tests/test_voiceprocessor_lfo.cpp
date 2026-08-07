@@ -32,7 +32,7 @@ TEST_CASE("LfoControl OneShotHold does not resume cycling during NoteOff fadeout
     }
     REQUIRE(lfo.phase() == LfoControl::Phase::Held);
 
-    const uint8_t waveform = 4; // down-saw
+    const uint8_t waveform = 1; // square(t=0で最大振幅+120)
     const int8_t heldRaw = lfo.wave(waveform);
     REQUIRE(heldRaw != 0);
 
@@ -51,6 +51,40 @@ TEST_CASE("LfoControl OneShotHold does not resume cycling during NoteOff fadeout
         // 単調減少の検証に失敗していた。
         REQUIRE(curAbs <= prevAbs);
         prevAbs = curAbs;
+    }
+}
+
+TEST_CASE("LfoControl up-saw/down-saw start at zero and OneShotHold holds at max amplitude",
+          "[voiceprocessor][lfo]")
+{
+    // up-saw(0)/down-sawはいきなり最大振幅から始まるのではなく、
+    // t=0で変位0から立ち上がる/下がるように位相シフトされている。
+    // 一方でOneShotHoldはt=0(=変位0)ではなく、各波形が向かう方向の
+    // 最大振幅側で保持する仕様(2026年8月)。
+    {
+        LfoControl lfo;
+        lfo.start(/*rate=*/127, /*delay_20ms=*/0, /*fadein=*/0, LfoMode::OneShotHold);
+        REQUIRE(lfo.wave(0) == 0); // up-saw: 開始直後は変位0
+        REQUIRE(lfo.wave(4) == 0); // down-saw: 開始直後は変位0
+
+        for (int i = 0; i < 200 && lfo.phase() != LfoControl::Phase::Held; ++i) {
+            lfo.tick();
+        }
+        REQUIRE(lfo.phase() == LfoControl::Phase::Held);
+        REQUIRE(lfo.wave(0) == 120);  // up-saw: 最大振幅(+側)で保持
+        REQUIRE(lfo.wave(4) == -120); // down-saw: 最大振幅(-側)で保持
+    }
+
+    // Repeatモードでは開始直後にt=0で変位0から立ち上がり、直後のtickで
+    // 変位が生じることを確認する(いきなり最大振幅から始まらないこと)
+    {
+        LfoControl lfo;
+        lfo.start(/*rate=*/127, /*delay_20ms=*/0, /*fadein=*/0, LfoMode::Repeat);
+        REQUIRE(lfo.wave(0) == 0);
+        REQUIRE(lfo.wave(4) == 0);
+        lfo.tick();
+        REQUIRE(lfo.wave(0) > 0);  // up-saw: 正方向へ立ち上がる
+        REQUIRE(lfo.wave(4) < 0);  // down-saw: 負方向へ立ち下がる
     }
 }
 
