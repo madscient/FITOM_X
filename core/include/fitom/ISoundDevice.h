@@ -252,8 +252,9 @@ public:
     virtual const ChState* getChState(uint8_t ch) const = 0;
 
     // ソフトLFO (VoiceProcessor::onTick) の変調結果を反映するための公開API。
-    // 通常の CInstCh では CSoundDevice::timerCallback() が内部で自動的に
-    // 呼び出すが、CRhythmCh は独自に onTick を回すため直接呼ぶ必要がある。
+    // CInstCh/CRhythmCh いずれの経路でも CSoundDevice::timerCallback() が
+    // 内部で自動的に呼び出す (2026年8月、CRhythmCh が独自に onTick を回して
+    // 二重tickになっていたのを解消し、デバイス側へ一本化した)。
     virtual void updateTL(uint8_t ch, uint8_t op, uint8_t tl) = 0;
 
 
