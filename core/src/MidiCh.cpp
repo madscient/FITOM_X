@@ -1867,7 +1867,23 @@ std::vector<ActiveNoteInfo> CRhythmCh::getActiveNotes() const
 }
 
 // ----------------------------------------------------------------
-//  timerCallback: ゲートタイムのカウントダウン + VoiceProcessor tick
+//  timerCallback: ゲートタイムのカウントダウン
+//
+//  ソフトLFO/トレモロ(VoiceProcessor::onTick)はここでは回さない。
+//  CFITOM::timerCallback()はMIDIプロセッサ(=このメソッド)とデバイスの
+//  両方を毎tick呼ぶため、ここでも回すと同じChState::procに二重にtickが
+//  掛かる。CSoundDevice::timerCallback()がChStateにキャッシュ済みの
+//  hwPatch/swPatch(buildVoiceForCh())からFmVoiceを組み立てて
+//  onTick()→updateFnumber()/updateTL()まで面倒を見るので、CInstChと
+//  同じくそれに一本化する。
+//  (2026年8月修正。以前はここで独自にonTick()を回しており、
+//   [1] ドラムノートのソフトLFOだけが2倍速になる
+//   [2] setNoteFine()でChState::fineFreqをLFO値で上書きしていたため、
+//       DrumNote.fineTune(微調整)が最初のtickで失われ、さらに
+//       CSoundDevice::getFnumber()が fineFreq + channelLfoValue() を
+//       足すためLFOのデプスが2倍になる
+//   という不具合があった。ChStateへのswPatchキャッシュ[2026年7月新設]
+//   が入った時点で、この独自ループは冗長になっていた。)
 // ----------------------------------------------------------------
 void CRhythmCh::timerCallback(uint32_t /*tick*/)
 {
@@ -1878,52 +1894,7 @@ void CRhythmCh::timerCallback(uint32_t /*tick*/)
         // ゲートタイムのデクリメント
         if (slots.gateRem > 0) {
             --slots.gateRem;
-            if (slots.gateRem == 0) {
-                slots.release(this);
-                continue;
-            }
-        }
-
-        // VoiceProcessor tick (ソフト LFO / トレモロ)
-        // 各レイヤーの ChState を更新
-        for (auto& ls : slots.layers) {
-            if (!ls.isActive()) continue;
-            auto* st = ls.dev->getChState(ls.devCh);
-            if (!st) continue;
-
-            // キャッシュから対応する HwPatch を取得
-            const auto& cache = noteCache_[note];
-            if (!cache.isValid()) continue;
-            const auto* rl = (ls.layerIdx < cache.resolved.layerCount)
-                ? &cache.resolved.layers[ls.layerIdx] : nullptr;
-            if (!rl || !rl->hwPatch) continue;
-
-            FmVoice fv;
-            fv.hw = rl->hwPatch->hw;
-            for (int i = 0; i < 4; ++i) fv.hwOp[i] = rl->hwPatch->hwOp[i];
-            // layer[0]はDrumNote.swBank/swProg上書き解決結果
-            // (effectiveSwPatch0)を使う。それ以外のレイヤーは
-            // 各々が参照するHwPatch自身のswPatchをそのまま使う
-            // (applyNoteOnと同じロジック)。
-            const SwPatch* effectiveSwPatch =
-                (ls.layerIdx == 0) ? cache.effectiveSwPatch0 : rl->swPatch;
-            if (effectiveSwPatch) {
-                fv.sw = effectiveSwPatch->sw;
-                for (int i = 0; i < 4; ++i)
-                    fv.swOp[i] = effectiveSwPatch->swOp[i];
-            }
-
-            auto result = st->proc.onTick(fv);
-
-            if (result.needsFreqUpdate)
-                ls.dev->setNoteFine(ls.devCh, ls.dev->getCurrentNote(ls.devCh),
-                                    st->proc.channelLfoValue());
-
-            for (int op = 0; op < 4; ++op) {
-                if (result.tlUpdateMask & (1u << op))
-                    ls.dev->updateTL(ls.devCh, static_cast<uint8_t>(op),
-                                     st->proc.effectiveTL(op));
-            }
+            if (slots.gateRem == 0) slots.release(this);
         }
     }
 }
