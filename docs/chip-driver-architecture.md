@@ -43,7 +43,7 @@ master, divide, noteOffset_)`で`fnumTable_`を生成する際、`noteOffset_`�
 
 | メソッド | 理由 |
 |---|---|
-| `updateTL(ch, op, lev)` | `CRhythmCh`のソフトLFO処理から直接呼ぶ必要があるため |
+| `updateTL(ch, op, lev)` | ソフトLFO(トレモロ)の変調結果を`CSoundDevice::timerCallback()`から反映するため(かつては`CRhythmCh`も独自に呼んでいたが、2026年8月に二重tick解消のためデバイス側へ一本化した) |
 | `getChState(ch)` | `VoiceProcessor::onNoteOn`等が`CSpanDevice`経由でも正しく実チップの状態を取得できるようにするため |
 | `setCC1Modulation(...)` | 同上 |
 | `forceDamp(ch)` | デフォルト実装は`noteOff(ch)`のみ。`CMultiDevice`にも委譲実装が必要（3章参照） |

@@ -212,21 +212,38 @@ int8_t LfoControl::wave(uint8_t waveform) const noexcept
 
     int8_t raw = 0;
 
-    // OneShotHold: up-saw/down-sawはt=0で変位0から立ち上がる波形のため、
-    // 1周期完了で位相リセットされたt=0をそのまま保持すると無音(変位0)で
-    // 保持されてしまう。各波形が向かう方向の最大振幅側で保持する
+    // のこぎり波(up-saw/down-saw)は「t=0で変位0から始まる」ようにするが、
+    // その実現方法は Repeat と OneShot 系で異なる。
+    //
+    //  Repeat : 半周期分位相をずらして -120〜+120 を走査する。不連続点は
+    //           周期境界から周期中間へ移動するが、繰り返し波形なので
+    //           不連続点が周期のどこにあっても同じ音になる。
+    //  OneShot: 1周期がそのままピッチ/音量エンベロープになるため、周期内に
+    //           不連続点があってはならない。Repeatと同じ位相シフトを適用
+    //           すると「変位0→-120→(跳ね上がり)+120→変位0」となり、1周期
+    //           しか鳴らないはずの波形が2回繰り返して聞こえてしまう
+    //           (2026年8月、ドラムノートのDrumLFOで発覚した不具合)。
+    //           0 から ±120 へ単調に振れる片側傾斜として扱い、周期末尾の
+    //           ±120 をそのまま one_shot_done_ 時のホールド値へ繋げる。
+    const bool oneShot = (mode_ != LfoMode::Repeat);
+
+    // OneShotHold: 1周期完了で位相はt=0にリセットされるため、そのまま
+    // 評価すると変位0(=無音)で保持されてしまう。傾斜が向かっていた側の
+    // 最大振幅で保持する(周期末尾の値と連続する)
     if (one_shot_done_ && mode_ == LfoMode::OneShotHold &&
         (waveform == 0 || waveform == 4)) {
         raw = (waveform == 0) ? static_cast<int8_t>(120)
                                : static_cast<int8_t>(-120);
     } else switch (waveform) {
-    case 0: // up-saw: -120〜+120。半周期分位相をずらし、いきなり最大
-            // 振幅から始まるのではなくt=0で変位0から立ち上がるようにする
-            // (不連続点は周期境界ではなく中間点に移動する)
+    case 0: // up-saw
     {
-        const uint16_t ts = static_cast<uint16_t>((t + p / 2) % p);
-        raw = static_cast<int8_t>(
-            static_cast<int32_t>(ts) * 240 / p - 120);
+        if (oneShot) {
+            raw = static_cast<int8_t>(static_cast<int32_t>(t) * 120 / p);
+        } else {
+            const uint16_t ts = static_cast<uint16_t>((t + p / 2) % p);
+            raw = static_cast<int8_t>(
+                static_cast<int32_t>(ts) * 240 / p - 120);
+        }
         break;
     }
     case 1: // square
@@ -243,11 +260,15 @@ int8_t LfoControl::wave(uint8_t waveform) const noexcept
     case 3: // S&H: seed_ は tick() で周期末尾に更新済み
         raw = static_cast<int8_t>((seed_ >> 8) ^ 0x80);
         break;
-    case 4: // down-saw: up-sawと同様に半周期分位相をずらす
+    case 4: // down-saw: up-sawと同じ扱い(符号のみ反転)
     {
-        const uint16_t ts = static_cast<uint16_t>((t + p / 2) % p);
-        raw = static_cast<int8_t>(
-            120 - static_cast<int32_t>(ts) * 240 / p);
+        if (oneShot) {
+            raw = static_cast<int8_t>(-(static_cast<int32_t>(t) * 120 / p));
+        } else {
+            const uint16_t ts = static_cast<uint16_t>((t + p / 2) % p);
+            raw = static_cast<int8_t>(
+                120 - static_cast<int32_t>(ts) * 240 / p);
+        }
         break;
     }
     case 5: // delta (impulse): 周期先頭のみ +120
