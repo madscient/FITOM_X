@@ -587,6 +587,78 @@ TEST_CASE("CC#1 soft LFO forced push during the Assigned window (after assignCh,
     CHECK_FALSE(dev->getChState(chB)->proc.channelLfoActive());
 }
 
+// 実機報告: ソフトウェアLFOを指定していない(sw.LFR=0、CC#1も送っていない)
+// チャンネル/パッチにソフトウェアLFOが掛かる不具合が再発(2026年8月)。
+// 上のテストで検証したCInstCh↔CInstCh間の漏れは修正済みだったが、今回は
+// メロディパートとドラム/リズムパートが同一チップを共有する構成で再現した。
+//
+// 原因はCRhythmCh::applyNoteOn()(MidiCh.cpp)が、CInstCh::noteOn()と違い
+// ISoundDevice::setCC1Modulation()/setLfoDepthOverride()を一切呼んでいな
+// かったこと。CRhythmChはCC#1/CC#77というコントローラ自体を扱わない設計
+// だが、そのせいで「CC#1でソフトLFOをかけたメロディch」→「そのdevChを
+// 奪うドラムノート(何もpushしないので素通りする)」→「同じdevChを奪う
+// 別のメロディch(CC#1未送信)」の順でdevChが使い回されると、
+// VoiceProcessor::cc1Value_の残留がドラムノートをすり抜けて2つ目の
+// メロディchまで生き残ってしまっていた。CRhythmCh::applyNoteOn()にも
+// CInstCh::noteOn()と同じ「毎ノートオン強制push」パターンを追加し(値は
+// 常に無効化: cc1=0, lfoDepthOverride=0[オフセットなし])、devChの
+// 使い回しでどんな経路を通っても残留状態が上書きされるよう修正した。
+TEST_CASE("CC#1 residual survives an intervening drum note unless the drum "
+          "note also force-pushes 'no software LFO' (CRhythmCh regression)",
+          "[sounddevice]")
+{
+    RecordingPort port;
+    auto dev = createCOPN(&port, 8000000); // 3ch
+    dev->init();
+
+    HwPatch melodyPatch{}; melodyPatch.id = 2; // swPatch省略=既定(LFR=0)
+    DummyMidiCh melodyOwnerA, drumOwner, melodyOwnerB;
+
+    // melodyA: CC#1でソフトLFOを起動する
+    uint8_t chA = dev->allocCh(&melodyOwnerA, &melodyPatch, 100);
+    REQUIRE(chA != 0xFF);
+    dev->setNoteFine(chA, 60, 0, true);
+    dev->noteOn(chA, 100);
+    dev->setCC1Modulation(chA, 100, 600);
+    REQUIRE(dev->getChState(chA)->proc.channelLfoActive());
+
+    dev->noteOff(chA); // -> Releasing、chLfo_はfadeout中(まだactive)
+
+    // drum: CRhythmCh::applyNoteOn()と同じ経路(assignCh直後にCC#1/CC#77を
+    // 必ず無効化push)。音色自体はLFR=0(自音色LFOなし)。
+    HwPatch drumPatch{}; drumPatch.id = 1;
+    uint8_t chD = dev->assignCh(chA, &drumOwner, &drumPatch, 100); // 明示的に同一chを奪う
+    REQUIRE(chD == chA);
+    dev->setCC1Modulation(chD, 0, 0);
+    dev->setLfoDepthOverride(chD, 0); // オフセットなし(GM2準拠、値64=補正なしに相当)
+    dev->setNoteFine(chD, 36, 0, true);
+    dev->noteOn(chD, 100);
+    dev->noteOff(chD); // -> Releasing
+
+    // melodyB: 別のMIDIチャンネル。CC#1は一度も送っていない。
+    uint8_t chB = dev->assignCh(chD, &melodyOwnerB, &melodyPatch, 100);
+    REQUIRE(chB == chD);
+    dev->setNoteFine(chB, 72, 0, true);
+    dev->noteOn(chB, 100);
+
+    for (int t = 0; t < 50; ++t) dev->timerCallback(static_cast<uint32_t>(t));
+
+    // 修正前(drumがsetCC1Modulation/setLfoDepthOverrideを呼ばない場合)は
+    // ここでmelodyAのcc1Value_=100がdrumを素通りしてchannelLfoActive()==true
+    // のままになっていた。
+    CHECK_FALSE(dev->getChState(chB)->proc.channelLfoActive());
+}
+
+// NOTE: CInstCh::noteOn()のmono_&&timbres_>0自己スティール分岐(devChを
+// assignCh()経由せず直接使い回す)が、新たに解決されたpatch/effSwPatchを
+// 一切deviceへ反映しない(dev->setVoice()もdev->assignCh()も呼ばれない)
+// ことを調査中に発見した。モノフォニックチャンネルでプログラムチェンジ
+// (LFR>0の音色→LFR=0の音色)を挟んですぐ次のノートを弾くと、旧音色の
+// chLfo_(音色固有LFO)がフェードアウト完了まで残ることを別途確認済み。
+// ただし現在調査中の実機報告はポリモードのチャンネルで発生しているため
+// これには該当せず、この件は別課題として扱う(このテストファイルには
+// 追加していない)。
+
 // OPL4のAWM(PCM)部は実チップ上、FM部(port1/port2、addr 0x000-0x1FF)とは
 // 独立した3つ目のレジスタバンク(addr 0x200以降、a_high=2)に配置される。
 // CFITOM::resolveHighBankPort()はCOPL4AWMにOffsetPort(port,0x200)経由で
