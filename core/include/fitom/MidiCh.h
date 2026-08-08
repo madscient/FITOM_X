@@ -424,21 +424,28 @@ private:
     uint8_t  hwLfoDepth_ = 0;
     uint8_t  hwLfoRate_  = 0;
 
-    // CC#76/78(ソフトウェアLFO Rate/Delay)。-1(センチネル)=上書きなし、
-    // 音色データ(sw.LFR/LFD)をそのまま使う。LFO(再)始動時にしか意味を
-    // 持たない(=次のノートオンから反映される)ため、DepthのようにCC受信時
-    // に発音中のノートへ即座にpushする経路は持たない。noteOn()側で
+    // CC#76/78(ソフトウェアLFO Rate/Delay)。GM2規格のSound Controller
+    // 同様、値64を中央(補正なし)とするオフセット方式(2026年8月、絶対
+    // 上書き方式から変更。GM2準拠のDAWがSound Controller群を既定値64へ
+    // リセットする定型初期化を送ると、絶対上書き方式では音色データが
+    // LFOを使わない設定[sw.LFR=0]でも誤ってLFOが起動してしまう不具合が
+    // あった)。0=補正なし、音色データ(sw.LFR/LFD)にこの値を加算した
+    // ものを実際に使う(clampして0-127に収める)。LFO(再)始動時にしか
+    // 意味を持たない(=次のノートオンから反映される)ため、Depthのように
+    // CC受信時に発音中のノートへ即座にpushする経路は持たない。noteOn()側で
     // SwPatchの一時コピーへ焼き込んでからassignCh/allocChへ渡す
     // (VoiceProcessor::onNoteOn()はassignCh()の内部で、CInstChがdevChを
     // 受け取るより前に呼ばれてしまうため、後からch単位でpushする方式
     // では最初のノートに間に合わない)。
-    int16_t  lfoRateOverride_  = -1;
-    int16_t  lfoDelayOverride_ = -1;
-    // CC#77(ソフトウェアLFO Depth)。-2000(センチネル、depthCentsの
-    // 正当範囲±1200の外側)=上書きなし。VoiceProcessor側で毎tick
-    // 再計算されるため、こちらはCC受信時に発音中の全ノートへ即座に
-    // pushできる(setLfoDepthOverride参照)。
-    int16_t  lfoDepthOverrideCents_ = -2000;
+    int16_t  lfoRateOverride_  = 0;
+    int16_t  lfoDelayOverride_ = 0;
+    // CC#77(ソフトウェアLFO Depth)。GM2規格のSound Controller同様、値64を
+    // 中央(補正なし)とするオフセット方式(2026年8月、絶対上書き方式から
+    // 変更。理由はlfoRateOverride_のコメント参照)。0=補正なし、音色データ
+    // (sw.depthCents)に加算するオフセット値[セント]として扱う。
+    // VoiceProcessor側で毎tick再計算されるため、こちらはCC受信時に発音中の
+    // 全ノートへ即座にpushできる(setLfoDepthOverride参照)。
+    int16_t  lfoDepthOverrideCents_ = 0;
     uint8_t  phyCh_      = 127;
 
     // NRPN 96,2(パフォーマンスバンクセレクト)/96,3(パフォーマンス

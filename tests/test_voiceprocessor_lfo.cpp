@@ -126,3 +126,52 @@ TEST_CASE("LfoControl Repeat mode keeps cycling during fadeout as before",
     }
     REQUIRE(sawRise); // 位相が周期を回っていれば振幅の増加が観測されるはず
 }
+
+// 実機報告(2026年8月): ソフトウェアLFOを一切使わない音色(sw.LFR=0)の
+// メロディパートに、送った覚えのないソフトウェアLFOが掛かる。調査の結果、
+// CC#76-78(ソフトウェアLFO Rate/Depth/Delay上書き)が「受信値をそのまま
+// 音色データの値に絶対上書きする」方式だったことが原因と判明。GM2準拠の
+// DAW/MIDIファイルはSound Controller群(CC#70-79)を既定値64へリセットする
+// 定型初期化をしばしば送るが、この絶対上書き方式だとCC#76=64を「Rateを
+// 64に強制設定」と解釈し、sw.LFR=0(LFO未使用)の音色にまでLFOが起動して
+// しまっていた。CC#77(Depth)についても同様の設計だったため、GM2規格の
+// Sound Controllerと同じ「値64=中央(補正なし)」というオフセット方式に
+// 変更した(VoiceProcessor::recalcChLfo()参照。Rate/Delayも同じ方式に
+// 変更したが、そちらはCInstCh::noteOn()内でSwPatchに焼き込む方式のため
+// ここでは検証できない)。
+TEST_CASE("VoiceProcessor::setLfoDepthOverride() applies as a GM2-style offset "
+          "from the patch's own depthCents (0 = no change, matching CC value 64)",
+          "[voiceprocessor][lfo]")
+{
+    VoiceProcessor proc;
+    FmVoice voice{};
+    voice.sw.LFR = 20;          // 音色固有LFO有効
+    voice.sw.LWF = 1;           // square(t=0から最大振幅+120)
+    voice.sw.LFM = 0;           // Repeat
+    voice.sw.depthCents = 600;  // 音色本来のデプス
+
+    proc.onNoteOn(/*vol=*/127, /*exp=*/127, /*vel=*/100, voice, /*carrierMask=*/0);
+    REQUIRE(proc.channelLfoActive());
+
+    proc.onTick(voice); // recalcChLfo()を1回走らせる
+    const int16_t baseline = proc.channelLfoValue();
+    REQUIRE(baseline != 0);
+
+    // CC#77=64(GM2のSound Controllerにおける「中央値」)相当のオフセット0を
+    // 送っても、音色本来のデプスから変化しないこと(修正前の絶対上書き
+    // 方式では、これが「デプスを0[無効化]に上書き」されてしまっていた)。
+    proc.setLfoDepthOverride(0);
+    proc.onTick(voice);
+    CHECK(proc.channelLfoValue() == baseline);
+
+    // 正方向のオフセットで音色本来のデプスより深くなること。
+    proc.setLfoDepthOverride(200);
+    proc.onTick(voice);
+    CHECK(proc.channelLfoValue() > baseline);
+
+    // 音色本来のデプスを打ち消すほどの負方向オフセットで、符号が反転
+    // すること(±1200セントの範囲でclampされる)。
+    proc.setLfoDepthOverride(-1200);
+    proc.onTick(voice);
+    CHECK(proc.channelLfoValue() < 0);
+}

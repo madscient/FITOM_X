@@ -142,12 +142,14 @@ public:
     void setCC1Modulation(uint8_t cc1, int16_t maxDepth) noexcept;
 
     // ─── CC#77: ソフトウェアLFO Depthの演奏時上書き ────────────────
-    // 音色データ(sw.depthCents)より優先される。次のtickから即座に
-    // 反映される(発音中のノートにも効く)。Rate(CC#76)/Delay(CC#78)は
+    // GM2規格のSound Controller同様、値64を中央(補正なし)とするオフセット
+    // 方式(2026年8月、絶対上書き方式から変更)。音色データ(sw.depthCents)
+    // に加算するオフセット値[セント]として扱う(0=補正なし)。次のtickから
+    // 即座に反映される(発音中のノートにも効く)。Rate(CC#76)/Delay(CC#78)は
     // 呼び出し元(CInstCh)がSwPatch自体を書き換えてassignCh/allocChへ
     // 渡す方式のため、ここには無い。
-    void setLfoDepthOverride(int16_t cents) noexcept { lfoDepthOverrideCents_ = cents; }
-    void clearLfoDepthOverride() noexcept { lfoDepthOverrideCents_ = -2000; }
+    void setLfoDepthOverride(int16_t offsetCents) noexcept { lfoDepthOverrideCents_ = offsetCents; }
+    void clearLfoDepthOverride() noexcept { lfoDepthOverrideCents_ = 0; }
 
     // ─── ボリューム/エクスプレッション変更時に呼ぶ ────────────────
     // チャンネルレベルが変化した場合に effectiveTL を再計算する。
@@ -208,7 +210,7 @@ private:
     // (VoiceProcessor::onNoteOn()がassignCh()内部で、CInstChがdevChを
     // 受け取るより前に呼ばれてしまうため、後からch単位でpushする
     // 方式ではこの2つには間に合わない)。
-    int16_t  lfoDepthOverrideCents_ = -2000;
+    int16_t  lfoDepthOverrideCents_ = 0; // オフセット[セント]。0=補正なし
 
     // ベロシティ補正済み EG レート (onNoteOn 時に設定)
     uint8_t velAR_[4]  = {};   // 補正後 AR  (0-31)

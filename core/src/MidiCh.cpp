@@ -326,20 +326,26 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
             baseSwPatch = &swPatchOverride_[li];
         }
 
-        // CC#76/78(ソフトウェアLFO Rate/Delay)の演奏時上書きがあれば、
+        // CC#76/78(ソフトウェアLFO Rate/Delay)の演奏時オフセットがあれば、
         // (上記で決まった)基点となるSwPatchの一時コピーへ焼き込んで
         // からassignCh/allocChへ渡す。VoiceProcessor::onNoteOn()は
         // assignCh()の内部で呼ばれるため、この時点で焼き込んでおく
         // 必要がある(詳細はlfoRateOverride_のコメント参照)。元の
-        // SwPatch(共有パッチデータ)は直接書き換えない。
+        // SwPatch(共有パッチデータ)は直接書き換えない。GM2規格の
+        // Sound Controllerに合わせ、音色データの値へ加算するオフセット
+        // として適用する(0=補正なし、2026年8月、絶対上書き方式から変更)。
         SwPatch overriddenSw{};
         const SwPatch* effSwPatch = baseSwPatch;
-        if (lfoRateOverride_ >= 0 || lfoDelayOverride_ >= 0) {
+        if (lfoRateOverride_ != 0 || lfoDelayOverride_ != 0) {
             if (baseSwPatch) overriddenSw = *baseSwPatch;
-            if (lfoRateOverride_ >= 0)
-                overriddenSw.sw.LFR = static_cast<uint8_t>(lfoRateOverride_);
-            if (lfoDelayOverride_ >= 0)
-                overriddenSw.sw.LFD = static_cast<uint8_t>(lfoDelayOverride_);
+            if (lfoRateOverride_ != 0) {
+                int v = static_cast<int>(overriddenSw.sw.LFR) + lfoRateOverride_;
+                overriddenSw.sw.LFR = static_cast<uint8_t>(std::clamp(v, 0, 127));
+            }
+            if (lfoDelayOverride_ != 0) {
+                int v = static_cast<int>(overriddenSw.sw.LFD) + lfoDelayOverride_;
+                overriddenSw.sw.LFD = static_cast<uint8_t>(std::clamp(v, 0, 127));
+            }
             effSwPatch = &overriddenSw;
         }
 
@@ -619,9 +625,9 @@ void CInstCh::resetAllCtrl()
     pmDepth_ = 0;
     setHwLfoDepth(0);
     setHwLfoRate(0);
-    lfoRateOverride_  = -1;
-    lfoDelayOverride_ = -1;
-    lfoDepthOverrideCents_ = -2000; // 上書き解除(音色データのdepthCentsに戻す)
+    lfoRateOverride_  = 0; // オフセット解除(補正なし)
+    lfoDelayOverride_ = 0;
+    lfoDepthOverrideCents_ = 0;
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (h.isValid() && h.dev) h.dev->setLfoDepthOverride(h.devCh, lfoDepthOverrideCents_);
@@ -1365,22 +1371,27 @@ void CInstCh::setHwLfoRate(uint8_t rate)
     applyLFOToAll();
 }
 
-// CC#76(Sound Controller 7 / Vibrato Rate): ソフトウェアLFOのRateを
-// 上書きする。0-127をsw.LFRと同じ単位としてそのまま使う。LFO(再)始動
-// 時にしか意味を持たないため、noteOn()側でSwPatchに焼き込んで
-// assignCh/allocChへ渡す(即時反映はできない、次のノートオンから反映)。
+// CC#76(Sound Controller 7 / Vibrato Rate): ソフトウェアLFOのRateへの
+// オフセット。GM2規格のSound Controller群と同じく、値64を中央(補正なし)
+// とする(2026年8月、絶対上書き方式から変更。GM2準拠のDAWがSound
+// Controller群を既定値64へリセットする定型初期化を送ると、絶対上書き
+// 方式では音色データがLFOを使わない設定[sw.LFR=0]でも誤ってLFOが
+// 起動してしまう不具合があったため)。sw.LFRへ加算する形でnoteOn()側が
+// 適用する(即時反映はできない、次のノートオンから反映)。
 void CInstCh::setSoftLfoRate(uint8_t rate)
 {
-    lfoRateOverride_ = rate;
+    lfoRateOverride_ = static_cast<int16_t>(static_cast<int>(rate) - 64);
 }
 
-// CC#77(Sound Controller 8 / Vibrato Depth): ソフトウェアLFOのDepthを
-// 上書きする。0-127を-1200〜+1200セントへ線形マッピングする
-// (127で最大デプス)。VoiceProcessor側で毎tick再計算されるため、
+// CC#77(Sound Controller 8 / Vibrato Depth): ソフトウェアLFOのDepthへの
+// オフセット。値64を中央(補正なし)とし、0-127の全域を±1200セントの
+// オフセットへ線形マッピングする(2026年8月、絶対上書き方式から変更。
+// 理由はsetSoftLfoRate()のコメント参照)。VoiceProcessor側で毎tick、
+// 音色データ(sw.depthCents)へこのオフセットを加算して再計算するため、
 // 発音中のノートにも即座に反映される。
 void CInstCh::setSoftLfoDepth(uint8_t depth)
 {
-    lfoDepthOverrideCents_ = static_cast<int16_t>(static_cast<int32_t>(depth) * 1200 / 127);
+    lfoDepthOverrideCents_ = static_cast<int16_t>((static_cast<int32_t>(depth) - 64) * 1200 / 64);
     for (int hi = 0; hi < MAX_NOTES; ++hi) {
         auto& h = notes_[hi];
         if (!h.isValid() || !h.dev) continue;
@@ -1388,12 +1399,13 @@ void CInstCh::setSoftLfoDepth(uint8_t depth)
     }
 }
 
-// CC#78(Sound Controller 9 / Vibrato Delay): ソフトウェアLFOのDelayを
-// 上書きする。0-127をsw.LFDと同じ単位(20ms)としてそのまま使う。
-// Rateと同じ理由でnoteOn()側でSwPatchに焼き込む方式。
+// CC#78(Sound Controller 9 / Vibrato Delay): ソフトウェアLFOのDelayへの
+// オフセット。Rateと同じくGM2準拠のオフセット方式(値64=補正なし)。
+// sw.LFDへ加算する形でnoteOn()側が適用する(Rateと同じ理由でSwPatchに
+// 焼き込む方式)。
 void CInstCh::setSoftLfoDelay(uint8_t delay)
 {
-    lfoDelayOverride_ = delay;
+    lfoDelayOverride_ = static_cast<int16_t>(static_cast<int>(delay) - 64);
 }
 
 // SysEx(private, 00H 48H 01H, sub-cmd 0x01, target-type 0x00)による
@@ -1719,6 +1731,18 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
 
         // ノート/ファインチューン設定(playNote/fineは上で計算済み)。
         dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, true);
+
+        // CRhythmChはCC#1(ソフトウェアLFO)/CC#77(Depth上書き)を一切扱わない
+        // (GM2リズムパートにこれらのコントローラという概念自体が無い)ため、
+        // 常に「無効」を毎ノートオン強制pushして、このdevChを直前に使っていた
+        // 別のMIDIチャンネル(CInstCh)のVoiceProcessor::cc1Value_/
+        // lfoDepthOverrideCents_残留を上書きする。CInstCh::noteOn()と同じ
+        // devChの使い回し対策だが、CRhythmCh側にこれが無かったため、
+        // 「CC#1でLFOをかけたメロディch」→「ドラムノート(素通り)」→
+        // 「CC#1を送っていない別のメロディch」の順でdevChを使い回すと、
+        // ドラムノートを経由して残留LFOがすり抜けてしまっていた(2026年8月)。
+        dev->setCC1Modulation(devCh, 0, 0);
+        dev->setLfoDepthOverride(devCh, 0); // オフセット解除(補正なし)
 
         dev->noteOn(devCh, static_cast<uint8_t>(adjVel));
 
