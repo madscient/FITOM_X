@@ -374,8 +374,14 @@ protected:
         // STEP075DB (無マスク) で渡す理由は updateVolExp (トーンパート側) 参照
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint16_t addr = kRhythmReg[ch];
-        // ch&5: ch=1,3,4 は上位nibble、ch=0,2 は下位nibble (旧FITOM完全移植)
-        bool highNibble = (ch & 5) != 0;
+        // ch&5: ch=0,2(HH/TOM)は上位nibble、ch=1,3,4(CYM/SD/BD)は下位nibble
+        // (旧FITOM完全移植。2026年8月、判定が逆転しておりSDが自分では
+        // $37下位に一度も書き込まれず起動直後は最大音量のままハイハット
+        // 発音時にHHの音量で上書きされ以後固定的に減衰する等の不具合を
+        // ユーザー指摘[レジスタダンプ比較]で修正。旧FITOM(legacy/src/
+        // OPLL.cpp COPLLRhythm::UpdateVolExp)の`mask = (ch&5) ? 0xf0 : 0x0f`
+        // (ch&5が真のとき下位nibble書き込み)と突き合わせて確認済み)。
+        bool highNibble = (ch & 5) == 0;
         uint8_t mask = highNibble ? 0x0F : 0xF0;
         uint8_t shifted = highNibble ? static_cast<uint8_t>(vol << 4) : vol;
         setReg(addr, static_cast<uint8_t>((getReg(addr) & mask) | shifted));
