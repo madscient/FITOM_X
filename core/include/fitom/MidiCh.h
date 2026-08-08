@@ -672,8 +672,9 @@ private:
         ResolvedPatch resolved;
         Patch         directStorage; // 直接モード時、resolveDirect()のstorage引数用
         // DrumNote.swBank/swProg上書き解決後の実効SwPatch(layer[0]専用の
-        // 制約)。applyNoteOnで計算し、timerCallbackのソフトLFO/トレモロ
-        // 更新で使い回すためにキャッシュする。
+        // 制約)。resolveNote()で計算し、applyNoteOnがassignCh/allocChへ
+        // 渡す(以降はChState側にキャッシュされ、ソフトLFO/トレモロの
+        // 更新はCSoundDevice::timerCallback()がそれを使って行う)。
         const SwPatch* effectiveSwPatch0 = nullptr;
         bool isValid() const { return resolved.isValid(); }
     };
