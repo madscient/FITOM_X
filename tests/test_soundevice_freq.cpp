@@ -904,6 +904,64 @@ TEST_CASE("COPLLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
     CHECK((port.regs[blockReg] & 0x0F) == sdBlock);
 }
 
+// ユーザー報告(2026年8月、実機レジスタダンプ動画2本の比較で特定): OPLL
+// 内蔵リズムのスネアドラム(SD)が、起動直後は鳴るが途中から鳴らなくなる。
+// COPLLRhythm::updateVolExp()の`highNibble = (ch & 5) != 0`が、旧FITOM
+// (legacy/src/OPLL.cpp COPLLRhythm::UpdateVolExp、`mask = (ch&5) ? 0xf0 :
+// 0x0f`)と符号が逆転していた。SDは自分では$37下位に一度も書き込まれず
+// 起動直後は0(最大音量)のままだが、ハイハット(HH)を1回でも叩くと、本来
+// HH専用のはずの$37上位ではなく下位(=SDの音量欄)にHHの音量が誤って
+// 書き込まれ、以後SDの音量が固定的に(HHの音量のまま)変化しなくなって
+// いた。正しい対応は HH→$37上位 / CYM→$38下位 / TOM→$38上位 /
+// SD→$37下位 / BD→$36下位。
+TEST_CASE("COPLLRhythm volume register nibble mapping matches legacy FITOM: "
+          "HH/TOM->high nibble, CYM/SD/BD->low nibble", "[sounddevice][opll][rhythm]")
+{
+    RecordingPort port;
+    auto dev = createCOPLLRhythm(&port, 3579545);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    // SD(ch3)を先に書き込み、$37下位に値が入ることを期待する。
+    uint8_t sdCh = dev->assignCh(3, nullptr, &patch, 77);
+    REQUIRE(sdCh == 3);
+    dev->noteOn(sdCh, 77);
+    uint8_t afterSD = port.regs[0x37];
+
+    // HH(ch0)を書き込む。$37上位のみに影響し、SDが書いた下位nibbleは
+    // 変化しないはず(修正前バグでは、ここでSDの下位nibbleがHHの音量で
+    // 上書きされてしまっていた)。
+    uint8_t hhCh = dev->assignCh(0, nullptr, &patch, 30); // SDと大きく異なるベロシティ
+    REQUIRE(hhCh == 0);
+    dev->noteOn(hhCh, 30);
+    uint8_t afterHH = port.regs[0x37];
+
+    CHECK((afterHH & 0x0F) == (afterSD & 0x0F)); // SDの下位nibbleはHHの書き込み後も不変
+    CHECK(afterHH != afterSD); // HHは実際に上位nibbleへ書き込んでいる
+
+    // CYM(ch1)/TOM(ch2)は$38を共有。TOM->上位、CYM->下位が正しい。
+    uint8_t cymCh = dev->assignCh(1, nullptr, &patch, 77);
+    REQUIRE(cymCh == 1);
+    dev->noteOn(cymCh, 77);
+    uint8_t afterCYM = port.regs[0x38];
+
+    uint8_t tomCh = dev->assignCh(2, nullptr, &patch, 30);
+    REQUIRE(tomCh == 2);
+    dev->noteOn(tomCh, 30);
+    uint8_t afterTOM = port.regs[0x38];
+
+    CHECK((afterTOM & 0x0F) == (afterCYM & 0x0F)); // CYMの下位nibbleはTOMの書き込み後も不変
+    CHECK(afterTOM != afterCYM);
+
+    // BD(ch4)は$36を単独占有。実機は上位nibble未使用のため下位のみ変化する。
+    uint8_t bdCh = dev->assignCh(4, nullptr, &patch, 100);
+    REQUIRE(bdCh == 4);
+    dev->noteOn(bdCh, 100);
+    CHECK((port.regs[0x36] & 0xF0) == 0);
+}
+
 // ================================================================
 //  ワンショット系デバイス (ADPCM-A / OPNA内蔵リズム) の消音制御
 //
