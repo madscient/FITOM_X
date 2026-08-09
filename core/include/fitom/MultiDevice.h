@@ -151,6 +151,14 @@ public:
         return dc.dev ? dc.dev->getChState(dc.ch) : nullptr;
     }
 
+    // 束ねたサブチップ側へ委譲する(CSpanDeviceのサブチップが
+    // CLinearPanDeviceであるケース: spanGroupsの各要素はモノラル単体だけで
+    // なくステレオペアでもありうる。PortGroup参照)。
+    bool getStereoGains(uint8_t ch, float& gainL, float& gainR) const override {
+        auto dc = resolveGlobalCh(ch);
+        return dc.dev ? dc.dev->getStereoGains(dc.ch, gainL, gainR) : false;
+    }
+
 protected:
     std::vector<ISoundDevice*> chips_;
 
@@ -485,6 +493,13 @@ public:
         return chips_.empty() ? nullptr : chips_[0]->getChState(gch);
     }
 
+    // gchは全チップ共通のローカルch番号のため、CMultiDeviceの
+    // resolveGlobalCh経由ではなく代表チップへそのまま尋ねる
+    // (getChState/isChOwnedByと同じ理由)。ユニゾン自体は定位を持たない。
+    bool getStereoGains(uint8_t gch, float& gainL, float& gainR) const override {
+        return chips_.empty() ? false : chips_[0]->getStereoGains(gch, gainL, gainR);
+    }
+
 #define UNISON_BROADCAST(fn, ...) { for (auto* c : chips_) c->fn(ch, __VA_ARGS__); }
     void setVoice(uint8_t ch, const HwPatch& p, bool u) override      UNISON_BROADCAST(setVoice, p, u)
     void setNoteFine(uint8_t ch, uint8_t n, int16_t f, bool u) override UNISON_BROADCAST(setNoteFine, n, f, u)
@@ -580,6 +595,20 @@ public:
         applyLinearPan(ch, update);
     }
 
+    // チャンネルレベルメーターのL/R分割表示用。applyLinearPan()が左右チップの
+    // 音量に適用しているのと同じ等パワーパンニングの係数を、大きい側が1.0に
+    // なるよう正規化して返す(バーの高さ自体はベロシティ由来のエンベロープが
+    // 担うため、ここでは音量[masterVolume_]を反映させない)。
+    bool getStereoGains(uint8_t ch, float& gainL, float& gainR) const override {
+        if (ch >= masterPan_.size() || chips_.size() < 2) return false;
+        double l = 0.0, r = 0.0;
+        linearPanGains(masterPan_[ch], l, r);
+        const double m = (std::max)(l, r);
+        gainL = (m > 0.0) ? static_cast<float>(l / m) : 1.0f;
+        gainR = (m > 0.0) ? static_cast<float>(r / m) : 1.0f;
+        return true;
+    }
+
 private:
     bool                 chipLevelPan_;
     std::vector<uint8_t> masterVolume_;
@@ -603,14 +632,19 @@ private:
     // 旧FITOM CLinearPan::UpdatePanpot 完全移植。
     // panpot(int8_t, -64..63) を旧FITOMの0-127生値スケールに変換した上で、
     // 等パワーパンニングの式 (lgain=cos, rgain=sin) を適用する。
-    void applyLinearPan(uint8_t ch, bool update) {
-        int p = static_cast<int>(masterPan_[ch]) + 64 - 1; // -64..63 → -1..126
+    static void linearPanGains(int8_t panpot, double& lgain, double& rgain) {
+        int p = static_cast<int>(panpot) + 64 - 1; // -64..63 → -1..126
         p = std::clamp(p, 0, 126);
         // M_PI_2 は POSIX/GNU拡張でありMSVC標準では未定義のため、
         // 移植性のためリテラル値 (π/2) を直接使う。
         constexpr double kHalfPi = 1.5707963267948966;
-        double lgain = std::cos(kHalfPi * p / 126.0);
-        double rgain = std::sin(kHalfPi * p / 126.0);
+        lgain = std::cos(kHalfPi * p / 126.0);
+        rgain = std::sin(kHalfPi * p / 126.0);
+    }
+
+    void applyLinearPan(uint8_t ch, bool update) {
+        double lgain = 0.0, rgain = 0.0;
+        linearPanGains(masterPan_[ch], lgain, rgain);
         uint8_t lvol = static_cast<uint8_t>(std::lround(lgain * masterVolume_[ch]));
         uint8_t rvol = static_cast<uint8_t>(std::lround(rgain * masterVolume_[ch]));
         chips_[0]->setVolume(ch, lvol, update); // L

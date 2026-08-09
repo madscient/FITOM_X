@@ -976,12 +976,11 @@ bool FITOMConfig::subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept
     return deviceType != DEVICE_OPL4AWM;
 }
 
-bool FITOMConfig::deviceHasChipLevelPanpot(uint32_t deviceType) noexcept
+FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexcept
 {
-    // チャンネルごとのL/R出力ビット(またはそれと等価な左右独立音量)を
-    // レジスタへ書けるチップ。各ドライバの updatePanpot() 実装が真の情報源で、
-    // ここはその deviceType 側の索引にあたる(片方だけ更新すると、指定しても
-    // 左右に分離されない・警告も出ないという静かな失敗になるため、
+    // 各ドライバの updatePanpot() 実装が真の情報源で、ここはその deviceType 側の
+    // 索引にあたる(片方だけ更新すると、stereo_pair:"L"/"R" が黙って効かない・
+    // レベルメーターのL/R分割が出ない、といった静かな失敗になるため、
     // updatePanpot() を実装/変更したら必ずこの一覧も見直すこと)。
     switch (deviceType) {
     // FM: OPM/OPZ系 (レジスタ0x20のbit7/bit6)
@@ -997,13 +996,21 @@ bool FITOMConfig::deviceHasChipLevelPanpot(uint32_t deviceType) noexcept
     // 上記チップのcomposite展開で生成されるPCM系サブデバイス。
     // ADPCM-A(YM2610)・ADPCM-B(YM2608/YM2610)はいずれもL/R出力ビットを持つ。
     case DEVICE_ADPCMA: case DEVICE_ADPCMB: case DEVICE_ADPCMB_OPNA:
-        return true;
+        return ChipPanType::ThreeWay;
+
+    // 連続的なパンポットレジスタを持つチップ。
+    // OPL4 AWM: 0x68+ch の4bit符号付き(-7..+7)。YMZ280B: 0x03+ch*4 の4bit(0-15)。
+    // SAA1099: 0x00+ch に左右独立の4bit音量を書く(ドライバ側が等パワー
+    // パンニングで算出)。
+    case DEVICE_OPL4AWM: case DEVICE_PCMD8: case DEVICE_SAA:
+        return ChipPanType::Continuous;
+
     default:
-        // OPLL系・OPL/OPL2/Y8950・SSG/PSG系・YM2203等のモノラル出力チップ。
+        // OPLL系・OPL/OPL2/Y8950・SSG系・YM2203等のモノラル出力チップ。
         // これらの updatePanpot() は no-op のため、チップ内L/R分離はできない。
         // なお内蔵リズム(DEVICE_*_RHY)もFM本体側のレジスタを共有する
         // モノラル前提の実装のため対象外。
-        return false;
+        return ChipPanType::Mono;
     }
 }
 

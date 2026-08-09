@@ -192,9 +192,9 @@ struct PhysicalChipInfo {
     // span/stereo展開“前”に記録したpendingSubDevices_を、buildPhysicalChipList()
     // が物理ポート単位に突き合わせて構築する(2026年7月)。同種デバイス
     // 自動束ね(spanGroups)で他デバイスに吸収されたデバイスも、吸収先とは
-    // 別の物理チップとして正しく内訳が復元される。ただしstereoPairPort
-    // (CLinearPanDevice化)されるデバイス自身は、createLeveledDevice()が
-    // 展開前にL/R個別のch構成を返さないため対象外のまま(既知の制限)。
+    // 別の物理チップとして正しく内訳が復元される。リニアステレオ化
+    // (CLinearPanDevice)されたペアも、L側・R側それぞれの物理チップに
+    // 各自の内訳が入る(2026年8月対応)。
     std::vector<PhysicalChipSubDevice> subDevices;
 };
 
@@ -220,6 +220,21 @@ struct PhysicalChipChannelState {
     // GUI側が検出できないため、フレーム間差分による「本当にノートオンが
     // 起きたか」の判定に使う(2026年7月新設)。
     uint32_t noteOnSeq = 0;
+
+    // ─── ステレオ定位 (2026年8月新設) ────────────────────────────────────
+    // stereo = true なら、このチャンネルは左右の作り分けができる。
+    // GUIはバー1本を左右half-widthの2本に分割し、それぞれ gainL/gainR を
+    // 掛けた高さで描く。false のチャンネル(モノラル出力チップ)は従来どおり
+    // 1本のバーで描く。
+    //
+    // gainL/gainR は「定位」を表す係数 (0.0-1.0) で、大きい側が必ず1.0に
+    // なるよう正規化されている。バーの高さそのもの(音量・ベロシティ由来の
+    // エンベロープ)はGUI側が別途持っており、それに乗算する使い方を想定して
+    // いるため、ここで音量を二重に反映させない。
+    //   中央 → (1.0, 1.0) / 左端 → (1.0, 0.0) / 右端 → (0.0, 1.0)
+    bool  stereo = false;
+    float gainL  = 1.0f;
+    float gainR  = 1.0f;
 };
 
 // ================================================================
@@ -590,6 +605,7 @@ private:
         uint32_t      deviceType = 0;
     };
     std::vector<PendingSubDevice> pendingSubDevices_;
+    void registerPendingSubDevice(HWPort* port, ISoundDevice* device, uint32_t deviceType);
 
     // 1つの物理ポート(+extraPort)から ISoundDevice を生成する。
     // stereoPairPort が指定されていれば、そのポート用にもう1つ生成し、
@@ -598,10 +614,16 @@ private:
     // stereoPairChipLevel: そのステレオペアがチップ内L/R分離方式
     // (プロファイルの stereo_pair:"L"/"R") かどうか。MultiDevice.h の
     // CLinearPanDevice のコメント参照。
+    // outLeftRaw/outRightRaw: ステレオペア時、CLinearPanDeviceへラップする
+    // 前のL側/R側の生ISoundDeviceを返す(所有権はspanSubChips_側にあるため
+    // 生ポインタ)。チャンネルレベルメーターが物理チップ単位のch構成を
+    // 取り出すのに使う。モノラル時はどちらも変更しない(戻り値のunique_ptr
+    // 自身が唯一のデバイスであり、呼び出し元が .get() で取得できるため)。
     std::unique_ptr<ISoundDevice> createLeveledDevice(
         uint32_t deviceType, IPort* port, IPort* stereoPairPort,
         int sampleRate, IPort* extraPort, bool rhythmMode,
-        bool stereoPairChipLevel = false);
+        bool stereoPairChipLevel = false,
+        ISoundDevice** outLeftRaw = nullptr, ISoundDevice** outRightRaw = nullptr);
 
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;
