@@ -23,11 +23,24 @@ class PatchManager; // 前方宣言 (loadDrumBanks の引数用)
 
 class ISoundDevice;
 
+// リニアステレオ化 (CLinearPanDevice) におけるL/R役割の宣言方法。
+// docs/chip-driver-architecture.md「3.1 リニアステレオ化」参照。
+enum class StereoSide : uint8_t {
+    None = 0,  // 未指定 (プロファイルの stereo_pair:true)。IPort::getPanpot()
+               // の 1(L)/2(R) から役割を判定する = プラグイン側の出力
+               // ルーティングでL/Rを分離する従来方式。
+    Left,      // stereo_pair:"L"。チップ自身のL/R出力ビットでL側に固定する
+    Right,     // stereo_pair:"R"。同上、R側
+};
+
 // 「モノラル1ポート」または「ステレオペア2ポート」のどちらかを表す単位。
 // 同種デバイス自動束ね (spanGroups) の各要素として使う。
 struct PortGroup {
     std::shared_ptr<IPort> primary;
     std::shared_ptr<IPort> stereoPair;  // nullptr = モノラル単体
+    // stereoPair が non-null のとき、そのペアがチップ内L/R分離方式
+    // (stereo_pair:"L"/"R") かどうか。DeviceEntry::stereoPairChipLevel と同義。
+    bool                     stereoPairChipLevel = false;
     // このポートグループの本来のdeviceType (DEVICE_*)。VoicePatchType が
     // 同じでも実装クラスが異なる場合がある(例: OPNB=COPNBはOPN2/OPNA=COPNA
     // と同じVOICE_PATCH_OPN2だが、ch0/ch3を無効化した別クラス)ため、
@@ -72,6 +85,13 @@ struct DeviceEntry {
     // CLinearPanDevice を構成する。
     bool                            stereoPairRequested = false; // プロファイル指定
     std::shared_ptr<IPort>          stereoPairPort;               // 統合後に設定
+    // L/R役割の宣言方法 (StereoSide参照)。None なら従来どおり
+    // IPort::getPanpot() の 1/2 から判定する。
+    StereoSide                      stereoSide = StereoSide::None;
+    // 統合後に設定。true なら「チップ自身のL/R出力ビットで分離する」方式
+    // (L/R両側とも stereo_pair:"L"/"R" で宣言された場合)。
+    // CLinearPanDevice が束ねた2チップの ChState::panpot を左右端へ固定する。
+    bool                            stereoPairChipLevel = false;
 
     // 同種デバイス自動束ね (CSpanDevice) 用の追加ポートグループ群。
     // 各要素は「モノラル1ポート」または「ステレオペア2ポート
@@ -171,10 +191,17 @@ public:
     // ため、CFITOM::initDevices() はサブチップ生成時に代表の
     // getDeviceRhythmMode(index)ではなくこちらを使う(2026年8月新設)。
     bool             getDeviceSpanGroupRhythmMode(int index, int k) const;
+    // k番目の追加ポートグループがステレオペアの場合、それがチップ内L/R分離方式
+    // (stereo_pair:"L"/"R") かどうか。getDeviceStereoPairChipLevel()と同じ意味。
+    bool             getDeviceSpanGroupStereoPairChipLevel(int index, int k) const;
 
     // リニアステレオ化 (CLinearPanDevice): このデバイス自身がステレオペア化
     // されている場合、相手(R側)のポートを返す。nullptr = モノラル単体。
     IPort*           getDeviceStereoPairPort(int index) const;
+    // 上記ステレオペアが「チップ自身のL/R出力ビットで分離する」方式
+    // (stereo_pair:"L"/"R") かどうか。false ならプラグイン側の出力ルーティング
+    // (pan:1/2) でL/Rを分離する従来方式。
+    bool             getDeviceStereoPairChipLevel(int index) const;
 
     // ─── VoicePatchType (音色パッチ互換性分類) ──────────────────────────────
     // devices_[index] の deviceType (DEVICE_*) から対応する VoicePatchType
@@ -244,6 +271,30 @@ public:
     static bool resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeFromProfile,
                                       std::vector<SubDeviceSpec>& outSpec);
 
+    // composite展開されたサブデバイスが、リニアステレオ化
+    // (CLinearPanDevice、プロファイルの stereo_pair:true) の対象になりうるか。
+    // false を返すのは、チャンネルごとのパンポットをハードウェアで持っており
+    // L/R2台の束ねによる代替が不要かつ有害なサブデバイス(現状はOPL4の
+    // AWM/PCM部 = DEVICE_OPL4AWM のみ)。false の場合、その物理チップの
+    // 他のサブデバイス(OPL4ならFM部)がステレオ化されても、当該サブデバイスは
+    // 独立したモノラルデバイスとして devices_ に残る。
+    static bool subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept;
+
+    // このデバイスのドライバが、チャンネルごとのL/R出力ビット(またはそれと
+    // 等価な左右独立音量)をチップのレジスタへ書けるか。true なら
+    // stereo_pair:"L"/"R" のチップ内L/R分離方式が実効性を持つ。
+    // false のチップ(OPLL系・OPL/OPL2・SSG等、モノラル出力しか持たないもの)
+    // では updatePanpot() が no-op のため、"L"/"R" を指定しても左右に分離
+    // されない(プラグイン側の pan:1/2 による従来方式が必要)。
+    static bool deviceHasChipLevelPanpot(uint32_t deviceType) noexcept;
+
+    // ─── リニアステレオ化 (CLinearPanDevice) のペアリング本体 ────────────
+    // mergeStereoPairDevices() の実装本体。devices_ の状態のみに依存する
+    // 純粋な変換のため、staticにしてユニットテストから直接呼べるようにして
+    // いる (resolveCompositeSpec と同じ方針)。仕様は
+    // mergeStereoPairDevices() の宣言部コメント参照。
+    static void pairStereoDevices(std::vector<DeviceEntry>& devices);
+
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;
     // 実行中にMIDI入力ポートの割り当てを丸ごと差し替える(GUIのMIDIポート
@@ -278,17 +329,23 @@ protected:
     void pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
                             std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
                             int sampleRate, int extraSlot, bool rhythmModeFromProfile,
-                            bool stereoPairRequested = false);
+                            bool stereoPairRequested = false,
+                            StereoSide stereoSide = StereoSide::None);
     int nextCompositeGroupId_ = 0;
 
-    // 全 buildDevice() 完了後に1回呼ぶ。同一 VoicePatchType・同一
-    // IPort::getInterfaceDesc()・同一 IPort::getPanpot() を持つ
-    // (かつ compositeGroup が異なる = 別の物理ポートに由来する) エントリ群を
-    // 【Step1: 最初に実行】プロファイルで stereo_pair:true が明示指定された
-    // エントリ同士のうち、同一VoicePatchType・同一InterfaceDesc・
-    // Panpot(L=1,R=2)の組み合わせを検出し、L側エントリの stereoPairPort に
-    // R側のポートを設定した上で R側エントリを devices_ から削除する。
-    // 自動検出はせず、両エントリとも明示指定が無ければ発動しない。
+    // 【Step1: 最初に実行】全 buildDevice() 完了後に1回呼ぶ。プロファイルで
+    // stereo_pair が明示指定されたエントリ同士のうち、同一deviceType・
+    // 同一InterfaceDesc・L/R役割の組み合わせを検出し、L側エントリの
+    // stereoPairPort に R側のポートを設定した上で R側エントリを devices_ から
+    // 削除する。自動検出はせず、両エントリとも明示指定が無ければ発動しない。
+    // L/R役割は stereo_pair:"L"/"R" (DeviceEntry::stereoSide) の明示指定を
+    // 優先し、stereo_pair:true (StereoSide::None) なら Panpot(L=1,R=2) から
+    // 判定する。両側とも明示指定だった場合のみ stereoPairChipLevel を立てる。
+    // composite展開されたチップ(OPLL+内蔵リズム、OPNA+SSG+ADPCM等)は、
+    // グループ内の「stereo_pair対象サブデバイス」(上記
+    // subDeviceAcceptsStereoPair()参照)のdeviceTypeが1対1で対応する場合に限り
+    // compositeGroup単位でまとめてペアリングする(2026年8月対応。それ以前は
+    // composite展開対象のチップではstereo_pairが無視されていた)。
     void mergeStereoPairDevices();
 
     // 【Step2: Step1の後に実行】全 buildDevice() 完了後に1回呼ぶ。同一

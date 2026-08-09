@@ -346,7 +346,8 @@ void CFITOM::syncDeviceLatency()
 }
 
 // MultiDev_new.cpp で定義される CLinearPanDevice 生成関数
-extern std::unique_ptr<ISoundDevice> createCLinearPanDevice(ISoundDevice* left, ISoundDevice* right);
+extern std::unique_ptr<ISoundDevice> createCLinearPanDevice(ISoundDevice* left, ISoundDevice* right,
+                                                            bool chipLevelPan);
 
 // deviceTypeが同一物理ポートの中で、自分専用の高位バンク(0を起点とする
 // 自分のレジスタ空間より上位)へオフセットして配置される場合、そのオフセット
@@ -382,7 +383,7 @@ IPort* CFITOM::resolveHighBankPort(uint32_t deviceType, IPort* port, IPort* conf
 
 std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     uint32_t deviceType, IPort* port, IPort* stereoPairPort,
-    int sampleRate, IPort* extraPort, bool rhythmMode)
+    int sampleRate, IPort* extraPort, bool rhythmMode, bool stereoPairChipLevel)
 {
     auto dev = DeviceFactory::create(deviceType, port, sampleRate, extraPort, rhythmMode);
     if (!dev) return nullptr;
@@ -403,7 +404,7 @@ std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     ISoundDevice* rRaw = rdev.get();
     spanSubChips_.push_back(std::move(dev));
     spanSubChips_.push_back(std::move(rdev));
-    return fitom::createCLinearPanDevice(lRaw, rRaw);
+    return fitom::createCLinearPanDevice(lRaw, rRaw, stereoPairChipLevel);
 }
 
 void CFITOM::initDevices()
@@ -468,7 +469,8 @@ void CFITOM::initDevices()
         IPort* stereoPairPort = config_->getDeviceStereoPairPort(i);
         auto dev = createLeveledDevice(deviceType, port, stereoPairPort, sampleRate,
                                        (extraPort != port) ? extraPort : nullptr,
-                                       config_->getDeviceRhythmMode(i));
+                                       config_->getDeviceRhythmMode(i),
+                                       config_->getDeviceStereoPairChipLevel(i));
         if (!dev) {
             FITOM_LOG_ERR("Device[" << i << "] '"
                 << config_->getDeviceLabel(i)
@@ -523,8 +525,9 @@ void CFITOM::initDevices()
                 // 効かなくなっていた[逆に代表側がtrueだと束ねられた側にも
                 // 無効化が誤って波及していた])。
                 bool subRhythmMode = config_->getDeviceSpanGroupRhythmMode(i, k);
-                auto subDev = createLeveledDevice(subDeviceType, sp, spStereo, sampleRate,
-                                                   nullptr, subRhythmMode);
+                auto subDev = createLeveledDevice(
+                    subDeviceType, sp, spStereo, sampleRate, nullptr, subRhythmMode,
+                    config_->getDeviceSpanGroupStereoPairChipLevel(i, k));
                 if (!subDev) {
                     FITOM_LOG_WARN("Device[" << i << "]: span sub-chip[" << k
                         << "] creation failed, skipped");
