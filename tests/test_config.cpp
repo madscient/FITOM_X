@@ -1119,6 +1119,37 @@ TEST_CASE("FITOMConfig::deviceHasChipLevelPanpot: chips with per-channel L/R out
     CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_SSG));
 }
 
+// パン方式の3分類。チャンネルレベルメーターのL/R分割表示
+// (CFITOM::getPhysicalChipChannelStates())が、L/Rイネーブルビットのみの
+// チップ(3値)と連続パンポットを持つチップを区別するために使う。
+TEST_CASE("FITOMConfig::getChipPanType: classifies three-way / continuous / mono",
+          "[config][stereo]")
+{
+    using PanType = fitom::FITOMConfig::ChipPanType;
+
+    // L/Rイネーブルビットのみ (L / R / 両方の3値)
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_OPM)   == PanType::ThreeWay);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_OPL3)  == PanType::ThreeWay);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_OPNA)  == PanType::ThreeWay);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_ADPCMA) == PanType::ThreeWay);
+
+    // 連続的なパンポットレジスタを持つチップ
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_OPL4AWM) == PanType::Continuous);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_PCMD8)   == PanType::Continuous);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_SAA)     == PanType::Continuous);
+
+    // モノラル出力
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_OPLL) == PanType::Mono);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_OPN)  == PanType::Mono);
+    CHECK(fitom::FITOMConfig::getChipPanType(DEVICE_SSG)  == PanType::Mono);
+
+    // deviceHasChipLevelPanpot() は「Mono以外」と同義であること。
+    // OPL4AWM/YMZ280Bは自前のパンポットを持つためチップ内L/R分離自体は
+    // 可能だが、束ね対象から外すのは subDeviceAcceptsStereoPair() 側の責務。
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPL4AWM));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_SAA));
+}
+
 // ================================================================
 //  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
 // ================================================================
