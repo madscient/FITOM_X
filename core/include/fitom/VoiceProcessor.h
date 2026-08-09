@@ -125,10 +125,11 @@ public:
     //   判定できない (hw.ALGの意味・ビット幅・キャリア規則はチップごとに
     //   異なる: OPN/OPMは3bit8アルゴリズム、OPL(2op)は1bit、OPL3(4op)は
     //   独自の8アルゴリズム、OPLLは常にop1固定 等)。呼び出し元
-    //   (CSoundDevice::isCarrierOp())がチップ固有の規則で計算した値を渡す。
-    //   (2026年7月、ここをOPN/OPM専用の固定テーブルで自己判定しており、
-    //   OPL/OPLL等でキャリアopがvol/exp/velの影響を一切受けないバグを
-    //   修正)。
+    //   (CSoundDevice::computeCarrierMask())がチップ固有の規則で計算した
+    //   値を渡す。
+    //   このマスクが効くのは vol (マスターボリューム) の適用範囲のみ。
+    //   vel/exp による VTL 補正は、モジュレータのTL=FM変調指数を動かして
+    //   音色の明るさを変えるためにキャリア/モジュレータを問わず適用する。
     void onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
                   const FmVoice& voice, uint8_t carrierMask) noexcept;
 

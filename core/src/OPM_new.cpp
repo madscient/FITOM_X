@@ -90,12 +90,13 @@ protected:
             setReg(static_cast<uint16_t>(0x40 + i * 8 + ch),
                    ((o.DT1 & 7) << 4) | (o.MUL & 0xF));
 
-            // TL (キャリアは effectiveTL、モジュレータは固定)
+            // TL: キャリア・モジュレータとも effectiveTL を使う。モジュレータの
+            // TLはFMの変調指数そのもので、VTL(vel/exp感度)とオペレータLFOは
+            // ここに効かせる必要がある。vol(マスターボリューム)をモジュレータ
+            // へ乗せない切り分けはVoiceProcessor側で済んでいる。
             const bool car_opm = isCarrier(ch, kMap[i]);
-            const uint8_t tl = car_opm
-                ? effTLToReg(s.proc.effectiveTL(kMap[i]))
-                : o.TL;
-            setReg(static_cast<uint16_t>(0x60 + i * 8 + ch), tl);
+            setReg(static_cast<uint16_t>(0x60 + i * 8 + ch),
+                   effTLToReg(s.proc.effectiveTL(kMap[i])));
 
             // KSR / AR / FIX
             // 実機YM2151のレジスタ$80-$9Fは KS(2bit,bit7-6) | AR(5bit,bit4-0)
@@ -143,9 +144,10 @@ protected:
 
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        const HwPatch& p = s.hwPatch;
+        // モジュレータも対象。expressionはVTL経由で変調指数を動かすため、
+        // キャリアだけを書き直すと音色側の追従が漏れる。volしか変わって
+        // いない場合はモジュレータのTLが不変なのでsetReg()側で弾かれる。
         for (int i = 0; i < 4; ++i) {
-            if (!isCarrier(ch, kMap[i])) continue;
             setReg(static_cast<uint16_t>(0x60 + i * 8 + ch),
                    effTLToReg(s.proc.effectiveTL(kMap[i])));
         }
