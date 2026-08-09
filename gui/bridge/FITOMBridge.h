@@ -76,6 +76,14 @@ struct FITOMLevelChannel {
     // 連続ノートオン)をGUI側のフレーム間差分だけでは検出できないため、
     // 「本当にノートオンが起きたか」の判定に使う(2026年7月新設)。
     uint32_t    noteOnSeq = 0;
+    // PhysicalChipChannelState::stereo/gainL/gainR由来 (2026年8月新設)。
+    // stereo=true なら、GUIはバー1本を左右half-widthの2本に分割し、
+    // それぞれ gainL/gainR を掛けた高さで描く(左右の定位が見える)。
+    // gainL/gainRは大きい側が1.0になるよう正規化された定位係数であり、
+    // バーの高さ自体(ベロシティ由来のエンベロープ)とは独立している。
+    bool        stereo = false;
+    float       gainL  = 1.0f;
+    float       gainR  = 1.0f;
 };
 
 // 1バンド = 1チップ分の表示単位。物理チップ単位表示ではサブデバイス

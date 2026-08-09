@@ -280,13 +280,28 @@ public:
     // 独立したモノラルデバイスとして devices_ に残る。
     static bool subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept;
 
+    // このデバイスのドライバが、チャンネルごとのパンポットをチップの
+    // レジスタへどう書けるか。各ドライバの updatePanpot() 実装が真の情報源で、
+    // ここはその deviceType 側の索引にあたる(updatePanpot() を実装/変更したら
+    // 必ずこの分類も見直すこと)。リニアステレオ化の方式判定
+    // (deviceHasChipLevelPanpot()) と、チャンネルレベルメーターのL/R分割表示
+    // (CFITOM::getPhysicalChipChannelStates()) の両方がこれを参照する。
+    enum class ChipPanType {
+        Mono,        // 左右の作り分け不可 (OPLL系・OPL/OPL2・SSG/PSG・YM2203等)
+        ThreeWay,    // L/Rイネーブルビットのみ (L / R / 両方の3値)
+        Continuous,  // 連続的なパンポットレジスタ (OPL4 AWM・YMZ280B・SAA1099等)
+    };
+    static ChipPanType getChipPanType(uint32_t deviceType) noexcept;
+
     // このデバイスのドライバが、チャンネルごとのL/R出力ビット(またはそれと
     // 等価な左右独立音量)をチップのレジスタへ書けるか。true なら
     // stereo_pair:"L"/"R" のチップ内L/R分離方式が実効性を持つ。
-    // false のチップ(OPLL系・OPL/OPL2・SSG等、モノラル出力しか持たないもの)
-    // では updatePanpot() が no-op のため、"L"/"R" を指定しても左右に分離
-    // されない(プラグイン側の pan:1/2 による従来方式が必要)。
-    static bool deviceHasChipLevelPanpot(uint32_t deviceType) noexcept;
+    // false のチップ(モノラル出力しか持たないもの)では updatePanpot() が
+    // no-op のため、"L"/"R" を指定しても左右に分離されない
+    // (プラグイン側の pan:1/2 による従来方式が必要)。
+    static bool deviceHasChipLevelPanpot(uint32_t deviceType) noexcept {
+        return getChipPanType(deviceType) != ChipPanType::Mono;
+    }
 
     // ─── リニアステレオ化 (CLinearPanDevice) のペアリング本体 ────────────
     // mergeStereoPairDevices() の実装本体。devices_ の状態のみに依存する
