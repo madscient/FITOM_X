@@ -37,36 +37,32 @@ struct DevMapEntry {
     const char* name;
     uint32_t    voicetype;
     uint32_t    voicegroup;
-    uint32_t    regsize;
 };
 
 static const DevMapEntry kDevMap[] = {
-    {DEVICE_OPN,   "OPN",   VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x100},
-    {DEVICE_OPNA,  "OPNA",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x200},
-    {DEVICE_OPN2,  "OPN2",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x200},
-    {DEVICE_OPN2C, "OPN2C", VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x200},
-    {DEVICE_OPN2L, "OPN2L", VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x200},
-    {DEVICE_OPNB,  "OPNB",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x200},
-    {DEVICE_2610B, "2610B", VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x200},
-    {DEVICE_OPN3,  "OPN3",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA, 0x400},
-    {DEVICE_OPM,   "OPM",   VOICE_TYPE_FM4,  VOICE_GROUP_OPM,  0x100},
-    {DEVICE_OPP,   "OPP",   VOICE_TYPE_FM4,  VOICE_GROUP_OPM,  0x100},
-    {DEVICE_OPZ,   "OPZ",   VOICE_TYPE_FM4,  VOICE_GROUP_OPM,  0x100},
-    {DEVICE_OPL,   "OPL",   VOICE_TYPE_FM2,  VOICE_GROUP_OPL2, 0x100},
-    {DEVICE_OPL2,  "OPL2",  VOICE_TYPE_FM2,  VOICE_GROUP_OPL2, 0x100},
-    {DEVICE_OPL3,  "OPL3",  VOICE_TYPE_FM4,  VOICE_GROUP_OPL3, 0x200},
-    {DEVICE_OPLL,  "OPLL",  VOICE_TYPE_FM2,  VOICE_GROUP_OPLL, 0x040},
-    {DEVICE_SSG,   "SSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG,  0x020},
-    {DEVICE_PSG,   "PSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG,  0x020},
-    {DEVICE_DCSG,  "DCSG",  VOICE_TYPE_PSG,  VOICE_GROUP_PSG,  0x010},
-    {DEVICE_SCC,   "SCC",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG,  0x0B0},
-    {DEVICE_ADPCM, "ADPCM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM,  0},
-    {DEVICE_PCMD8, "PCMD8", VOICE_TYPE_PCM,  VOICE_GROUP_PCM,  0},
-    // OPL4AWM自身のレジスタ空間(0x00-0xF9)は0x100に収まる。実チップ上は
-    // getHighBankOffset()により0x200オフセットされて配置されるため、
-    // buildPhysicalChipList()側でオフセットと合算して表示サイズを求める。
-    {DEVICE_OPL4AWM, "AWM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM,  0x100},
-    {DEVICE_NONE,  nullptr, 0,               0,                0},
+    {DEVICE_OPN,   "OPN",   VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPNA,  "OPNA",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPN2,  "OPN2",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPN2C, "OPN2C", VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPN2L, "OPN2L", VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPNB,  "OPNB",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_2610B, "2610B", VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPN3,  "OPN3",  VOICE_TYPE_FM4,  VOICE_GROUP_OPNA},
+    {DEVICE_OPM,   "OPM",   VOICE_TYPE_FM4,  VOICE_GROUP_OPM },
+    {DEVICE_OPP,   "OPP",   VOICE_TYPE_FM4,  VOICE_GROUP_OPM },
+    {DEVICE_OPZ,   "OPZ",   VOICE_TYPE_FM4,  VOICE_GROUP_OPM },
+    {DEVICE_OPL,   "OPL",   VOICE_TYPE_FM2,  VOICE_GROUP_OPL2},
+    {DEVICE_OPL2,  "OPL2",  VOICE_TYPE_FM2,  VOICE_GROUP_OPL2},
+    {DEVICE_OPL3,  "OPL3",  VOICE_TYPE_FM4,  VOICE_GROUP_OPL3},
+    {DEVICE_OPLL,  "OPLL",  VOICE_TYPE_FM2,  VOICE_GROUP_OPLL},
+    {DEVICE_SSG,   "SSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
+    {DEVICE_PSG,   "PSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
+    {DEVICE_DCSG,  "DCSG",  VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
+    {DEVICE_SCC,   "SCC",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
+    {DEVICE_ADPCM, "ADPCM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM },
+    {DEVICE_PCMD8, "PCMD8", VOICE_TYPE_PCM,  VOICE_GROUP_PCM },
+    {DEVICE_OPL4AWM, "AWM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM },
+    {DEVICE_NONE,  nullptr, 0,               0               },
 };
 
 const DevMapEntry* findDevMap(uint32_t deviceId) {
@@ -75,6 +71,70 @@ const DevMapEntry* findDevMap(uint32_t deviceId) {
     }
     return nullptr;
 }
+
+// ================================================================
+//  デバイス種別 → レジスタ空間サイズ [byte] (レジスタダンプモニター用)
+//
+//  値は「そのデバイス自身が使うレジスタアドレス空間」であり、高位バンクへの
+//  オフセット (getHighBankOffset()) は含まない。RegisterDumpWindowが16列
+//  グリッドで表示する都合上、チップドライバが実際に書き込む最終レジスタ
+//  アドレスを16byte境界へ切り上げた値を入れる (例: OPLLの有効レジスタは
+//  0x38までなので0x40)。
+//
+//  kDevMapとは目的が異なる(kDevMapは音色データの互換性分類、こちらは実チップ
+//  のレジスタ配置)ため、kChannelPrefixMapと同様に別テーブルとして持つ。
+//  分類の単位はDeviceFactory::create()のswitch(=どのチップドライバが担当
+//  するか)に一致させること。
+// ================================================================
+struct RegSizeEntry {
+    uint32_t devid;
+    uint32_t size;
+};
+
+static const RegSizeEntry kRegSizeMap[] = {
+    // OPN (COPN): FM 0x30-0xB6。SSG部は別サブデバイスとして加算される
+    {DEVICE_OPN,   0x0C0}, {DEVICE_OPNC,  0x0C0},
+    // OPNA/OPN2/OPNB (COPNA/COPN2/COPNB): 後半3chがport2側 0x100-0x1B6
+    {DEVICE_OPNA,  0x1C0}, {DEVICE_OPN2,  0x1C0}, {DEVICE_OPN2C, 0x1C0},
+    {DEVICE_OPN2L, 0x1C0}, {DEVICE_OPNB,  0x1C0}, {DEVICE_2610B, 0x1C0},
+    {DEVICE_F286,  0x1C0}, {DEVICE_OPN3,  0x1C0},
+    {DEVICE_OPNA_RHY, 0x020},   // 0x10-0x1D
+
+    // OPM/OPP/OPZ (COPM/COPP/COPZ): 0x01-0xFF
+    {DEVICE_OPM,   0x100}, {DEVICE_OPP,   0x100},
+    {DEVICE_OPZ,   0x100}, {DEVICE_OPZ2,  0x100},
+
+    // OPL系 (COPL/COPL2/C3801): 0x01-0xF5
+    {DEVICE_OPL,   0x100}, {DEVICE_OPL2,  0x100}, {DEVICE_Y8950, 0x100},
+    {DEVICE_OPL_RHY, 0x100},
+    // OPL3 (COPL3/COPL3_2): 上記を2バンク (0x000-0x0F5 / 0x100-0x1F5)
+    {DEVICE_OPL3,  0x200}, {DEVICE_OPL3_2, 0x200}, {DEVICE_OPN3_L3, 0x200},
+
+    // OPLL系 (COPLL/COPLL2/COPLLP/COPLLX/CVRC7): 0x00-0x38
+    {DEVICE_OPLL,  0x040}, {DEVICE_OPLL2, 0x040}, {DEVICE_OPLLP, 0x040},
+    {DEVICE_OPLLX, 0x040}, {DEVICE_VRC7,  0x040}, {DEVICE_OPLL_RHY, 0x040},
+
+    // PSG系 (CSSG/CEPSG/CDCSG): 0x00-0x0D。CDCSGはラッチ方式でアドレス0のみ
+    {DEVICE_SSG,   0x010}, {DEVICE_PSG,   0x010}, {DEVICE_SSGL,  0x010},
+    {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010}, {DEVICE_DSG,   0x010},
+    {DEVICE_EPSG,  0x010}, {DEVICE_DCSG,  0x010},
+    // SCC (CSCC): 波形テーブル 5ch×0x20 + 制御 0xA0-0xAA
+    {DEVICE_SCC,   0x0B0}, {DEVICE_SCCP,  0x0B0},
+    {DEVICE_SAA,   0x020},  // 0x00-0x1C
+
+    // ADPCM/PCM系 (CYmDelta/CAdPcm2610A/CAdPcmZ280、ADPCM_new.cppのRegMap参照)
+    {DEVICE_ADPCMB_OPNA,  0x020}, {DEVICE_ADPCMB,       0x020},
+    {DEVICE_ADPCMB_Y8950, 0x020}, {DEVICE_ADPCM,        0x020},
+    {DEVICE_MA1,          0x020},
+    {DEVICE_ADPCMA,       0x030},
+    {DEVICE_PCMD8,        0x100}, {DEVICE_MA2,          0x100},
+
+    // OPL4AWM自身のレジスタ空間(0x00-0xF9)。実チップ上はgetHighBankOffset()
+    // により0x200オフセットされて配置される。
+    {DEVICE_OPL4AWM,      0x100},
+
+    {DEVICE_NONE,  0},
+};
 
 // ================================================================
 //  サブデバイス種別 → チャンネル名接頭辞 (チャンネルレベルメーター用)
@@ -140,8 +200,10 @@ const std::string CFITOM::getDeviceNameFromId(uint32_t deviceId) {
 }
 
 uint32_t CFITOM::getDeviceRegSize(uint32_t deviceId) {
-    const auto* e = findDevMap(deviceId);
-    return e ? e->regsize : 0;
+    for (int i = 0; kRegSizeMap[i].devid != DEVICE_NONE; ++i) {
+        if (kRegSizeMap[i].devid == deviceId) return kRegSizeMap[i].size;
+    }
+    return 0;
 }
 
 std::string CFITOM::getSubDeviceChannelPrefix(uint32_t deviceType) {
@@ -667,10 +729,7 @@ void CFITOM::buildPhysicalChipList()
     // 大きい高位バンクを使うことがある(例: OPL4の場合、最初に登録される
     // FM部[DEVICE_OPL3、0x000-0x1FF]より後から登録されるAWM部
     // [DEVICE_OPL4AWM、0x200-0x2FF]の方が高位)ため、合流時にも都度
-    // 必要サイズを比較して広げる(2026年7月、ユーザー指摘で発覚: 以前は
-    // 最初に登録されたサブデバイスのdeviceTypeでのみdumpSizeを決めており、
-    // 後続の高位バンクサブデバイスの分がレジスタダンプの表示範囲から
-    // 漏れていた)。
+    // 必要サイズを比較して広げる。
     // 戻り値: 登録した(または既存の)physicalChips_内のインデックス。
     // primaryがnullptrの場合はSIZE_MAXを返す。
     auto registerChip = [&](HWPort* primary, HWPort* secondary,
@@ -703,7 +762,7 @@ void CFITOM::buildPhysicalChipList()
             // 分離した物理ポート2つ (SPFM 2スロット構成等): 各ポート
             // ローカル0x000-0x0FFを0x000/0x100にpackするため常に0x200。
             info.dumpSize = 0x200;
-        } else if (required > info.dumpSize) {
+        } else {
             info.dumpSize = required;
         }
         physicalChips_.push_back(info);
@@ -769,6 +828,15 @@ void CFITOM::buildPhysicalChipList()
         sd.deviceType = psd.deviceType;
         sd.chCount    = psd.device->getChCount();
         physicalChips_[it->second].subDevices.push_back(sd);
+    }
+
+    for (auto& chip : physicalChips_) {
+        // kRegSizeMapに未登録のdeviceTypeしか乗っていない物理チップは実際の
+        // レジスタ空間が分からないため、1ポート分(0x100)を出しておく。
+        if (chip.dumpSize == 0) chip.dumpSize = 0x100;
+        // RegisterDumpWindowは16列固定グリッドで行数を dumpSize/16 として
+        // 求めるため、16byte境界に切り上がっていないと末尾が欠ける。
+        chip.dumpSize = (chip.dumpSize + 0x0F) & ~0x0Fu;
     }
 
     FITOM_LOG_INFO("buildPhysicalChipList: " << physicalChips_.size() << " physical chip(s)");

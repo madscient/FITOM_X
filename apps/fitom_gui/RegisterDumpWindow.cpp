@@ -60,10 +60,10 @@ void RegisterDumpWindow::renderChipTable(int chipIndex, const FITOMChipInfo& inf
         }
     }
 
-    // アドレス範囲はダンプの実サイズから直接組み立てる(1ポート機は
-    // 0x00-0xFF、2ポート機や単一ポートで0x100超のアドレス空間を使う
-    // チップ[OPNA/OPN2/OPL3等]は0x000-0x1FF等。CFITOM::getPhysicalChipRegisterDump()
-    // 側のサイズ決定ロジック参照)。
+    // アドレス範囲はダンプの実サイズから直接組み立てる(チップごとに実際の
+    // レジスタ空間へ合わせた16byte境界のサイズが渡ってくる。例: OPLLは
+    // 0x000-0x03F、OPNAは0x000-0x1BF。CFITOM::buildPhysicalChipList()の
+    // サイズ決定ロジック参照)。
     char header[176];
     std::snprintf(header, sizeof(header), "%s  [%s]  0x%03X-0x%03X",
                   info.label.c_str(), info.physicalName.c_str(),

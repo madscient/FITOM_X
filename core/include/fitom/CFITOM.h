@@ -176,18 +176,18 @@ struct PhysicalChipInfo {
     std::string physicalName;
     HWPort*     port  = nullptr;   // 1ポート目 (レジスタダンプの0x000-0x0FF)
     HWPort*     port2 = nullptr;   // 2ポート目 (0x100-0x1FF)。nullptr = 1ポートチップ
-    // レジスタダンプの表示サイズ [byte] (0x100刻み)。port2がある場合は
-    // 常に0x200。port2が無くても、OPNA/OPN2(内部OffsetPort経由)やOPL3
-    // (直接addr>=0x100を同一HWPortへ書く)のように、1つの物理ポートだけで
-    // 0x100を超えるアドレス空間を使うチップがあるため、getDeviceRegSize()
-    // (deviceType別の既知のレジスタ空間サイズ)とgetHighBankOffset()
-    // (高位バンクへのオフセット量)を併用して決める(buildPhysicalChipList()
-    // 参照)。同一物理ポートを共有する複数サブデバイスのうち、最後に登録
-    // されるものが最も高位のバンクを使うとは限らない(例: OPL4はFM部
+    // レジスタダンプの表示サイズ [byte] (16byte境界)。実チップが実際に
+    // 使うレジスタ空間に合わせるため、getDeviceRegSize()(deviceType別の
+    // レジスタ空間サイズ)とgetHighBankOffset()(高位バンクへのオフセット量)
+    // を併用して決める(buildPhysicalChipList()参照)。0x100より小さいチップ
+    // (OPLLの0x40等)も、0x100を超えるチップ(OPNA/OPN2/OPL3)も等しく扱う。
+    // port2がある場合(分離した物理ポート2つ)のみ常に0x200固定。
+    // 同一物理ポートを共有する複数サブデバイスのうち、最後に登録される
+    // ものが最も高位のバンクを使うとは限らない(例: OPL4はFM部
     // [DEVICE_OPL3、0x000-0x1FF]より後にAWM部[DEVICE_OPL4AWM、
     // 0x200-0x2FF]が登録される)ため、登録順に関わらず全サブデバイスの
     // 必要サイズの最大値を採用する。
-    uint32_t    dumpSize = 0x100;
+    uint32_t    dumpSize = 0;
     // チャンネルレベルメーター用のサブデバイス内訳。initDevices()が
     // span/stereo展開“前”に記録したpendingSubDevices_を、buildPhysicalChipList()
     // が物理ポート単位に突き合わせて構築する(2026年7月)。同種デバイス

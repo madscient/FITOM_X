@@ -80,14 +80,22 @@ OPL4AWMは0x200、それ以外は0)として`resolveHighBankPort()`から切り�
 
 **レジスタダンプモニター(GUI `RegisterDumpWindow`)との整合**: `CFITOM::
 buildPhysicalChipList()`は物理ポート単位で表示サイズ(`dumpSize`)を決める際、
-同一物理ポートを共有する複数サブデバイスのうち*最初に登録されたもの*だけ
-ではなく、全サブデバイスについて「`getHighBankOffset()`+`getDeviceRegSize()`」
-を計算し、その最大値を採用する(2026年7月、ユーザー指摘で発覚。OPL4は
-`DEVICE_OPL3`[0x000-0x1FF]が先に登録されるため、後から登録される
-`DEVICE_OPL4AWM`[0x200-0x2FF、`kDevMap`にレジスタ空間サイズ0x100として
-登録]の分がダンプ表示範囲から漏れていた)。`RegisterDumpWindow.cpp`側は
-ダンプの実バイト数から表示アドレス範囲・行数を動的に組み立てる設計のため、
-`dumpSize`さえ正しければGUI側の変更は不要。
+同一物理ポートを共有する全サブデバイスについて
+「`getHighBankOffset()`+`getDeviceRegSize()`」を計算し、その最大値を採用する
+(*最初に登録されたもの*だけでは足りない。OPL4は`DEVICE_OPL3`[0x000-0x1FF]が
+先に登録されるが、後から登録される`DEVICE_OPL4AWM`[0x200-0x2FF]の方が高位)。
+
+`getDeviceRegSize()`が返すレジスタ空間サイズは`CFITOM.cpp`の`kRegSizeMap`に
+持つ。値はチップドライバが実際に書き込む最終レジスタアドレスを16byte境界へ
+切り上げたもので(例: OPLLの有効レジスタは0x38までなので0x40、OPNAは後半3ch
+のport2側0x1B6までなので0x1C0)、1ポート分(0x100)より小さいチップはそのまま
+小さい範囲を表示する。分類の単位は`DeviceFactory::create()`のswitch
+(=どのチップドライバが担当するか)に一致させること。`kRegSizeMap`に未登録の
+`deviceType`しか乗っていない物理チップのみ、フォールバックとして0x100を出す。
+
+`RegisterDumpWindow.cpp`側はダンプの実バイト数から表示アドレス範囲・行数を
+動的に組み立てる設計のため、`dumpSize`さえ正しければGUI側の変更は不要
+(ただし16列固定グリッドのため、`dumpSize`は必ず16の倍数であること)。
 
 **波形番号レジスタ(reg 0x08/reg 0x20)の書き込み順**: `COPL4AWM::
 updateVoice()`(`core/src/OPL4.cpp`)は、波形番号の上位1bit(reg 0x20+ch
