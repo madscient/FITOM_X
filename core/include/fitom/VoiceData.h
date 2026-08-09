@@ -146,8 +146,8 @@ struct FmHwOp {
     // に個別のREV/EGS/DT3を設定できるため、チャンネル単位の共通値に
     // 強制すると表現力が失われる(旧実装は4オペレータの値を1つに
     // 上書きして潰していた、既存の不具合だった)。
-    uint8_t REV;  // Reverberation: 4bit (OPZ のみ)
-    uint8_t EGS;  // EG bias:       7bit (OPZ のみ)
+    uint8_t REV;  // Reverberation: 3bit (OPZ のみ)
+    uint8_t EGS;  // EG bias:       2bit (OPZ のみ)
     uint8_t DT3;  // Fine frequency: 4bit OPZ ratio mode (OPZ のみ)
 
     constexpr FmHwOp() noexcept

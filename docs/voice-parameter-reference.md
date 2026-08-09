@@ -65,12 +65,15 @@ OPMの全フィールドに加え、以下が有効：
 
 | フィールド | 意味 |
 |---|---|
-| `ops[i].REV` | Reverberation (4bit、オペレータ単位) |
-| `ops[i].EGS` | EG bias (7bit、オペレータ単位) |
+| `ops[i].REV` | Reverberation (3bit、オペレータ単位) |
+| `ops[i].EGS` | EG bias (2bit、オペレータ単位) |
 | `ops[i].WS` | Wave Select (3bit、OPZ独自波形) |
 | `ops[i].DT3` | 補助デチューン (OPZ ratio mode、オペレータ単位) |
 
 固定周波数モード（`ext.FIX`、旧FITOM由来のOPZ用途）は未実装のまま（要データシート再確認）。2系統LFOリソースも旧FITOM同様未実装。
+
+パンポットは左寄せを表すビットが無く、左寄せ指定は両出力（センター相当）
+として扱われる。
 
 ---
 

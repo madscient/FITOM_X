@@ -152,14 +152,14 @@
                 "REV": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 15,
-                  "description": "Reverberation: 4bit (OPZのみ、オペレータ単位)"
+                  "maximum": 7,
+                  "description": "Reverberation: 3bit (OPZのみ、オペレータ単位)"
                 },
                 "EGS": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 127,
-                  "description": "EG bias: 7bit (OPZのみ、オペレータ単位)"
+                  "description": "EG bias (OPZのみ、オペレータ単位)。チップへ送られるのは下位2bit(0-3)のみ。型の値域を7bit幅のまま残しているのは既存バンクデータとの互換のため。"
                 },
                 "DT3": {
                   "type": "integer",
