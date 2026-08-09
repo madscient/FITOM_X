@@ -68,18 +68,22 @@ OPN/OPL3(4OPモード)では未使用のため「疑似デチューン値」（�
 規則はチップごとに異なる: OPN/OPMは3bit8アルゴリズム、OPL(2op)は1bit、
 OPL3(4op)は独自の8アルゴリズム、OPLLは常にop1固定 等)。呼び出し元
 (`CSoundDevice::computeCarrierMask()`、内部で仮想関数`isCarrierOp(ch,op)`
-を呼ぶ)がチップ固有の規則で計算した`carrierMask`を渡す設計になっている
-(2026年7月導入。それ以前はVoiceProcessor内部にOPN/OPM専用の固定
-テーブルを持っており、OPL/OPLL等でキャリアopがvol/exp/vel/VTLの影響を
-一切受けない不具合があった)。`isCarrierOp()`のデフォルト実装は
-OPN/OPM互換のテーブルで、キャリア規則が異なるチップ(OPL系、OPLL等)は
-オーバーライドする。
+を呼ぶ)がチップ固有の規則で計算した`carrierMask`を渡す設計になっている。
+`isCarrierOp()`のデフォルト実装はOPN/OPM互換のテーブルで、キャリア規則が
+異なるチップ(OPL系、OPLL等)はオーバーライドする。
+
+`carrierMask`が効くのは**vol(マスターボリューム)の適用範囲のみ**である。
+vel/expによる**VTL補正はキャリア/モジュレータを問わず全opに適用**する。
+モジュレータのTLはFMの変調指数そのものであり、ここをvel/expで動かすことが
+FM音源のベロシティ表現(強く弾くほど明るい音)の本体だからである。逆にvolを
+モジュレータに掛けると、マスターボリュームを絞っただけで変調指数が下がり
+音色そのものが変わってしまうため、volはキャリアに限定する。
 
 ```
 NoteOn 時:
   VoiceProcessor::onNoteOn(vol, exp, vel, voice, carrierMask)
-    → baseTL[i] = calcLinearLevel(evol, hwOp[i].TL) + ベロシティ/エクスプレッション補正(VTL)
-      ※ carrierMask の bit[i]=1 の op[i] のみ計算対象 (それ以外は hwOp[i].TL がそのまま)
+    → baseTL[i] = ベロシティ/エクスプレッション補正(VTL) を全opに適用したTL
+                  → さらに carrierMask の bit[i]=1 の op のみ calcLinearLevel(evol, TL)
     → 各 opLfo[i].start(swOp[i].SLY, swOp[i].SLR, swOp[i].SLI, swOp[i].SLM)
 
 TimerCallBack (1ms) 時:
@@ -88,6 +92,22 @@ TimerCallBack (1ms) 時:
       → effectiveTL[i] = getLfoWave(SLW, SLR) * level * SLD + baseTL[i]
     → チップドライバ UpdateTL(ch, i, proc.effectiveTL(i)) を呼ぶ
 ```
+
+`baseTL`/`effectiveTL`はキャリア・モジュレータを問わず**ラウドネス空間**
+(0=無音, 127=最大音量)で保持する。実機のTLレジスタは減衰量空間(0=最大音量)
+なので、チップドライバは書き込み前に必ず`linear2dB()`(各ドライバの
+`effTLToReg()`)で逆変換する。
+
+チップドライバ側も、モジュレータのTLレジスタを音色データの生値ではなく
+`proc.effectiveTL(op)`から書くこと。生値を書くとVTLもオペレータLFO
+(トレモロ)もモジュレータに届かない。同じ理由で`updateVolExp()`は全opを
+書き直す(expressionはVTL経由でモジュレータの変調指数を動かすため)。
+
+OPLLだけは制約がある。モジュレータTLはユーザー音色レジスタ`$02`にあり、
+このレジスタ群(`$00-$07`)は実機OPLLでは全ch共有のため、ある chのVTL補正が
+他chのユーザー音色にも及ぶ。これはベロシティ補正後のEGレートが元から
+同じ共有レジスタへ書かれているのと同じ構造上の制約である。プリセット音色は
+音色パラメータ自体を持たないため対象外。
 
 ### FmSwVoice (チャンネルLFO) — VoiceProcessor が処理
 
@@ -156,7 +176,7 @@ GUI の声音エディタが `FmVoice` を直接扱うように移行できた�
 
 | パラメータ | 効果 | 補正式 |
 |---|---|---|
-| `VTL` | ベロシティ低下時に TL を増加（音量を下げる） | `delta = (127-vel) * VTL / 127`（hwTLに加算） |
+| `VTL` | vel/exp 低下時に TL を増加（キャリアなら音量減、モジュレータなら変調指数減=音色が暗く） | `delta = -kGM2dB[min(vel,exp)] × VTL/254 ÷ 0.75`（hwTLに加算、全op対象） |
 | `VAR` | ベロシティ → AR（アタックレート）の補正 | 最大補正幅 8 (=31÷4)、下限1（発音保証） |
 | `VDR` | ベロシティ → DR（ディケイレート）の補正 | 最大補正幅 8 |
 | `VSL` | ベロシティ → SL（サステインレベル）の補正 | 最大補正幅 4 (=15÷4)、増加方向 |

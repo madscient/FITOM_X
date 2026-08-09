@@ -102,11 +102,12 @@ protected:
             // キャリア判定 (TL・EGレート両方で使う)
             const bool car = isCarrier(ch, op);
 
-            // TL (キャリアは effectiveTL を使用、モジュレータは固定)
-            const uint8_t tl = car
-                ? effTLToReg(s.proc.effectiveTL(op))
-                : o.TL;
-            setReg(static_cast<uint16_t>(0x40 + reg), tl & 0x7F);
+            // TL: キャリア・モジュレータとも effectiveTL を使う。モジュレータの
+            // TLはFMの変調指数そのもので、VTL(vel/exp感度)とオペレータLFOは
+            // ここに効かせる必要がある。vol(マスターボリューム)をモジュレータ
+            // へ乗せない切り分けはVoiceProcessor側で済んでいる。
+            setReg(static_cast<uint16_t>(0x40 + reg),
+                   effTLToReg(s.proc.effectiveTL(op)) & 0x7F);
 
             // KSR / AR (キャリアはベロシティ補正値を使用)
             const uint8_t ar = car ? s.proc.velAR(op) : (o.AR & 0x1F);
@@ -200,13 +201,15 @@ protected:
     }
 
     // ──────────────────────────────────────────────────────────────
-    //  UpdateVolExp: キャリア TL を VoiceProcessor 経由で再書き込み
+    //  UpdateVolExp: TL を VoiceProcessor 経由で再書き込み
     // ──────────────────────────────────────────────────────────────
     void updateVolExp(uint8_t ch) override {
         if (ch >= 3) return;
         const auto& s = chState_[ch];
+        // モジュレータも対象。expressionはVTL経由で変調指数を動かすため、
+        // キャリアだけを書き直すと音色側の追従が漏れる。volしか変わって
+        // いない場合はモジュレータのTLが不変なのでsetReg()側で弾かれる。
         for (int op = 0; op < 4; ++op) {
-            if (!isCarrier(ch, op)) continue;
             uint8_t tl = effTLToReg(s.proc.effectiveTL(op));
             setReg(static_cast<uint16_t>(0x40 + opSlot(ch, op)), tl & 0x7F);
         }

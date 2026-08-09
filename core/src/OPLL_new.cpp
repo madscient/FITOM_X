@@ -83,6 +83,14 @@ protected:
         return op == 1;
     }
 
+    // モジュレータTL(ユーザー音色レジスタ$02の下位6bit、0.75dB/step)への変換。
+    // キャリア側($30下位4bit)と違いこちらは6bit幅。VTL(vel/exp感度)を
+    // モジュレータ=FM変調指数に効かせるため、生のhwOp[0].TLではなく
+    // VoiceProcessorのラウドネス空間の値をここへ通す。
+    static uint8_t modTLToReg(uint8_t effTL) {
+        return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
+    }
+
     // OPLL 専用: プリセットか否かで UpdateVoice 挙動が変わる
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
@@ -134,8 +142,9 @@ protected:
                 setReg(static_cast<uint16_t>(6 + i),
                        static_cast<uint8_t>(((sl_opll & 0xF) << 4) | (rr_opll & 0xF)));
             }
-            // TL / KSL (op0)
-            setReg(0x02, static_cast<uint8_t>(((p.hwOp[0].KSL & 3) << 6) | (p.hwOp[0].TL >> 1)));
+            // TL / KSL (op0 = モジュレータ)
+            setReg(0x02, static_cast<uint8_t>(
+                ((p.hwOp[0].KSL & 3) << 6) | modTLToReg(s.proc.effectiveTL(0))));
             // KSL / WS (op0/op1) / FB
             setReg(0x03, static_cast<uint8_t>(
                 ((p.hwOp[1].KSL & 3) << 6) |
@@ -167,6 +176,18 @@ protected:
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
         setReg(static_cast<uint16_t>(0x30 + ch), static_cast<uint8_t>(cur | (vol & 0xF)), false);
+
+        // モジュレータTLもexpressionに追従させる (VTL経由で変調指数が動く)。
+        // ユーザー音色レジスタ($00-$07)はOPLLでは全ch共有のため、ここへの
+        // 書き込みは他chのユーザー音色にも及ぶ — これはupdateVoice()が
+        // ベロシティ補正後のEGレートを同じ共有レジスタへ書いているのと
+        // 同じ制約で、実機OPLLの構造上避けられない。プリセット音色
+        // (ALG_EXT bit0)は音色パラメータ自体を持たないため対象外。
+        const HwPatch& p = s.hwPatch;
+        if ((p.ext.ALG_EXT & 1) == 0) {
+            setReg(0x02, static_cast<uint8_t>(
+                ((p.hwOp[0].KSL & 3) << 6) | modTLToReg(s.proc.effectiveTL(0))), false);
+        }
     }
 
     void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t lev) override {

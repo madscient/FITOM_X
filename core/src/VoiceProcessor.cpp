@@ -498,45 +498,52 @@ void VoiceProcessor::recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
     // 補正の対象に統合した)。
     const uint8_t evol = fitom::calcVolExpVel(vol, 127, 127);
 
-    // carrierMask: 呼び出し元 (CSoundDevice::isCarrierOp()) がチップ固有の
-    // 規則で計算した値。VoiceProcessor自身はhw.ALGの意味を知らない
-    // (2026年7月、ここをOPN/OPM専用の固定テーブルで自己判定しており、
-    // OPL/OPLL等でキャリアopの判定が常に外れ、vol/exp/vel/VTLが一切
-    // 反映されないバグを修正。詳細はVoiceProcessor.hのonNoteOn()コメント
-    // 参照)。
+    // carrierMask: 呼び出し元 (CSoundDevice::computeCarrierMask()) がチップ
+    // 固有の規則で計算した値。VoiceProcessor自身はhw.ALGの意味を知らない
+    // (詳細はVoiceProcessor.hのonNoteOn()コメント参照)。vol の適用範囲を
+    // 決めるためだけに使う — VTL は下記の通りモジュレータにも掛ける。
 
     for (int op = 0; op < 4; ++op) {
         uint8_t tl = voice.hwOp[op].TL;
 
-        if (carrierMask & (1u << op)) {
-            // ── VTL: ベロシティ/エクスプレッション → TL 感度 ──────────────
-            // VTL=0: 補正なし (vel/exp とも音量に一切影響しない)
-            // vel/exp とも vol の影響を受けた evol ではなく単体の値
-            // (低い方) で行う (vol はマスターボリューム扱い、vel/exp は
-            // アーティキュレーション扱い)。2026年7月、expressionもvelと
-            // 同じ扱いに統合し、VTLゲート付き補正の対象にした。低い方
-            // (より不足している方) を採用する — 両方を合算(dB加算=線形
-            // 乗算)すると、両方が中程度に下がっただけで単体時より
-            // 急激に減衰してしまうため。
-            //
-            // TLレジスタはdB空間(0.75dB/unit)のため、MIDI値の不足分を
-            // 単純に線形マッピングすると中〜高ベロシティ域でも急激に
-            // 減衰してしまう(例: VTL=80, vel=87 で -18.75dB)。vol/exp
-            // (calcVolExpVel)と同じ知覚カーブ(kGM2dB)をここでも経由させ、
-            // さらに最大変動幅をVTL/2に抑えることで、中〜高域はなだらか
-            // に、極端に弱い入力でのみ大きく減衰する自然な特性にした。
-            const uint8_t vtl = voice.swOp[op].VTL;
-            if (vtl > 0) {
-                const uint8_t worst = std::min(vel, exp);
-                const double dB = fitom::kGM2dB[worst] * (static_cast<double>(vtl) / 254.0);
-                const int32_t delta = static_cast<int32_t>(std::lround(-dB / 0.75));
-                tl = static_cast<uint8_t>(
-                    clamp(static_cast<int>(tl) + delta, 0, 127));
-            }
-
-            // vol を TL (dB 空間) に反映
-            tl = fitom::calcLinearLevel(evol, tl);
+        // ── VTL: ベロシティ/エクスプレッション → TL 感度 ──────────────
+        // キャリア/モジュレータを問わず全opに適用する。モジュレータのTLは
+        // FMの変調指数そのものなので、ここに掛けることでvel/expが音量だけ
+        // でなく音色の明るさにも効く(FM音源のベロシティ表現の本体)。
+        // VTL=0: 補正なし (vel/exp とも一切影響しない)
+        // vel/exp とも vol の影響を受けた evol ではなく単体の値
+        // (低い方) で行う (vol はマスターボリューム扱い、vel/exp は
+        // アーティキュレーション扱い)。低い方を採るのは、両方を合算
+        // (dB加算=線形乗算)すると両方が中程度に下がっただけで単体時より
+        // 急激に減衰してしまうため。
+        //
+        // TLレジスタはdB空間(0.75dB/unit)のため、MIDI値の不足分を
+        // 単純に線形マッピングすると中〜高ベロシティ域でも急激に
+        // 減衰してしまう(例: VTL=80, vel=87 で -18.75dB)。vol/exp
+        // (calcVolExpVel)と同じ知覚カーブ(kGM2dB)をここでも経由させ、
+        // さらに最大変動幅をVTL/2に抑えることで、中〜高域はなだらか
+        // に、極端に弱い入力でのみ大きく減衰する自然な特性にした。
+        const uint8_t vtl = voice.swOp[op].VTL;
+        if (vtl > 0) {
+            const uint8_t worst = std::min(vel, exp);
+            const double dB = fitom::kGM2dB[worst] * (static_cast<double>(vtl) / 254.0);
+            const int32_t delta = static_cast<int32_t>(std::lround(-dB / 0.75));
+            tl = static_cast<uint8_t>(
+                clamp(static_cast<int>(tl) + delta, 0, 127));
         }
+
+        // 減衰量空間のTLをラウドネス空間(0=無音,127=最大音量)へ変換する。
+        // baseTL_/effectiveTL_はキャリア・モジュレータを問わずラウドネス
+        // 空間で保持する規約 (チップドライバ側のeffTLToReg()が全opに対して
+        // この規約を前提に逆変換する) のため、この変換は全opで通す。
+        //
+        // vol を乗せるのはキャリアのみ。モジュレータにも掛けると、マスター
+        // ボリュームを絞っただけで変調指数が下がって音色そのものが変わって
+        // しまう。kGM2dB[127]=0dB なので、モジュレータは変換だけが行われ
+        // レベルは変化しない。
+        const uint8_t opLevel = (carrierMask & (1u << op)) ? evol : 127;
+        tl = fitom::calcLinearLevel(opLevel, tl);
+
         baseTL_[op] = tl;
     }
 }

@@ -95,14 +95,12 @@ protected:
 
     // ビット幅変換ヘルパー
     static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit (上位4bit)
-    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit (パッチ生TL用)
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
     // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
     // 減衰量空間 (0=最大音量,63=無音、6bit) のため、書き込み前に必ずこの
-    // 変換 (旧Linear2dB相当) を通す必要がある (2026年7月、この変換が欠落
-    // しておりベロシティ/ボリューム/エクスプレッションの効きが反転していた
-    // バグを修正)。bw=6 のため tl6() によるビット幅縮小は不要。
+    // 変換 (旧Linear2dB相当) を通す必要がある。bw=6 が7bit→6bitの縮小も
+    // 兼ねる。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
     }
@@ -126,11 +124,7 @@ protected:
                        ((o.SR > 0) ? 0 : 0x20) |    // EG type (SR>0 → decay)
                        ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
 
-            // KSL / TL (TL は updateVolExp で書くので、ここはモジュレータのみ)
-            if (!isCarrier(ch, i)) {
-                setReg(static_cast<uint16_t>(0x40 + i * 3 + slot),
-                       static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)));
-            }
+            // KSL / TL はモジュレータも含め updateVolExp() が書く
 
             // AR / DR (キャリアはベロシティ補正値を使用)
             const bool car_opl = isCarrier(ch, i);
@@ -160,11 +154,13 @@ protected:
         updatePanpot(ch);
     }
 
+    // モジュレータも対象。モジュレータのTLはFMの変調指数そのもので、
+    // VTL(vel/exp感度)をここに効かせる必要がある。vol(マスターボリューム)を
+    // モジュレータへ乗せない切り分けはVoiceProcessor側で済んでいる。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
         for (int i = 0; i < 2; ++i) {
-            if (!isCarrier(ch, i)) continue;
             uint8_t slot = kMap[ch];
             uint8_t tl = effTLToReg(s.proc.effectiveTL(i));
             setReg(static_cast<uint16_t>(0x40 + i * 3 + slot),
@@ -172,10 +168,14 @@ protected:
         }
     }
 
+    // $40系レジスタは bit7-6 が KSL と同居しているため、TL のみの更新でも
+    // KSL を書き戻さないと LFO ティックごとに KSL が消える。
     void updateTL(uint8_t ch, uint8_t op, uint8_t effTL) override {
         uint8_t slot = kMap[ch];
         uint8_t lev = std::min<uint8_t>(effTLToReg(effTL), 63);
-        setReg(static_cast<uint16_t>(0x40 + op * 3 + slot), lev, false);
+        uint8_t ksl = chState_[ch].hwPatch.hwOp[op].KSL;
+        setReg(static_cast<uint16_t>(0x40 + op * 3 + slot),
+               static_cast<uint8_t>((ksl << 6) | lev), false);
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
@@ -394,7 +394,6 @@ protected:
     }
 
     static uint8_t ar4(uint8_t v) { return v >> 1; } // 5bit → 4bit
-    static uint8_t tl6(uint8_t v) { return v >> 1; } // 7bit → 6bit (パッチ生TL用)
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
     // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
@@ -427,11 +426,7 @@ protected:
                        ((o.SR > 0) ? 0 : 0x20) |
                        ((o.KSR & 1) << 4) | (o.MUL & 0xF)), true);
 
-            // KSL/TL (モジュレータのみ。キャリアはupdateVolExpで書く)
-            if (!car) {
-                setReg(static_cast<uint16_t>(0x40 + slot),
-                       static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)), true);
-            }
+            // KSL/TL はモジュレータも含め updateVolExp() が書く
 
             // AR/DR (キャリアはベロシティ補正値)
             const uint8_t ar_ = car ? s.proc.velAR(i) : (o.AR & 0x1F);
@@ -468,13 +463,15 @@ protected:
         updatePanpot(ch);
     }
 
+    // モジュレータも対象。モジュレータのTLはFMの変調指数そのもので、
+    // VTL(vel/exp感度)をここに効かせる必要がある。vol(マスターボリューム)を
+    // モジュレータへ乗せない切り分けはVoiceProcessor側で済んでいる。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
         for (int i = 0; i < 4; ++i) {
-            if (!isCarrier(ch, i)) continue;
             uint16_t slot = static_cast<uint16_t>(rop + opmap[i] + dch);
             uint8_t tl = effTLToReg(s.proc.effectiveTL(i));
             setReg(static_cast<uint16_t>(0x40 + slot),
@@ -482,12 +479,16 @@ protected:
         }
     }
 
+    // $40系レジスタは bit7-6 が KSL と同居しているため、TL のみの更新でも
+    // KSL を書き戻さないと LFO ティックごとに KSL が消える。
     void updateTL(uint8_t ch, uint8_t op, uint8_t effTL) override {
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
         uint16_t slot = static_cast<uint16_t>(rop + opmap[op] + dch);
         uint8_t lev = std::min<uint8_t>(effTLToReg(effTL), 63);
-        setReg(static_cast<uint16_t>(0x40 + slot), lev, false);
+        uint8_t ksl = chState_[ch].hwPatch.hwOp[op].KSL;
+        setReg(static_cast<uint16_t>(0x40 + slot),
+               static_cast<uint8_t>((ksl << 6) | lev), false);
     }
 
     void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
@@ -779,7 +780,6 @@ protected:
     static constexpr uint8_t kSlot[9] = {0, 1, 2, 8, 9, 10, 16, 17, 18};
 
     static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit
-    static uint8_t tl6(uint8_t v) { return v >> 1; }  // 7bit → 6bit (パッチ生TL用)
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
     // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
@@ -827,10 +827,7 @@ protected:
                    ((o.SR > 0) ? 0 : 0x20) |
                    ((o.KSR & 1) << 4) | (o.MUL & 0xF)));
 
-        if (!carrier) {
-            setReg(static_cast<uint16_t>(0x40 + opIdx * 3 + slot),
-                   static_cast<uint8_t>((o.KSL << 6) | tl6(o.TL)));
-        }
+        // KSL/TL はモジュレータも含め updateVolExp() が書く
 
         const uint8_t ar = carrier ? proc.velAR(velOpIdx) : (o.AR & 0x1F);
         const uint8_t dr = carrier ? proc.velDR(velOpIdx) : (o.DR & 0x1F);
@@ -892,9 +889,9 @@ protected:
         uint8_t slot = kSlot[physCh];
 
         if (ch == 4) {
+            // BDのモジュレータも対象。モジュレータのTLはFMの変調指数その
+            // もので、VTL(vel/exp感度)をここに効かせる必要がある。
             for (int i = 0; i < 2; ++i) {
-                bool carrier = (i == 1) || ((p.hw.ALG & 1) != 0);
-                if (!carrier) continue;
                 uint8_t tl = effTLToReg(s.proc.effectiveTL(i));
                 setReg(static_cast<uint16_t>(0x40 + i * 3 + slot),
                        static_cast<uint8_t>((p.hwOp[i].KSL << 6) | tl), false);
