@@ -1171,3 +1171,98 @@ TEST_CASE("COPNARhythm dumps the part before keying it on again",
     REQUIRE(keyOnIdx >= 0);
     CHECK(dumpIdx < keyOnIdx);
 }
+
+// ================================================================
+//  CUnison / CLinearPanDevice (リニアステレオ化) の動的ボイス割当
+// ================================================================
+
+namespace fitom {
+std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
+}
+
+// CUnison::queryCh() の事後チェックは mode と同じ基準でなければならない。
+// 以前は mode に関わらず全チップに isEmpty() を要求していたため、
+// 減衰中(Releasing)や発音中(Running)のチャンネルしか残っていない状況で
+// 必ず割り当てに失敗し、allocCh() が「no channel available」を出して
+// ノートが落ちていた (2026年8月修正の回帰防止)。
+TEST_CASE("CLinearPanDevice: allocCh keeps succeeding while channels are releasing "
+          "or running (CUnison::queryCh must honor the alloc mode)",
+          "[sounddevice][stereo][unison]")
+{
+    RecordingPort portL, portR;
+    auto left  = createCOPLL(&portL, 3579545, 0);
+    auto right = createCOPLL(&portR, 3579545, 0);
+    left->init();
+    right->init();
+
+    CLinearPanDevice dev(left.get(), right.get());
+    const uint8_t chs = dev.getChCount();
+    REQUIRE(chs > 0);
+
+    HwPatch patch{};
+    patch.id = 1;
+
+    // (1) 全チャンネルを使い切る
+    std::vector<uint8_t> allocated;
+    for (uint8_t i = 0; i < chs; ++i) {
+        uint8_t ch = dev.allocCh(nullptr, &patch, 100);
+        REQUIRE(ch != 0xFF);
+        dev.noteOn(ch, 100);
+        allocated.push_back(ch);
+    }
+
+    // (2) 全ch Running の状態でも強制奪取(mode=0)で必ず割り当てられること。
+    //     findBestCh()の強制奪取候補は「noteOnAgeが最大のch」を選ぶ実装のため、
+    //     ageが全て0のままだと候補が1つも立たない。実際の演奏では1msごとの
+    //     timerCallback()がageを進めるので、それに相当する分だけ進めておく。
+    for (uint32_t t = 1; t <= 4; ++t) dev.timerCallback(t);
+    for (int i = 0; i < 4; ++i) {
+        uint8_t ch = dev.allocCh(nullptr, &patch, 100);
+        REQUIRE(ch != 0xFF);
+        dev.noteOn(ch, 100);
+    }
+
+    // (3) ノートオフ直後(Releasing、releaseTimerは未経過)でも
+    //     mode=1 で割り当てられること
+    for (uint8_t ch : allocated) dev.noteOff(ch);
+    for (int i = 0; i < static_cast<int>(chs); ++i) {
+        uint8_t ch = dev.allocCh(nullptr, &patch, 100);
+        REQUIRE(ch != 0xFF);
+        dev.noteOn(ch, 100);
+    }
+}
+
+// CLinearPanDevice は「同じ音を同じ音程で左右に鳴らす」構成のため、
+// CUnison のデチューンを適用してはならない。適用されると左右でうなりが
+// 生じるうえ、直前の setNoteFine() が書いた音色側のfine tuneが失われる
+// (2026年8月修正の回帰防止)。
+TEST_CASE("CLinearPanDevice: noteOn must not detune the two chips nor clobber the "
+          "fine tune set by setNoteFine", "[sounddevice][stereo][unison]")
+{
+    RecordingPort portL, portR;
+    auto left  = createCOPLL(&portL, 3579545, 0);
+    auto right = createCOPLL(&portR, 3579545, 0);
+    left->init();
+    right->init();
+
+    ISoundDevice* lRaw = left.get();
+    ISoundDevice* rRaw = right.get();
+    CLinearPanDevice dev(lRaw, rRaw);
+
+    HwPatch patch{};
+    patch.id = 1;
+    uint8_t ch = dev.allocCh(nullptr, &patch, 100);
+    REQUIRE(ch != 0xFF);
+
+    constexpr int16_t kFine = 24; // 音色側のfine tune [kfs]
+    dev.setNoteFine(ch, 60, kFine, true);
+    dev.noteOn(ch, 100);
+
+    const ChState* stL = lRaw->getChState(ch);
+    const ChState* stR = rRaw->getChState(ch);
+    REQUIRE(stL != nullptr);
+    REQUIRE(stR != nullptr);
+    CHECK(stL->fineFreq == kFine);   // fine tuneが保たれている
+    CHECK(stR->fineFreq == kFine);
+    CHECK(stL->fineFreq == stR->fineFreq); // 左右で音程が一致している
+}

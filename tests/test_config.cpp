@@ -769,6 +769,357 @@ TEST_CASE("FITOMConfig: DEVICE_OPLL composite spec adds DEVICE_OPLL_RHY only "
 }
 
 // ================================================================
+//  リニアステレオ化 (CLinearPanDevice、stereo_pair:true の明示指定)
+//  docs/chip-driver-architecture.md「3.1 リニアステレオ化」参照
+// ================================================================
+
+namespace {
+
+// パン設定とI/F名だけを持つテスト用IPort。
+// pairStereoDevices()はgetPanpot()/getInterfaceDesc()しか参照しない。
+class StereoTestPort : public fitom::IPort {
+public:
+    StereoTestPort(int panpot, std::string iface)
+        : panpot_(panpot), iface_(std::move(iface)) {}
+    void    write(uint16_t, uint16_t) override {}
+    uint8_t read(uint16_t)            override { return 0; }
+    int         getPanpot()        override { return panpot_; }
+    std::string getInterfaceDesc() override { return iface_; }
+private:
+    int         panpot_;
+    std::string iface_;
+};
+
+// devices[]エントリを1つ作るヘルパー。compositeGroup<0 = 単独チップ。
+// stereoSide=None は stereo_pair:true (pan由来のL/R判定) を表す。
+fitom::DeviceEntry makeEntry(const std::string& label, uint32_t deviceType,
+                             const std::shared_ptr<fitom::IPort>& port,
+                             bool stereoPairRequested, int compositeGroup = -1,
+                             fitom::StereoSide side = fitom::StereoSide::None)
+{
+    fitom::DeviceEntry e;
+    e.label                = label;
+    e.deviceType           = deviceType;
+    e.port                 = port;
+    e.stereoPairRequested  = stereoPairRequested;
+    e.compositeGroup       = compositeGroup;
+    e.stereoSide           = side;
+    return e;
+}
+
+} // namespace
+
+// stereo_pair:true が無ければ(pan=1/2に振り分けただけでは)発動しない。
+// 自動検出しない仕様の明文化 + 回帰防止。
+TEST_CASE("FITOMConfig::pairStereoDevices: pan=1/2 alone does NOT bundle without "
+          "stereo_pair:true on both entries", "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("VRC7", DEVICE_VRC7, portL, false));
+    devices.push_back(makeEntry("VRC7", DEVICE_VRC7, portR, false));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 2);
+    CHECK(devices[0].stereoPairPort == nullptr);
+    CHECK(devices[1].stereoPairPort == nullptr);
+
+    // 片側だけの指定でも発動しない
+    std::vector<fitom::DeviceEntry> half;
+    half.push_back(makeEntry("VRC7", DEVICE_VRC7, portL, true));
+    half.push_back(makeEntry("VRC7", DEVICE_VRC7, portR, false));
+    fitom::FITOMConfig::pairStereoDevices(half);
+    REQUIRE(half.size() == 2);
+    CHECK(half[0].stereoPairPort == nullptr);
+}
+
+TEST_CASE("FITOMConfig::pairStereoDevices: a single (non-composite) chip pair with "
+          "stereo_pair:true merges R into L", "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("VRC7", DEVICE_VRC7, portL, true));
+    devices.push_back(makeEntry("VRC7", DEVICE_VRC7, portR, true));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 1);            // R側エントリは削除される
+    CHECK(devices[0].port == portL);
+    CHECK(devices[0].stereoPairPort == portR);
+}
+
+// composite展開されたチップ(OPLL[rhythm_mode:true] = FM本体 + 内蔵リズム)でも
+// compositeGroup単位でまとめてペアリングされること。2026年8月まではここで
+// stereo_pairが無視されており、リニアステレオ化が一切発動しなかった。
+// 内蔵リズム(DEVICE_OPLL_RHY)はVOICE_PATCH_NONEのため、VoicePatchType基準の
+// 旧実装ではR側だけが孤立して残ってしまう点も同時に回帰防止する。
+TEST_CASE("FITOMConfig::pairStereoDevices: composite-expanded chips are paired as a "
+          "whole compositeGroup, including VOICE_PATCH_NONE sub-devices",
+          "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("OPLL-FM",      DEVICE_OPLL,     portL, true, 0));
+    devices.push_back(makeEntry("OPLL-RHYTHM",  DEVICE_OPLL_RHY, portL, true, 0));
+    devices.push_back(makeEntry("OPLL-FM",      DEVICE_OPLL,     portR, true, 1));
+    devices.push_back(makeEntry("OPLL-RHYTHM",  DEVICE_OPLL_RHY, portR, true, 1));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 2);            // R側グループは丸ごと削除される
+    CHECK(devices[0].deviceType == DEVICE_OPLL);
+    CHECK(devices[0].port == portL);
+    CHECK(devices[0].stereoPairPort == portR);
+    CHECK(devices[1].deviceType == DEVICE_OPLL_RHY);
+    CHECK(devices[1].port == portL);
+    CHECK(devices[1].stereoPairPort == portR);
+}
+
+// 別チップ同士は束ねない。OPLL系(OPLL/OPLLP/OPLLX/VRC7)は同一VOICE_GROUPだが、
+// CLinearPanDeviceは物理的に同一のチップ2台を前提とするためdeviceType一致が必要。
+TEST_CASE("FITOMConfig::pairStereoDevices: different chips / different interfaces "
+          "are never paired", "[config][stereo]")
+{
+    auto emuL = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto emuR = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+    auto hwR  = std::make_shared<StereoTestPort>(2, "FitomHwIF");
+
+    // 同一I/F・同一pan構成でもdeviceTypeが違えばペアにならない
+    std::vector<fitom::DeviceEntry> diffChip;
+    diffChip.push_back(makeEntry("OPLLP", DEVICE_OPLLP, emuL, true));
+    diffChip.push_back(makeEntry("OPLLX", DEVICE_OPLLX, emuR, true));
+    fitom::FITOMConfig::pairStereoDevices(diffChip);
+    REQUIRE(diffChip.size() == 2);
+    CHECK(diffChip[0].stereoPairPort == nullptr);
+
+    // 同一deviceTypeでもI/F(プラグイン)が違えばペアにならない
+    std::vector<fitom::DeviceEntry> diffIface;
+    diffIface.push_back(makeEntry("VRC7", DEVICE_VRC7, emuL, true));
+    diffIface.push_back(makeEntry("VRC7", DEVICE_VRC7, hwR,  true));
+    fitom::FITOMConfig::pairStereoDevices(diffIface);
+    REQUIRE(diffIface.size() == 2);
+    CHECK(diffIface[0].stereoPairPort == nullptr);
+}
+
+// OPL4のAWM/PCM部はチャンネルごとのパンポットをハードウェアで持つため、
+// stereo_pairの伝播対象外(subDeviceAcceptsStereoPair()==false)。
+TEST_CASE("FITOMConfig::subDeviceAcceptsStereoPair: only DEVICE_OPL4AWM is excluded "
+          "(it has hardware panpot)", "[config][stereo]")
+{
+    CHECK_FALSE(fitom::FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_OPL4AWM));
+    // OPL4のFM部・その他のサブデバイスは引き続き対象
+    CHECK(fitom::FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_OPL3));
+    CHECK(fitom::FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_OPL3_2));
+    CHECK(fitom::FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_OPLL));
+    CHECK(fitom::FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_OPLL_RHY));
+    CHECK(fitom::FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_SSG));
+}
+
+// ペアリングはグループ全体ではなく「stereo_pair対象サブデバイスの部分集合」で
+// 判定するため、構成の異なるcompositeグループ同士(OPL4のFM部 と OPL3)でも
+// FM部だけをL/Rペアにできる。AWM部(stereo_pair対象外)は独立したモノラル
+// デバイスとして残る。
+TEST_CASE("FITOMConfig::pairStereoDevices: OPL4's FM sub-devices pair with an OPL3 "
+          "while its AWM part stays an independent mono device", "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF"); // OPL4 (L)
+    auto portR = std::make_shared<StereoTestPort>(2, "FitomEmuIF"); // OPL3 (R)
+
+    std::vector<fitom::DeviceEntry> devices;
+    // OPL4(L): FM 4OP + FM 2OP + AWM。AWMだけstereoPairRequested=false
+    devices.push_back(makeEntry("OPL4-FM4OP", DEVICE_OPL3,     portL, true,  0));
+    devices.push_back(makeEntry("OPL4-FM2OP", DEVICE_OPL3_2,   portL, true,  0));
+    devices.push_back(makeEntry("OPL4-AWM",   DEVICE_OPL4AWM,  portL, false, 0));
+    // OPL3(R): FM 4OP + FM 2OP
+    devices.push_back(makeEntry("OPL3-FM4OP", DEVICE_OPL3,     portR, true,  1));
+    devices.push_back(makeEntry("OPL3-FM2OP", DEVICE_OPL3_2,   portR, true,  1));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 3);            // R側のFM 2エントリのみ削除される
+    CHECK(devices[0].deviceType == DEVICE_OPL3);
+    CHECK(devices[0].stereoPairPort == portR);
+    CHECK(devices[1].deviceType == DEVICE_OPL3_2);
+    CHECK(devices[1].stereoPairPort == portR);
+    // AWM部はステレオ化されず、L側の物理ポート上の独立デバイスのまま
+    CHECK(devices[2].deviceType == DEVICE_OPL4AWM);
+    CHECK(devices[2].port == portL);
+    CHECK(devices[2].stereoPairPort == nullptr);
+}
+
+// OPL4同士をL/Rペアにした場合も、AWM部だけは両側とも独立したデバイスとして
+// 残る(L側のAWMがR側のAWMを吸収しない)。
+TEST_CASE("FITOMConfig::pairStereoDevices: an OPL4 L/R pair leaves both AWM parts "
+          "as independent devices", "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("OPL4-FM4OP", DEVICE_OPL3,    portL, true,  0));
+    devices.push_back(makeEntry("OPL4-FM2OP", DEVICE_OPL3_2,  portL, true,  0));
+    devices.push_back(makeEntry("OPL4-AWM",   DEVICE_OPL4AWM, portL, false, 0));
+    devices.push_back(makeEntry("OPL4-FM4OP", DEVICE_OPL3,    portR, true,  1));
+    devices.push_back(makeEntry("OPL4-FM2OP", DEVICE_OPL3_2,  portR, true,  1));
+    devices.push_back(makeEntry("OPL4-AWM",   DEVICE_OPL4AWM, portR, false, 1));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 4);            // R側のFM 2エントリのみ削除
+    CHECK(devices[0].stereoPairPort == portR);
+    CHECK(devices[1].stereoPairPort == portR);
+    CHECK(devices[2].deviceType == DEVICE_OPL4AWM);
+    CHECK(devices[2].port == portL);
+    CHECK(devices[2].stereoPairPort == nullptr);
+    CHECK(devices[3].deviceType == DEVICE_OPL4AWM);
+    CHECK(devices[3].port == portR);
+    CHECK(devices[3].stereoPairPort == nullptr);
+}
+
+// L/Rペアが2組ある場合、それぞれ別のペアとして独立に束ねられること
+// (2組目のL側が1組目のR側を横取りしない = 1つのL側につきR側は1つだけ)。
+TEST_CASE("FITOMConfig::pairStereoDevices: two independent L/R pairs of the same "
+          "chip each form their own stereo unit", "[config][stereo]")
+{
+    auto l0 = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto r0 = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+    auto l1 = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto r1 = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("VRC7#0", DEVICE_VRC7, l0, true));
+    devices.push_back(makeEntry("VRC7#1", DEVICE_VRC7, l1, true));
+    devices.push_back(makeEntry("VRC7#2", DEVICE_VRC7, r0, true));
+    devices.push_back(makeEntry("VRC7#3", DEVICE_VRC7, r1, true));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 2);
+    CHECK(devices[0].port == l0);
+    CHECK(devices[0].stereoPairPort == r0);
+    CHECK(devices[1].port == l1);
+    CHECK(devices[1].stereoPairPort == r1);
+}
+
+// ================================================================
+//  チップ内L/R分離方式 (stereo_pair:"L"/"R"、2026年8月新設)
+// ================================================================
+
+// stereo_pair:"L"/"R" はL/R役割をpanから独立して宣言する。プラグイン側の
+// panは0(Stereo)のままでよいため、getPanpot()が1でも2でもないポートで
+// ペアが成立すること、およびチップ内分離フラグが立つことを確認する。
+TEST_CASE("FITOMConfig::pairStereoDevices: explicit \"L\"/\"R\" pairs regardless of "
+          "the plugin-side pan value and marks the pair as chip-level",
+          "[config][stereo]")
+{
+    // pan=0 (Stereo): 従来方式ならL/R役割を判定できない値
+    auto portL = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("OPM-L", DEVICE_OPM, portL, true, -1, fitom::StereoSide::Left));
+    devices.push_back(makeEntry("OPM-R", DEVICE_OPM, portR, true, -1, fitom::StereoSide::Right));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 1);
+    CHECK(devices[0].port == portL);
+    CHECK(devices[0].stereoPairPort == portR);
+    CHECK(devices[0].stereoPairChipLevel == true);
+}
+
+// stereo_pair:true (pan由来) のペアはチップ内分離フラグを立てない
+// (左右分離はプラグイン側のルーティングが行う従来方式)。
+TEST_CASE("FITOMConfig::pairStereoDevices: pan-derived pairs are not chip-level",
+          "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(2, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("OPM", DEVICE_OPM, portL, true));
+    devices.push_back(makeEntry("OPM", DEVICE_OPM, portR, true));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 1);
+    CHECK(devices[0].stereoPairPort == portR);
+    CHECK(devices[0].stereoPairChipLevel == false);
+}
+
+// 片側だけ "L"/"R"、もう片側は pan 由来という混在構成では、プラグイン側の
+// ルーティングが絡んで意図が確定しないため従来方式(チップ内分離なし)に倒す。
+TEST_CASE("FITOMConfig::pairStereoDevices: a mixed declaration (one explicit side, "
+          "one pan-derived) falls back to the plugin-routed method",
+          "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(1, "FitomEmuIF"); // pan由来のL
+    auto portR = std::make_shared<StereoTestPort>(0, "FitomEmuIF"); // 明示のR
+
+    std::vector<fitom::DeviceEntry> devices;
+    devices.push_back(makeEntry("OPM-L", DEVICE_OPM, portL, true));
+    devices.push_back(makeEntry("OPM-R", DEVICE_OPM, portR, true, -1, fitom::StereoSide::Right));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 1);
+    CHECK(devices[0].stereoPairPort == portR);
+    CHECK(devices[0].stereoPairChipLevel == false);
+}
+
+// composite展開されたOPNA同士を "L"/"R" で束ねた場合、FM部・SSG部・ADPCM部・
+// リズム部の全サブデバイスがまとめてペアになり、いずれもチップ内分離になる。
+TEST_CASE("FITOMConfig::pairStereoDevices: explicit \"L\"/\"R\" works for "
+          "composite-expanded chips as a whole group", "[config][stereo]")
+{
+    auto portL = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+    auto portR = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+
+    std::vector<fitom::DeviceEntry> devices;
+    for (uint32_t dt : {DEVICE_OPNA, DEVICE_SSG, DEVICE_ADPCMB_OPNA, DEVICE_OPNA_RHY})
+        devices.push_back(makeEntry("OPNA-L", dt, portL, true, 0, fitom::StereoSide::Left));
+    for (uint32_t dt : {DEVICE_OPNA, DEVICE_SSG, DEVICE_ADPCMB_OPNA, DEVICE_OPNA_RHY})
+        devices.push_back(makeEntry("OPNA-R", dt, portR, true, 1, fitom::StereoSide::Right));
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 4);
+    for (const auto& e : devices) {
+        CHECK(e.port == portL);
+        CHECK(e.stereoPairPort == portR);
+        CHECK(e.stereoPairChipLevel == true);
+    }
+}
+
+// チップ内L/R分離の可否は deviceType 側の索引で判定する。ユーザー指定の
+// 対象チップ(OPM/OPZ/OPL3/OPL4[FM部]/OPN2/OPNA/OPNB/OPNBB)が漏れなく
+// trueであること、モノラル出力チップがfalseであることの回帰防止。
+TEST_CASE("FITOMConfig::deviceHasChipLevelPanpot: chips with per-channel L/R output "
+          "bits are recognized, mono-output chips are not", "[config][stereo]")
+{
+    // 対象: OPM/OPZ系
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPM));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPP));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPZ));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPZ2));
+    // 対象: OPL3系 (OPL4のFM部はcomposite展開でDEVICE_OPL3/OPL3_2になる)
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPL3));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPL3_2));
+    // 対象: OPN2/OPNA/OPNB系とそのADPCMサブデバイス
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPN2));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPNA));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPNB));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_2610B));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_ADPCMA));
+    CHECK(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_ADPCMB_OPNA));
+
+    // 非対象: モノラル出力のチップ (updatePanpot()がno-op)
+    CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPLL));
+    CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_VRC7));
+    CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPL));
+    CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPL2));
+    CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_OPN));  // YM2203
+    CHECK_FALSE(fitom::FITOMConfig::deviceHasChipLevelPanpot(DEVICE_SSG));
+}
+
+// ================================================================
 //  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
 // ================================================================
 
