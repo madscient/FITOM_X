@@ -242,6 +242,11 @@ public:
     // 対応する文字列が無い場合は VOICE_PATCH_NONE(0) を返す。
     static uint8_t stringToVoicePatchType(const std::string& s) noexcept;
 
+    // stringToVoicePatchType() の逆変換(ログ表示用)。同関数が複数の別名を
+    // 受け付ける値(OPN2/OPNA/OPNB等)については、profile.schema.json の
+    // enum に載っている代表名のみを返す。未知の値は "?" を返す。
+    static const char* voicePatchTypeToString(uint8_t voicePatchType) noexcept;
+
     // ─── Sub-device 自動生成 (composite chip) ──────────────────────────────
     // 1つの物理/エミュレーターチップ指定 (例: "OPNA") から、内部的に複数の
     // ISoundDevice インスタンス (例: FM本体 + SSG + ADPCM-B) を自動生成する。

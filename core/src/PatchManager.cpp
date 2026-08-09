@@ -112,6 +112,32 @@ namespace {
 // 接続されている全デバイスに対して DeviceFactory::acceptsFallback を
 // 順に問い合わせ、受け入れ可能な最初の1つのインデックスを返す
 // (-1 = 見つからない)。usedVptにそのデバイスの実際のVoicePatchTypeを返す。
+// 同一VoiceGroupに登録済みのHwBankを、直接デバイス選択モードで実際に
+// 指定すべき値(CC#0=バンクのvoicePatchType / CC#32=バンク番号)の形で
+// 1行に列挙する。VoiceGroupは複数のチップ(例: OPM/OPZ/OPZ2)で共有される
+// 一方、バンクのvoicePatchTypeはプロファイルのhw_banks[].groupだけで決まり
+// resolveTriple()は厳密一致を要求するため、「バンクは存在するのに要求した
+// チップ名では引けない」状態が起こりうる。その診断用。
+std::string describeHwBanksInGroup(const HwBankRegistry& reg,
+                                    HwBankRegistry::VoiceGroup group) {
+    constexpr size_t kMaxListed = 12;
+    std::string out;
+    size_t listed = 0;
+    const auto bankNos = reg.listBankNumbers(group);
+    for (int no : bankNos) {
+        if (listed >= kMaxListed) { out += ", ..."; break; }
+        const HwBank* b = reg.find(group, no);
+        if (!b) continue;
+        if (!out.empty()) out += ", ";
+        out += "CC#0=" + std::to_string(b->voicePatchType)
+             + "(" + FITOMConfig::voicePatchTypeToString(b->voicePatchType) + ")"
+             + "/CC#32=" + std::to_string(no)
+             + " \"" + b->name + "\"";
+        ++listed;
+    }
+    return out.empty() ? std::string("(none)") : out;
+}
+
 int findFallbackDeviceIndex(const FITOMConfig& config, uint8_t sourceVoicePatchType,
                              const HwPatch& patch, uint8_t& usedVpt) {
     int count = config.getDeviceCount();
@@ -463,10 +489,24 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // にHwPatchの内容が必要なため、デバイス検索より先にデータを解決する。
     auto group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
     const HwBank* bank = hwReg_.find(group, hwBank);
-    if (!bank || bank->voicePatchType != voicePatchType) {
-        FITOM_LOG_WARN(ctx << " bank=" << (int)hwBank
-            << " voicePatchType mismatch (bank=" << (bank ? bank->voicePatchType : 0)
-            << ", requested=" << (int)voicePatchType << ")");
+    if (!bank) {
+        FITOM_LOG_WARN(ctx << " chip=" << FITOMConfig::voicePatchTypeToString(voicePatchType)
+            << " (CC#0=" << (int)voicePatchType << ") bank(CC#32)=" << (int)hwBank
+            << " — このバンク番号は未登録。同一グループの登録済みバンク: "
+            << describeHwBanksInGroup(hwReg_, group));
+        return result;
+    }
+    if (bank->voicePatchType != voicePatchType) {
+        // バンク自体は存在するが、別のチップとして登録されている。
+        // VoiceGroupは複数チップで共有されるため、この状態は「バンクは
+        // 見えるのに要求したCC#0では鳴らない」形で現れる。
+        FITOM_LOG_WARN(ctx << " chip=" << FITOMConfig::voicePatchTypeToString(voicePatchType)
+            << " (CC#0=" << (int)voicePatchType << ") bank(CC#32)=" << (int)hwBank
+            << " — バンク \"" << bank->name << "\" は chip="
+            << FITOMConfig::voicePatchTypeToString(bank->voicePatchType)
+            << " (CC#0=" << (int)bank->voicePatchType
+            << ") として登録されており一致しない (プロファイルのhw_banks[].group由来)。"
+            << " 同一グループの登録済みバンク: " << describeHwBanksInGroup(hwReg_, group));
         return result;
     }
 
@@ -1090,9 +1130,16 @@ bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
                 bank.set(prog, jsonToHwPatch(entry, bankNo, prog));
             }
         }
-        FITOM_LOG_INFO("HwBank loaded: " << bank.name
-            << " (" << path.filename().string() << ")"
-            << " voicePatchType=0x" << std::hex << (int)voicePatchType);
+        // 直接デバイス選択モード(CC#0=VoicePatchType / CC#32=バンク番号)で
+        // このバンクを引くために必要な値をそのままの形で出す。バンクの
+        // voicePatchTypeはプロファイルのhw_banks[].group文字列だけで決まり
+        // (バンクファイル側の記述は参照しない)、resolveTriple()は要求値との
+        // 厳密一致を要求するため、「どのバンクがどのチップとして登録されて
+        // いるか」がログから直接読めないと不一致の原因が追えない。
+        FITOM_LOG_INFO("HwBank loaded: chip=" << FITOMConfig::voicePatchTypeToString(voicePatchType)
+            << " (CC#0=" << (int)voicePatchType << ") bank(CC#32)=" << bankNo
+            << " \"" << bank.name << "\""
+            << " (" << path.filename().string() << ")");
         return true;
     } catch (const std::exception& e) {
         FITOM_LOG_ERR("HwBank parse error: " << e.what());
