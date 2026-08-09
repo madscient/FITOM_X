@@ -567,9 +567,30 @@ void FITOMConfig::buildDevice(const json& dev)
             }
             uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
             bool rhythmMode = dev.value("rhythm_mode", false);
-            bool stereoPair = dev.value("stereo_pair", false);
+            // stereo_pair: true (従来方式、pan:1/2からL/R役割を判定) または
+            // "L"/"R" (チップ内L/R分離方式)。docs/config-design.md参照。
+            bool       stereoPair = false;
+            StereoSide stereoSide = StereoSide::None;
+            if (dev.contains("stereo_pair")) {
+                const auto& sp = dev.at("stereo_pair");
+                if (sp.is_boolean()) {
+                    stereoPair = sp.get<bool>();
+                } else if (sp.is_string()) {
+                    std::string s = sp.get<std::string>();
+                    if (s == "L" || s == "l") { stereoPair = true; stereoSide = StereoSide::Left; }
+                    else if (s == "R" || s == "r") { stereoPair = true; stereoSide = StereoSide::Right; }
+                    else {
+                        FITOM_LOG_WARN("stereo_pair: '" << label << "' の値 \"" << s
+                            << "\" は不正です (true / \"L\" / \"R\" のいずれか)。無視します");
+                    }
+                } else {
+                    FITOM_LOG_WARN("stereo_pair: '" << label
+                        << "' の型が不正です (boolean または \"L\"/\"R\")。無視します");
+                }
+            }
             int sampleRate = dev.value("sample_rate", 44100);
-            pushDeviceEntries(label, deviceType, port, port2, sampleRate, extraSlot, rhythmMode, stereoPair);
+            pushDeviceEntries(label, deviceType, port, port2, sampleRate, extraSlot, rhythmMode,
+                              stereoPair, stereoSide);
             if (isSf2 && !devices_.empty()) devices_.back().isSf2 = true;
         } catch (const std::exception& ex) {
             FITOM_LOG_ERR("Failed to create HWPort for '" << label << "': " << ex.what());
@@ -891,16 +912,18 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
 void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
                                      std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
                                      int sampleRate, int extraSlot, bool rhythmModeFromProfile,
-                                     bool stereoPairRequested)
+                                     bool stereoPairRequested, StereoSide stereoSide)
 {
     std::vector<SubDeviceSpec> spec;
     if (resolveCompositeSpec(baseDeviceType, rhythmModeFromProfile, spec)) {
-        // composite展開されたサブデバイス群へのstereo_pair適用は複雑になるため
-        // 現時点では非対応 (将来課題)。単独チップのみサポートする。
-        if (stereoPairRequested) {
-            FITOM_LOG_WARN("stereo_pair: '" << baseLabel
-                << "' はcomposite展開対象のため無視されます (単独チップのみ対応)");
-        }
+        // composite展開されたサブデバイス群にもstereo_pairを伝播する
+        // (2026年8月対応。以前はここで警告を出して無視しており、内蔵リズムを
+        // 持つOPLL/OPL系やSSG/ADPCMを持つOPNA系など、composite展開対象の
+        // チップでは stereo_pair:true を書いてもリニアステレオ化が一切
+        // 発動しなかった)。ただしsubDeviceAcceptsStereoPair()が false を返す
+        // サブデバイス(自前でハードウェアパンポットを持つもの)は対象外とする。
+        // 実際のL/R対応付けは全devices_構築後に mergeStereoPairDevices() が
+        // compositeGroup単位で行う。
         int group = nextCompositeGroupId_++;
         for (const auto& s : spec) {
             DeviceEntry e;
@@ -912,6 +935,9 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
             e.port2          = s.usesExtraPort ? port2 : nullptr;
             e.rhythmMode     = s.rhythmCapable ? rhythmModeFromProfile : false;
             e.compositeGroup = group;
+            e.stereoPairRequested =
+                stereoPairRequested && subDeviceAcceptsStereoPair(s.deviceType);
+            e.stereoSide = e.stereoPairRequested ? stereoSide : StereoSide::None;
             FITOM_LOG_INFO("Device added: " << e.label
                 << " (composite sub-device of '" << baseLabel << "', type=0x"
                 << std::hex << s.deviceType << ")");
@@ -927,63 +953,226 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
         e.port2      = port2;
         e.rhythmMode = rhythmModeFromProfile;
         e.stereoPairRequested = stereoPairRequested;
+        e.stereoSide = stereoSide;
         FITOM_LOG_INFO("Device added: " << e.label);
         devices_.push_back(std::move(e));
     }
 }
 
 // ================================================================
-//  同種デバイス自動束ね (CSpanDevice)
-// ================================================================
-// ================================================================
 //  リニアステレオ化 (CLinearPanDevice、明示指定のみ)
 // ================================================================
+bool FITOMConfig::subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept
+{
+    // OPL4のAWM/PCM部(YMF278B)は、チャンネルごとのパンポットレジスタを
+    // ハードウェアで持っている。L/R2台を等パワーパンニングでクロスフェード
+    // させるCLinearPanDeviceの束ねは、チップ自身がモノラル出力しか持たない
+    // 音源を対象とした代替手段であり、AWM部に適用すると本来のハードウェア
+    // パンポットを潰した上で2倍のチップを消費することになるため対象外とする
+    // (2026年8月、ユーザー指摘)。OPL4のFM部(DEVICE_OPL3/DEVICE_OPL3_2)は
+    // 引き続き対象で、例えば「OPL4のFM部 + OPL3」をL/Rペアとして
+    // ステレオ化する用法が成立する(両者ともFM部のサブデバイス構成が
+    // DEVICE_OPL3/DEVICE_OPL3_2で一致するため)。
+    return deviceType != DEVICE_OPL4AWM;
+}
+
+bool FITOMConfig::deviceHasChipLevelPanpot(uint32_t deviceType) noexcept
+{
+    // チャンネルごとのL/R出力ビット(またはそれと等価な左右独立音量)を
+    // レジスタへ書けるチップ。各ドライバの updatePanpot() 実装が真の情報源で、
+    // ここはその deviceType 側の索引にあたる(片方だけ更新すると、指定しても
+    // 左右に分離されない・警告も出ないという静かな失敗になるため、
+    // updatePanpot() を実装/変更したら必ずこの一覧も見直すこと)。
+    switch (deviceType) {
+    // FM: OPM/OPZ系 (レジスタ0x20のbit7/bit6)
+    case DEVICE_OPM: case DEVICE_OPP: case DEVICE_OPZ: case DEVICE_OPZ2:
+    // FM: OPL3系 (レジスタ0xC0のbit5/bit4 = CHA/CHB)。OPL4のFM部は
+    // composite展開でDEVICE_OPL3/DEVICE_OPL3_2になるためこれで賄われる。
+    case DEVICE_OPL3: case DEVICE_OPL3_2: case DEVICE_OPN3_L3:
+    // FM: OPN2/OPNA/OPNB系 (レジスタ0xB4のbit7/bit6)。YM2203(DEVICE_OPN)は
+    // モノラルのため対象外。
+    case DEVICE_OPN2: case DEVICE_OPN2C: case DEVICE_OPN2L:
+    case DEVICE_OPNA: case DEVICE_OPN3L: case DEVICE_OPN3: case DEVICE_F286:
+    case DEVICE_OPNB: case DEVICE_2610B:
+    // 上記チップのcomposite展開で生成されるPCM系サブデバイス。
+    // ADPCM-A(YM2610)・ADPCM-B(YM2608/YM2610)はいずれもL/R出力ビットを持つ。
+    case DEVICE_ADPCMA: case DEVICE_ADPCMB: case DEVICE_ADPCMB_OPNA:
+        return true;
+    default:
+        // OPLL系・OPL/OPL2/Y8950・SSG/PSG系・YM2203等のモノラル出力チップ。
+        // これらの updatePanpot() は no-op のため、チップ内L/R分離はできない。
+        // なお内蔵リズム(DEVICE_*_RHY)もFM本体側のレジスタを共有する
+        // モノラル前提の実装のため対象外。
+        return false;
+    }
+}
+
 void FITOMConfig::mergeStereoPairDevices()
 {
-    struct Key {
-        uint8_t     voicePatchType;
-        std::string interfaceDesc;
-        bool operator==(const Key& o) const {
-            return voicePatchType == o.voicePatchType && interfaceDesc == o.interfaceDesc;
+    pairStereoDevices(devices_);
+}
+
+void FITOMConfig::pairStereoDevices(std::vector<DeviceEntry>& devices)
+{
+    const size_t n = devices.size();
+    std::vector<bool> removed(n, false);
+
+    // マッチ条件は「同一deviceType・同一InterfaceDesc・L/R役割の組」。
+    // 以前はVoicePatchTypeで比較していたが、composite展開されたサブデバイスには
+    // 専用のVoicePatchTypeを持たないもの(COPLLRhythm/COPNARhythm等、
+    // VOICE_PATCH_NONE)があり、それらが常に対象外となってR側だけが孤立して
+    // 残ってしまうため、deviceType同士の比較に変更した(2026年8月)。
+    // CLinearPanDeviceは物理的に同一のチップ2台がL/Rへ固定配線されている構成を
+    // 前提とするため、VoicePatchTypeより厳しいdeviceType一致で判定する方が
+    // 本来の意味にも合う。
+    //
+    // L/R役割は stereo_pair:"L"/"R" の明示指定(StereoSide)を優先し、
+    // 未指定(stereo_pair:true)なら従来どおり IPort::getPanpot() の 1/2 から
+    // 判定する。前者は「チップ自身のL/R出力ビットで分離する」方式で、
+    // プラグイン側の pan は 0(Stereo) のままでよい(2026年8月新設)。
+    auto sideOf = [&](size_t idx) {
+        const DeviceEntry& e = devices[idx];
+        if (e.stereoSide != StereoSide::None) return e.stereoSide;
+        const int pan = e.port->getPanpot();
+        return (pan == 1) ? StereoSide::Left
+             : (pan == 2) ? StereoSide::Right
+                          : StereoSide::None;
+    };
+    auto eligible = [&](size_t idx, StereoSide side) {
+        const DeviceEntry& e = devices[idx];
+        return !removed[idx] && e.stereoPairRequested && e.port && !e.stereoPairPort
+            && e.deviceType != DEVICE_NONE && sideOf(idx) == side;
+    };
+    auto sameChip = [&](size_t a, size_t b) {
+        return devices[a].deviceType == devices[b].deviceType
+            && devices[a].port->getInterfaceDesc() == devices[b].port->getInterfaceDesc();
+    };
+    auto pairUp = [&](size_t l, size_t r) {
+        // 両側とも "L"/"R" で明示宣言された場合のみチップ内L/R分離方式とする
+        // (片側だけ明示・片側はpan由来、という混在構成では、プラグイン側の
+        //  ルーティングが絡んで意図が確定しないため従来方式に倒す)。
+        const bool chipLevel = devices[l].stereoSide != StereoSide::None
+                            && devices[r].stereoSide != StereoSide::None;
+        devices[l].stereoPairPort     = devices[r].port;
+        devices[l].stereoPairChipLevel = chipLevel;
+        removed[r] = true;
+        FITOM_LOG_INFO("mergeStereoPairDevices: '" << devices[r].label
+            << "' (R) merged into '" << devices[l].label
+            << "' (L) as CLinearPanDevice pair"
+            << (chipLevel ? " [chip-level L/R]" : " [plugin-routed L/R]"));
+        if (chipLevel && !deviceHasChipLevelPanpot(devices[l].deviceType)) {
+            // OPNAのSSG部のように、チップ内にL/R分離手段を持たないサブデバイス。
+            // ペア自体は成立する(音量クロスフェードは効く)が定位は動かない。
+            FITOM_LOG_INFO("stereo_pair:\"L\"/\"R\": '" << devices[l].label
+                << "' はチップ内にL/R分離手段が無いため、パンを振っても定位は"
+                   "変わらず音量のみ変化します(実機の制約)");
         }
     };
+    // チップ内L/R分離方式で束ねたのに、対応サブデバイスが1つも無い場合の警告。
+    // 指定が完全に無効(左右に分離されない)なため、静かな失敗にしない。
+    auto warnIfNoChipLevelSupport = [&](const std::vector<size_t>& pairedL) {
+        if (pairedL.empty() || !devices[pairedL.front()].stereoPairChipLevel) return;
+        if (std::any_of(pairedL.begin(), pairedL.end(),
+                        [&](size_t k) { return deviceHasChipLevelPanpot(devices[k].deviceType); }))
+            return;
+        FITOM_LOG_WARN("stereo_pair:\"L\"/\"R\": '" << devices[pairedL.front()].label
+            << "' (deviceType=0x" << std::hex << devices[pairedL.front()].deviceType << std::dec
+            << ") はチャンネルごとのL/R出力ビットを持たないチップのため、"
+               "チップ内L/R分離方式は機能しません。プラグイン側の pan:1/2 と "
+               "stereo_pair:true による従来方式を使ってください");
+    };
 
-    std::vector<bool> removed(devices_.size(), false);
+    // --- Step 1: composite展開されたデバイス (OPLL+内蔵リズム、
+    //     OPNA+SSG+ADPCM-B+リズム 等) を compositeGroup 単位でペアリングする。
+    //     グループ内の各サブデバイスは同一の物理ポートを共有しているため、
+    //     L側グループとR側グループの「stereo_pair対象サブデバイスの集合」が
+    //     deviceTypeで1対1に対応することを条件に、まとめて対応付ける。
+    //     サブデバイスごとに独立してマッチさせると、別チップのグループと
+    //     サブデバイス単位で混線した組み合わせになりうるため、グループ単位で
+    //     判定してから確定する。
+    //
+    //     判定対象がグループ全体ではなく「stereo_pair対象サブデバイスの
+    //     部分集合」なのは、subDeviceAcceptsStereoPair()がfalseを返す
+    //     サブデバイス(OPL4のAWM部)を含むチップのためである。これにより
+    //     「OPL4(FM部+AWM部)のFM部」と「OPL3」のように、グループの構成が
+    //     一致しないチップ同士でもFM部だけをL/Rペアとしてステレオ化でき、
+    //     AWM部はハードウェアパンポットを持つ独立デバイスとして残る。
+    std::vector<std::pair<int, std::vector<size_t>>> groups; // compositeGroup → devices添字
+    for (size_t i = 0; i < n; ++i) {
+        if (devices[i].compositeGroup < 0) continue;
+        auto it = std::find_if(groups.begin(), groups.end(),
+            [&](const std::pair<int, std::vector<size_t>>& g) {
+                return g.first == devices[i].compositeGroup;
+            });
+        if (it == groups.end()) groups.push_back({devices[i].compositeGroup, {i}});
+        else                    it->second.push_back(i);
+    }
+    // グループ内のstereo_pair対象サブデバイスだけを抜き出す
+    auto stereoSubset = [&](const std::vector<size_t>& idx, StereoSide side) {
+        std::vector<size_t> out;
+        for (size_t k : idx) if (eligible(k, side)) out.push_back(k);
+        return out;
+    };
 
-    for (size_t i = 0; i < devices_.size(); ++i) {
-        if (removed[i] || !devices_[i].stereoPairRequested || !devices_[i].port) continue;
-        if (devices_[i].port->getPanpot() != 1) continue; // L側のみを起点に探す (pan=1)
+    for (size_t gi = 0; gi < groups.size(); ++gi) {
+        const std::vector<size_t> idxL = stereoSubset(groups[gi].second, StereoSide::Left);
+        if (idxL.empty()) continue;
 
-        uint8_t vptI = deviceTypeToVoicePatchType(devices_[i].deviceType);
-        if (vptI == VOICE_PATCH_NONE) continue;
-        Key keyI{vptI, devices_[i].port->getInterfaceDesc()};
+        for (size_t gj = 0; gj < groups.size(); ++gj) {
+            if (gj == gi) continue;
+            const std::vector<size_t> idxR = stereoSubset(groups[gj].second, StereoSide::Right);
+            if (idxR.empty() || idxR.size() != idxL.size()) continue;
 
-        for (size_t j = 0; j < devices_.size(); ++j) {
-            if (i == j || removed[j] || !devices_[j].stereoPairRequested || !devices_[j].port) continue;
-            if (devices_[j].port->getPanpot() != 2) continue; // R側 (pan=2)
-            uint8_t vptJ = deviceTypeToVoicePatchType(devices_[j].deviceType);
-            if (vptJ == VOICE_PATCH_NONE) continue;
-            Key keyJ{vptJ, devices_[j].port->getInterfaceDesc()};
-            if (!(keyI == keyJ)) continue;
+            // 全サブデバイスの1対1対応が成立することを確認してから確定する
+            // (途中で対応相手が見つからないままpairUp()してしまうと、
+            //  L側だけステレオ化されR側が孤立する中途半端な状態になる)。
+            std::vector<size_t> mate(idxL.size(), 0);
+            std::vector<bool>   taken(idxR.size(), false);
+            bool ok = true;
+            for (size_t k = 0; k < idxL.size() && ok; ++k) {
+                ok = false;
+                for (size_t m = 0; m < idxR.size(); ++m) {
+                    if (taken[m] || !sameChip(idxL[k], idxR[m])) continue;
+                    taken[m] = true;
+                    mate[k]  = m;
+                    ok       = true;
+                    break;
+                }
+            }
+            if (!ok) continue;
 
-            // devices_[i] (L) に devices_[j] (R) を統合する
-            devices_[i].stereoPairPort = devices_[j].port;
-            removed[j] = true;
-            FITOM_LOG_INFO("mergeStereoPairDevices: '" << devices_[j].label
-                << "' (R) merged into '" << devices_[i].label
-                << "' (L) as CLinearPanDevice pair");
+            for (size_t k = 0; k < idxL.size(); ++k) pairUp(idxL[k], idxR[mate[k]]);
+            warnIfNoChipLevelSupport(idxL);
+            break; // 1つのL側グループにつきR側グループは1つだけ対応
+        }
+    }
+
+    // --- Step 2: 単独チップ (非composite) 同士のペアリング。
+    for (size_t i = 0; i < n; ++i) {
+        if (devices[i].compositeGroup >= 0) continue;
+        if (!eligible(i, StereoSide::Left)) continue; // L側のみを起点に探す
+
+        for (size_t j = 0; j < n; ++j) {
+            if (i == j || devices[j].compositeGroup >= 0) continue;
+            if (!eligible(j, StereoSide::Right)) continue;
+            if (!sameChip(i, j)) continue;
+            pairUp(i, j);
+            warnIfNoChipLevelSupport({i});
             break; // 1つのL側につきR側は1つだけ対応
         }
     }
 
     std::vector<DeviceEntry> result;
-    result.reserve(devices_.size());
-    for (size_t i = 0; i < devices_.size(); ++i) {
-        if (!removed[i]) result.push_back(std::move(devices_[i]));
+    result.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        if (!removed[i]) result.push_back(std::move(devices[i]));
     }
-    devices_ = std::move(result);
+    devices = std::move(result);
 }
 
+// ================================================================
+//  同種デバイス自動束ね (CSpanDevice)
+// ================================================================
 void FITOMConfig::mergeSpannableDevices()
 {
     // グループ化キー: (voicePatchType, interfaceDesc, panpot)。
@@ -1033,7 +1222,8 @@ void FITOMConfig::mergeSpannableDevices()
             // 束ねられた場合に束ねられた側のch6-8無効化が代表の値で上書き
             // され効かなくなっていた)。
             devices_[i].spanGroups.push_back(
-                {devices_[j].port, devices_[j].stereoPairPort, devices_[j].deviceType,
+                {devices_[j].port, devices_[j].stereoPairPort,
+                 devices_[j].stereoPairChipLevel, devices_[j].deviceType,
                  devices_[j].rhythmMode});
             for (auto& g : devices_[j].spanGroups) devices_[i].spanGroups.push_back(g);
             merged[j] = true;
@@ -1088,6 +1278,18 @@ bool FITOMConfig::getDeviceSpanGroupRhythmMode(int index, int k) const {
 IPort* FITOMConfig::getDeviceStereoPairPort(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return nullptr;
     return devices_[index].stereoPairPort.get();
+}
+
+bool FITOMConfig::getDeviceStereoPairChipLevel(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
+    return devices_[index].stereoPairChipLevel;
+}
+
+bool FITOMConfig::getDeviceSpanGroupStereoPairChipLevel(int index, int k) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
+    const auto& sg = devices_[index].spanGroups;
+    if (k < 0 || k >= static_cast<int>(sg.size())) return false;
+    return sg[k].stereoPairChipLevel;
 }
 
 bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeFromProfile,

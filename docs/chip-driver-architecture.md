@@ -273,6 +273,122 @@ chが1つでもある限り常に1台目だけが選ばれ続け、2台目以降
 (各チップ固有の`queryCh`制約[OPMノイズch7固定等]には手を加えず、
 チップの試行順序だけを変えるため既存の制約は保たれる)。
 
+### 3.1 リニアステレオ化 (CLinearPanDevice) — 明示指定のL/Rペア束ね
+
+**物理的にL/Rへ固定配線された同一チップ2台を、1つのステレオデバイスとして
+束ねる機構**(旧FITOM `CLinearPan`の移植)。OPLL/OPL/PSG系のようにチップ自体が
+モノラル出力しか持たない音源で、2台を左右に振り分けてパンポットを表現する
+ための構成を想定している。`CLinearPanDevice`(`MultiDevice.h`)は`CUnison`
+(全チップへ同一chで同時発音)を基底とし、`setVolume`/`setPanpot`だけを
+オーバーライドして、パンポットに応じた等パワーパンニング(`lgain=cos`,
+`rgain=sin`)でL側チップとR側チップの音量をクロスフェードする。両チップは
+常に同時に鳴り続け、「左右どちらか一方だけを鳴らす」切り替えは行わない。
+
+**自動検出はしない。** プロファイルの`devices[]`エントリ**両方**に
+`stereo_pair`を明示指定した場合にのみ発動する
+(`config_schema/profile.schema.json`)。`Config::mergeStereoPairDevices()`が
+`buildDevice()`完了後・`mergeSpannableDevices()`より**前**に1回実行され、
+R側エントリは`devices_[]`から削除された上で、L側エントリの`stereoPairPort`に
+統合される。実際の`ISoundDevice`生成は`CFITOM::createLeveledDevice()`が担当し、
+L/R各ポートに`DeviceFactory::create()`を呼んだ上で`CLinearPanDevice`にラップする。
+
+```
+ペアリング条件: (deviceType, IPort::getInterfaceDesc()) が一致し、
+                L側エントリとR側エントリの組になっていること
+```
+
+**L/R役割の宣言方法は2通りあり、それが同時に「左右をどこで分離するか」も
+決める**(`StereoSide`、2026年8月新設)。
+
+| 指定 | L/R役割の判定 | 左右の分離を行う場所 | プラグイン側の`pan` |
+|---|---|---|---|
+| `"stereo_pair": true` | `IPort::getPanpot()`の1(L)/2(R) | **プラグインの出力ルーティング** | `1`(L) / `2`(R) が必須 |
+| `"stereo_pair": "L"` / `"R"` | この値で明示 | **チップ自身のL/R出力ビット** | `0`(Stereo)のままでよい |
+
+後者(チップ内L/R分離方式)では、`CLinearPanDevice`が束ねた2チップ自身の
+`ChState::panpot`を左右端(-64 / +63)へ固定し、各ドライバの`updatePanpot()`が
+チップのL/R出力ビットを書く。**負値=L / 正値=R は全ドライバ共通の規約**
+(OPM: `0x20` bit7/6、OPL3: `0xC0` bit5/4、OPN2/OPNA: `0xB4` bit7/6)。
+対応の可否は`FITOMConfig::deviceHasChipLevelPanpot()`が`deviceType`側の索引
+として持つ(真の情報源は各ドライバの`updatePanpot()`実装であり、
+`updatePanpot()`を実装・変更したら必ずこの一覧も見直すこと)。非対応チップに
+`"L"`/`"R"`を指定した場合は読み込み時に警告を出す(モノラルチップでは
+`updatePanpot()`が no-op のため、黙って左右に分離されないという静かな失敗に
+なるのを防ぐ)。
+
+対応チップ: **OPM/OPP・OPZ/OPZ2・OPL3/OPL3_2(=OPL4のFM部)・OPN2/OPNA/OPNB/
+OPNBB系とそのADPCM-A/ADPCM-Bサブデバイス**。OPLL系・OPL/OPL2・SSG/PSG系・
+YM2203は非対応(モノラル出力)。
+
+なお片側だけ`"L"`/`"R"`・もう片側は`true`という混在指定の場合は、プラグイン側の
+ルーティングが絡んで意図が確定しないため、従来方式(プラグイン側で分離)に倒す。
+
+この方式の利点は、**プラグイン側の`pan`を`0`(Stereo)に保てる**こと。同一物理
+チップ上の他のサブデバイス(OPL4のAWM部等)が、自前のハードウェアパンポットを
+潰されずにフル活用できる。
+
+制約として、OPNAのSSG部のように**チップ内にL/R出力の分離手段が無いサブ
+デバイス**は、この方式でも左右に分かれない(音量クロスフェードだけが効くため、
+パンを振っても定位ではなく音量だけが変化する)。これは実機の制約なので、
+該当サブデバイスは`INFO`でその旨を記録するに留め、**ペア内の全サブデバイスが
+非対応だった場合にのみ`WARN`**を出す(指定が完全に無効なケース)。
+
+判定基準が`CSpanDevice`側(`VoicePatchType`)より厳しい**`deviceType`一致**で
+あるのは、`CLinearPanDevice`が「物理的に同一のチップ2台」を前提とする構成
+だからである(2026年8月に`VoicePatchType`基準から変更。`VoicePatchType`基準
+では、専用の`VoicePatchType`を持たない内蔵リズムサブデバイス
+[`COPLLRhythm`/`COPNARhythm`は`VOICE_PATCH_NONE`]が常に対象外となり、
+R側だけが孤立して残ってしまう)。
+
+**composite展開されたチップにも対応する**(2026年8月対応。それ以前は
+`pushDeviceEntries()`が警告を出して`stereo_pair`を無視していたため、
+`rhythm_mode:true`のOPLL/OPL系やOPNA系など、sub-device自動生成の対象となる
+チップでは指定しても一切発動しなかった)。composite展開されたエントリ群は
+同一の物理ポートを共有するため、**サブデバイス単位ではなく`compositeGroup`
+単位**でペアリングする。L側グループとR側グループの
+**「`stereo_pair`対象サブデバイスの部分集合」**が同数で、かつ`deviceType`が
+1対1で対応できる場合に限り、対応するサブデバイス同士をまとめてステレオ化
+する(サブデバイスごとに独立してマッチさせると、別チップのグループと
+サブデバイス単位で混線した組み合わせになりうるため、グループ単位で判定して
+から確定する)。
+
+**ハードウェアパンポットを持つサブデバイスは対象外**:
+`FITOMConfig::subDeviceAcceptsStereoPair()`が`false`を返すサブデバイスには
+`stereo_pair`を伝播しない。現状の対象は**OPL4のAWM/PCM部
+(`DEVICE_OPL4AWM`、YMF278B)**のみ。AWM部はチャンネルごとのパンポットを
+ハードウェアで持っており、`CLinearPanDevice`の束ね(モノラル出力しか持たない
+音源に対する代替手段)を適用すると、本来のハードウェアパンポットを潰した上で
+2倍のチップを消費することになるため(2026年8月、ユーザー指摘)。
+
+判定対象がグループ全体ではなく部分集合なのはこのためで、これにより
+**「OPL4のFM部」と「OPL3」をL/Rペアとしてステレオ化する**用法が成立する
+(OPL4のcomposite展開は`DEVICE_OPL3`+`DEVICE_OPL3_2`+`DEVICE_OPL4AWM`、
+OPL3は`DEVICE_OPL3`+`DEVICE_OPL3_2`であり、AWM部を除いた部分集合の
+`deviceType`が一致する)。このときAWM部は独立したモノラルデバイスとして
+`devices_[]`に残る。
+
+**動的ボイス割当(DVA)**: `CLinearPanDevice`は`CUnison`を基底とするため、
+`queryCh()`は代表チップ(`chips_[0]`)の判断を採用し、他チップは同じchが同じ
+条件で使えるかだけを確認する。**この確認の基準は`mode`と一致させること**
+(mode=1→`Empty`または`Releasing`、mode=0→`Disabled`でなければ可)。
+`findBestCh()`はmode=1で`Releasing`を、mode=0では`Running`(強制奪取)を返す
+設計なので、ここで一律に`isEmpty()`を要求すると代表チップが正当に返したchを
+ほぼ必ず弾いてしまい、「全チップが完全に`Empty`」のときしか発音できなくなる
+(2026年8月に実機で発覚・修正。`no channel available`が大量発生していた)。
+
+**デチューンを適用しないこと**: `CUnison`はユニゾン/デチューン用途では
+`noteOn()`時にチップ間へデチューンを与えるが、`CLinearPanDevice`は
+「同じ音を同じ音程で左右に鳴らす」構成のため、コンストラクタで
+デチューン量0を渡している。左右で音程がずれると定位ではなくビート(うなり)に
+なるうえ、`ChState::fineFreq`へ代入する実装だったため、直前の
+`setNoteFine()`が書いた音色側のfine tuneも失われていた(同じく2026年8月修正)。
+
+**既知の制限**: ステレオ化されたデバイスはチャンネルレベルメーターの
+物理チップ内訳(`pendingSubDevices_`)の対象外となる
+(`CFITOM::initDevices()`。`CLinearPanDevice`へラップ済みでL/R個別のch構成を
+安定して取り出せないため)。レジスタダンプモニターの物理チップ一覧には
+L側・R側が「(stereo pair)」付きラベルで個別に登録される。
+
 ---
 
 ## 4. チップファミリー別クラス階層
