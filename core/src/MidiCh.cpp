@@ -134,8 +134,11 @@ void CInstCh::progChange(uint8_t prog)
         // 無音状態に陥ることを防ぐ。
         FITOM_LOG_WARN("CInstCh ch=" << static_cast<int>(ch_)
             << ": ProgChange " << static_cast<int>(prog)
-            << " (bank=" << static_cast<int>(bankSelM_)
-            << " lsb=" << static_cast<int>(bankSelL_) << ") — no patch found"
+            << " (CC#0=" << static_cast<int>(bankSelM_)
+            << (bankSelM_ == 0 ? std::string(" 通常モード")
+                               : std::string(" 直接モード chip=")
+                                 + FITOMConfig::voicePatchTypeToString(bankSelM_))
+            << ", CC#32=" << static_cast<int>(bankSelL_) << ") — no patch found"
             << " (keeping previous patch)");
         return;
     }

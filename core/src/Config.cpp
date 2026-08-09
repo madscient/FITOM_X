@@ -903,6 +903,42 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     return VOICE_PATCH_NONE;
 }
 
+const char* FITOMConfig::voicePatchTypeToString(uint8_t vpt) noexcept
+{
+    switch (vpt) {
+    case VOICE_PATCH_NONE:    return "NONE";
+    case VOICE_PATCH_OPN:     return "OPN";
+    case VOICE_PATCH_OPN2:    return "OPN2";
+    case VOICE_PATCH_OPM:     return "OPM";
+    case VOICE_PATCH_OPZ:     return "OPZ";
+    case VOICE_PATCH_OPZ2:    return "OPZ2";
+    case VOICE_PATCH_OPL:     return "OPL";
+    case VOICE_PATCH_OPL2:    return "OPL2";
+    case VOICE_PATCH_OPL3_2:  return "OPL3_2";
+    case VOICE_PATCH_OPL_RHY: return "OPL_RHY";
+    case VOICE_PATCH_OPLL:    return "OPLL";
+    case VOICE_PATCH_OPLLP:   return "OPLLP";
+    case VOICE_PATCH_OPLLX:   return "OPLLX";
+    case VOICE_PATCH_VRC7:    return "VRC7";
+    case VOICE_PATCH_OPL3:    return "OPL3";
+    case VOICE_PATCH_SD1:     return "SD1";
+    case VOICE_PATCH_MA3:     return "MA3";
+    case VOICE_PATCH_MA5:     return "MA5";
+    case VOICE_PATCH_MA7:     return "MA7";
+    case VOICE_PATCH_SSG:     return "SSG";
+    case VOICE_PATCH_EPSG:    return "EPSG";
+    case VOICE_PATCH_DCSG:    return "DCSG";
+    case VOICE_PATCH_SAA:     return "SAA";
+    case VOICE_PATCH_SCC:     return "SCC";
+    case VOICE_PATCH_ADPCMB:  return "ADPCMB";
+    case VOICE_PATCH_ADPCMA:  return "ADPCMA";
+    case VOICE_PATCH_PCMD8:   return "PCMD8";
+    case VOICE_PATCH_AWM:     return "AWM";
+    case VOICE_PATCH_BUILTIN_RHYTHM: return "BUILTIN_RHYTHM";
+    default:                  return "?";
+    }
+}
+
 // ================================================================
 //  Sub-device 自動生成 (composite chip)
 // ================================================================

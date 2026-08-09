@@ -1127,14 +1127,35 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         result.push_back(std::move(info));
     }
 
+    // 列挙はVoiceGroup(OPM/OPZ/OPZ2等、複数チップで共有)単位で行う一方、
+    // PatchManager::resolveTriple()はバンクのvoicePatchTypeとの厳密一致を
+    // 要求する。そのため、ここに現れても選ぶと解決に失敗するバンク
+    // (別チップとして登録されているもの)が混ざりうる。挙動は変えずに、
+    // その不整合が起きているバンクをログに出しておく。
     const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
+    std::string unresolvable;
     for (int bankNo : pm.hwRegistry().listBankNumbers(group)) {
         if (hasOpllRom && bankNo == 0) continue;
         FITOMBankInfo info;
         info.bankNo = bankNo;
         const auto* bank = pm.hwRegistry().find(group, bankNo);
-        if (bank) info.name = bank->name;
+        if (bank) {
+            info.name = bank->name;
+            if (bank->voicePatchType != voicePatchType) {
+                if (!unresolvable.empty()) unresolvable += ", ";
+                unresolvable += "CC#32=" + std::to_string(bankNo)
+                    + " \"" + bank->name + "\" ("
+                    + fitom::FITOMConfig::voicePatchTypeToString(bank->voicePatchType) + ")";
+            }
+        }
         result.push_back(std::move(info));
+    }
+    if (!unresolvable.empty()) {
+        FITOM_LOG_WARN("getHwBankList: chip="
+            << fitom::FITOMConfig::voicePatchTypeToString(voicePatchType)
+            << " (CC#0=" << (int)voicePatchType << ") の一覧に、別チップとして"
+            << "登録されているため選んでも解決に失敗するバンクが含まれる: "
+            << unresolvable);
     }
     return result;
 }
