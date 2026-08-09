@@ -983,8 +983,15 @@ FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexce
     // レベルメーターのL/R分割が出ない、といった静かな失敗になるため、
     // updatePanpot() を実装/変更したら必ずこの一覧も見直すこと)。
     switch (deviceType) {
-    // FM: OPM/OPZ系 (レジスタ0x20のbit7/bit6)
-    case DEVICE_OPM: case DEVICE_OPP: case DEVICE_OPZ: case DEVICE_OPZ2:
+    // FM: OPM/OPP (レジスタ0x20のbit7/bit6)
+    case DEVICE_OPM: case DEVICE_OPP:
+    // OPZ/OPZ2はL単独定位を表すビットを持たない(0x20 bit6はOPMのL出力
+    // イネーブルではなくキーオン、出力イネーブルは0x20 bit7と0x30 bit0)。
+    // COPZ::updatePanpot は左寄せを両出力として扱うため、
+    // stereo_pair:"L"/"R" のL側は左右に分離されない。ここを Mono へ移すと
+    // 指定自体が読み込み時警告になるが、実チップのbit6の役割が未確定の
+    // ため現状は ThreeWay のままとしている。
+    case DEVICE_OPZ: case DEVICE_OPZ2:
     // FM: OPL3系 (レジスタ0xC0のbit5/bit4 = CHA/CHB)。OPL4のFM部は
     // composite展開でDEVICE_OPL3/DEVICE_OPL3_2になるためこれで賄われる。
     case DEVICE_OPL3: case DEVICE_OPL3_2: case DEVICE_OPN3_L3:

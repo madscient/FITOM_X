@@ -362,14 +362,48 @@ public:
         setReg(0x15, 0x01, true);
     }
 
+    // OPZ の $20+ch bit6 は OPM の L 出力イネーブルではなくキーオン
+    // (updateKey が管理する)ため、ここでは触れない。出力イネーブルは
+    // $20 bit7 (R) と $30 bit0 の OR で決まり、L 単独定位を表現する
+    // ビットが存在しないため、左寄せは両出力を有効にして扱う
+    // (無効にすると $20 bit7=0 と合わせてチャンネルが完全に無音になる)。
     void updatePanpot(uint8_t ch) override {
         int8_t pan = chState_[ch].panpot;
-        uint8_t chena = (pan > 20) ? 0x80 : (pan < -20) ? 0x40 : 0xC0;
-        uint8_t mono  = (pan <= 20 && pan >= -20) ? 0x01 : 0x00;
+        const bool right = (pan > 20);
+        const bool left  = (pan < -20);
         setReg(static_cast<uint16_t>(0x20 + ch),
-               static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x20 + ch)) & 0x3F) | chena), false);
+               static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x20 + ch)) & 0x7F)
+                                    | (left ? 0x00 : 0x80)), false);
         setReg(static_cast<uint16_t>(0x30 + ch),
-               static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x30 + ch)) & 0xFE) | mono), false);
+               static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x30 + ch)) & 0xFE)
+                                    | (right ? 0x00 : 0x01)), false);
+    }
+
+    // キーオンは $20+ch bit6。$08 は OPM 互換のキーオンレジスタとしても
+    // 働く(実チップ)一方、チャンネル選択レジスタでもあり、書き込むと
+    // $E0-$FF がプリセットメモリから復元される。このため
+    //   (1) $08 は必ず先に書く (後に書くとダンプ/サステインで設定した
+    //       RR がプリセット値へ戻されてしまう)
+    //   (2) $20 への書き込みがキーオンとして解釈されるのは $08 で選択中の
+    //       チャンネルに対してのみ
+    // という2つの制約があり、$08 → $E0-$FF → $20 の順序は入れ替えられない。
+    // 同一チャンネルの再トリガー時に値が変わらずスキップされるのを防ぐため
+    // $20 は forceWrite で書く。
+    void updateKey(uint8_t ch, bool keyOn) override {
+        const auto& s = chState_[ch];
+        const HwPatch& p = s.hwPatch;
+        setReg(0x08, static_cast<uint8_t>((keyOn ? 0x78 : 0) | ch), true);
+        if (keyOn && s.wasReleasing) {
+            for (int i = 0; i < 4; ++i) {
+                const FmHwOp& o = p.hwOp[kMap[i]];
+                setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
+                       static_cast<uint8_t>(((o.SL & 0xF) << 4) | 0xF));
+            }
+        }
+        if (!keyOn) updateSustain(ch);
+        setReg(static_cast<uint16_t>(0x20 + ch),
+               static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x20 + ch)) & 0xBF)
+                                    | (keyOn ? 0x40 : 0x00)), true);
     }
 
     void updateVoice(uint8_t ch) override {
@@ -381,9 +415,10 @@ public:
                    static_cast<uint8_t>(0x80 | ((o.WS & 7) << 4) | (o.DT3 & 0xF)));
             // REV(Reverberation)/EGS(EG bias): 旧FITOMは未実装(固定値0x20)のままだった。
             // 新FITOMの FmHwOp には REV/EGS フィールドがある(2026年7月に
-            // オペレータ単位へ移設)ため使用する。
+            // オペレータ単位へ移設)ため使用する。REV は $C0 の裏レジスタでは
+            // 3bit 幅しか無い。
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
-                   static_cast<uint8_t>(((o.EGS & 0x3) << 6) | (o.REV & 0x1F) | 0x20));
+                   static_cast<uint8_t>(((o.EGS & 0x3) << 6) | (o.REV & 0x7) | 0x20));
         }
         COPM::updateVoice(ch); // 共通部分を呼ぶ
     }
