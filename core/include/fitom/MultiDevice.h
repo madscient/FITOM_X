@@ -341,8 +341,14 @@ private:
 // ================================================================
 class CUnison : public CMultiDevice {
 public:
-    CUnison() = default;
-    CUnison(ISoundDevice* chip1, ISoundDevice* chip2) {
+    // detuneStep: noteOn時にチップ間へ与えるデチューン量 [kfs単位、
+    // 1半音=64ステップ]。0 を指定するとデチューンを一切行わず
+    // ChState::fineFreq にも触れない (CLinearPanDevice のように
+    // 「同じ音を同じ音程で鳴らす」用途向け。下記 noteOn() のコメント参照)。
+    explicit CUnison(int detuneStep = kDefaultDetuneStep) : detuneStep_(detuneStep) {}
+    CUnison(ISoundDevice* chip1, ISoundDevice* chip2,
+            int detuneStep = kDefaultDetuneStep)
+        : detuneStep_(detuneStep) {
         addDevice(chip1); addDevice(chip2);
     }
 
@@ -367,10 +373,23 @@ public:
         if (chips_.empty()) return 0xFF;
         uint8_t gch = chips_[0]->queryCh(o, p, mode);
         if (gch == 0xFF) return 0xFF;
-        // 代表チップ以外も同じgchが実際に空いているか再確認
+        // 代表チップ以外も同じgchを同じ条件で使えるか再確認する。
+        // 判定基準は mode と一致させること:
+        //   mode=1 (奪取なし) → Empty または Releasing (findBestCh の score 2-4)
+        //   mode=0 (奪取あり) → Running も可 (score 1)。Disabled でなければよい
+        //
+        // 2026年8月修正: 以前は mode に関わらず全チップに isEmpty() を要求して
+        // いたため、代表チップが mode=1 で Releasing のchを返した場合も、
+        // mode=0 で奪取対象の Running のchを返した場合も必ず 0xFF になり、
+        // 「全チップで完全に Empty」のときしか発音できなかった。減衰中/発音中の
+        // chが残る通常の演奏ではほぼ常に割り当てに失敗し、allocCh() の
+        // 「no channel available」警告が大量に出てノートが落ちていた
+        // (旧FITOM CUnison::QueryCh は chips[0] の結果をそのまま返しており、
+        //  この事後チェック自体が新実装で追加されたもの)。
         for (auto* c : chips_) {
             const auto* st = c->getChState(gch);
-            if (!st || !st->isEmpty()) return 0xFF;
+            if (!st || !st->isEnabled()) return 0xFF;
+            if (mode != 0 && !(st->isEmpty() || st->isReleasing())) return 0xFF;
         }
         return gch;
     }
@@ -419,14 +438,27 @@ public:
         return n;
     }
 
+    // detuneStep_ == 0 の場合は ChState::fineFreq に一切触れず、全チップへ
+    // そのまま noteOn を配る。CLinearPanDevice (物理的にL/Rへ固定配線された
+    // 同一チップ2台) では、左右で音程がずれると定位ではなくビート(うなり)に
+    // なってしまい、かつ直前の setNoteFine() が書いた音色側のfine tune
+    // (sw.fine_tune・マスターピッチ等) を上書きで失うため、デチューンを
+    // 行ってはならない (2026年8月修正。それ以前は無条件に ±kDefaultDetuneStep
+    // を fineFreq へ代入していた)。
     void noteOn(uint8_t gch, uint8_t vel) override {
-        int detuneStep = 8; // デチューン量 [cent相当]
         int n = static_cast<int>(chips_.size());
         for (int i = 0; i < n; ++i) {
-            // デチューン: 中央から対称に展開
-            int16_t detune = static_cast<int16_t>((i - n / 2) * detuneStep);
-            auto* st = chips_[i]->getChState(gch);
-            if (st) st->fineFreq = detune;
+            if (detuneStep_ != 0) {
+                // デチューン: 中央から対称に展開。
+                // 既知の制限: ここは setNoteFine() が設定した fineFreq を
+                // 上書きするため、真のユニゾン用途 (detuneStep_ != 0) では
+                // 音色側のfine tuneが失われる。現状 detuneStep_ != 0 の
+                // インスタンスは生成されないため実害は無いが、ユニゾン構成を
+                // 実際に使う際は「基準値 + デチューン」に直す必要がある。
+                int16_t detune = static_cast<int16_t>((i - n / 2) * detuneStep_);
+                auto* st = chips_[i]->getChState(gch);
+                if (st) st->fineFreq = detune;
+            }
             chips_[i]->noteOn(gch, vel);
         }
     }
@@ -486,6 +518,12 @@ public:
     uint8_t getCurrentNote(uint8_t gch) const override {
         return chips_.empty() ? 0xFF : chips_[0]->getCurrentNote(gch);
     }
+
+protected:
+    // ユニゾン既定のデチューン量 [kfs単位、1半音=64ステップ]。
+    // 8kfs = 1/8半音 = 12.5cent 相当。
+    static constexpr int kDefaultDetuneStep = 8;
+    int detuneStep_;
 };
 
 // ================================================================
@@ -500,11 +538,24 @@ public:
 //  ChState (volume/panpot) を保持する仕組みが CMultiDevice 側にないため、
 //  本クラス自身が「本来の (計算前の) 音量・パン値」を保持する。
 // ================================================================
+//
+//  chipLevelPan (プロファイルの stereo_pair:"L"/"R"、2026年8月新設):
+//  true にすると、束ねた2チップ自身の ChState::panpot を左右端へ固定し、
+//  チップのL/R出力ビット(OPM: 0x20 bit7/6、OPL3: 0xC0 bit5/4、
+//  OPN2/OPNA: 0xB4 bit7/6 等)でL/Rを分離する。この場合プラグイン側の
+//  出力ルーティング(pan)は 0(Stereo) のままでよく、同一物理チップ上の
+//  他のサブデバイス(OPL4のAWM部等)が自前のハードウェアパンポットを
+//  フルに使えるようになる。false(既定)ならサブチップのパンポットには
+//  一切触れず、L/R分離はプラグイン側の pan:1/2 に委ねる(従来方式)。
+// ================================================================
 class CLinearPanDevice : public CUnison {
 public:
-    // leftChip: Panpot=1(L)側の物理チップ、rightChip: Panpot=2(R)側
-    CLinearPanDevice(ISoundDevice* leftChip, ISoundDevice* rightChip)
-        : CUnison(leftChip, rightChip)
+    // leftChip: L側の物理チップ、rightChip: R側
+    CLinearPanDevice(ISoundDevice* leftChip, ISoundDevice* rightChip,
+                     bool chipLevelPan = false)
+        // detuneStep=0: L/Rは同じ音を同じ音程で鳴らす (CUnison::noteOn参照)
+        : CUnison(leftChip, rightChip, 0)
+        , chipLevelPan_(chipLevelPan)
         // getChCount()(=chips_の最小ch数)分だけ確保する。以前は
         // CSoundDevice::MAX_CHSとは無関係に独自定義した固定長16の
         // 配列だったため、16chを超えるチップ(OPL4 AWM = 24ch)が将来
@@ -513,7 +564,9 @@ public:
         // に合わせて同じ問題を修正)。
         , masterVolume_(getChCount(), uint8_t{127})
         , masterPan_(getChCount(), int8_t{0})
-    {}
+    {
+        pinChipSides(true);
+    }
 
     void setVolume(uint8_t ch, uint8_t vol, bool update) override {
         if (ch >= masterVolume_.size() || chips_.size() < 2) return;
@@ -528,8 +581,24 @@ public:
     }
 
 private:
+    bool                 chipLevelPan_;
     std::vector<uint8_t> masterVolume_;
     std::vector<int8_t>  masterPan_;
+
+    // chipLevelPan_ 時、束ねた2チップ自身のパンポットを左右端へ固定する。
+    // 各ドライバの updatePanpot() が、この ChState::panpot からチップの
+    // L/R出力ビットを組み立てる (負値=L / 正値=R は全ドライバ共通の規約)。
+    // L/R出力ビットを持たないチップでは updatePanpot() が no-op のため無害
+    // (その構成は FITOMConfig::deviceHasChipLevelPanpot() が読み込み時に
+    //  警告する)。ノートオン時の updateVoice() が毎回 ChState::panpot を
+    // 見に行くので、固定さえしておけば以後のレジスタ書き込みは自動で追従する。
+    void pinChipSides(bool update) {
+        if (!chipLevelPan_ || chips_.size() < 2) return;
+        for (uint8_t ch = 0; ch < getChCount(); ++ch) {
+            chips_[0]->setPanpot(ch, -64, update); // L端
+            chips_[1]->setPanpot(ch,  63, update); // R端
+        }
+    }
 
     // 旧FITOM CLinearPan::UpdatePanpot 完全移植。
     // panpot(int8_t, -64..63) を旧FITOMの0-127生値スケールに変換した上で、
@@ -546,6 +615,13 @@ private:
         uint8_t rvol = static_cast<uint8_t>(std::lround(rgain * masterVolume_[ch]));
         chips_[0]->setVolume(ch, lvol, update); // L
         chips_[1]->setVolume(ch, rvol, update); // R
+        // チップ内L/R分離方式では、左右端への固定がリセット等で失われても
+        // ここで復帰させる(値が変わっていなければ setPanpot() 側で
+        // 早期リターンするため、レジスタ書き込みは発生しない)。
+        if (chipLevelPan_) {
+            chips_[0]->setPanpot(ch, -64, update);
+            chips_[1]->setPanpot(ch,  63, update);
+        }
     }
 };
 

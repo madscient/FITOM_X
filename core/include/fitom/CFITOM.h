@@ -595,9 +595,13 @@ private:
     // stereoPairPort が指定されていれば、そのポート用にもう1つ生成し、
     // CLinearPanDevice でラップしてステレオデバイスとして返す
     // (旧FITOM CLinearPan 相当)。生成した中間チップの寿命は spanSubChips_ で管理する。
+    // stereoPairChipLevel: そのステレオペアがチップ内L/R分離方式
+    // (プロファイルの stereo_pair:"L"/"R") かどうか。MultiDevice.h の
+    // CLinearPanDevice のコメント参照。
     std::unique_ptr<ISoundDevice> createLeveledDevice(
         uint32_t deviceType, IPort* port, IPort* stereoPairPort,
-        int sampleRate, IPort* extraPort, bool rhythmMode);
+        int sampleRate, IPort* extraPort, bool rhythmMode,
+        bool stereoPairChipLevel = false);
 
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;

@@ -298,6 +298,97 @@ FITOM_X側が`resolveChipDeviceId()`に使うための情報であり、その�
 |---|---|---|
 | `rhythm_mode` | - | `true`でチップ内蔵リズム音源(ch6-8)を有効化し、そのインスタンスに限り`DEVICE_*_RHY`サブデバイスを追加生成した上でch6-8を専用に明け渡す（デフォルト`false`＝リズムサブデバイス無し、ch6-8は通常の楽音chのまま）。OPLL系（COPLL/COPLL2/COPLLP/COPLLX）・OPL系（OPL/Y8950/OPL2/OPL3/OPL4、`DEVICE_OPL_RHY`）双方で対応済み(2026年7月)。特定チップ専用の名前ではなく、内蔵リズム音源を持つチップ全般で共通のフィールド名とする。ビルトインリズムと通常の楽音chをまたいだDVA(動的ボイス割当)は実装されていないため、`DEVICE_*_RHY`サブデバイス自体を`rhythm_mode:true`のインスタンスに限定して生成するようにした(2026年7月修正。以前は`rhythm_mode`の値に関わらず常に`_RHY`サブデバイスが生成されており、`false`のままだとch6-8のレジスタがFM本体側と無調整で衝突していた)。同一チップ種別を複数`devices[]`エントリで持つ場合、`rhythm_mode:true`のインスタンスが1つも無ければビルトインリズムのドライバ自体が生成されない。OPNA系(`DEVICE_OPNA_RHY`)はFM本体と完全に独立したレジスタ空間を持つためこの制約の対象外で、常に生成される。`hw_plugins[].auto_devices`経由のプロファイル(`devices[]`を手書きせずHWPlugin_Enumerate()の結果をそのまま使う)では、列挙結果自体に`rhythm_mode`が含まれないため個別指定できなかったが、`hw_plugins[].auto_devices_rhythm_mode`(チップ名の配列、`profile.schema.json`参照)でチップ名指定によりrhythm_mode:trueを補えるようにした(2026年7月新設) |
 | `extra_slot` | - | 2ポートチップ（OPNA/OPN2/OPL3等）用、2番目のSPFMスロット番号 |
+| `stereo_pair` | - | `true`で**リニアステレオ化**(`CLinearPanDevice`)の対象として明示指定する。詳細は下記 |
+
+#### リニアステレオ化 (`stereo_pair`)
+
+OPLL/OPL/PSG系のようにチップ自体がモノラル出力しか持たない音源で、
+**物理的にL/Rへ固定配線された同一チップ2台を1つのステレオデバイスとして
+束ね、等パワーパンニングでパンポットを表現する**ための指定
+(`CLinearPanDevice`。設計の詳細は`chip-driver-architecture.md`「3.1
+リニアステレオ化」)。
+
+**自動検出は行わない。** L側・R側**両方**のエントリに`stereo_pair`を書く必要が
+ある。`pan`だけを1/2に振り分けても束ねは発動せず、単に「左に固定された
+デバイス」と「右に固定されたデバイス」が独立して並ぶだけになるので注意。
+
+指定方法は2通りあり、**どちらを選ぶかで「左右の分離をどこで行うか」が
+決まる**。
+
+#### (1) `"stereo_pair": true` — プラグイン側で分離する
+
+L/R役割を`pan`(1=L / 2=R)から判定し、左右の分離はプラグインの出力
+ルーティングが行う。**OPLL系のようにモノラル出力しか持たないチップでも
+使える**汎用の方式。
+
+```json
+"devices": [
+  { "if": "HW", "label": "OPLL", "plugin": "FitomEmuIF", "type": "FMHWIF",
+    "engine": "engines/YMFMEngine", "chip": "OPLL", "index": 0,
+    "pan": 1, "rhythm_mode": true, "stereo_pair": true },
+  { "if": "HW", "label": "OPLL", "plugin": "FitomEmuIF", "type": "FMHWIF",
+    "engine": "engines/YMFMEngine", "chip": "OPLL", "index": 1,
+    "pan": 2, "rhythm_mode": true, "stereo_pair": true }
+]
+```
+
+#### (2) `"stereo_pair": "L"` / `"R"` — チップ自身のL/R出力ビットで分離する
+
+L/R役割をこの値で明示し、左右の分離はチップのチャンネルごとのL/R出力ビットで
+行う。**プラグイン側の`pan`は`0`(Stereo)のままでよい**。
+
+```json
+"devices": [
+  { "if": "HW", "label": "OPL4", "plugin": "FitomEmuIF", "type": "FMHWIF",
+    "engine": "engines/YMFMEngine", "chip": "OPL4", "index": 0,
+    "pan": 0, "stereo_pair": "L" },
+  { "if": "HW", "label": "OPL4", "plugin": "FitomEmuIF", "type": "FMHWIF",
+    "engine": "engines/YMFMEngine", "chip": "OPL4", "index": 1,
+    "pan": 0, "stereo_pair": "R" }
+]
+```
+
+**対応チップ**: OPM/OPP・OPZ/OPZ2・OPL3・OPL4(FM部)・OPN2/OPNA/OPNB/OPNBB系と
+そのADPCM-A/ADPCM-Bサブデバイス。非対応のチップ(OPLL系・OPL/OPL2・SSG/PSG系・
+YM2203)に指定した場合は、読み込み時に警告を出して知らせる。
+
+この方式の利点は、**プラグイン側の`pan`を`0`(Stereo)に保てる**ため、同一物理
+チップ上の他のサブデバイスが自前のハードウェアパンポットをフルに使えること。
+特にOPL4では、FM部をL/Rペアにしつつ**AWM部が15段のパンポットを完全に活用
+できる**（`pan: 1`/`2`方式ではチップ出力ごと左右に寄ってしまう）。
+
+制約として、OPNAのSSG部のようにチップ内にL/R分離手段が無いサブデバイスは、
+この方式でも左右に分かれない（パンを振っても定位ではなく音量だけが変化する。
+実機の制約）。
+
+なお、片側だけ`"L"`/`"R"`・もう片側は`true`という混在指定の場合は、意図が
+確定しないため(1)の従来方式として扱う。
+
+#### 共通の判定条件
+
+ペアと判定される条件は「同一`chip`(deviceType)・同一プラグイン(I/F)で、
+L側とR側の組になっていること」。`rhythm_mode:true`のOPLL/OPL系やOPNA系のように
+sub-device自動生成(composite展開)されるチップにも対応しており、その場合は
+サブデバイス群(FM本体・内蔵リズム・SSG・ADPCM等)がまとめて1対1で
+ペアリングされる(2026年8月対応)。
+
+ただし**OPL4のAWM/PCM部だけは`stereo_pair`の対象外**で、`stereo_pair:true`を
+指定したOPL4でも、AWM部は独立したモノラルデバイスとして残る。AWM部は
+チャンネルごとのパンポットをハードウェアで持っており、L/R2台の束ね
+(モノラル出力しか持たない音源に対する代替手段)を適用すると本来のパンポットを
+潰した上でチップを2倍消費することになるため。この仕様により
+**「OPL4のFM部」と「OPL3」をL/Rペアとしてステレオ化する**構成も可能
+(AWM部を除いたサブデバイス構成がどちらも`DEVICE_OPL3`+`DEVICE_OPL3_2`で
+一致するため)。
+
+統合が成功するとログに
+`mergeStereoPairDevices: '...' (R) merged into '...' (L) as CLinearPanDevice pair`
+が出力される(末尾に`[chip-level L/R]`または`[plugin-routed L/R]`が付き、
+どちらの方式で分離されているかが分かる)。
+
+なお、プラグイン側にもL/R2台分のチップインスタンスが存在する必要がある
+(FitomEmuIFなら`fmemuif_*.profile.json`の`engines[].chips[]`に2つ定義する。
+(1)の方式なら`pan:1`と`pan:2`を各1つずつ、(2)の方式なら`pan:0`を2つ)。
 
 ### MIDI デバイス (`midi_inputs`, `midi_outputs`)
 
