@@ -21,6 +21,8 @@ constexpr int   kSegments    = 14;
 constexpr int   kGreenSegs   = 8;
 constexpr int   kYellowSegs  = 3;
 constexpr float kSegGap      = 2.0f;
+// ステレオチャンネルで左右half-widthのLEDカラムを分ける中央の隙間 [px]。
+constexpr float kStereoGap   = 2.0f;
 
 constexpr float kAttackDecaySec  = 1.5f;  // ノートオン後、バーが全減衰するまでの時間
 constexpr float kReleaseDecaySec = 0.25f; // ノートオフ後、バーが全減衰するまでの時間
@@ -82,6 +84,44 @@ void updateEnvelope(LevelMeterPanel::ChannelEnvelope& env, const FITOMLevelChann
     env.prevNoteOnSeq = ch.noteOnSeq;
 }
 
+// LEDカラム1本分を描画する。x範囲を指定できるため、モノラルチャンネルでは
+// トラック全幅で1回、ステレオチャンネルでは左右half-widthで2回呼ぶ
+// (2026年8月、L/R定位表示の追加で分離)。
+void renderLedColumn(ImDrawList* dl, float xMin, float xMax, float yBottom,
+                      float level, float peakLevel, float peakAlpha)
+{
+    level = std::clamp(level, 0.0f, 1.0f);
+    const int litCount = static_cast<int>(std::lround(level * kSegments));
+    const int peakSeg = (peakLevel > 0.0f && peakAlpha > 0.0f)
+        ? std::clamp(static_cast<int>(std::lround(peakLevel * kSegments)) - 1, 0, kSegments - 1)
+        : -1;
+
+    const float segH = (kBarH - kSegGap * (kSegments - 1)) / kSegments;
+
+    for (int i = 0; i < kSegments; ++i) {
+        // セグメント0=最下段。下からトラック上端に向かって積む。
+        const float segTop = yBottom - static_cast<float>(i + 1) * segH - static_cast<float>(i) * kSegGap;
+        const ImVec2 segMin(xMin, segTop);
+        const ImVec2 segMax(xMax, segTop + segH);
+
+        ImU32 litCol, dimCol;
+        if (i < kGreenSegs) {
+            litCol = kColGreenLit; dimCol = kColGreenDim;
+        } else if (i < kGreenSegs + kYellowSegs) {
+            litCol = kColYellowLit; dimCol = kColYellowDim;
+        } else {
+            litCol = kColRedLit; dimCol = kColRedDim;
+        }
+
+        ImU32 col = (i < litCount) ? litCol : dimCol;
+        if (i == peakSeg) {
+            // ピークホールド: そのセグメントを白側へブレンドして際立たせる。
+            col = lerpColor(col, IM_COL32(255, 255, 255, 255), peakAlpha * 0.85f);
+        }
+        dl->AddRectFilled(segMin, segMax, col);
+    }
+}
+
 // バー1本分を描画する。posはバー(トラック)左上のスクリーン座標。
 void renderOneBar(ImDrawList* dl, ImVec2 pos, const FITOMLevelChannel& ch,
                    const LevelMeterPanel::ChannelEnvelope& env, float now)
@@ -105,41 +145,25 @@ void renderOneBar(ImDrawList* dl, ImVec2 pos, const FITOMLevelChannel& ch,
     // カラーLED風: セグメントに分割し、下から現在レベル分だけ発光させる。
     // 未発光のセグメントも色ゾーンの暗いバリエーションで塗り、消灯中の
     // LEDらしい見た目にする(イメージ参照)。
-    const float level = std::clamp(env.level, 0.0f, 1.0f);
-    const int litCount = static_cast<int>(std::lround(level * kSegments));
-
     float peakAlpha = 0.0f;
     if (env.peakStart >= 0.0f) {
         const float t = (now - env.peakStart) / kPeakHoldSec;
         peakAlpha = (t >= 1.0f) ? 0.0f : (1.0f - t);
     }
-    const int peakSeg = (env.peakLevel > 0.0f && peakAlpha > 0.0f)
-        ? std::clamp(static_cast<int>(std::lround(env.peakLevel * kSegments)) - 1, 0, kSegments - 1)
-        : -1;
 
-    const float segH = (kBarH - kSegGap * (kSegments - 1)) / kSegments;
-
-    for (int i = 0; i < kSegments; ++i) {
-        // セグメント0=最下段。下からトラック上端に向かって積む。
-        const float segTop = trackMax.y - static_cast<float>(i + 1) * segH - static_cast<float>(i) * kSegGap;
-        const ImVec2 segMin(trackMin.x + 1.0f, segTop);
-        const ImVec2 segMax(trackMax.x - 1.0f, segTop + segH);
-
-        ImU32 litCol, dimCol;
-        if (i < kGreenSegs) {
-            litCol = kColGreenLit; dimCol = kColGreenDim;
-        } else if (i < kGreenSegs + kYellowSegs) {
-            litCol = kColYellowLit; dimCol = kColYellowDim;
-        } else {
-            litCol = kColRedLit; dimCol = kColRedDim;
-        }
-
-        ImU32 col = (i < litCount) ? litCol : dimCol;
-        if (i == peakSeg) {
-            // ピークホールド: そのセグメントを白側へブレンドして際立たせる。
-            col = lerpColor(col, IM_COL32(255, 255, 255, 255), peakAlpha * 0.85f);
-        }
-        dl->AddRectFilled(segMin, segMax, col);
+    if (ch.stereo) {
+        // ステレオ出力を持つチャンネル: トラックを左右half-widthに割り、
+        // 定位係数(gainL/gainR)を掛けた高さでそれぞれ描く。エンベロープ
+        // (発音イベント・減衰・ピークホールド)はL/Rで共通の1本を使い、
+        // 高さだけを左右で変える(発音そのものは同じイベントのため)。
+        const float mid = pos.x + kBarW * 0.5f;
+        renderLedColumn(dl, trackMin.x + 1.0f, mid - kStereoGap * 0.5f, trackMax.y,
+                        env.level * ch.gainL, env.peakLevel * ch.gainL, peakAlpha);
+        renderLedColumn(dl, mid + kStereoGap * 0.5f, trackMax.x - 1.0f, trackMax.y,
+                        env.level * ch.gainR, env.peakLevel * ch.gainR, peakAlpha);
+    } else {
+        renderLedColumn(dl, trackMin.x + 1.0f, trackMax.x - 1.0f, trackMax.y,
+                        env.level, env.peakLevel, peakAlpha);
     }
 
     dl->AddRect(trackMin, trackMax, IM_COL32(70, 70, 75, 255));

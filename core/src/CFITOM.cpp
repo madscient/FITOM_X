@@ -383,7 +383,8 @@ IPort* CFITOM::resolveHighBankPort(uint32_t deviceType, IPort* port, IPort* conf
 
 std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     uint32_t deviceType, IPort* port, IPort* stereoPairPort,
-    int sampleRate, IPort* extraPort, bool rhythmMode, bool stereoPairChipLevel)
+    int sampleRate, IPort* extraPort, bool rhythmMode, bool stereoPairChipLevel,
+    ISoundDevice** outLeftRaw, ISoundDevice** outRightRaw)
 {
     auto dev = DeviceFactory::create(deviceType, port, sampleRate, extraPort, rhythmMode);
     if (!dev) return nullptr;
@@ -392,6 +393,14 @@ std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     if (!stereoPairPort) return dev;
 
     // リニアステレオ化 (CLinearPanDevice): R側チップも生成してラップする。
+    // R側ポートにも高位バンクへの差し替えを適用する(2026年8月修正。L側は
+    // initDevices()側で resolveHighBankPort() 済みだが、R側は生ポートのまま
+    // 渡されていたため、ADPCM-A/ADPCM-B(OPNA)のように自分専用の高位バンクへ
+    // 配置されるサブデバイスをステレオペアにすると、R側だけ低位バンクへ
+    // 書き込んでしまっていた。spanGroup配下と同じくconfiguredPort2の概念が
+    // 無いため常にOffsetPortを自前生成する)。
+    stereoPairPort = resolveHighBankPort(deviceType, stereoPairPort, nullptr);
+
     auto rdev = DeviceFactory::create(deviceType, stereoPairPort, sampleRate, nullptr, rhythmMode);
     if (!rdev) {
         FITOM_LOG_WARN("createLeveledDevice: stereo pair (R) creation failed, "
@@ -402,9 +411,19 @@ std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
 
     ISoundDevice* lRaw = dev.get();
     ISoundDevice* rRaw = rdev.get();
+    if (outLeftRaw)  *outLeftRaw  = lRaw;
+    if (outRightRaw) *outRightRaw = rRaw;
     spanSubChips_.push_back(std::move(dev));
     spanSubChips_.push_back(std::move(rdev));
     return fitom::createCLinearPanDevice(lRaw, rRaw, stereoPairChipLevel);
+}
+
+// チャンネルレベルメーター用の内訳を1件記録する。port/deviceのどちらかが
+// nullptr(HWPort以外のポート、生成失敗等)なら何もしない。
+void CFITOM::registerPendingSubDevice(HWPort* port, ISoundDevice* device, uint32_t deviceType)
+{
+    if (!port || !device) return;
+    pendingSubDevices_.push_back({port, device, deviceType});
 }
 
 void CFITOM::initDevices()
@@ -467,10 +486,13 @@ void CFITOM::initDevices()
         // 1ポートのみ使うデバイス: port == extraPort → SplitPort 不要
         // HW 2ポート: extraPort が別 IPort → createCOPNA 内で SplitPort を利用
         IPort* stereoPairPort = config_->getDeviceStereoPairPort(i);
+        ISoundDevice* stereoLRaw = nullptr;
+        ISoundDevice* stereoRRaw = nullptr;
         auto dev = createLeveledDevice(deviceType, port, stereoPairPort, sampleRate,
                                        (extraPort != port) ? extraPort : nullptr,
                                        config_->getDeviceRhythmMode(i),
-                                       config_->getDeviceStereoPairChipLevel(i));
+                                       config_->getDeviceStereoPairChipLevel(i),
+                                       &stereoLRaw, &stereoRRaw);
         if (!dev) {
             FITOM_LOG_ERR("Device[" << i << "] '"
                 << config_->getDeviceLabel(i)
@@ -481,13 +503,18 @@ void CFITOM::initDevices()
 
         // チャンネルレベルメーター用: このデバイス自身(span/stereo展開前、
         // 単一物理ポート単位)をbuildPhysicalChipList()が後で拾えるよう
-        // 記録しておく。stereoPairPort指定時はcreateLeveledDevice()が
-        // 既にCLinearPanDeviceへラップして返しており、L/R個別のch構成を
-        // 安定して取り出せないため対象外とする(既知の制限)。
-        if (!stereoPairPort) {
-            if (auto* hwPort = dynamic_cast<HWPort*>(config_->getDevicePort(i))) {
-                pendingSubDevices_.push_back({hwPort, dev.get(), deviceType});
-            }
+        // 記録しておく。stereoPairPort指定時(CLinearPanDevice化)は、
+        // ラップ前のL側/R側の生デバイスをそれぞれの物理ポートに紐づける
+        // (2026年8月対応。以前はここでラップ後のポインタしか手に入らず
+        //  対象外としていたため、リニアステレオ化したチップがレベルメーター
+        //  に一切表示されなかった)。突き合わせキーは
+        //  buildPhysicalChipList()と同じ「resolveHighBankPort()適用前の
+        //  生ポート」を使う必要があるため、config_から取り直す。
+        registerPendingSubDevice(dynamic_cast<HWPort*>(config_->getDevicePort(i)),
+                                 stereoPairPort ? stereoLRaw : dev.get(), deviceType);
+        if (stereoPairPort) {
+            registerPendingSubDevice(dynamic_cast<HWPort*>(stereoPairPort),
+                                     stereoRRaw, deviceType);
         }
 
         // 同種デバイス自動束ね: spanGroups があれば追加のチップ(モノラルまたは
@@ -525,9 +552,12 @@ void CFITOM::initDevices()
                 // 効かなくなっていた[逆に代表側がtrueだと束ねられた側にも
                 // 無効化が誤って波及していた])。
                 bool subRhythmMode = config_->getDeviceSpanGroupRhythmMode(i, k);
+                ISoundDevice* subLRaw = nullptr;
+                ISoundDevice* subRRaw = nullptr;
                 auto subDev = createLeveledDevice(
                     subDeviceType, sp, spStereo, sampleRate, nullptr, subRhythmMode,
-                    config_->getDeviceSpanGroupStereoPairChipLevel(i, k));
+                    config_->getDeviceSpanGroupStereoPairChipLevel(i, k),
+                    &subLRaw, &subRRaw);
                 if (!subDev) {
                     FITOM_LOG_WARN("Device[" << i << "]: span sub-chip[" << k
                         << "] creation failed, skipped");
@@ -537,10 +567,12 @@ void CFITOM::initDevices()
                     << subDev->getDescriptor());
                 spanDev->addDevice(subDev.get());
                 // チャンネルレベルメーター用(上記の代表デバイスと同じ理由)。
-                // spStereo指定時はcreateLeveledDevice()がCLinearPanDeviceへ
-                // ラップして返すため対象外とする(既知の制限)。
-                if (spHwPort && !spStereo) {
-                    pendingSubDevices_.push_back({spHwPort, subDev.get(), subDeviceType});
+                // spStereo指定時はラップ前のL/R生デバイスを個別に紐づける。
+                registerPendingSubDevice(spHwPort,
+                                         spStereo ? subLRaw : subDev.get(), subDeviceType);
+                if (spStereo) {
+                    registerPendingSubDevice(dynamic_cast<HWPort*>(spStereo),
+                                             subRRaw, subDeviceType);
                 }
                 spanSubChips_.push_back(std::move(subDev));
             }
@@ -761,13 +793,50 @@ std::vector<uint8_t> CFITOM::getPhysicalChipRegisterDump(int index) const
     return result;
 }
 
+// panpot(-64..+63)とチップのパン方式から、定位を表すL/Rゲイン係数を求める。
+// 大きい側が必ず1.0になるよう正規化する(PhysicalChipChannelState参照)。
+static void computePanGains(FITOMConfig::ChipPanType panType, int8_t panpot,
+                            float& gainL, float& gainR)
+{
+    gainL = gainR = 1.0f;
+    switch (panType) {
+    case FITOMConfig::ChipPanType::ThreeWay:
+        // 各ドライバのupdatePanpot()と同じ閾値(負値=L / 正値=R)。
+        if      (panpot >  20) gainL = 0.0f;
+        else if (panpot < -20) gainR = 0.0f;
+        break;
+    case FITOMConfig::ChipPanType::Continuous: {
+        // 等パワーパンニング。CLinearPanDevice::applyLinearPan()と同じ式。
+        const int p = std::clamp(static_cast<int>(panpot) + 64 - 1, 0, 126);
+        constexpr double kHalfPi = 1.5707963267948966;
+        const double l = std::cos(kHalfPi * p / 126.0);
+        const double r = std::sin(kHalfPi * p / 126.0);
+        const double m = (std::max)(l, r);
+        if (m > 0.0) { gainL = static_cast<float>(l / m); gainR = static_cast<float>(r / m); }
+        break;
+    }
+    case FITOMConfig::ChipPanType::Mono:
+    default:
+        break;
+    }
+}
+
 std::vector<PhysicalChipChannelState> CFITOM::getPhysicalChipChannelStates(int index) const
 {
     std::vector<PhysicalChipChannelState> result;
     if (index < 0 || index >= static_cast<int>(physicalChips_.size())) return result;
 
-    for (const auto& sub : physicalChips_[index].subDevices) {
+    // ここは「物理チップ単位」のビューなので、リニアステレオ化ペアは
+    // L側チップ・R側チップそれぞれ独立した物理チップとして扱う(統合しない)。
+    // L/R分割表示になるのは、その物理チップ自身がステレオ出力を持つ場合
+    // (getChipPanType() != Mono) だけ。ペアを1つのステレオデバイスとして
+    // 見せるのは論理チップ単位のビュー(getLogicalDeviceChannelStates())の
+    // 責務である(2026年8月、ユーザーの実機確認により整理)。
+    const auto& info = physicalChips_[index];
+    for (const auto& sub : info.subDevices) {
         if (!sub.device) continue;
+        const auto panType = FITOMConfig::getChipPanType(sub.deviceType);
+
         for (uint8_t ch = 0; ch < sub.chCount; ++ch) {
             const ChState* cs = sub.device->getChState(ch);
             PhysicalChipChannelState st;
@@ -776,6 +845,10 @@ std::vector<PhysicalChipChannelState> CFITOM::getPhysicalChipChannelStates(int i
                 st.velocity  = cs->velocity;
                 st.enabled   = cs->isEnabled();
                 st.noteOnSeq = cs->noteOnSeq;
+                if (panType != FITOMConfig::ChipPanType::Mono) {
+                    st.stereo = true;
+                    computePanGains(panType, cs->panpot, st.gainL, st.gainR);
+                }
             }
             result.push_back(st);
         }
@@ -789,6 +862,15 @@ std::vector<PhysicalChipChannelState> CFITOM::getLogicalDeviceChannelStates(int 
     ISoundDevice* dev = getDevice(deviceIndex);
     if (!dev) return result;
 
+    // 論理チップ単位のビューでは、リニアステレオ化(CLinearPanDevice)で
+    // 束ねたL/R2台は「1つのステレオデバイス」なので、各chを左右分割表示に
+    // する。定位はデバイス自身(ISoundDevice::getStereoGains())に尋ねる。
+    // それ以外は、チップ自身がステレオ出力を持つ場合に限りChState::panpotから
+    // 求める(物理チップ単位のビューと同じ扱い)。
+    const auto panType = config_
+        ? FITOMConfig::getChipPanType(config_->getDeviceType(deviceIndex))
+        : FITOMConfig::ChipPanType::Mono;
+
     uint8_t chCount = dev->getChCount();
     for (uint8_t ch = 0; ch < chCount; ++ch) {
         const ChState* cs = dev->getChState(ch);
@@ -798,6 +880,13 @@ std::vector<PhysicalChipChannelState> CFITOM::getLogicalDeviceChannelStates(int 
             st.velocity  = cs->velocity;
             st.enabled   = cs->isEnabled();
             st.noteOnSeq = cs->noteOnSeq;
+
+            if (dev->getStereoGains(ch, st.gainL, st.gainR)) {
+                st.stereo = true;
+            } else if (panType != FITOMConfig::ChipPanType::Mono) {
+                st.stereo = true;
+                computePanGains(panType, cs->panpot, st.gainL, st.gainR);
+            }
         }
         result.push_back(st);
     }

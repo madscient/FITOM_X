@@ -451,10 +451,13 @@ std::vector<FITOMLevelBand> FITOMBridge::getPhysicalLevelBands() const
     int n = core.getPhysicalChipCount();
     for (int i = 0; i < n; ++i) {
         const auto* info = core.getPhysicalChipInfo(i);
-        // subDevicesが空(stereoPairPort/spanGroups経由のチップ)は
-        // 内訳を取得できないため対象外(既知の制限)。
+        // subDevicesが空(SF2直行パス用ラッパー等、論理デバイスを持たない
+        // エントリ)は内訳を取得できないため対象外。
         if (!info || info->subDevices.empty()) continue;
 
+        // 物理チップ単位のビューなので、リニアステレオ化ペアもL側・R側を
+        // それぞれ独立したバンドとして並べる(ラベルの「(stereo pair)」で
+        // 区別できる。右ペインのレジスタダンプ一覧とも一対一で対応する)。
         FITOMLevelBand band;
         band.label = info->physicalName.empty() ? info->label : info->physicalName;
 
@@ -469,6 +472,9 @@ std::vector<FITOMLevelBand> FITOMBridge::getPhysicalLevelBands() const
                 c.velocity  = states[stateIdx].velocity;
                 c.enabled   = states[stateIdx].enabled;
                 c.noteOnSeq = states[stateIdx].noteOnSeq;
+                c.stereo    = states[stateIdx].stereo;
+                c.gainL     = states[stateIdx].gainL;
+                c.gainR     = states[stateIdx].gainR;
                 band.channels.push_back(std::move(c));
             }
         }
@@ -501,6 +507,9 @@ std::vector<FITOMLevelBand> FITOMBridge::getLogicalLevelBands() const
             c.velocity  = states[ch].velocity;
             c.enabled   = states[ch].enabled;
             c.noteOnSeq = states[ch].noteOnSeq;
+            c.stereo    = states[ch].stereo;
+            c.gainL     = states[ch].gainL;
+            c.gainR     = states[ch].gainR;
             band.channels.push_back(std::move(c));
         }
         result.push_back(std::move(band));

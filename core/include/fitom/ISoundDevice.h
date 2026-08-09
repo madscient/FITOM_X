@@ -251,6 +251,18 @@ public:
     virtual ChState*       getChState(uint8_t ch)       = 0;
     virtual const ChState* getChState(uint8_t ch) const = 0;
 
+    // ─── ステレオ定位 (チャンネルレベルメーターのL/R分割表示用) ────────────
+    // このデバイス自身が「1つのステレオデバイス」として左右の定位を持つ場合、
+    // chごとのL/Rゲイン(0.0-1.0、大きい側が1.0になるよう正規化)をout引数へ
+    // 書いてtrueを返す。現状の実装は CLinearPanDevice (物理的にL/Rへ固定
+    // 配線された同一チップ2台を束ねたもの) のみ。
+    // false を返した場合、呼び出し元はチップ自身のパン能力
+    // (FITOMConfig::getChipPanType()) と ChState::panpot から定位を求める
+    // (2026年8月新設)。
+    virtual bool getStereoGains(uint8_t /*ch*/, float& /*gainL*/, float& /*gainR*/) const {
+        return false;
+    }
+
     // ソフトLFO (VoiceProcessor::onTick) の変調結果を反映するための公開API。
     // CInstCh/CRhythmCh いずれの経路でも CSoundDevice::timerCallback() が
     // 内部で自動的に呼び出す (2026年8月、CRhythmCh が独自に onTick を回して
