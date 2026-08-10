@@ -34,8 +34,13 @@ namespace fitom {
 //    0xB0-0xC7: DL(bit7-4) | D2R(bit3-0)
 //    0xC8-0xDF: RateCorrection(bit7-4) | RR(bit3-0)
 //    0xE0-0xF7: AM(bit2-0)
-//    0xF8: Mixing FM_R(bit7-4)/FM_L(bit3-0)
-//    0xF9: Mixing PCM_R(bit7-4)/PCM_L(bit3-0)
+//    0xF8: Mixing FM_R(bit5-3)/FM_L(bit2-0、3bitずつ、bit7-6は未使用)
+//    0xF9: Mixing PCM_R(bit5-3)/PCM_L(bit2-0、3bitずつ、bit7-6は未使用)
+//          (2026年8月訂正: 旧コメントは4bitニブルと誤記していたが、
+//          ymfm[extern/ymfm/src/ymfm_pcm.h ch_mix_*()]・ALSA
+//          [OPL4_MIX_LEFT_MASK=0x07/OPL4_MIX_RIGHT_MASK=0x38]とも3bitずつ。
+//          値は0=最大音量[ymfmのs_mix_scale[0]=0x7fa]〜7=無音の8段階テーブル
+//          からの選択式で、線形の減衰量ではない)
 //
 //  当面はYRW801内蔵ROM音色のみサポート (GM Level1音源として振る舞う)。
 //  音色選択は VOICE_PATCH_AWM 用の SampleZonePatch (プロファイル
@@ -61,9 +66,16 @@ public:
 
     std::string getDescriptor() const override { return "OPL4 AWM (YRW801 ROM) 24ch"; }
 
+    // reg 0xF8/0xF9はAWM側のレジスタバンク(getHighBankOffset()により
+    // アドレス0x200以降にオフセットされる側)にしか存在せず、FM部
+    // (COPL3、別バンク)からは書き込めない。「FM出力ミキサーはCOPL3側が
+    // 別途担当する」という誤った想定のコメントが以前付いていたが、実際は
+    // このinit()がFM/PCM両方のミキサーレベルを初期化する唯一の経路である
+    // (2026年8月訂正)。両方とも0=最大音量(ymfmのs_mix_scale[0]=0x7fa、
+    // 8段階テーブルの先頭)を指定する。
     void init() override {
-        setReg(0xF8, 0x00, true); // FM出力ミキサーはCOPL3側が別途担当するためここでは0
-        setReg(0xF9, 0x00, true); // PCM出力レベル最大 (L/R共)
+        setReg(0xF8, 0x00, true); // FMミキサーレベル最大
+        setReg(0xF9, 0x00, true); // PCMミキサーレベル最大
     }
 
 protected:
@@ -166,6 +178,19 @@ protected:
                true);
     }
 
+    // ALSA sound/drivers/opl4/opl4_seq.cの`volume_boost`(既定値8、
+    // 「Additional volume for OPL4 wavetable sounds」)と同じ、AWM全体への
+    // 固定音量ブースト。volumeFactor(254=無補正)は波形ごとに254未満の
+    // 値が付くことが大半(GMデータでは概ね140〜240)であるため、これを
+    // 適用しただけではCC#7/CC#11/velocityを全て最大にしてもレジスタ上の
+    // 最大音量(TotalLevel=0)に到達できず、AWM全体が常に一定量だけ
+    // 静かになる。実チップ向けのALSAドライバもこれを見込んで固定の
+    // ブースト値を既定で加えているため、同じ値をここでも適用する
+    // (2026年8月、ユーザー報告「OPL4AWMだけミックスレベルがかなり低い」
+    // により発覚。reg 0xF8/0xF9[ミキサーレベル]は本ファイルのinit()以外
+    // どこからも書かれておらず、そちらは既に最大値のままだった)。
+    static constexpr int kVolumeBoost = 8;
+
     // toneAttenuate(加算)・volumeFactor(「最大からの余白」への乗算、
     // 254=無補正)は波形ごとの音量校正値。ALSA snd_opl4_update_volume()
     // (sound/drivers/opl4/yrw801.cのopl4_sound::tone_attenuate/
@@ -183,7 +208,9 @@ protected:
             totalLevel += zone->toneAttenuate;
             totalLevel = 127 - (127 - totalLevel) * zone->volumeFactor / 254;
         }
-        totalLevel = std::clamp(totalLevel, 0, 127);
+        totalLevel -= kVolumeBoost;
+        // ALSAのsnd_opl4_update_volume()と同じ上限(0x7e、0x7fではない)。
+        totalLevel = std::clamp(totalLevel, 0, 0x7e);
         setReg(static_cast<uint16_t>(0x50 + ch),
                static_cast<uint8_t>((static_cast<uint8_t>(totalLevel) & 0x7F) << 1), false); // LevelDirect=0
     }
