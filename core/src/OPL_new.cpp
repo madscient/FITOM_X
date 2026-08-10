@@ -99,8 +99,11 @@ protected:
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
     // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
     // 減衰量空間 (0=最大音量,63=無音、6bit) のため、書き込み前に必ずこの
-    // 変換 (旧Linear2dB相当) を通す必要がある。bw=6 が7bit→6bitの縮小も
-    // 兼ねる。
+    // 変換 (旧Linear2dB相当) を通す必要がある。
+    //
+    // TLのステップ幅はOPN/OPM系と同じ0.75dBで、違うのはレンジ(6bit=47.25dB)
+    // だけ。よってここはクランプであってスケーリングではない — TL>>1 のような
+    // 縮小を掛けるとステップ幅が1.5dBに読み替わり減衰量が半分になる。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
     }
