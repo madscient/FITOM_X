@@ -424,6 +424,16 @@ HWエンベロープはch0-2/ch3-5の3ch単位で共有されるハードウェ�
 よっては数オクターブ単位でピッチがずれることが判明したため、下記の
 校正値ごとALSAの表を移植した)。
 
+`volume_factor`は254未満の値(GM移植データでは概ね140〜240)が大半のため、
+これだけを適用するとCC#7/CC#11/velocityを全て最大にしてもレジスタ上の
+最大音量に到達できず、AWM全体が常に一定量だけ静かになる。ALSA
+(`sound/drivers/opl4/opl4_seq.c`)はこれを見込んで既定値8の`volume_boost`
+(「Additional volume for OPL4 wavetable sounds」)を差し引いており、
+`COPL4AWM::updateVolExp()`も同じ固定値を適用する(2026年8月、ユーザー報告
+「OPL4AWMだけミックスレベルがかなり低い」により追加。ミキサーレベル
+[reg 0xF8/0xF9]は`COPL4AWM::init()`で既に最大値に設定済みで、他に触る
+経路も無いことを確認済み)。
+
 バンクファイルは`hw_banks[].group: "AWM"`で指定し、通常の`.hwbank.json`とは
 異なる専用スキーマ (`prog`ごとに`zones[]`を持つ、`*.samplezonebank.json`) で
 記述する。YRW801内蔵GM ROMの標準マッピングは

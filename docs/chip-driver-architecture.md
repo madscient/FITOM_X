@@ -143,6 +143,27 @@ ALSAドライバとの突き合わせでさらに2件の根本原因が判明し
    `updateVolExp()`はこれらの値を解決したゾーンから読み、ALSAの
    `snd_opl4_update_pitch()`/`snd_opl4_update_volume()`と同じ規約で適用する。
 
+**固定音量ブースト(`kVolumeBoost`)**: 上記2の`volumeFactor`適用後、ユーザーから
+「OPL4AWMだけミックスレベルがかなり低い」と報告(2026年8月)。`core/src`全体を
+grepし、reg 0xF8/0xF9(ミキサーレベル)を書いているのは`COPL4AWM::init()`
+だけで、そちらはymfmの8段階テーブル(`s_mix_scale[8]={0x7fa,...,0}`、値が
+小さいほど大音量)のindex0=最大音量のまま初期化されており無関係と確認した。
+真因は`volumeFactor`(GM移植データでは概ね140〜240、254=無補正)適用の副作用:
+`totalLevel=127-(127-totalLevel)*volumeFactor/254`という式は、CC#7/CC#11/
+velocityを全て最大にして生の`totalLevel=0`になっても、`volumeFactor<254`の
+波形では0まで下がりきらない(例: volumeFactor=200なら27が下限)ため、AWM
+全体が常に一定量だけ静かになっていた。ALSAの`sound/drivers/opl4/opl4_seq.c`
+はこれを見込んで既定値8の`volume_boost`(モジュールパラメータ、コメントは
+「Additional volume for OPL4 wavetable sounds」)を`snd_opl4_update_volume()`
+内で差し引いており、`COPL4AWM::updateVolExp()`にも同じ固定値
+(`kVolumeBoost=8`)の減算を追加し、上限クランプもALSAと同じ`0x7e`
+(0x7fではない)に合わせた。あわせて、reg 0xF8/0xF9のビット幅を4bitニブルと
+誤記していたコメント(実際はymfm/ALSAとも3bitずつで、線形の減衰量ではなく
+8段階テーブルからの選択式)と、「FM出力ミキサーはCOPL3側が別途担当する」
+という誤った想定のコメント(reg 0xF8/0xF9はAWM側レジスタバンクにしか存在
+せず別バンクのCOPL3からは書き込めないため、実際は`COPL4AWM::init()`が
+FM/PCM両方のミキサーレベルを初期化する唯一の経路)も訂正した。
+
 ```cpp
 struct SubDeviceSpec {
     uint32_t    deviceType;

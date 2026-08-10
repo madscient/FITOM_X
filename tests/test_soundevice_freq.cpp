@@ -877,6 +877,45 @@ TEST_CASE("COPL4AWM Fnumber/Octave matches the ALSA opl4_synth.c reference "
     CHECK(((port.regs[reg20_1] >> 1) & 0x7F) == 0);
 }
 
+// ユーザー報告(2026年8月)「OPL4AWMだけミックスレベルがかなり低い」の調査で
+// 判明: SampleZone::volumeFactor(254=無補正、GM移植データでは概ね140〜240)を
+// 適用すると、CC#7/CC#11/velocityを全て最大にしてもレジスタ上の最大音量
+// (TotalLevel=0)に到達できなくなる(volumeFactor=200なら127-(127-0)*200/254
+// =27が下限)。ALSAのsound/drivers/opl4/opl4_seq.cはこれを見込んで既定値8の
+// `volume_boost`を差し引いており(「Additional volume for OPL4 wavetable
+// sounds」)、COPL4AWM::updateVolExp()もこれと同じ固定値を適用する。
+// (reg 0xF8/0xF9[ミキサーレベル]はinit()以外どこからも書かれておらず
+// 既に最大値のままだったため、原因はvolumeFactorのヘッドルーム圧縮側にあった)。
+TEST_CASE("COPL4AWM subtracts the ALSA-equivalent fixed volume_boost(=8) so "
+          "per-wave volumeFactor doesn't leave AWM permanently below max "
+          "register level", "[sounddevice][opl4]")
+{
+    RecordingPort port;
+    OffsetPort awmPort(&port, 0x200);
+    auto dev = createCOPL4AWM(&awmPort, 44100);
+    dev->init();
+
+    SampleZonePatch patch;
+    patch.id = 1;
+    SampleZone zone{};
+    zone.keyMin = 0; zone.keyMax = 127;
+    zone.waveIndex = 300;
+    zone.volumeFactor = 200; // 移植したAcoustic Grand Piano zone1相当
+    zone.toneAttenuate = 0;
+    patch.zones.push_back(zone);
+
+    // vol/exp/vel全て127相当 → calcVolExpVel()は127を返し、生のTotalLevelは0。
+    uint8_t ch = dev->allocCh(nullptr, nullptr, 127, nullptr, &patch);
+    REQUIRE(ch != 0xFF);
+    dev->setNoteFine(ch, 60, 0, true);
+    dev->noteOn(ch, 127);
+
+    const uint16_t reg50 = static_cast<uint16_t>(0x200 + 0x50 + ch);
+    // 127-(127-0)*200/254=27、そこからvolume_boost(8)を引いて19。
+    const int expectedTotalLevel = 19;
+    CHECK(port.regs[reg50] == static_cast<uint8_t>((expectedTotalLevel & 0x7F) << 1));
+}
+
 // ユーザー報告(2026年7月): OPLビルトインリズムでバスドラム(BD)だけ発音せず、
 // 他4楽器(HH/SD/TOM/CYM)は正常に鳴る。COPLRhythm::writeOperatorRegs()が、
 // キャリア側のエンベロープ(AR/DR/SL/SR/RR)をVoiceProcessorから読む際、
