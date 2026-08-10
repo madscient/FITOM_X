@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace {
 
@@ -210,16 +211,30 @@ void LevelMeterPanel::renderBand(const FITOMLevelBand& band, float now)
 {
     if (band.channels.empty()) return;
 
+    // 恒常的に無効なチャンネルは、物理チップ単位表示でのみブランク
+    // プレースホルダとして残す。物理表示は右ペインのレジスタダンプと
+    // 物理ch番号で突き合わせて読むため歯抜けの位置に意味がある一方、
+    // 論理表示は「その論理デバイスで実際に使えるch」を見るためのもので、
+    // プレースホルダは冗長なだけになる(ラベルにch番号が入っているため、
+    // 詰めて並べても元のch番号は追える)。
+    std::vector<const FITOMLevelChannel*> visible;
+    visible.reserve(band.channels.size());
+    for (const auto& ch : band.channels) {
+        if (showLogical_ && !ch.enabled) continue;
+        visible.push_back(&ch);
+    }
+    if (visible.empty()) return;
+
     ImGui::SeparatorText(band.label.c_str());
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImVec2 origin = ImGui::GetCursorScreenPos();
 
-    const int rows = static_cast<int>((band.channels.size() + kPerRow - 1) / kPerRow);
+    const int rows = static_cast<int>((visible.size() + kPerRow - 1) / kPerRow);
     const float rowStride = kBarH + kLabelH + kRowGap;
 
-    for (size_t i = 0; i < band.channels.size(); ++i) {
-        const FITOMLevelChannel& ch = band.channels[i];
+    for (size_t i = 0; i < visible.size(); ++i) {
+        const FITOMLevelChannel& ch = *visible[i];
         const int row = static_cast<int>(i / kPerRow);
         const int col = static_cast<int>(i % kPerRow);
         const ImVec2 pos(origin.x + col * (kBarW + kBarGap), origin.y + row * rowStride);
@@ -233,7 +248,7 @@ void LevelMeterPanel::renderBand(const FITOMLevelBand& band, float now)
         }
     }
 
-    const int cols = std::min<int>(static_cast<int>(band.channels.size()), kPerRow);
+    const int cols = std::min<int>(static_cast<int>(visible.size()), kPerRow);
     const ImVec2 usedSize(cols * (kBarW + kBarGap), rows * rowStride);
     // ImDrawListへ直接描画した分だけカーソルを進める(次のSeparatorText等が
     // 重ならないようにするため)。
