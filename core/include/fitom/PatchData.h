@@ -234,22 +234,25 @@ struct SwBank {
 };
 
 // ================================================================
-//  HwBankRegistry: チップ族 × バンク番号 → HwBank のマッピング
+//  HwBankRegistry: (voicePatchType, バンク番号) → HwBank のマッピング
 //
 //  旧 CFITOMConfig の vOpmBank[] / vOpnBank[] 等を統合する。
-//  チップ族 (VoiceGroup) をキーにしてバンクを引く。
+//  【重要】ここをVoiceGroupキーにしてはならない (SampleZoneBankRegistryと
+//  同じ理由)。VoiceGroupはOPM/OPZ/OPZ2、OPL/OPL2/OPL3_2、OPLL/OPLLP/OPLLX/
+//  VRC7をそれぞれ1つに束ねるため、VoiceGroupキーだと同じバンク番号を族内の
+//  別チップへ割り当てられず、プロファイルのhw_banks[]に同一バンク番号で
+//  チップ違いのエントリを並べても後から読み込んだ側が前の登録を上書きして
+//  しまう。バンク番号の名前空間はチップ (voicePatchType) ごとに独立させ、
+//  「どのチップのバンクか」はプロファイルのhw_banks[].groupが決める。
 // ================================================================
 class HwBankRegistry {
 public:
-    // VoiceGroup ビットマスク (FITOMdefine.h の VOICE_GROUP_* に対応)
-    using VoiceGroup = uint32_t;
-
     // バンクを登録・取得
-    HwBank& getOrCreate(VoiceGroup group, int bankNo) {
-        return banks_[group][bankNo];
+    HwBank& getOrCreate(uint8_t voicePatchType, int bankNo) {
+        return banks_[voicePatchType][bankNo];
     }
-    const HwBank* find(VoiceGroup group, int bankNo) const {
-        auto it = banks_.find(group);
+    const HwBank* find(uint8_t voicePatchType, int bankNo) const {
+        auto it = banks_.find(voicePatchType);
         if (it == banks_.end()) return nullptr;
         auto it2 = it->second.find(bankNo);
         if (it2 == it->second.end()) return nullptr;
@@ -257,23 +260,20 @@ public:
     }
     // SysExによるプリセットバンク直接編集(target-type=0x01)用の
     // 可変アクセサ(2026年7月新設)。
-    HwBank* findMutable(VoiceGroup group, int bankNo) {
-        auto it = banks_.find(group);
+    HwBank* findMutable(uint8_t voicePatchType, int bankNo) {
+        auto it = banks_.find(voicePatchType);
         if (it == banks_.end()) return nullptr;
         auto it2 = it->second.find(bankNo);
         if (it2 == it->second.end()) return nullptr;
         return &it2->second;
     }
 
-    // デバイス ID から VoiceGroup を解決 (旧 GetDeviceVoiceGroupMask 相当)
-    static VoiceGroup groupFromDeviceId(uint32_t deviceId);
-
-    // 指定groupに登録済みのバンク番号一覧を昇順で返す(GUIのパッチピッカー
-    // ダイアログ向け、直接デバイス選択モードのCC#32階層列挙用、
-    // 2026年7月新設)。該当groupが未登録なら空を返す。
-    std::vector<int> listBankNumbers(VoiceGroup group) const {
+    // 指定voicePatchTypeに登録済みのバンク番号一覧を昇順で返す(GUIの
+    // パッチピッカーダイアログ向け、直接デバイス選択モードのCC#32階層
+    // 列挙用、2026年7月新設)。該当チップが未登録なら空を返す。
+    std::vector<int> listBankNumbers(uint8_t voicePatchType) const {
         std::vector<int> result;
-        auto it = banks_.find(group);
+        auto it = banks_.find(voicePatchType);
         if (it == banks_.end()) return result;
         result.reserve(it->second.size());
         for (const auto& kv : it->second) result.push_back(kv.first);
@@ -281,18 +281,29 @@ public:
         return result;
     }
 
+    // 何らかのバンクが登録されているvoicePatchTypeの一覧を昇順で返す
+    // (「要求されたチップにバンクが無いが、同じ族の別チップにはある」
+    // 状況を診断するために使う)。
+    std::vector<uint8_t> listVoicePatchTypes() const {
+        std::vector<uint8_t> result;
+        result.reserve(banks_.size());
+        for (const auto& kv : banks_) result.push_back(kv.first);
+        std::sort(result.begin(), result.end());
+        return result;
+    }
+
     // HwPatch の解決:
-    //   指定の group/bank/prog から HwPatch を返す。
+    //   指定の voicePatchType/bank/prog から HwPatch を返す。
     //   見つからない場合は nullptr。
-    const HwPatch* resolve(VoiceGroup group, int bankNo, int prog) const {
-        const HwBank* b = find(group, bankNo);
+    const HwPatch* resolve(uint8_t voicePatchType, int bankNo, int prog) const {
+        const HwBank* b = find(voicePatchType, bankNo);
         if (!b) return nullptr;
         const auto& p = b->get(prog);
         return p.isValid() ? &p : nullptr;
     }
 
 private:
-    std::unordered_map<VoiceGroup,
+    std::unordered_map<uint8_t,
         std::unordered_map<int, HwBank>> banks_;
 };
 

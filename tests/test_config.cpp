@@ -124,8 +124,7 @@ TEST_CASE("FITOMConfig: banks.*[].file resolves relative to the profile's own di
     REQUIRE(cfg.loadProfile(profilePath, &pm));
 
     uint8_t voicePatchType = fitom::FITOMConfig::stringToVoicePatchType("OPN");
-    uint32_t group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    const auto* bank = pm.hwRegistry().find(group, 0);
+    const auto* bank = pm.hwRegistry().find(voicePatchType, 0);
     REQUIRE(bank != nullptr);
     CHECK(bank->name == "reldir test bank");
 }
@@ -167,8 +166,7 @@ TEST_CASE("FITOMConfig: banks as a string resolves to an external bank-set file,
     REQUIRE(cfg.loadProfile(profilePath, &pm));
 
     uint8_t voicePatchType = fitom::FITOMConfig::stringToVoicePatchType("OPN");
-    uint32_t group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    const auto* bank = pm.hwRegistry().find(group, 0);
+    const auto* bank = pm.hwRegistry().find(voicePatchType, 0);
     REQUIRE(bank != nullptr);
     CHECK(bank->name == "external bankset test");
 }
@@ -221,23 +219,71 @@ TEST_CASE("FITOMConfig: bank_overrides replaces a matching hw_banks entry (same 
 
     uint8_t opnType  = fitom::FITOMConfig::stringToVoicePatchType("OPN");
     uint8_t opmType  = fitom::FITOMConfig::stringToVoicePatchType("OPM");
-    uint32_t opnGroup = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(opnType);
-    uint32_t opmGroup = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(opmType);
 
     // group+bankが一致するOPN bank0は上書きされている
-    const auto* opnBank0 = pm.hwRegistry().find(opnGroup, 0);
+    const auto* opnBank0 = pm.hwRegistry().find(opnType, 0);
     REQUIRE(opnBank0 != nullptr);
     CHECK(opnBank0->name == "overridden OPN bank0");
 
     // 一致しないOPM bank0は共通セットのまま変化しない
-    const auto* opmBank0 = pm.hwRegistry().find(opmGroup, 0);
+    const auto* opmBank0 = pm.hwRegistry().find(opmType, 0);
     REQUIRE(opmBank0 != nullptr);
     CHECK(opmBank0->name == "common OPM bank0");
 
     // 共通セットに無いOPN bank1は追加としてロードされている
-    const auto* opnBank1 = pm.hwRegistry().find(opnGroup, 1);
+    const auto* opnBank1 = pm.hwRegistry().find(opnType, 1);
     REQUIRE(opnBank1 != nullptr);
     CHECK(opnBank1->name == "added OPN bank1");
+}
+
+TEST_CASE("FITOMConfig: 同じ族の別チップへ同じバンク番号を登録できる "
+          "(バンク番号の名前空間はチップごとに独立)", "[config]")
+{
+    // OPM/OPZ/OPZ2のように1つのVoiceGroupを共有するチップ同士でも、
+    // hw_banks[].groupが違えば別のバンクとして登録される。同じバンクデータを
+    // 複数のチップから引けるようにするため、プロファイル側でgroupだけ変えた
+    // エントリを並べる運用を成立させる。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_hwbank_per_chip_ns";
+    fs::create_directories(dir);
+
+    auto writeHwBank = [](const fs::path& p, const std::string& name) {
+        json hwbank = {{"name", name}, {"patches", json::array()}};
+        std::ofstream f(p);
+        f << hwbank.dump(2);
+    };
+    writeHwBank(dir / "opm.hwbank.json", "OPM bank0");
+    writeHwBank(dir / "opz.hwbank.json", "OPZ bank0");
+
+    json profile = {
+        {"profile_name", "per-chip bank namespace test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"hw_banks", json::array({
+                {{"group", "OPM"}, {"bank", 0}, {"file", "opm.hwbank.json"}},
+                {{"group", "OPZ"}, {"bank", 0}, {"file", "opz.hwbank.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "per_chip_ns.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    const uint8_t opmType = fitom::FITOMConfig::stringToVoicePatchType("OPM");
+    const uint8_t opzType = fitom::FITOMConfig::stringToVoicePatchType("OPZ");
+    REQUIRE(fitom::FITOMConfig::voicePatchTypeToVoiceGroup(opmType)
+            == fitom::FITOMConfig::voicePatchTypeToVoiceGroup(opzType));
+
+    const auto* opmBank = pm.hwRegistry().find(opmType, 0);
+    const auto* opzBank = pm.hwRegistry().find(opzType, 0);
+    REQUIRE(opmBank != nullptr);
+    REQUIRE(opzBank != nullptr);
+    CHECK(opmBank->name == "OPM bank0");
+    CHECK(opzBank->name == "OPZ bank0");
+    CHECK(opmBank->voicePatchType == opmType);
+    CHECK(opzBank->voicePatchType == opzType);
 }
 
 TEST_CASE("FITOMConfig: bank_overrides matches drum_banks by 'prog' (not 'bank', "

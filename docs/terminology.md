@@ -146,8 +146,8 @@ CC#0/#32 → PatchManager::resolveTriple(0x70, chipSel, hwProg, ...)
 BD(バスドラム、2op)以外は1オペレータのみの実際のFM音色パラメータを
 要求するため、**`VOICE_PATCH_OPL_RHY`(0x23)という通常のVoicePatchType**
 を持たせ、他の直接モードチップと全く同じ経路(`resolveTriple`→
-`HwBankRegistry`)でパッチを解決する。HwBankの名前空間も独立
-(`VOICE_GROUP_RHYTHM`)。
+`HwBankRegistry`)でパッチを解決する。HwBankの名前空間も、他のチップ
+種別と同じく`VOICE_PATCH_OPL_RHY`単位で独立している。
 
 「チャンネル番号=楽器」というハードウェア制約自体は`0x70`と同じで
 あるが、OPL_RHYはHwBankから「任意のHwPatch(音色)を指定可能」という

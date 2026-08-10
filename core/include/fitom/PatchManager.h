@@ -44,6 +44,17 @@ public:
     // ─── バンク管理 ───────────────────────────────────────────────
 
     HwBankRegistry&  hwRegistry() { return hwReg_; }
+
+    // 直接デバイス選択モードのCC#0値(またはToneLayer.voicePatchType)から、
+    // HwBankRegistryを引く際のキーを求める。PSG系だけは族全体で1つの
+    // バンク名前空間(VOICE_PATCH_SSG)を共有し、実際のチップはパッチごとの
+    // ext.targetVoicePatchTypeが決めるため、ここで入口へ寄せる
+    // (resolveTriple()のPSG分岐のコメント参照)。それ以外のチップは
+    // 要求値がそのままキーになる。
+    static uint8_t hwBankLookupVoicePatchType(uint8_t voicePatchType) noexcept {
+        return isPsgFamilyVoicePatchType(voicePatchType)
+            ? static_cast<uint8_t>(VOICE_PATCH_SSG) : voicePatchType;
+    }
     // サンプルベース音源系 (VOICE_PATCH_AWM等) 専用。hwRegistry()とは
     // 完全に独立したレジストリ (HwPatch/HwBankには一切影響しない)。
     SampleZoneBankRegistry& sampleRegistry() { return sampleReg_; }
@@ -159,11 +170,11 @@ public:
     // ─── バンクファイル I/O ───────────────────────────────────────
 
     // JSON 形式でバンクを読み込む
-    // voicePatchType: バンク全体で共通の VoicePatchType (VOICE_PATCH_*)。
-    // 省略時は 0 (未設定、後方互換用)。
+    // voicePatchType: このバンクが属するチップ (VOICE_PATCH_*)。
+    // プロファイルの hw_banks[].group が決め、バンク番号の名前空間は
+    // チップごとに独立する (HwBankRegistry のコメント参照)。
     bool loadHwBankJson(const std::filesystem::path& path,
-                        HwBankRegistry::VoiceGroup group, int bankNo,
-                        uint8_t voicePatchType = 0);
+                        uint8_t voicePatchType, int bankNo);
     // OPLL ROM音色用のswPatchメタデータ専用バンクを読み込む
     // (profile.jsonのhw_banks[].role=="builtin_swpatch_meta"用、
     // 2026年7月新設)。通常のHwBankRegistryには登録せず、
@@ -179,11 +190,11 @@ public:
 
     // 旧 FITOM INI 形式 (レガシー互換)
     bool loadHwBankLegacy(const std::filesystem::path& path,
-                          HwBankRegistry::VoiceGroup group, int bankNo);
+                          uint8_t voicePatchType, int bankNo);
 
     // JSON 形式でバンクを書き出す
     bool saveHwBankJson(const std::filesystem::path& path,
-                        HwBankRegistry::VoiceGroup group, int bankNo) const;
+                        uint8_t voicePatchType, int bankNo) const;
     bool saveSampleZoneBankJson(const std::filesystem::path& path,
                                  uint8_t voicePatchType, int bankNo) const;
     bool saveSwBankJson(const std::filesystem::path& path, int bankNo) const;

@@ -55,7 +55,7 @@
                   "PSG",
                   "PCM"
                 ],
-                "description": "対象チップ族。ロード時の VoiceGroup 解決に使用。PatchManager::stringToVoicePatchType(Config.cpp)が認識する全文字列を反映している(2026年7月に、細かい分類文字列(OPZ等)の多くが欠落していた不整合を修正)。SD1/MA3/MA5/MA7系は現状チップドライバが未実装のため、stringToVoicePatchType自体は認識するが本enumには含めない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
+                "description": "このバンクが属するチップ種別。VoicePatchType(直接デバイス選択モードのCC#0値)に変換され、bankと合わせてHwBankRegistryの検索キーになる。バンク番号の名前空間はチップ種別ごとに独立しているため、同じバンク番号でgroupだけ異なるエントリを並べれば、同じバンクファイルを複数のチップから選択できる(PSG系[SSG/EPSG/DCSG/SAA/SCC]のみ例外で、族全体でSSGの名前空間を共有する)。FITOMConfig::stringToVoicePatchType(Config.cpp)が認識する全文字列を反映している。SD1/MA3/MA5/MA7系は現状チップドライバが未実装のため、stringToVoicePatchType自体は認識するが本enumには含めない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
               },
               "bank": {
                 "type": "integer",

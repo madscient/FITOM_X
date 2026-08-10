@@ -18,44 +18,6 @@ namespace fitom {
 using json = nlohmann::json;
 
 // ================================================================
-//  HwBankRegistry: デバイス ID → VoiceGroup 解決
-// ================================================================
-
-HwBankRegistry::VoiceGroup HwBankRegistry::groupFromDeviceId(uint32_t deviceId)
-{
-    // FITOMdefine.h の DEVICE_* → VOICE_GROUP_* への対応
-    // 旧 CFITOM::GetDeviceVoiceGroupMask 相当
-    switch (deviceId & 0xFF) {
-    case DEVICE_OPM:  case DEVICE_OPP:  case DEVICE_OPZ:  case DEVICE_OPZ2:
-        return VOICE_GROUP_OPM;
-    case DEVICE_OPN:  case DEVICE_OPN2: case DEVICE_OPNA: case DEVICE_OPN3L:
-    case DEVICE_OPNB: case DEVICE_OPNC: case DEVICE_OPN2C: case DEVICE_OPN2L:
-    case DEVICE_2610B: case DEVICE_F286: case DEVICE_OPN3:
-        return VOICE_GROUP_OPNA;
-    case DEVICE_OPL:  case DEVICE_OPL2: case DEVICE_Y8950:
-        return VOICE_GROUP_OPL2;
-    case DEVICE_OPL3: case DEVICE_OPN3_L3:
-        return VOICE_GROUP_OPL3;
-    case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: case DEVICE_OPLLX:
-        return VOICE_GROUP_OPLL;
-    case DEVICE_SSG:  case DEVICE_PSG:  case DEVICE_SSGL: case DEVICE_SSGLP:
-    case DEVICE_SSGS: case DEVICE_EPSG: case DEVICE_DCSG: case DEVICE_SCC:
-    case DEVICE_SCCP: case DEVICE_SAA:  case DEVICE_DSG:
-        return VOICE_GROUP_PSG;
-    case DEVICE_OPL4: case DEVICE_OPL4ML: case DEVICE_OPL4ML2:
-        return VOICE_GROUP_OPL4;
-    case DEVICE_ADPCM: case DEVICE_ADPCMA: case DEVICE_ADPCMB:
-    case DEVICE_PCMD8: case DEVICE_MA1: case DEVICE_MA2:
-    case DEVICE_MA3:   case DEVICE_MA5:  case DEVICE_MA7:
-        return VOICE_GROUP_PCM;
-    case DEVICE_RHYTHM:
-        return VOICE_GROUP_RHYTHM;
-    default:
-        return VOICE_GROUP_NONE;
-    }
-}
-
-// ================================================================
 //  PatchManager
 // ================================================================
 
@@ -112,28 +74,30 @@ namespace {
 // 接続されている全デバイスに対して DeviceFactory::acceptsFallback を
 // 順に問い合わせ、受け入れ可能な最初の1つのインデックスを返す
 // (-1 = 見つからない)。usedVptにそのデバイスの実際のVoicePatchTypeを返す。
-// 同一VoiceGroupに登録済みのHwBankを、直接デバイス選択モードで実際に
-// 指定すべき値(CC#0=バンクのvoicePatchType / CC#32=バンク番号)の形で
-// 1行に列挙する。VoiceGroupは複数のチップ(例: OPM/OPZ/OPZ2)で共有される
-// 一方、バンクのvoicePatchTypeはプロファイルのhw_banks[].groupだけで決まり
-// resolveTriple()は厳密一致を要求するため、「バンクは存在するのに要求した
-// チップ名では引けない」状態が起こりうる。その診断用。
-std::string describeHwBanksInGroup(const HwBankRegistry& reg,
-                                    HwBankRegistry::VoiceGroup group) {
+// 要求されたチップと同じ族(VoiceGroup)に属するチップに登録済みのHwBankを、
+// 直接デバイス選択モードで実際に指定すべき値(CC#0=チップ / CC#32=バンク
+// 番号)の形で1行に列挙する。バンク番号の名前空間はチップごとに独立して
+// いるため、「同じ族の別チップになら同じバンクがある」状況が起こりうる
+// (プロファイルのhw_banks[].groupの指定違い)。その診断用。
+std::string describeHwBanksInFamily(const HwBankRegistry& reg,
+                                     uint8_t requestedVoicePatchType) {
     constexpr size_t kMaxListed = 12;
+    const uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(requestedVoicePatchType);
     std::string out;
     size_t listed = 0;
-    const auto bankNos = reg.listBankNumbers(group);
-    for (int no : bankNos) {
-        if (listed >= kMaxListed) { out += ", ..."; break; }
-        const HwBank* b = reg.find(group, no);
-        if (!b) continue;
-        if (!out.empty()) out += ", ";
-        out += "CC#0=" + std::to_string(b->voicePatchType)
-             + "(" + FITOMConfig::voicePatchTypeToString(b->voicePatchType) + ")"
-             + "/CC#32=" + std::to_string(no)
-             + " \"" + b->name + "\"";
-        ++listed;
+    for (uint8_t vpt : reg.listVoicePatchTypes()) {
+        if (FITOMConfig::voicePatchTypeToVoiceGroup(vpt) != group) continue;
+        for (int no : reg.listBankNumbers(vpt)) {
+            if (listed >= kMaxListed) { out += ", ..."; return out; }
+            const HwBank* b = reg.find(vpt, no);
+            if (!b) continue;
+            if (!out.empty()) out += ", ";
+            out += "CC#0=" + std::to_string(vpt)
+                 + "(" + FITOMConfig::voicePatchTypeToString(vpt) + ")"
+                 + "/CC#32=" + std::to_string(no)
+                 + " \"" + b->name + "\"";
+            ++listed;
+        }
     }
     return out.empty() ? std::string("(none)") : out;
 }
@@ -487,26 +451,14 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // データ (HwBank/HwPatch) は常に要求されたvoicePatchType基準で検索する。
     // フォールバック可否の判定 (OPLLファミリーのプリセット/ユーザー判定等)
     // にHwPatchの内容が必要なため、デバイス検索より先にデータを解決する。
-    auto group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    const HwBank* bank = hwReg_.find(group, hwBank);
+    // PSG系のみ、バンク検索は共有の入口(VOICE_PATCH_SSG)で行う
+    // (下のデバイス検索側のコメント参照)。
+    const HwBank* bank = hwReg_.find(hwBankLookupVoicePatchType(voicePatchType), hwBank);
     if (!bank) {
         FITOM_LOG_WARN(ctx << " chip=" << FITOMConfig::voicePatchTypeToString(voicePatchType)
             << " (CC#0=" << (int)voicePatchType << ") bank(CC#32)=" << (int)hwBank
-            << " — このバンク番号は未登録。同一グループの登録済みバンク: "
-            << describeHwBanksInGroup(hwReg_, group));
-        return result;
-    }
-    if (bank->voicePatchType != voicePatchType) {
-        // バンク自体は存在するが、別のチップとして登録されている。
-        // VoiceGroupは複数チップで共有されるため、この状態は「バンクは
-        // 見えるのに要求したCC#0では鳴らない」形で現れる。
-        FITOM_LOG_WARN(ctx << " chip=" << FITOMConfig::voicePatchTypeToString(voicePatchType)
-            << " (CC#0=" << (int)voicePatchType << ") bank(CC#32)=" << (int)hwBank
-            << " — バンク \"" << bank->name << "\" は chip="
-            << FITOMConfig::voicePatchTypeToString(bank->voicePatchType)
-            << " (CC#0=" << (int)bank->voicePatchType
-            << ") として登録されており一致しない (プロファイルのhw_banks[].group由来)。"
-            << " 同一グループの登録済みバンク: " << describeHwBanksInGroup(hwReg_, group));
+            << " — このチップにそのバンク番号は未登録。同じ族の登録済みバンク: "
+            << describeHwBanksInFamily(hwReg_, voicePatchType));
         return result;
     }
 
@@ -1111,15 +1063,14 @@ bool PatchManager::mergeDrumPatchFromJsonText(const std::string& jsonText, DrumP
 // ================================================================
 
 bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
-                                   HwBankRegistry::VoiceGroup group, int bankNo,
-                                   uint8_t voicePatchType)
+                                   uint8_t voicePatchType, int bankNo)
 {
     reportProgress("Loading HwBank: " + path.string());
     std::ifstream f(path);
     if (!f) { FITOM_LOG_ERR("Cannot open: " << path.string()); return false; }
     try {
         json j = json::parse(f, nullptr, true, true);
-        auto& bank = hwReg_.getOrCreate(group, bankNo);
+        auto& bank = hwReg_.getOrCreate(voicePatchType, bankNo);
         if (j.contains("name")) bank.name = j["name"].get<std::string>();
         bank.filename = path.string();
         bank.voicePatchType = voicePatchType;
@@ -1133,9 +1084,9 @@ bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
         // 直接デバイス選択モード(CC#0=VoicePatchType / CC#32=バンク番号)で
         // このバンクを引くために必要な値をそのままの形で出す。バンクの
         // voicePatchTypeはプロファイルのhw_banks[].group文字列だけで決まり
-        // (バンクファイル側の記述は参照しない)、resolveTriple()は要求値との
-        // 厳密一致を要求するため、「どのバンクがどのチップとして登録されて
-        // いるか」がログから直接読めないと不一致の原因が追えない。
+        // (バンクファイル側の記述は参照しない)、バンク番号の名前空間も
+        // チップごとに独立しているため、「どのバンクがどのチップとして
+        // 登録されているか」がログから直接読めないと解決失敗を追えない。
         FITOM_LOG_INFO("HwBank loaded: chip=" << FITOMConfig::voicePatchTypeToString(voicePatchType)
             << " (CC#0=" << (int)voicePatchType << ") bank(CC#32)=" << bankNo
             << " \"" << bank.name << "\""
@@ -1181,9 +1132,9 @@ bool PatchManager::loadOpllBuiltinMetaBankJson(const std::filesystem::path& path
 }
 
 bool PatchManager::saveHwBankJson(const std::filesystem::path& path,
-                                   HwBankRegistry::VoiceGroup group, int bankNo) const
+                                   uint8_t voicePatchType, int bankNo) const
 {
-    const HwBank* bank = hwReg_.find(group, bankNo);
+    const HwBank* bank = hwReg_.find(voicePatchType, bankNo);
     if (!bank) return false;
     json patches = json::array();
     for (int i = 0; i < BANK_PROG_SIZE; ++i) {
@@ -1416,7 +1367,7 @@ bool PatchManager::savePatchBankJson(const std::filesystem::path& path, int bank
 //  FITOMCfg.cpp の ParseVoiceBank 相当
 // ================================================================
 bool PatchManager::loadHwBankLegacy(const std::filesystem::path& path,
-                                     HwBankRegistry::VoiceGroup group, int bankNo)
+                                     uint8_t voicePatchType, int bankNo)
 {
     // 既存 CFITOMConfig::ParseVoiceBank で読んだ CFMBank を
     // HwBankRegistry に変換するブリッジ。
