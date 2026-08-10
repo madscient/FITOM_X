@@ -84,9 +84,13 @@ protected:
     }
 
     // モジュレータTL(ユーザー音色レジスタ$02の下位6bit、0.75dB/step)への変換。
-    // キャリア側($30下位4bit)と違いこちらは6bit幅。VTL(vel/exp感度)を
-    // モジュレータ=FM変調指数に効かせるため、生のhwOp[0].TLではなく
-    // VoiceProcessorのラウドネス空間の値をここへ通す。
+    // キャリア側($30下位4bit、3dB/step)と違いこちらは6bit/0.75dB幅。
+    // VTL(vel/exp感度)をモジュレータ=FM変調指数に効かせるため、生の
+    // hwOp[0].TLではなくVoiceProcessorのラウドネス空間の値をここへ通す。
+    //
+    // hwOp[].TLのステップ幅はOPN/OPM系と同じ0.75dBなので、ここはクランプで
+    // あってスケーリングではない — TL>>1 のような縮小を掛けるとステップ幅が
+    // 1.5dBに読み替わり減衰量が半分になる。
     static uint8_t modTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
     }
