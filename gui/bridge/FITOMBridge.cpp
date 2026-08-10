@@ -720,8 +720,8 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                     if (p) mon.progName = p->name;
                 }
             } else {
-                const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(bankSelMSB);
-                const auto* hwBank = pm.hwRegistry().find(group, mon.bankNo);
+                const auto* hwBank = pm.hwRegistry().find(
+                    fitom::PatchManager::hwBankLookupVoicePatchType(bankSelMSB), mon.bankNo);
                 if (hwBank) {
                     mon.bankName = hwBank->name;
                     const auto& hp = hwBank->get(mon.progNo);
@@ -1005,16 +1005,12 @@ bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKi
         const int bankNo = static_cast<int>(rl.hwPatch->id >> 16);
         const int prog   = static_cast<int>(rl.hwPatch->id & 0xFFFFu);
 
-        // deviceType はプロファイルのdevices[]メタデータ(FITOMConfig側)から
-        // 得る。ISoundDeviceの実体(CFITOM::getDevice())は問わない
-        // (resolveTriple()自身がこのメタデータだけでVoiceGroup照合している
-        // ため、実体の有無に依存させる必要が無い。実機HWプラグイン未接続の
-        // 環境でも解決できるようにするため意図的にこちらを使う)。
-        const uint32_t  deviceType = cfg.getDeviceType(rl.deviceIndex);
-        const uint8_t   vpt        = fitom::FITOMConfig::deviceTypeToVoicePatchType(deviceType);
-        const uint32_t  group      = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(vpt);
-
-        const fitom::HwBank* hwBank = pm.hwRegistry().find(group, bankNo);
+        // バンクの検索キーは、実際に発音するデバイスの種別ではなくCC#0で
+        // 要求された種別を使う。フォールバックでデータと別系統のチップが
+        // 選ばれている場合(OPZ用バンクをOPMで鳴らす等)、デバイス側の種別で
+        // 引くとバンクが見つからないため。
+        const fitom::HwBank* hwBank = pm.hwRegistry().find(
+            fitom::PatchManager::hwBankLookupVoicePatchType(bankSelMSB), bankNo);
         if (!hwBank || hwBank->filename.empty()) return false;
 
         outKind     = "device";
@@ -1127,35 +1123,16 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         result.push_back(std::move(info));
     }
 
-    // 列挙はVoiceGroup(OPM/OPZ/OPZ2等、複数チップで共有)単位で行う一方、
-    // PatchManager::resolveTriple()はバンクのvoicePatchTypeとの厳密一致を
-    // 要求する。そのため、ここに現れても選ぶと解決に失敗するバンク
-    // (別チップとして登録されているもの)が混ざりうる。挙動は変えずに、
-    // その不整合が起きているバンクをログに出しておく。
-    const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    std::string unresolvable;
-    for (int bankNo : pm.hwRegistry().listBankNumbers(group)) {
+    // 列挙のキーはPatchManager::resolveTriple()のバンク検索と同一にする
+    // (ここが緩いと、一覧に出るのに選ぶと解決に失敗するバンクが混ざる)。
+    const auto lookupVpt = fitom::PatchManager::hwBankLookupVoicePatchType(voicePatchType);
+    for (int bankNo : pm.hwRegistry().listBankNumbers(lookupVpt)) {
         if (hasOpllRom && bankNo == 0) continue;
         FITOMBankInfo info;
         info.bankNo = bankNo;
-        const auto* bank = pm.hwRegistry().find(group, bankNo);
-        if (bank) {
-            info.name = bank->name;
-            if (bank->voicePatchType != voicePatchType) {
-                if (!unresolvable.empty()) unresolvable += ", ";
-                unresolvable += "CC#32=" + std::to_string(bankNo)
-                    + " \"" + bank->name + "\" ("
-                    + fitom::FITOMConfig::voicePatchTypeToString(bank->voicePatchType) + ")";
-            }
-        }
+        const auto* bank = pm.hwRegistry().find(lookupVpt, bankNo);
+        if (bank) info.name = bank->name;
         result.push_back(std::move(info));
-    }
-    if (!unresolvable.empty()) {
-        FITOM_LOG_WARN("getHwBankList: chip="
-            << fitom::FITOMConfig::voicePatchTypeToString(voicePatchType)
-            << " (CC#0=" << (int)voicePatchType << ") の一覧に、別チップとして"
-            << "登録されているため選んでも解決に失敗するバンクが含まれる: "
-            << unresolvable);
     }
     return result;
 }
@@ -1228,8 +1205,8 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
         }
     }
 
-    const auto group = fitom::FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-    const auto* bank = pm.hwRegistry().find(group, hwBank);
+    const auto* bank = pm.hwRegistry().find(
+        fitom::PatchManager::hwBankLookupVoicePatchType(voicePatchType), hwBank);
     if (!bank) return result;
 
     for (int prog = 0; prog < fitom::BANK_PROG_SIZE; ++prog) {

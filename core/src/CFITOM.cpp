@@ -1906,8 +1906,7 @@ void MidiProcessor::processPrivateSysEx()
         const uint8_t hwBank         = sysexBuf_[6];
         const uint8_t hwProg         = sysexBuf_[7];
 
-        const uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-        HwBank* bank = pm.hwRegistry().findMutable(group, hwBank);
+        HwBank* bank = pm.hwRegistry().findMutable(voicePatchType, hwBank);
         if (!bank) {
             FITOM_LOG_WARN("SysEx: HwPatch override (bank) target not found: voicePatchType=0x"
                 << std::hex << (int)voicePatchType << std::dec << " hwBank=" << (int)hwBank);

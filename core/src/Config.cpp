@@ -1649,9 +1649,9 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
 
             std::string groupStr = e.value("group", "OPN");
             int bankNo  = e.value("bank", 0);
-            // "group" 文字列 → VoicePatchType → VoiceGroup(検索キー) の2段変換。
-            // (旧実装は "OPZ" 等の細分類文字列を判定できず VOICE_GROUP_OPNA に
-            //  誤って落ちるバグがあったため、ここで併せて修正する)
+            // "group" 文字列 → VoicePatchType (そのままHwBankRegistryの
+            // 検索キーになる)。バンク番号の名前空間はチップごとに独立して
+            // いるため、同じバンク番号を族内の複数チップへ登録できる。
             uint8_t  voicePatchType = FITOMConfig::stringToVoicePatchType(groupStr);
             if (voicePatchType == VOICE_PATCH_NONE) {
                 FITOM_LOG_WARN("hw_banks: unknown group \"" << groupStr
@@ -1664,8 +1664,7 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
                 pm.loadSampleZoneBankJson(path, bankNo, voicePatchType);
                 continue;
             }
-            uint32_t group = FITOMConfig::voicePatchTypeToVoiceGroup(voicePatchType);
-            pm.loadHwBankJson(path, group, bankNo, voicePatchType);
+            pm.loadHwBankJson(path, voicePatchType, bankNo);
         }
     }
     if (banks.contains("sw_banks")) {

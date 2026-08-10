@@ -13,8 +13,8 @@ PatchBank (*.patchbank.json)
 ```
 
 ```
-HwBank (*.hwbank.json)  ← VoiceGroup (粗い分類, 9種) ごとに登録
-  ├── voicePatchType     ← バンク全体で共通の細分類タグ (整合性検証用)
+HwBank (*.hwbank.json)  ← VoicePatchType (チップ種別) × バンク番号で登録
+  ├── voicePatchType     ← バンク全体で共通のチップ種別タグ
   └── HwPatch [prog 0..127]
         ├── FmHwVoice hw    (FB / ALG / AMS / PMS / NFQ)
         ├── FmHwOp hwOp[4]  (AR/DR/SL/.../TL/KSR/.../MUL/DT1/DT2/AM/VIB/EGT/WS)
@@ -403,11 +403,11 @@ resolveTriple(voicePatchType, hwBank, hwProg, ...)
 
 対応するHwBank用スキーマは無く、`SampleZonePatch`専用のバンクファイル
 形式(サンプルバンクJSON)で管理される。`SampleZoneBankRegistry`は
-`(voicePatchType, bankNo)`をキーにバンクを保持しており(2026年7月修正)、
-`ADPCM-B`/`ADPCM-A`/`PCMD8`/`AWM`はバンク番号が重複してもチップごとに
-独立して共存できる。
-**注意:** ここは`voicePatchTypeToVoiceGroup()`(`HwBankRegistry`が使う
-`VoiceGroup`変換)を経由してはならない。この変換は`ADPCM-B`/`ADPCM-A`/
+`HwBankRegistry`と同じく`(voicePatchType, bankNo)`をキーにバンクを保持
+しており、`ADPCM-B`/`ADPCM-A`/`PCMD8`/`AWM`はバンク番号が重複しても
+チップごとに独立して共存できる。
+**注意:** ここは`voicePatchTypeToVoiceGroup()`による
+`VoiceGroup`変換を経由してはならない。この変換は`ADPCM-B`/`ADPCM-A`/
 `PCMD8`/`AWM`を全て`VOICE_GROUP_PCM`へ束ねるため、`VoiceGroup`をキーに
 すると逆にこの4チップ族がバンク番号空間を共有してしまう(実際に
 AWMバンク0/1とADPCM-B/ADPCM-Aのバンク0/1が番号衝突し、後から読み込んだ
@@ -631,9 +631,9 @@ SCC(K051649/K052539)は、実機のハードウェアケーパビリティに大
 
 ```
 ① バンク検索: voicePatchType=VOICE_PATCH_SSG(0x40固定)で共有バンクを
-   引く。HwBank::voicePatchTypeも常に0x40("SSG"としてロードされた
-   バンク)であるため、既存の厳密一致チェック(bank->voicePatchType
-   != voicePatchType)はそのまま機能する(変更不要)。
+   引く(PatchManager::hwBankLookupVoicePatchType()が、PSG系のCC#0値を
+   この入口へ寄せる)。他のチップ族と異なり、CC#0=EPSG/DCSG/SAA/SCCを
+   指定してもバンク自体は常に0x40の名前空間から引かれる。
 ② パッチ取得: hwBank/hwProgで個別のHwPatchを取得(既存の仕組み通り)。
 ③ デバイス解決(★新設): HwPatch::ext.targetVoicePatchTypeを読み、
    実際に対象とするチップ(VOICE_PATCH_SSG/EPSG/DCSG/SAA/SCCの
@@ -773,11 +773,18 @@ DrumNoteが直接モードを選べることで、ドラムキットの1音ご�
 ```
 
 `group: "OPZ"` → `voicePatchType = VOICE_PATCH_OPZ(0x1a)`
-→ `voiceGroup = VOICE_GROUP_OPM`（`HwBankRegistry`検索キー）
+→ `HwBankRegistry` の検索キーは `(0x1a, bank=0)`
 
-VoiceGroup（粗い分類、9種）は `HwBankRegistry` の検索キーとして維持し、
-データフォーマット・パラメータ範囲の分類に使う。VoicePatchType（27種）は
-バンク単位のタグとして、実際に解決されたデバイスとの整合性検証に使う。
+バンク番号の名前空間はチップ (VoicePatchType) ごとに独立しており、
+`hw_banks[]` に `group` だけ変えた同じバンク番号のエントリを並べれば、
+同一ファイルを複数のチップから引けるようになる（例: 同じOPM系バンクを
+`group:"OPM"` と `group:"OPZ"` の両方に登録すると、CC#0=25/26のどちらでも
+選択できる）。VoiceGroup（粗い分類、9種）はチップ族の括りを問う用途
+（フォールバック候補の探索やログの診断表示など）にのみ使い、バンクの
+検索キーには使わない。
+
+PSG系だけは例外で、族全体で1つのバンク名前空間 (`VOICE_PATCH_SSG`) を
+共有する（本書「PSG系共有バンク」節参照）。
 
 ### pcm_banks の group (2026年7月新設)
 
