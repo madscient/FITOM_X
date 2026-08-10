@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <iterator>
 #include <unordered_map>
 
 namespace fitom {
@@ -157,9 +158,10 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_OPL,     "FM"}, {DEVICE_OPL2,   "FM"},
     {DEVICE_OPLL,    "FM"}, {DEVICE_OPLL2,  "FM"}, {DEVICE_OPLLP,  "FM"},
     {DEVICE_OPLLX,   "FM"}, {DEVICE_VRC7,   "FM"},
-    // OPL3は4OP/2OPの2つのサブデバイスに分かれる
-    {DEVICE_OPL3,    "4OP"},
-    {DEVICE_OPL3_2,  "2OP"},
+    // OPL3は4OP/2OPの2つのサブデバイスに分かれる。OPL3系はch数が多く
+    // バーの幅が狭いため、"4OP"/"2OP"ではなく1文字(Quad/Dual)にする。
+    {DEVICE_OPL3,    "Q"},
+    {DEVICE_OPL3_2,  "D"},
     // 内蔵リズム音源
     {DEVICE_OPNA_RHY, "RHY"}, {DEVICE_OPL_RHY, "RHY"}, {DEVICE_OPLL_RHY, "RHY"},
     // PSG系
@@ -173,10 +175,37 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_ADPCMB_Y8950, "PB"},
     {DEVICE_ADPCM,        "PCM"},
     {DEVICE_PCMD8,        "PCM"},
-    // AWM (サンプル音源)
-    {DEVICE_OPL4AWM, "AWM"},
+    // AWM (サンプル音源)。OPL4は24chあるため1文字にする(上記OPL3と同じ理由)。
+    {DEVICE_OPL4AWM, "A"},
     {DEVICE_NONE, nullptr},
 };
+
+// ================================================================
+//  内蔵リズム音源のチャンネル名 (チャンネルレベルメーター用)
+//
+//  内蔵リズム音源のchは通し番号ではなく実機固定の打楽器パートその
+//  ものなので、接頭辞+番号ではなく楽器名の省略表記を出す。並びは
+//  各ドライバの論理ch割り当て(COPNARhythm/COPLRhythm/COPLLRhythm)に
+//  一致させること。
+// ================================================================
+struct RhythmChannelNameEntry {
+    uint32_t    devid;
+    const char* names[6];   // 未使用要素はnullptr
+};
+
+static const RhythmChannelNameEntry kRhythmChannelNameMap[] = {
+    {DEVICE_OPNA_RHY, {"BD", "SD", "CY", "HH", "Tom", "Rim"}},
+    {DEVICE_OPL_RHY,  {"HH", "CY", "Tom", "SD", "BD", nullptr}},
+    {DEVICE_OPLL_RHY, {"HH", "CY", "Tom", "SD", "BD", nullptr}},
+    {DEVICE_NONE,     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},
+};
+
+std::string subDeviceChannelPrefix(uint32_t deviceType) {
+    for (int i = 0; kChannelPrefixMap[i].prefix != nullptr; ++i) {
+        if (kChannelPrefixMap[i].devid == deviceType) return kChannelPrefixMap[i].prefix;
+    }
+    return "CH";
+}
 
 } // anonymous namespace
 
@@ -206,11 +235,15 @@ uint32_t CFITOM::getDeviceRegSize(uint32_t deviceId) {
     return 0;
 }
 
-std::string CFITOM::getSubDeviceChannelPrefix(uint32_t deviceType) {
-    for (int i = 0; kChannelPrefixMap[i].prefix != nullptr; ++i) {
-        if (kChannelPrefixMap[i].devid == deviceType) return kChannelPrefixMap[i].prefix;
+std::string CFITOM::getSubDeviceChannelName(uint32_t deviceType, int ch) {
+    if (ch >= 0 && ch < static_cast<int>(std::size(kRhythmChannelNameMap[0].names))) {
+        for (int i = 0; kRhythmChannelNameMap[i].devid != DEVICE_NONE; ++i) {
+            if (kRhythmChannelNameMap[i].devid != deviceType) continue;
+            if (const char* name = kRhythmChannelNameMap[i].names[ch]) return name;
+            break;
+        }
     }
-    return "CH";
+    return subDeviceChannelPrefix(deviceType) + std::to_string(ch + 1);
 }
 
 uint32_t CFITOM::getDeviceIdFromName(const std::string& name) {

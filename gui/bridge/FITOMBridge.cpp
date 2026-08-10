@@ -464,10 +464,9 @@ std::vector<FITOMLevelBand> FITOMBridge::getPhysicalLevelBands() const
         auto states = core.getPhysicalChipChannelStates(i);
         size_t stateIdx = 0;
         for (const auto& sub : info->subDevices) {
-            std::string prefix = fitom::CFITOM::getSubDeviceChannelPrefix(sub.deviceType);
             for (uint8_t ch = 0; ch < sub.chCount && stateIdx < states.size(); ++ch, ++stateIdx) {
                 FITOMLevelChannel c;
-                c.name     = prefix + std::to_string(static_cast<int>(ch) + 1);
+                c.name     = fitom::CFITOM::getSubDeviceChannelName(sub.deviceType, ch);
                 c.sounding  = states[stateIdx].sounding;
                 c.velocity  = states[stateIdx].velocity;
                 c.enabled   = states[stateIdx].enabled;
@@ -499,10 +498,10 @@ std::vector<FITOMLevelBand> FITOMBridge::getLogicalLevelBands() const
         FITOMLevelBand band;
         band.label = core.getConfig().getDeviceLabel(i);
 
-        std::string prefix = fitom::CFITOM::getSubDeviceChannelPrefix(dev->getDeviceType());
         for (size_t ch = 0; ch < states.size(); ++ch) {
             FITOMLevelChannel c;
-            c.name     = prefix + std::to_string(static_cast<int>(ch) + 1);
+            c.name     = fitom::CFITOM::getSubDeviceChannelName(dev->getDeviceType(),
+                                                                static_cast<int>(ch));
             c.sounding  = states[ch].sounding;
             c.velocity  = states[ch].velocity;
             c.enabled   = states[ch].enabled;

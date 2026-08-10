@@ -60,8 +60,8 @@ struct FITOMChipInfo {
 // ─── チャンネルレベルメーター情報 (2026年7月新設) ──────────────────────────
 // FITOM_Xは音声合成を行わないため実際の音量信号は存在しない。soundingと
 // velocityによる疑似メーター表示である点に注意(CFITOM::PhysicalChipChannelState
-// 参照)。nameは「接頭辞+ch番号」形式("FM1"等、CFITOM::getSubDeviceChannelPrefix()
-// から組み立て済み)。
+// 参照)。nameは「接頭辞+ch番号」形式("FM1"等)、内蔵リズム音源のみ楽器名の
+// 省略表記("BD"等)で、いずれもCFITOM::getSubDeviceChannelName()が返す。
 struct FITOMLevelChannel {
     std::string name;
     bool        sounding = false;
