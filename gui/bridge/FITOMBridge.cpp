@@ -683,6 +683,10 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         // ままにし、GUI側で数値表示にフォールバックする。
         const uint8_t bankSelMSB = midich->getBankSelMSB();
         if (mon.isRhythm) {
+            // リズムチャンネルのバンクはDrumBankRegistry側にしか実体が無く、
+            // 他のモードのような「バンク名」に相当する表示が存在しないため、
+            // 固定ラベルで埋める(空文字のままだとGUIが未解決扱いになる)。
+            mon.bankName = "リズムチャンネル";
             const auto* dp = pm.drumRegistry().resolve(mon.bankNo, mon.progNo);
             if (dp) mon.progName = dp->name;
         } else if (bankSelMSB == 0) {
