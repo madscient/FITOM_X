@@ -285,12 +285,14 @@ public:
     std::vector<PhysicalChipChannelState> getPhysicalChipChannelStates(int index) const;
 
     // 指定deviceType(サブデバイス自身のdeviceType、PhysicalChipSubDevice::
-    // deviceType)のチャンネル名接頭辞を返す(例: DEVICE_SSG→"SSG"、
-    // DEVICE_OPL3→"4OP"、DEVICE_OPL3_2→"2OP"、DEVICE_OPL4AWM→"AWM"等)。
-    // チャンネルレベルメーターのラベルは呼び出し側で「接頭辞+(ch+1)」
-    // として組み立てる想定(例: "SSG"+1→"SSG1")。未登録のdeviceTypeは
-    // "CH"を返す(汎用フォールバック)。
-    static std::string getSubDeviceChannelPrefix(uint32_t deviceType);
+    // deviceType)のチャンネルch(0始まり)の表示名を返す(チャンネルレベル
+    // メーターのラベル用)。通常は「接頭辞+(ch+1)」形式(例: DEVICE_SSG→
+    // "SSG1"、DEVICE_OPL3→"Q1"、DEVICE_OPL4AWM→"A1")。内蔵リズム音源
+    // (DEVICE_OPNA_RHY/DEVICE_OPL_RHY/DEVICE_OPLL_RHY)だけは、chが実機の
+    // 固定パート(打楽器)に一対一対応するため番号ではなく楽器名の省略表記
+    // ("BD"/"SD"/"CY"/"HH"/"Tom"/"Rim")を返す。未登録のdeviceTypeは
+    // "CH"+(ch+1)を返す(汎用フォールバック)。
+    static std::string getSubDeviceChannelName(uint32_t deviceType, int ch);
 
     // ─── 論理チップ単位のチャンネル状態 (チャンネルレベルメーターの
     //     物理/論理表示切替用、2026年7月新設) ──────────────────────────
