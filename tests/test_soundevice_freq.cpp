@@ -912,8 +912,53 @@ TEST_CASE("COPL4AWM subtracts the ALSA-equivalent fixed volume_boost(=8) so "
 
     const uint16_t reg50 = static_cast<uint16_t>(0x200 + 0x50 + ch);
     // 127-(127-0)*200/254=27、そこからvolume_boost(8)を引いて19。
+    // bit0(LevelDirect)はこのテストの対象外のためマスクして比較する
+    // (ノートオン時はKEYON未送信のためLevelDirect=1になる、別テスト参照)。
     const int expectedTotalLevel = 19;
-    CHECK(port.regs[reg50] == static_cast<uint8_t>((expectedTotalLevel & 0x7F) << 1));
+    CHECK((port.regs[reg50] & 0xFE) == static_cast<uint8_t>((expectedTotalLevel & 0x7F) << 1));
+}
+
+// ymfm(pcm_channel::clock())はreg 0x50 bit0(LevelDirect)=0だと、TotalLevelを
+// 即座に反映せず最大78.2ms(最小→最大)/156.4ms(最大→最小)かけて補間する。
+// ALSAのsnd_opl4_note_on()はノートオン時の最初の音量セットだけ
+// level_direct=1(即時反映)にし、それ以降のCC由来の更新はlevel_direct=0
+// (補間)に戻す。COPL4AWM::updateVolExp()は従来常にLevelDirect=0で書いて
+// おり、チャンネル再利用時など直前のTotalLevelと新しいノートの目標値が
+// 離れていると音量が徐々にしか立ち上がらない不具合があった(2026年8月、
+// ユーザー報告「ラウンドロビンで1周すると音量・音色が変わる」の調査で
+// 発見)。reg 0x68のKEYONビット(bit7)がまだ立っていない間はLevelDirect=1、
+// 既に立っている(発音中のリアルタイムCC変化)間はLevelDirect=0になる
+// ことを確認する。
+TEST_CASE("COPL4AWM uses LevelDirect=1 before KEYON (note-on) and "
+          "LevelDirect=0 for live volume changes while already sounding",
+          "[sounddevice][opl4]")
+{
+    RecordingPort port;
+    OffsetPort awmPort(&port, 0x200);
+    auto dev = createCOPL4AWM(&awmPort, 44100);
+    dev->init();
+
+    SampleZonePatch patch;
+    patch.id = 1;
+    SampleZone zone{};
+    zone.keyMin = 0; zone.keyMax = 127;
+    zone.waveIndex = 300;
+    patch.zones.push_back(zone);
+
+    uint8_t ch = dev->allocCh(nullptr, nullptr, 100, nullptr, &patch);
+    REQUIRE(ch != 0xFF);
+    dev->setNoteFine(ch, 60, 0, true);
+    dev->noteOn(ch, 100);
+
+    const uint16_t reg50 = static_cast<uint16_t>(0x200 + 0x50 + ch);
+    const uint16_t reg68 = static_cast<uint16_t>(0x200 + 0x68 + ch);
+    REQUIRE((port.regs[reg68] & 0x80) != 0); // KEYONが立っていること(noteOn済み)
+    CHECK((port.regs[reg50] & 0x01) == 1);   // ノートオン時点の書き込みはLevelDirect=1
+
+    // 発音中にCC#7相当のリアルタイム音量変化が来たケースを模す。
+    dev->setVolume(ch, 50, true);
+    CHECK((port.regs[reg68] & 0x80) != 0);   // KEYONは変化していない(発音継続中)
+    CHECK((port.regs[reg50] & 0x01) == 0);   // 発音中の変化はLevelDirect=0(補間)
 }
 
 // ユーザー報告(2026年7月): OPLビルトインリズムでバスドラム(BD)だけ発音せず、
