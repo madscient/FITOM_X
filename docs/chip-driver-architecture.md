@@ -164,6 +164,48 @@ velocityを全て最大にして生の`totalLevel=0`になっても、`volumeFac
 せず別バンクのCOPL3からは書き込めないため、実際は`COPL4AWM::init()`が
 FM/PCM両方のミキサーレベルを初期化する唯一の経路)も訂正した。
 
+**LevelDirect(reg 0x50 bit0)** — ラウンドロビン一周後に音量・音色が変わる
+不具合の真因(2026年8月、最終決着): 上記の修正を全て適用してもなお
+「AWMチャンネルを連打してラウンドロビンで1周すると、以後ずっと音量が
+小さくなり音色も変わる」という報告が残った。FITOM_X側のレジスタ
+シャドウキャッシュ(`getReg()`)を見る限りwaveIndex/fnum/octave/
+finalTotalLevelは1周前後で完全に一致しており、「FITOM_Xが書いたつもりの
+値」には異常が無かった。`setReg()`の`forceWrite=false`時のキャッシュ
+スキップ機構(値が変わらなければ実書き込み自体をスキップする)、
+`reg 0x105`(NEW1/NEW2)の再クリア、の2つの仮説を検証したがいずれも
+不一致(前者はforceWrite=trueにしても再現、後者はラウンドロビン一周
+というトリガーと整合しないため撤回)。
+
+最終的に、ユーザー了承のもと`YMEngine`(`extern/ymfm/src/ymfm_pcm.cpp`、
+submodule、ローカル検証用でcommit対象外)へ`load_wavetable()`/
+`keyonoff()`/`prepare()`の内部状態を直接ファイル出力するデバッグ計装を
+追加し、ビルドした`YMFMEngine.dll`を検証環境へ一時差し替えて確認した
+ところ、**`m_total_level`(reg 0x50由来のTotalLevelをオーディオレート側で
+補間する内部状態)が、ATTACK開始時点で直前のノートの値のままで、目標値
+まで78.2ms(最小→最大)/156.4ms(最大→最小)かけてゆっくり近づいていく**
+ことが判明した。真因は`COPL4AWM::updateVolExp()`がreg 0x50 bit0
+(LevelDirect)を常に0(補間あり)で書いていたこと。ymfmの
+`pcm_channel::prepare()`はLevelDirect=1の場合のみ`m_total_level`を
+目標値へ即座にスナップする実装で、ALSAの`snd_opl4_note_on()`もノートオン
+時の最初の音量セットだけ`level_direct=1`(即時反映)にし、以降のCC由来の
+更新は`level_direct=0`(補間)に戻す設計になっている。FITOM_X側は常に0で
+書いていたため、チャンネル再利用時など直前のTotalLevelと新しいノートの
+目標値が離れていると音量が徐々にしか立ち上がらず(短いノートだと立ち
+上がりきる前に終わる)、これが「音量が大きく下がる」「(補間途中の
+中間的な減衰量域での聴こえ方の違いにより)音色も変わって聞こえる」症状の
+直接原因だった。
+
+`updateVolExp()`をreg 0x68のKEYONビット(bit7)で判定し、KEYON未セット
+(ノートオン処理中、まだ実際のKEY ON書き込み前)ならLevelDirect=1、既に
+KEYON中(発音中のリアルタイムCC#7/CC#11変化)ならLevelDirect=0とするよう
+修正した。判定に`ChState::isRunning()`を使わなかったのは、
+`CSoundDevice::noteOn()`内で`s.run()`が実際の`updateKey(true)`呼び出し
+より先に実行されるため、まだKEY ON未送信の段階で`isRunning()`が`true`に
+なってしまい判定に使えないため(`getReg()`でreg 0x68の実際のKEYONビットを
+直接見ることで、この呼び出し順序に依存しない判定にした)。ユーザーによる
+再現テスト(キーオン168回、ラウンドロビン約7周)で症状が再現しなくなった
+ことを確認済み。
+
 ```cpp
 struct SubDeviceSpec {
     uint32_t    deviceType;

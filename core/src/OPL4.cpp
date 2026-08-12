@@ -154,10 +154,9 @@ protected:
     // 書いてから低位バイトで確定させる同種の設計]との比較で判明)。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
-        uint16_t waveNum = 0;
-        if (const SampleZone* zone = s.samplePatch ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr) {
-            waveNum = zone->waveIndex;
-        }
+        const SampleZone* zone = s.samplePatch
+            ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr;
+        uint16_t waveNum = zone ? zone->waveIndex : 0;
         uint8_t reg20cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xFE;
         setReg(static_cast<uint16_t>(0x20 + ch),
                static_cast<uint8_t>(reg20cur | ((waveNum >> 8) & 1)), true);
@@ -203,7 +202,8 @@ protected:
         const SampleZone* zone = s.samplePatch
             ? s.samplePatch->resolveZone(s.lastNote, s.velocity) : nullptr;
         uint8_t loudness = fitom::calcVolExpVel(s.volume, s.expression, s.velocity);
-        int totalLevel = 127 - static_cast<int>(loudness); // 7bit、大きいほど減衰
+        int rawTotalLevel = 127 - static_cast<int>(loudness); // 7bit、大きいほど減衰
+        int totalLevel = rawTotalLevel;
         if (zone) {
             totalLevel += zone->toneAttenuate;
             totalLevel = 127 - (127 - totalLevel) * zone->volumeFactor / 254;
@@ -211,8 +211,32 @@ protected:
         totalLevel -= kVolumeBoost;
         // ALSAのsnd_opl4_update_volume()と同じ上限(0x7e、0x7fではない)。
         totalLevel = std::clamp(totalLevel, 0, 0x7e);
+
+        // LevelDirect(reg 0x50 bit0): ymfm(pcm_channel::clock())はLevelDirect=0の
+        // 場合、TotalLevelを即座に反映せず「最大→最小156.4ms/最小→最大78.2ms」
+        // かけて徐々に補間する(CC#7/CC#11のリアルタイム変化を滑らかにする
+        // ための仕様)。ALSAのsnd_opl4_note_on()はノートオン時の最初の音量
+        // セットだけlevel_direct=1(即時反映)にし、それ以降のCC由来の更新
+        // ではlevel_direct=0(補間)に戻している。本実装は従来常にLevelDirect=0
+        // で書いていたため、チャンネル再利用時など直前のTotalLevelと新しい
+        // ノートの目標値が離れていると、最大78.2msかけてゆっくり音量が
+        // 立ち上がる(短いノートだと立ち上がりきる前に終わり、聴感上
+        // 大幅に音量が低い/エンベロープの違う箇所を聴いているように感じる)
+        // 不具合があった。判定にChState::isRunning()(s.run()がupdateKey(true)
+        // より前に呼ばれるため、まだ実際のKEY ONレジスタ書き込み前なのに
+        // trueになってしまい判定に使えない)ではなく、reg 0x68のKEYONビット
+        // (bit7)を直接見る: 現在KEYONが立っていなければ(未発音チャンネルの
+        // ノートオン処理中、またはKEY OFF後の再利用)ALSAと同じくLevelDirect=1
+        // で即時反映し、既にKEYONが立っていれば(発音中のCC#7/CC#11
+        // リアルタイム変化)LevelDirect=0で滑らかに補間する(2026年8月、
+        // ユーザー報告「ラウンドロビンで1周すると音量・音色が変わる」の
+        // 調査で発見。ymfm[extern/ymfm/src/ymfm_pcm.cpp]へ一時的に仕込んだ
+        // 内部状態ログで、修正前は`m_total_level`が直前のノートの値から
+        // ゆっくり補間され続けていたことを確認済み)。
+        bool levelDirect = (getReg(static_cast<uint16_t>(0x68 + ch)) & 0x80) == 0;
         setReg(static_cast<uint16_t>(0x50 + ch),
-               static_cast<uint8_t>((static_cast<uint8_t>(totalLevel) & 0x7F) << 1), false); // LevelDirect=0
+               static_cast<uint8_t>(((static_cast<uint8_t>(totalLevel) & 0x7F) << 1)
+                                     | (levelDirect ? 1 : 0)), false);
     }
 
     void updatePanpot(uint8_t ch) override {
