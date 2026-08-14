@@ -723,8 +723,15 @@ protected:
 // ================================================================
 class CEPSG : public CPSGBase {
 public:
+    // 内部シャドウ上のBank Bオフセット。実チップのアドレスは8bitのままで、
+    // Bank A/Bはレジスタ0x0Dのbit4で切り替える多重化方式のため、アドレス
+    // だけではバンクを区別できない。regBak_(と後述のレジスタビュー)では
+    // Bank Bを0x100以降へ分離して持ち、チップへ送る際に8bitへ戻す。
+    // (この0x100はIPortのa_high[SPFM拡張アドレス]とは無関係の内部表現)
+    static constexpr uint16_t kBankB = 0x100;
+
     CEPSG(IPort* port, int sampleRate)
-        : CPSGBase(DEVICE_EPSG, port, 0x20, 3, sampleRate)
+        : CPSGBase(DEVICE_EPSG, port, kBankB + 0x20, 3, sampleRate)
     {
         opCount_ = 2;
     }
@@ -732,20 +739,61 @@ public:
     std::string getDescriptor() const override { return "AY8930 (EPSG) 3ch"; }
 
     void init() override {
-        setReg(0xd, 0xb0, true); // Expand Mode有効化 + Bank B選択
-        setReg(0x9, 0xff, true); // Noise AND mask
-        setReg(0xa, 0x00, true); // Noise OR mask
-        setReg(0x04, 0, true);
-        setReg(0x05, 0, true);
-        setReg(0xd, 0xa0, true); // Bank A選択
-        setReg(0x07, 0x3f, true);
-        setReg(0x08, 0, true);
-        setReg(0x09, 0, true);
-        setReg(0x0a, 0, true);
+        // Bank B
+        writeBank(1, 0x09, 0xff, true); // Noise AND mask
+        writeBank(1, 0x0a, 0x00, true); // Noise OR mask
+        writeBank(1, 0x04, 0x00, true); // ch1 エンベロープシェイプ
+        writeBank(1, 0x05, 0x00, true); // ch2 エンベロープシェイプ
+        // Bank A
+        writeBank(0, 0x07, 0x3f, true); // 全チャンネル無効化
+        writeBank(0, 0x08, 0x00, true);
+        writeBank(0, 0x09, 0x00, true);
+        writeBank(0, 0x0a, 0x00, true);
+    }
+
+    // バンク切り替えを持つため、ポートのシャドウレジスタでは表現できない。
+    // ドライバ自身が持つバンク付きシャドウをレジスタダンプへ提供する。
+    bool getBankedRegisterView(std::vector<uint8_t>& out) const override {
+        if (!regBak_) return false;
+        out.assign(regBak_, regBak_ + regSize_);
+        return true;
     }
 
 protected:
     uint8_t prevMix_ = 0x3f;
+    uint8_t curBank_ = 0xFF;   // 未確定 (最初のwriteBankで必ず選択させる)
+
+    // レジスタ0x0D: bit7-5=101で拡張モード有効、bit4=バンク選択、
+    // bit3-0=ch0のエンベロープシェイプ。シェイプは保持したまま切り替える。
+    void selectBank(uint8_t bank) {
+        uint8_t shape = static_cast<uint8_t>(getReg(0x0d) & 0x0f);
+        uint8_t v = static_cast<uint8_t>((bank ? 0xb0 : 0xa0) | shape);
+        if (curBank_ == bank && getReg(0x0d) == v) return;
+        curBank_ = bank;
+        // 0x0D自体は両バンク共通のレジスタなのでバンク付きにしない
+        setReg(0x0d, v, true);
+    }
+
+    // バンク付きレジスタ書き込み。シャドウは bank<<8 | reg でキャッシュし、
+    // チップへは8bitアドレスで送る。同値スキップ・read-modify-writeが
+    // バンクごとに正しく効くようになる。
+    void writeBank(uint8_t bank, uint8_t reg, uint8_t data, bool force = false) {
+        uint16_t shadow = static_cast<uint16_t>(reg | (bank ? kBankB : 0));
+        if (!force && getReg(shadow) == data) return;
+        selectBank(bank);
+        if (regBak_ && shadow < regSize_) regBak_[shadow] = data;
+        if (port_) port_->write(reg, data);
+    }
+
+    uint8_t readBank(uint8_t bank, uint8_t reg) const {
+        return getReg(static_cast<uint16_t>(reg | (bank ? kBankB : 0)));
+    }
+
+    // ch0のエンベロープシェイプは0x0Dの下位4bitに同居するため、
+    // バンク選択と同時に書く必要がある。
+    void writeEnvShapeCh0(uint8_t shape) {
+        setReg(0x0d, static_cast<uint8_t>((curBank_ ? 0xb0 : 0xa0) | (shape & 0x0f)), true);
+    }
 
     // AY8930のExpand Modeはトーン周期が16bitに拡張され、分周比も
     // 無印AY-3-8910の1/16から1/8へ変わる。同じ音程に対する周期値は
@@ -753,8 +801,8 @@ protected:
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         uint16_t etp = tonePeriod(fnum, 0xFFFF, -1);
-        setReg(static_cast<uint16_t>(ch * 2 + 0), static_cast<uint8_t>(etp & 0xFF), false);
-        setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8), false);
+        writeBank(0, static_cast<uint8_t>(ch * 2 + 0), static_cast<uint8_t>(etp & 0xFF));
+        writeBank(0, static_cast<uint8_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8));
     }
 
     // HWエンベロープ未使用時のみ5bit音量を計算 (旧FITOM完全準拠、
@@ -770,12 +818,12 @@ protected:
         uint8_t loudness = computeFinalLoudness(ch);
         uint8_t vol = static_cast<uint8_t>(
             31 - fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 5));
-        setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(vol & 0x1F), false);
+        writeBank(0, static_cast<uint8_t>(0x08 + ch), static_cast<uint8_t>(vol & 0x1F));
     }
 
     // トーン/ノイズ有効ビット・HWエンベロープパラメータ・デューティ比を設定。
-    // Bank A/Bを行き来しながら書き込むため、末尾で必ずBank Aに戻す
-    // (updateFreq/updateVolExp等、他のフックはBank A前提で動作するため)。
+    // バンクの選択はwriteBank()が必要に応じて行うため、ここで明示的に
+    // 戻す必要はない。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
@@ -790,35 +838,38 @@ protected:
         case 3: mix = 0x9; break;
         }
         prevMix_ = static_cast<uint8_t>((prevMix_ & ~(0x9u << ch)) | (mix << ch));
-        setReg(0x7, prevMix_, true);
+        writeBank(0, 0x07, prevMix_, true);
         if (mix == 1 || mix == 0) {
-            setReg(0x6, static_cast<uint8_t>((p.hw.NFQ & 0x1F) | ((p.hw.FB & 7) << 5)), true);
+            writeBank(0, 0x06,
+                      static_cast<uint8_t>((p.hw.NFQ & 0x1F) | ((p.hw.FB & 7) << 5)), true);
         }
 
         bool hwEnv23 = false;
         if (p.hwOp[0].EGT & 0x08) { // HWエンベロープ使用
-            setReg(static_cast<uint16_t>(0x8 + ch), 0x20, true);
+            writeBank(0, static_cast<uint8_t>(0x08 + ch), 0x20, true);
             if (ch == 0) {
-                // ch0はBank A内のreg 0xb/0xcを直接使う
-                setReg(0xd, static_cast<uint8_t>(0xa0 | (p.hwOp[0].EGT & 0xF)), true);
-                setReg(0xb, static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
-                setReg(0xc, static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
+                // ch0はBank A内のreg 0xb/0xcと、0x0D下位4bitのシェイプを使う
+                writeBank(0, 0x0b,
+                          static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
+                writeBank(0, 0x0c,
+                          static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
+                writeEnvShapeCh0(p.hwOp[0].EGT & 0xF);
             } else {
                 hwEnv23 = true; // ch1/ch2はBank B側で設定する
             }
         }
 
         // デューティ比 (Bank B、hwOp[0].WSを流用)
-        setReg(0xd, static_cast<uint8_t>(0xb0 | (getReg(0xd) & 0xF)), true); // Bank B選択
-        setReg(static_cast<uint16_t>(0x6 + ch), static_cast<uint8_t>(p.hwOp[0].WS & 0xF), true);
+        writeBank(1, static_cast<uint8_t>(0x06 + ch),
+                  static_cast<uint8_t>(p.hwOp[0].WS & 0xF), true);
         if (hwEnv23) {
-            setReg(static_cast<uint16_t>(0x0 + (ch - 1) * 2),
-                   static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
-            setReg(static_cast<uint16_t>(0x1 + (ch - 1) * 2),
-                   static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
-            setReg(static_cast<uint16_t>(0x3 + ch), static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);
+            writeBank(1, static_cast<uint8_t>(0x00 + (ch - 1) * 2),
+                      static_cast<uint8_t>(((p.hwOp[0].SL << 4) & 0xF0) | (p.hwOp[0].RR & 0xF)), true);
+            writeBank(1, static_cast<uint8_t>(0x01 + (ch - 1) * 2),
+                      static_cast<uint8_t>(((p.hwOp[0].DR << 4) & 0xF0) | (p.hwOp[0].SR & 0xF)), true);
+            writeBank(1, static_cast<uint8_t>(0x03 + ch),
+                      static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);
         }
-        setReg(0xd, static_cast<uint8_t>(0xa0 | (getReg(0xd) & 0xF)), true); // Bank Aに戻す
 
         updateVolExp(ch);
     }
@@ -832,8 +883,9 @@ protected:
             if (keyOn) {
                 updateVoice(ch);
             } else {
-                setReg(static_cast<uint16_t>(0x8 + ch),
-                       static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x8 + ch)) & 0xC0), true);
+                writeBank(0, static_cast<uint8_t>(0x08 + ch),
+                          static_cast<uint8_t>(readBank(0, static_cast<uint8_t>(0x08 + ch)) & 0xC0),
+                          true);
             }
         } else {
             CPSGBase::updateKey(ch, keyOn);
@@ -853,7 +905,7 @@ protected:
                 int16_t frq = static_cast<int16_t>(lev) - 64
                              + static_cast<int16_t>(((p.hw.NFQ << 2) | (p.hw.FB >> 1)) & 0x7F);
                 frq = std::clamp<int16_t>(frq, 0, 255);
-                setReg(0x6, static_cast<uint8_t>(frq), true);
+                writeBank(0, 0x06, static_cast<uint8_t>(frq), true);
             }
         }
     }
