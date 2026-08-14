@@ -742,6 +742,28 @@ CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアL
   誤って破壊しうる潜在バグだった）。
 - `resetLfoBaseline(ch)`（`lfoTL_[ch]=64`初期化）のみが真に共通のヘルパーとして
   `CPSGBase`に残る。
+- **PSG系のマスタークロックは`IPort::getClock()`から取る**：`DeviceFactory::create()`の
+  `sampleRate`引数はHW I/Fプラグインが報告する**音声出力のサンプルレート**
+  (既定44100)であり、チップクロックではない。FM系ドライバはマスタークロックを
+  自前の定数として持つためこの引数を使わないが、PSG系はトーン周期の算出に
+  実クロックが要る。ADPCM系(`createCAdPcm()`)と同じく`port->getClock()`を使い、
+  取得できない場合のみ`sampleRate`へフォールバックすること。さらにOPN系
+  (YM2608/YM2610/YM2610B)の内蔵SSG部は実機仕様上φM/4で動作するため、
+  `DeviceEntry::clockDivider`(composite展開時に`SubDeviceSpec`から設定)で
+  分周してから渡す。単独チップのSSGはポートが報告するクロックがそのまま
+  SSG部のクロックなので分周しない。
+- **PSG系の周波数レジスタは「周期」であり、基底の`getFnumber()`は使えない**：
+  周期は音程が上がるほど値が小さくなるため、`CSoundDevice::getFnumber()`が
+  行う11bit F-number前提の正規化（bit11が立っていたら右シフトしてblockを
+  繰り上げる／`block>7`をクランプして不足分をfnumの左シフトで補う）を通すと
+  周期そのものが壊れる。`CPSGBase`はテーブル値とオクターブを素通しする
+  周期テーブル専用の`getFnumber()`を持ち、実際のスケーリングは
+  `tonePeriod(fn, mask, chipShift)`が「テーブルの基準オクターブ
+  （`(noteOffset_ + 69*64)/768`）と実際のノートのオクターブの差」で行う。
+  シフト量を`block+3`のような定数で書いてはならない（`FNUM_OFFSET`を
+  変更した瞬間に全PSG系のピッチが1オクターブずれる）。分周比がテーブルと
+  異なるチップだけが`chipShift`で差分を吸収する（AY8930のExpand Modeは
+  1/8分周のため`-1`）。
 - **ミックスレジスタのALG=0/1バグ**：`CSSG::computeMixBit`でトーンのみ/ノイズのみ
   の対応ビットが入れ替わっていたバグを修正済み。
 

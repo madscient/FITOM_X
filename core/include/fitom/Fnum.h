@@ -10,10 +10,10 @@ namespace fitom {
     enum class FnumTableType {
         None       = 0,
         Fnumber    = 1,   // OPN / OPM 系 F-number テーブル
-        TonePeriod = 2,   // PSG / SCC 系トーン周期テーブル
+        TonePeriod = 2,   // DCSG(SN76489) / SCC トーン周期 (master/(32*freq))
         DeltaN     = 3,   // ADPCM Delta-N テーブル
         OPL4       = 4,
-        SSG        = 5,
+        SSG        = 5,   // AY-3-8910 系トーン周期 (master/(16*freq))
         // 6 (旧 SAA) は廃止。SAA1099は「周波数レジスタが逆数的かつ
         // オクターブが別レジスタで2^octave倍する」という構造を持ち、
         // getFnumber()の標準的なオクターブ折り畳みロジック(fnum>>=1方式)

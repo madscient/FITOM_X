@@ -27,6 +27,7 @@ add_executable(fitom_tests
     test_opz_keyon.cpp
     test_voiceprocessor_lfo.cpp
     test_voiceprocessor_tl.cpp
+    test_psg_volume.cpp
 )
 
 # 内部用MIDIパイプ(fitom_midi_pipe)の回帰テスト。DLL自体が

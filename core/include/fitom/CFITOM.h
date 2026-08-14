@@ -625,7 +625,8 @@ private:
         uint32_t deviceType, IPort* port, IPort* stereoPairPort,
         int sampleRate, IPort* extraPort, bool rhythmMode,
         bool stereoPairChipLevel = false,
-        ISoundDevice** outLeftRaw = nullptr, ISoundDevice** outRightRaw = nullptr);
+        ISoundDevice** outLeftRaw = nullptr, ISoundDevice** outRightRaw = nullptr,
+        int clockDivider = 1);
 
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;

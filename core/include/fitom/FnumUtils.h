@@ -92,8 +92,8 @@ private:
                 val = std::round(freq * (std::pow(2.0, 17.0) / master) * divide);
                 break;
             case FnumTableType::TonePeriod:
-                // val = 8 * master / freq / divide
-                val = std::round((8.0 * master) / (freq * divide));
+                // DCSG(SN76489)/SCC のトーン周期: f = master / (32 * N)
+                val = std::round(static_cast<double>(master) / (32.0 * freq * divide));
                 break;
             case FnumTableType::DeltaN: {
                 // 実チップのDelta-N式: delta_n = round(2^16 * freq * divide / master)
