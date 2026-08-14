@@ -529,6 +529,10 @@ public:
         uint16_t enable;     // チャンネル有効ビット (bit0-4)
         uint16_t deform;     // 周波数モード・波形ローテーション制御
     };
+    // ここに書くのは常に実チップのレジスタ配置であり、エミュレータ
+    // ライブラリ独自の番号体系(emu2212の SCC_writeReg 等)へ合わせては
+    // ならない。その変換はHW I/Fプラグイン側の責務
+    // (docs/plugin-hwif.md「レジスタアドレスは常に実チップのもの」参照)。
     // deformは実機では無印・SCC+とも0xC0に配置される。0xE0はエミュレータ
     // (emu2212)固有のレジスタであり実機には存在しないため書き込まない。
     static constexpr RegMap kRegSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
