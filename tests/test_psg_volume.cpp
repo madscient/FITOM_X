@@ -14,6 +14,8 @@
 #include "fitom/VoiceData.h"
 #include "fitom/FITOMdefine.h"
 #include "fitom/DeviceFactory.h"
+#include "fitom/VolumeUtils.h"
+#include <algorithm>
 #include <cmath>
 #include <map>
 #include <memory>
@@ -366,6 +368,87 @@ TEST_CASE("PSG family volume registers reach full scale at max loudness",
         }
         INFO("attenuation=" << att);
         CHECK(att == 0);
+    }
+}
+
+// 音量レジスタの性質はチップごとに異なり、対数DACのものだけlinear2dB()を
+// 通してよい。SCCは波形サンプルへのリニア乗算(out = wave * vol/15)であり、
+// 対数として扱うと意図した減衰量が出ない(-24dBのつもりが実際は-6.6dB)。
+// DCSG(SN76489)は2dB/stepの減衰量で、0.75dBの2のべき乗倍しか刻めない
+// linear2dB()では表現できない。
+//
+// AR=31/DR=0/SL=0/SR=0 の音色でアタック完了後はエンベロープ減衰量が0に
+// なるため、最終ラウドネスは calcVolExpVel() の値そのものになる
+// (calcLinearLevel(x, 0) == x)。これを使って各チップの変換則を検証する。
+TEST_CASE("PSG volume registers follow each chip's own transfer law",
+          "[psg][volume]")
+{
+    HwPatch patch = makeSoftEnvPatch();
+
+    auto expectedLoudness = [](int cc7, int vel) {
+        return fitom::calcVolExpVel(static_cast<uint8_t>(cc7), 127,
+                                     static_cast<uint8_t>(vel));
+    };
+
+    SECTION("CSCC: リニア乗算 (vol = round(loudness * 15 / 127))") {
+        for (int cc7 : {127, 100, 80, 64, 40}) {
+            RecordingPort port;
+            auto dev = createCSCC(&port, 3579545, DEVICE_SCC);
+            dev->init();
+            uint8_t ch = dev->allocCh(nullptr, &patch, 127);
+            REQUIRE(ch != 0xFF);
+            dev->setVolume(ch, static_cast<uint8_t>(cc7), false);
+            playNote(*dev, ch, 69);
+
+            int loudness = expectedLoudness(cc7, 127);
+            int expected = (loudness * 15 + 63) / 127;
+            int actual   = port.regs[static_cast<uint16_t>(kLayoutSCC.amplitude + ch)] & 0x0F;
+            INFO("cc7=" << cc7 << " loudness=" << loudness
+                 << " expected=" << expected << " actual=" << actual);
+            CHECK(actual == expected);
+        }
+    }
+
+    SECTION("CDCSG: 2dB/stepの減衰量 (0-14 = 0〜-28dB, 15 = 消音)") {
+        for (int cc7 : {127, 100, 80, 64, 40}) {
+            RecordingPort port;
+            auto dev = createCDCSG(&port, 3579545);
+            dev->init();
+            uint8_t ch = dev->allocCh(nullptr, &patch, 127);
+            REQUIRE(ch != 0xFF);
+            dev->setVolume(ch, static_cast<uint8_t>(cc7), false);
+            port.rawWrites.clear();
+            playNote(*dev, ch, 69);
+
+            int loudness = expectedLoudness(cc7, 127);
+            int expected = std::clamp(
+                static_cast<int>(std::lround(-fitom::kGM2dB[loudness] / 2.0)), 0, 15);
+            int actual = -1;
+            for (uint8_t w : port.rawWrites) {
+                if ((w & 0xF0) == static_cast<uint8_t>(0x90 | (ch * 32))) actual = w & 0xF;
+            }
+            INFO("cc7=" << cc7 << " loudness=" << loudness
+                 << " expected=" << expected << " actual=" << actual);
+            CHECK(actual == expected);
+        }
+    }
+
+    // 実機の減衰レンジを超える指定は、チップが表現できる範囲へ収まること。
+    SECTION("CDCSG: レンジ外は消音(15)へクランプされる") {
+        RecordingPort port;
+        auto dev = createCDCSG(&port, 3579545);
+        dev->init();
+        uint8_t ch = dev->allocCh(nullptr, &patch, 127);
+        REQUIRE(ch != 0xFF);
+        dev->setVolume(ch, 1, false);   // -84dB相当、実機の-28dBレンジ外
+        playNote(*dev, ch, 69);
+
+        int actual = -1;
+        for (uint8_t w : port.rawWrites) {
+            if ((w & 0xF0) == static_cast<uint8_t>(0x90 | (ch * 32))) actual = w & 0xF;
+        }
+        INFO("actual=" << actual);
+        CHECK(actual == 15);
     }
 }
 
