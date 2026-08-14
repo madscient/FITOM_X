@@ -519,13 +519,30 @@ protected:
 // ================================================================
 class CSCC : public CPSGBase {
 public:
+    // 実機レジスタマップ。無印SCC(K051649)とSCC+(K052539)で波形メモリの
+    // 大きさが違う(無印はch3/ch4共有で4ブロック)ため、それ以降の
+    // 周波数・音量・チャンネル有効の各レジスタも位置がずれる。
+    struct RegMap {
+        uint16_t waveform;   // 波形メモリ先頭 (32バイト×ch)
+        uint16_t frequency;  // トーン周期 (2バイト×ch)
+        uint16_t amplitude;  // 音量 (1バイト×ch)
+        uint16_t enable;     // チャンネル有効ビット (bit0-4)
+        uint16_t deform;     // 周波数モード・波形ローテーション制御
+    };
+    static constexpr RegMap kRegSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
+    static constexpr RegMap kRegSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xE0};
+
     CSCC(IPort* port, int sampleRate, uint8_t devId = DEVICE_SCC)
-        : CPSGBase(devId, port, 0xB0, 5, sampleRate,
+        : CPSGBase(devId, port, 0x100, 5, sampleRate,
                    2, FNUM_OFFSET, FnumTableType::TonePeriod)
+        , reg_(devId == DEVICE_SCCP ? kRegSCCP : kRegSCC)
         , waveReg_(nullptr)
     {}
 
-    std::string getDescriptor() const override { return "SCC (K051649) 5ch"; }
+    std::string getDescriptor() const override {
+        return (deviceType_ == DEVICE_SCCP) ? "SCC+ (K052539) 5ch"
+                                            : "SCC (K051649) 5ch";
+    }
 
     // PatchManager から SccWaveRegistry を注入する
     void setWaveRegistry(const SccWaveRegistry* reg) override { waveReg_ = reg; }
@@ -533,10 +550,20 @@ public:
     void setWaveBankNo(int bankNo) { waveBankNo_ = bankNo; }
 
     void init() override {
-        // 全チャンネル無効・波形テーブルをデフォルト(矩形波)で初期化
-        setReg(0xAA, 0x00, true);
-        // WS=0 の矩形波を全チャンネルに書き込む
+        // deform: 8bit/4bit周波数モード・波形ローテーションを全て無効にする。
+        // 未初期化のまま残ると周波数レジスタの解釈自体が変わるため、
+        // 他のレジスタより先にクリアする。
+        setReg(reg_.deform, 0x00, true);
+        setReg(reg_.enable, 0x00, true);
         for (uint8_t ch = 0; ch < 5; ++ch) {
+            setReg(static_cast<uint16_t>(reg_.amplitude + ch),     0x00, true);
+            setReg(static_cast<uint16_t>(reg_.frequency + ch * 2), 0x00, true);
+            setReg(static_cast<uint16_t>(reg_.frequency + ch * 2 + 1), 0x00, true);
+        }
+        // WS=0 の矩形波を全チャンネルに書き込む
+        // (無印SCCのch4はch3と波形メモリを共有するため書かない。updateVoice参照)
+        for (uint8_t ch = 0; ch < 5; ++ch) {
+            if (deviceType_ == DEVICE_SCC && ch == 4) continue;
             const int8_t* data = waveReg_
                 ? waveReg_->getWaveData(waveBankNo_, 0)
                 : SccWaveBank{}.getWaveData(0);
@@ -545,6 +572,7 @@ public:
     }
 
 protected:
+    const RegMap           reg_;
     const SccWaveRegistry* waveReg_     = nullptr;
     int                    waveBankNo_  = 0;
     // 直前に書き込んだ WS 番号（同じ波形の再書き込みをスキップ）
@@ -552,7 +580,7 @@ protected:
 
     // チップへの波形書き込み（内部使用）
     void writeWaveform(uint8_t ch, const int8_t* data) {
-        uint16_t base = static_cast<uint16_t>(ch * 0x20);
+        uint16_t base = static_cast<uint16_t>(reg_.waveform + ch * 0x20);
         for (int i = 0; i < SCC_WAVE_SIZE; ++i) {
             setReg(static_cast<uint16_t>(base + i),
                    static_cast<uint8_t>(data[i]), true);
@@ -616,31 +644,33 @@ protected:
         return 0xFF;
     }
 
+    // トーン周期は12bit (LSB 8bit + MSB 4bit の2バイト)。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        // SCC: 0xA0+ch*2 = period LSB, 0xA1+ch*2 = period MSB (12bit)
         uint16_t period = tonePeriod(fnum, 0x0FFF);
-        setReg(static_cast<uint16_t>(0xA0 + ch * 2),
+        setReg(static_cast<uint16_t>(reg_.frequency + ch * 2),
                static_cast<uint8_t>(period & 0xFF), false);
-        setReg(static_cast<uint16_t>(0xA1 + ch * 2),
+        setReg(static_cast<uint16_t>(reg_.frequency + ch * 2 + 1),
                static_cast<uint8_t>((period >> 8) & 0xF), false);
     }
 
     void updateVolExp(uint8_t ch) override {
         uint8_t finalLoudness = computeFinalLoudness(ch);
-        // SCC は正極性 (0=最小, 15=最大)。48dB/3dBステップは他PSG系と共通。
+        // SCC は正極性 (0=無音, 15=最大)。48dB/3dBステップは他PSG系と共通。
         uint8_t atten = fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
         uint8_t vol   = 15u - atten;
-        setReg(static_cast<uint16_t>(0xA8 + ch), vol & 0xF, false);
+        setReg(static_cast<uint16_t>(reg_.amplitude + ch), vol & 0xF, false);
     }
 
+    // キーオンでチャンネル有効ビットを立てるが、キーオフでは落とさない。
+    // 実際の消音はソフトウェアエンベロープが音量を0まで下げることで行う
+    // (CPSGBase::updateKey のコメント参照)。キーオフで即座に有効ビットを
+    // 落とすと、リリースフェーズがまるごと聞こえなくなってしまう。
     void updateKey(uint8_t ch, bool keyOn) override {
-        // ソフトウェアエンベロープの起動/リリースは基底クラスに任せる
         CPSGBase::updateKey(ch, keyOn);
-        uint8_t cur = getReg(0xAA);
-        if (keyOn) cur |=  (1u << ch);
-        else       cur &= ~(1u << ch);
-        setReg(0xAA, cur, true);
+        if (keyOn) {
+            setReg(reg_.enable, static_cast<uint8_t>(getReg(reg_.enable) | (1u << ch)), true);
+        }
     }
 };
 

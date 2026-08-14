@@ -173,6 +173,54 @@ TEST_CASE("DeviceFactory gives PSG chips the real chip clock, divided for "
     }
 }
 
+// SCCのレジスタ配置は無印SCC(K051649)とSCC+(K052539)で異なる。無印は
+// ch3/ch4が波形メモリを共有して4ブロック(0x00-0x7F)しか持たないため、
+// それ以降の周波数・音量・チャンネル有効レジスタも位置が前へずれる。
+// (以前はSCC+の配置を無印にも流用し、さらに音量が2バイト手前にずれて
+//  いたため、音量書き込みがch4の周波数レジスタを、キーオンがch0の音量
+//  レジスタを破壊していた)。
+struct SccRegLayout { uint16_t waveform, frequency, amplitude, enable, deform; };
+static constexpr SccRegLayout kLayoutSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
+static constexpr SccRegLayout kLayoutSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xE0};
+
+TEST_CASE("CSCC uses the K051649 / K052539 register layouts", "[psg][scc]")
+{
+    const int master = 3579545;
+
+    auto run = [&](uint32_t devType, const SccRegLayout& L) {
+        RecordingPort port;
+        auto dev = createCSCC(&port, master, devType);
+        dev->init();
+
+        HwPatch patch = makeSoftEnvPatch();
+        uint8_t ch = dev->allocCh(nullptr, &patch, 127);
+        REQUIRE(ch != 0xFF);
+        playNote(*dev, ch, 69);
+
+        // 周波数
+        int period = port.regs[static_cast<uint16_t>(L.frequency + ch * 2)]
+                   | (port.regs[static_cast<uint16_t>(L.frequency + ch * 2 + 1)] << 8);
+        double expected = master / (32.0 * noteHz(69));
+        INFO("period=" << period << " expected=" << expected);
+        CHECK(std::abs(period - expected) <= 1.0);
+
+        // 音量(最大ラウドネス)
+        CHECK((port.regs[static_cast<uint16_t>(L.amplitude + ch)] & 0x0F) == 15);
+
+        // キーオンでチャンネル有効ビットが立つ
+        CHECK((port.regs[L.enable] & (1u << ch)) != 0);
+        // キーオフでは有効ビットを落とさない(ソフトウェアエンベロープの
+        // リリースを鳴らしきる必要があるため)。消音は音量が0になることで行う。
+        dev->noteOff(ch);
+        CHECK((port.regs[L.enable] & (1u << ch)) != 0);
+        for (uint32_t t = 0; t < 500; ++t) dev->timerCallback(t);
+        CHECK((port.regs[static_cast<uint16_t>(L.amplitude + ch)] & 0x0F) == 0);
+    };
+
+    SECTION("SCC (K051649)")  { run(DEVICE_SCC,  kLayoutSCC);  }
+    SECTION("SCC+ (K052539)") { run(DEVICE_SCCP, kLayoutSCCP); }
+}
+
 // SCCのトーン周期は period = master / (32 * freq)。
 TEST_CASE("CSCC tone period matches master/(32*freq)", "[psg][scc]")
 {
@@ -187,12 +235,47 @@ TEST_CASE("CSCC tone period matches master/(32*freq)", "[psg][scc]")
         REQUIRE(ch != 0xFF);
         playNote(*dev, ch, static_cast<uint8_t>(note));
 
-        int period = port.regs[static_cast<uint16_t>(0xA0 + ch * 2)]
-                   | (port.regs[static_cast<uint16_t>(0xA1 + ch * 2)] << 8);
+        int period = port.regs[static_cast<uint16_t>(kLayoutSCC.frequency + ch * 2)]
+                   | (port.regs[static_cast<uint16_t>(kLayoutSCC.frequency + ch * 2 + 1)] << 8);
         double expected = master / (32.0 * noteHz(note));
         INFO("note=" << note << " period=" << period << " expected=" << expected);
         CHECK(std::abs(period - expected) <= 1.0);
     }
+}
+
+// init() は deform(周波数モード・波形ローテーション制御)をクリアしてから
+// 他のレジスタを初期化しなければならない。未初期化のまま残ると周波数
+// レジスタの解釈自体が変わる。
+// また無印SCCの波形メモリは0x00-0x7F(ch3までの4ブロック)しかなく、
+// SCC+の配置(0x00-0x9F)を使うと周波数レジスタ(0x80-)を波形データで
+// 上書きしてしまうため、書き込み範囲も検証する。
+TEST_CASE("CSCC init clears the deform register and keeps waveform writes "
+          "inside the chip's waveform memory", "[psg][scc]")
+{
+    auto run = [&](uint32_t devType, const SccRegLayout& L, int waveBlocks) {
+        RecordingPort port;
+        auto dev = createCSCC(&port, 3579545, devType);
+        dev->init();
+
+        CHECK(port.regs.count(L.deform) == 1);
+        CHECK(port.regs[L.deform] == 0x00);
+        CHECK(port.regs[L.enable] == 0x00);
+
+        const uint16_t waveEnd = static_cast<uint16_t>(L.waveform + waveBlocks * 0x20);
+        for (const auto& [addr, data] : port.regs) {
+            (void)data;
+            INFO("init wrote addr=0x" << std::hex << addr);
+            // 波形メモリ範囲・制御レジスタ範囲・deform のいずれかであること
+            bool inWave = (addr >= L.waveform && addr < waveEnd);
+            bool inCtrl = (addr >= L.frequency && addr <= L.enable);
+            CHECK((inWave || inCtrl || addr == L.deform));
+        }
+        // 波形データが周波数レジスタ以降へはみ出していないこと
+        CHECK(port.regs[L.frequency] == 0x00);
+    };
+
+    SECTION("SCC (K051649): 波形4ブロック")  { run(DEVICE_SCC,  kLayoutSCC,  4); }
+    SECTION("SCC+ (K052539): 波形5ブロック") { run(DEVICE_SCCP, kLayoutSCCP, 5); }
 }
 
 // DCSG(SN76489)のトーン周期は period = master / (32 * freq)。
@@ -251,7 +334,7 @@ TEST_CASE("PSG family volume registers reach full scale at max loudness",
         uint8_t ch = dev->allocCh(nullptr, &patch, 127);
         REQUIRE(ch != 0xFF);
         playNote(*dev, ch, 69);
-        CHECK((port.regs[static_cast<uint16_t>(0xA8 + ch)] & 0x0F) == 15);
+        CHECK((port.regs[static_cast<uint16_t>(kLayoutSCC.amplitude + ch)] & 0x0F) == 15);
     }
 
     SECTION("CEPSG (5bit、0=無音, 31=最大)") {
