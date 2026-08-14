@@ -6,8 +6,11 @@
 //   - 周波数レジスタは「周期」(FnumTableType::SSG / TonePeriod)。音程が
 //     上がるほど値が小さくなるため、F-number 系とはスケーリングが逆になる
 //     (CPSGBase::getFnumber() / tonePeriod() 参照)
-//   - 音量は 4bit。SSG/SCC は 0=無音・15=最大、DCSG(SN76489) のみ
-//     減衰量表現で 0=最大・15=無音
+//   - 音量レジスタの性質はチップごとに異なり、共通化できない:
+//       SSG/EPSG  対数DAC (3dB/step、EPSGは5bitで1.5dB/step)、0=無音
+//       DCSG      対数の減衰量 (2dB/step、0-14=0〜-28dB、15=消音)
+//       SCC/SAA   リニア乗算 (0=無音、最大値=フルスケール)
+//     対数のものだけ linear2dB() を通し、リニアのものは線形にスケールする
 //   - TL は 7bit で保持するが、writeReg 時に 4bit に変換
 //   - ノイズチャンネルは ALG で選択 (ALG=0:トーン/1:ノイズ/2:両方/3:MIX)
 //   - DCSG (SN76489): 非対称アドレス (writeRaw のみ)
@@ -458,12 +461,15 @@ protected:
     uint8_t  prevVol_[4];
     uint16_t prevFreq_[4];
 
-    // SN76489 の音量レジスタは「減衰量」であり、0=最大音量・15=無音。
-    // linear2dB() の戻り値 (減衰量) をそのまま書けばよい (init() が
-    // 0xF を書いて消音しているのと同じ極性)。
+    // SN76489 の音量レジスタは「減衰量」であり、0=最大音量・15=無音
+    // (init() が 0xF を書いて消音しているのと同じ極性)。刻みは実機仕様の
+    // 2dB/step で、0-14 が 0〜-28dB、15 のみ完全消音という狭いレンジしか
+    // 持たない。linear2dB() は 0.75dB の2のべき乗倍しか刻めず 2dB を
+    // 表現できないため、ここだけは kGM2dB から直接換算する。
     void updateVolExp(uint8_t ch) override {
         uint8_t finalLoudness = computeFinalLoudness(ch);
-        uint8_t att = fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
+        int steps = static_cast<int>(std::lround(-fitom::kGM2dB[finalLoudness] / 2.0));
+        uint8_t att = static_cast<uint8_t>(std::clamp(steps, 0, 15));
         if (prevVol_[ch] == att) return;
         prevVol_[ch] = att;
         if (ch < 3) port_->writeRaw(0, static_cast<uint16_t>(0x90 | (ch * 32) | (att & 0xF)));
@@ -660,11 +666,14 @@ protected:
                static_cast<uint8_t>((period >> 8) & 0xF), false);
     }
 
+    // SCC の音量レジスタは波形サンプルへのリニア乗算 (out = wave * vol/15)
+    // であり、SSG/DCSG のような対数DACではない。linear2dB() を通すと
+    // 意図した減衰量がまったく出ず (例: -24dB のつもりが実際は -6.6dB)、
+    // 実効ダイナミックレンジが 0〜-23.5dB に圧縮された上で無音へ落ちる。
+    // リニアレジスタを持つ CSAA1099 と同じくラウドネスを線形にスケールする。
     void updateVolExp(uint8_t ch) override {
         uint8_t finalLoudness = computeFinalLoudness(ch);
-        // SCC は正極性 (0=無音, 15=最大)。48dB/3dBステップは他PSG系と共通。
-        uint8_t atten = fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
-        uint8_t vol   = 15u - atten;
+        uint8_t vol = static_cast<uint8_t>((finalLoudness * 15 + 63) / 127);
         setReg(static_cast<uint16_t>(reg_.amplitude + ch), vol & 0xF, false);
     }
 
