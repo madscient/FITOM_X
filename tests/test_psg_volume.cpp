@@ -180,8 +180,9 @@ TEST_CASE("DeviceFactory gives PSG chips the real chip clock, divided for "
 //  いたため、音量書き込みがch4の周波数レジスタを、キーオンがch0の音量
 //  レジスタを破壊していた)。
 struct SccRegLayout { uint16_t waveform, frequency, amplitude, enable, deform; };
+// deformは実機では無印・SCC+とも0xC0(0xE0はエミュレータ固有で実機には無い)。
 static constexpr SccRegLayout kLayoutSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
-static constexpr SccRegLayout kLayoutSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xE0};
+static constexpr SccRegLayout kLayoutSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xC0};
 
 TEST_CASE("CSCC uses the K051649 / K052539 register layouts", "[psg][scc]")
 {
@@ -260,6 +261,8 @@ TEST_CASE("CSCC init clears the deform register and keeps waveform writes "
         CHECK(port.regs.count(L.deform) == 1);
         CHECK(port.regs[L.deform] == 0x00);
         CHECK(port.regs[L.enable] == 0x00);
+        // 0xE0はエミュレータ固有のレジスタで実機には存在しないため触らない
+        CHECK(port.regs.count(0xE0) == 0);
 
         const uint16_t waveEnd = static_cast<uint16_t>(L.waveform + waveBlocks * 0x20);
         for (const auto& [addr, data] : port.regs) {
