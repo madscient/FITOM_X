@@ -1788,13 +1788,65 @@ void MidiProcessor::processPrivateSysEx()
     // (docs/manuals/midi-message-reference.md 8.2節、
     //  docs/sf2-fluidsynth-integration.md ⑤節参照)。
     //   F0 00 48 01 04 <mpu> <ch> <fluidsynth_chan|0x7F> F7
+    //   <mpu>: 0-3=対象MPU番号 / 0x7E=このSysExを受信したMPU自身 /
+    //          0x7F=すべてのMPU(ブロードキャスト)。
+    //   <ch>:  0-15=対象MIDIチャンネル番号 / 0x7F=すべてのチャンネル
+    //          (解除時[fluidsynth_chan=0x7F]のみ有効。
+    //          F0 00 48 01 04 7F 7F 7F F7 で全MPU全chの窓を一括解除できる)。
     if (subCmd == 0x04) {
         if (sysexPt_ < 7) {
             FITOM_LOG_DEBUG("SysEx: SF2 channel window message too short, ignored");
             return;
         }
         if (parent_) {
-            parent_->setSf2ChannelWindow(sysexBuf_[4], sysexBuf_[5], sysexBuf_[6]);
+            constexpr uint8_t kSf2MpuSelf     = 0x7E;
+            constexpr uint8_t kSf2MpuAll      = 0x7F;
+            constexpr uint8_t kSf2ChAll       = 0x7F;
+            constexpr uint8_t kSf2ChanRelease = 0x7F;
+
+            const uint8_t mpuField = sysexBuf_[4];
+            const uint8_t chField  = sysexBuf_[5];
+            const uint8_t chanOr7F = sysexBuf_[6];
+
+            // ch=0x7F(すべてのチャンネル)は解除時のみ有効とする。割り当て
+            // (chanOr7F!=0x7F)時にch=0x7Fを指定しても特別扱いしない
+            // (実チャンネルは0-15のため、既存のch>=16バリデーションに
+            // そのまま委ねて無視させる。1メッセージで16chへ同一の
+            // fluidsynth_chanを割り当てるのはそもそも意味を成さない)。
+            const bool allChannels = (chField == kSf2ChAll && chanOr7F == kSf2ChanRelease);
+
+            // 指定した1つのMPUへ、ch指定(単一 or 全16ch)を適用する。
+            auto applyToMpu = [&](uint8_t mpu) {
+                if (allChannels) {
+                    for (int c = 0; c < 16; ++c) {
+                        parent_->setSf2ChannelWindow(mpu, static_cast<uint8_t>(c), chanOr7F);
+                    }
+                } else {
+                    parent_->setSf2ChannelWindow(mpu, chField, chanOr7F);
+                }
+            };
+
+            if (mpuField == kSf2MpuSelf) {
+                // 内部用MIDIパイプ(mpuIndex_==-1)にはMPUという概念自体が
+                // 無いため、この値は無視する。
+                if (mpuIndex_ >= 0) {
+                    applyToMpu(static_cast<uint8_t>(mpuIndex_));
+                } else {
+                    FITOM_LOG_DEBUG("SysEx: SF2 channel window mpu=0x7E(self) received on "
+                        "a processor with no MPU concept (internal pipe?), ignored");
+                }
+            } else if (mpuField == kSf2MpuAll) {
+                // 各MPUへ個別にsetSf2ChannelWindow()を発行する。fluidsynth_chan
+                // の重複割り当てはコア側が(mpu,ch)ごとに検証するため、
+                // 同一chanを全MPUへ割り当てようとした場合は最初の1件のみ
+                // 成功し残りは拒否される(ログに残る)。解除(0x7F)は
+                // 重複制約が無いため全MPUで一様に成功する。
+                for (int m = 0; m < CFITOM::getMpuCount(); ++m) {
+                    applyToMpu(static_cast<uint8_t>(m));
+                }
+            } else {
+                applyToMpu(mpuField);
+            }
         }
         return;
     }

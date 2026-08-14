@@ -8,6 +8,10 @@
 
 **追加実装(2026年8月、CH設定ダイアログへのSF2切替インターフェース)**: 既存の「リズムチャンネル切替」(CC#0=120/121)と同じ操作感で、CH設定ダイアログにSF2直行パスの窓を割り当て/解除するチェックボックスを追加した。`isRhythm_`と相互排他(ONにするとリズム側を強制falseにしチェックボックスごと無効化する。窓に含まれる限りメロディ/リズムの区別と無関係という設計のため)。初めて有効化した際は、他の(mpu,ch)が使用していない`fluidsynth_chan`(0-15)を`CFITOM::listAssignedSf2Windows()`から自動算出して提案する(スライダーで手動変更も可能)。リズム切替と同じくOK確定(`applyAndClose()`)まで実際の窓の割り当て・解除は送信しない(ライブプレビューなし)。パッチ選択は新設の`Sf2PatchPickerDialog`(Bank→Programの2階層、`FITOMBridge::getSf2BankList()`/`getSf2BankPatches()`経由)で行う。PatchPickerDialogと異なり試聴(押している間だけ再生)は実装していない: ピッカーを開いた時点ではまだ窓が実際には割り当てられていない(OK確定まで送信しないため)ため、試聴メッセージを送っても音を出す先が無く、既存のドラムキット選択ピッカー(試聴なし、Selectableで選ぶだけ)と同じ簡素な方式に揃えた。この変更に伴い、`MidiProcessor::sendControlChange/sendProgramChange/sendNoteOn/sendNoteOff`(GUIからの構造化送出用、CC#0/CC#32/Prog.chg/Note On/Offを`receiveByte()`を経由せず直接送る経路)も、窓に含まれる(mpu,ch)では`routeSf2ChannelMessage()`へ振り分けるよう修正した(実MIDI入力[`processMessage()`]と同じ挙動に揃えるため。以前はGUI発の送出だけがこのSF2振り分けを素通りしていた)。`Sf2BankRegistry`にGUI列挙用の`listBanks()`/`listPresetsInBank()`/`listPresetsByIndex()`を、`CFITOM`に`Sf2WindowState::lastCc32Bank`(表示・ダイアログ初期値用)と`listAssignedSf2Windows()`を追加。`tests/test_config.cpp`に`listBanks()`/`listPresetsInBank()`/`listPresetsByIndex()`の単体テストを追加。
 
+**追加実装(2026年8月、SysEx sub-cmd 0x04の`mpu`特殊値)**: プライベートSysEx sub-cmd 0x04(⑤節)の`mpu`フィールドに、個別のMPU番号(0–3)に加えて`0x7E`(このSysExを受信したMPU自身)・`0x7F`(すべてのMPU、ブロードキャスト)の2つの特殊値を追加した。「自身」は受信側の`MidiProcessor`が既に保持している`mpuIndex_`をそのまま使うだけで済み、追加の状態管理は不要。「すべて」は0–3の各MPUへ個別に`CFITOM::setSf2ChannelWindow()`を発行するだけの実装とし(既存の重複禁止バリデーションをMPUごとに独立して適用させる)、ブロードキャスト専用の新しい検証ロジックは追加していない。この結果、割り当て(fluidsynth_chan指定)のブロードキャストは重複制約により実質的に最初の1MPUのみ成功する(既存バリデーションの自然な帰結として許容)一方、解除(0x7F)のブロードキャストは全MPUで一様に成功する、という非対称な挙動になる。
+
+**追加実装(2026年8月、SysEx sub-cmd 0x04の`ch`特殊値・全窓一括解除)**: 上記`mpu`特殊値に続き、`ch`フィールドにも解除時(`fluidsynth_chan=0x7F`)限定の特殊値`0x7F`(すべてのチャンネル)を追加した。`mpu=0x7F`(すべてのMPU)と組み合わせた`F0 00 48 01 04 7F 7F 7F F7`を送ると、全MPU・全チャンネルのSF2直行パスの窓を1メッセージで一括解除できる。割り当て時に`ch=0x7F`を指定した場合は特別扱いせず、既存の`ch>=16`バリデーションにそのまま委ねて無視させる(1メッセージで16chへ同一のfluidsynth_chanを割り当てるのはそもそも意味を成さないため)。実装は`mpu`解決ロジックとは独立させ(`allChannels`フラグで判定)、`mpu`側の3分岐(自身/すべて/個別)いずれからも同じ「1つのMPUへ単一ch or 全16chを適用する」ヘルパーを呼ぶ構成にして、`mpu`×`ch`の特殊値の組み合わせ(4通り)を重複コードなく処理できるようにした。
+
 **未着手(このリポジトリのスコープ外、または別途対応が必要)**: `FitomSf2IF`プラグイン本体(fluidsynthへの実際のリンク、別リポジトリ)/ `sf2_channel_windows`(複数チャンネル分)を一覧編集する専用ダイアログ(CH設定ダイアログでのチャンネル単位の切替は実装済みなので、実用上はこちらで足りる可能性が高い)。`FitomSf2IF`が存在しない現状、`sf2Port_`は常に`nullptr`のままであり、窓に含まれるメッセージはSF2エンジンへの実際の転送先が無いため単純に読み捨てられる(通常運用に影響はない。MIDIモニター表示も、Note Onが一度も送出されていないためFnumber列は空欄のままになる)。
 
 **検討日**: 2026年7月
@@ -170,8 +174,8 @@ F0 00 48 01 05 <chan> <soundfont_index> <sf2_bank_msb> <sf2_bank_lsb> <prog> F7
 
   | フィールド | 内容 |
   |---|---|
-  | `mpu` | 対象MPU番号(0–3) |
-  | `ch` | 対象MIDIチャンネル番号(0–15) |
+  | `mpu` | 対象MPU番号。`0`–`3`で個別指定するほか、**2026年8月追加**の2つの特殊値: `0x7E`(126)=このSysExを受信したMPU自身(受信側の`MidiProcessor`が既に`mpuIndex_`を持っているため、追加の状態管理なしで解決できる。内部用MIDIパイプ[`mpuIndex_==-1`]で受信した場合はMPUという概念自体が無いため無視する)、`0x7F`(127)=すべてのMPU(0–3全てへ同じ`(ch, fluidsynth_chan)`を個別に発行するブロードキャスト。解除[`fluidsynth_chan=0x7F`]は重複制約が無いため全MPUで一様に成功するが、割り当てはfluidsynth_chanの重複不可制約により最初の1件のみ成功し残りは拒否される、5節参照)。 |
+  | `ch` | 対象MIDIチャンネル番号(0–15)。**2026年8月追加**: 解除(`fluidsynth_chan=0x7F`)時に限り、特殊値`0x7F`(127)ですべてのチャンネルを指定できる(`mpu=0x7F`と組み合わせた`F0 00 48 01 04 7F 7F 7F F7`で全MPU全chの窓を一括解除できる)。割り当て時(`fluidsynth_chan=0–15`)にこの値を指定しても特別扱いしない(実チャンネルは0-15のため、既存のch>=16バリデーションにそのまま委ねて無視させる。1メッセージで16chへ同一のfluidsynth_chanを割り当てるのはそもそも意味を成さないため)。 |
   | `fluidsynth_chan` | 割り当てるfluidsynth chan(0–15)。`0x7F`(127)は「窓を解除しネイティブ経路に戻す」ことを表す予約値(0–15の範囲外のため実chanとは衝突しない)。 |
 
   プロファイルの静的設定は、起動時にこのSysExを内部的に発行するのと等価な初期状態として扱う(設定の実体は同じテーブル)。
