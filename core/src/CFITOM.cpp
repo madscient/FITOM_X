@@ -119,8 +119,9 @@ static const RegSizeEntry kRegSizeMap[] = {
     {DEVICE_SSG,   0x010}, {DEVICE_PSG,   0x010}, {DEVICE_SSGL,  0x010},
     {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010}, {DEVICE_DSG,   0x010},
     {DEVICE_EPSG,  0x010}, {DEVICE_DCSG,  0x010},
-    // SCC (CSCC): 波形テーブル 5ch×0x20 + 制御 0xA0-0xAA
-    {DEVICE_SCC,   0x0B0}, {DEVICE_SCCP,  0x0B0},
+    // SCC (CSCC): 波形テーブル(無印は4ch分・SCC+は5ch分、各0x20) + 制御
+    // レジスタ + deform(無印0xC0 / SCC+0xE0)。両者を1つの範囲で覆う
+    {DEVICE_SCC,   0x100}, {DEVICE_SCCP,  0x100},
     {DEVICE_SAA,   0x020},  // 0x00-0x1C
 
     // ADPCM/PCM系 (CYmDelta/CAdPcm2610A/CAdPcmZ280、ADPCM_new.cppのRegMap参照)
