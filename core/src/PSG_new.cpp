@@ -529,11 +529,13 @@ public:
         uint16_t enable;     // チャンネル有効ビット (bit0-4)
         uint16_t deform;     // 周波数モード・波形ローテーション制御
     };
+    // deformは実機では無印・SCC+とも0xC0に配置される。0xE0はエミュレータ
+    // (emu2212)固有のレジスタであり実機には存在しないため書き込まない。
     static constexpr RegMap kRegSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
-    static constexpr RegMap kRegSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xE0};
+    static constexpr RegMap kRegSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xC0};
 
     CSCC(IPort* port, int sampleRate, uint8_t devId = DEVICE_SCC)
-        : CPSGBase(devId, port, 0x100, 5, sampleRate,
+        : CPSGBase(devId, port, 0xD0, 5, sampleRate,
                    2, FNUM_OFFSET, FnumTableType::TonePeriod)
         , reg_(devId == DEVICE_SCCP ? kRegSCCP : kRegSCC)
         , waveReg_(nullptr)
