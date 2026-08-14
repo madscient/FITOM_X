@@ -120,9 +120,9 @@ static const RegSizeEntry kRegSizeMap[] = {
     {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010}, {DEVICE_DSG,   0x010},
     {DEVICE_DCSG,  0x010},
     // EPSG(AY8930)は拡張モードでBank A/Bを多重化するため、内部シャドウで
-    // Bank Bを0x100以降へ分離して持つ(CEPSG::kBankB参照)。ダンプもその
-    // 表現をそのまま表示する
-    {DEVICE_EPSG,  0x110},
+    // Bank Bを0x10以降へ分離した「32レジスタ」として持つ(CEPSG::kBankB参照)。
+    // ダンプもその表現をそのまま表示する (0x00-0x0F=Bank A / 0x10-0x1F=Bank B)
+    {DEVICE_EPSG,  0x020},
     // SCC (CSCC): 波形テーブル(無印は4ch分・SCC+は5ch分、各0x20) + 制御
     // レジスタ + deform(0xC0)。無印とSCC+を1つの範囲で覆う
     {DEVICE_SCC,   0x0D0}, {DEVICE_SCCP,  0x0D0},

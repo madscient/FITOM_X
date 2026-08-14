@@ -462,8 +462,8 @@ TEST_CASE("PSG volume registers follow each chip's own transfer law",
 // 方しか見えない、(2)同値スキップ(setRegのforce=false)が別バンクの値と
 // 比較され必要な書き込みが消える、(3)read-modify-writeが別バンクの値を
 // 読む、という3つの問題が起きる。
-// CEPSGは内部シャドウでBank Bを0x100以降へ分離して持ち、チップへ送る
-// 際に8bitへ戻す。
+// CEPSGは内部シャドウでBank Bを0x10以降へ分離した「32レジスタ」
+// として持ち、チップへ送る際に元の4bitアドレスへ戻す。
 TEST_CASE("CEPSG keeps Bank A and Bank B separate in its register view",
           "[psg][epsg][bank]")
 {
@@ -484,12 +484,12 @@ TEST_CASE("CEPSG keeps Bank A and Bank B separate in its register view",
 
     std::vector<uint8_t> view;
     REQUIRE(dev->getBankedRegisterView(view));
-    REQUIRE(view.size() >= 0x110);
+    REQUIRE(view.size() >= 0x20);
 
     // Bank B: デューティ比が各chぶん保持されている
     for (int ch = 0; ch < 3; ++ch) {
         INFO("ch=" << ch);
-        CHECK(view[0x100 + 0x06 + ch] == 5);
+        CHECK(view[0x10 + 0x06 + ch] == 5);
     }
     // Bank A: ミキサー(0x07)と音量(0x08-0x0A)がBank Bのデューティ比に
     // 上書きされていない

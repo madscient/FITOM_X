@@ -723,15 +723,17 @@ protected:
 // ================================================================
 class CEPSG : public CPSGBase {
 public:
-    // 内部シャドウ上のBank Bオフセット。実チップのアドレスは8bitのままで、
-    // Bank A/Bはレジスタ0x0Dのbit4で切り替える多重化方式のため、アドレス
-    // だけではバンクを区別できない。regBak_(と後述のレジスタビュー)では
-    // Bank Bを0x100以降へ分離して持ち、チップへ送る際に8bitへ戻す。
-    // (この0x100はIPortのa_high[SPFM拡張アドレス]とは無関係の内部表現)
-    static constexpr uint16_t kBankB = 0x100;
+    // 内部シャドウ上のBank Bオフセット。実チップのアドレスは4bit(0x0-0xF)
+    // のままで、Bank A/Bはレジスタ0x0Dのbit4で切り替える多重化方式のため、
+    // アドレスだけではバンクを区別できない。regBak_(と後述のレジスタビュー)
+    // ではBank Bを0x10以降へ分離して「32レジスタ」として持ち、チップへ送る
+    // 際に元の4bitアドレスへ戻す。この番号体系はAY8930のエミュレータ実装が
+    // 一般に採る表現(MAMEのay8910_deviceも register_latch + (mode&1)<<4 と
+    // している)と一致する。
+    static constexpr uint16_t kBankB = 0x10;
 
     CEPSG(IPort* port, int sampleRate)
-        : CPSGBase(DEVICE_EPSG, port, kBankB + 0x20, 3, sampleRate)
+        : CPSGBase(DEVICE_EPSG, port, kBankB * 2, 3, sampleRate)
     {
         opCount_ = 2;
     }
