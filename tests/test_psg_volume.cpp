@@ -30,8 +30,12 @@ public:
     // DCSG はアドレスを持たず writeRaw のみでアクセスするため別に記録する。
     std::vector<uint8_t> rawWrites;
 
+    // 書き込み順序(バンク選択が先に出ているか)を検証するための時系列記録。
+    std::vector<std::pair<uint16_t, uint8_t>> history;
+
     void write(uint16_t addr, uint16_t data) override {
         regs[addr] = static_cast<uint8_t>(data);
+        history.emplace_back(addr, static_cast<uint8_t>(data));
     }
     uint8_t read(uint16_t addr) override {
         auto it = regs.find(addr);
@@ -450,6 +454,93 @@ TEST_CASE("PSG volume registers follow each chip's own transfer law",
         INFO("actual=" << actual);
         CHECK(actual == 15);
     }
+}
+
+// AY8930の拡張モードは、同一の8bitアドレスをレジスタ0x0Dのbit4で
+// Bank A/Bに多重化する。8bitアドレスだけをキーにするシャドウでは
+// 両バンクが同じスロットを共有してしまい、(1)レジスタダンプで後に書いた
+// 方しか見えない、(2)同値スキップ(setRegのforce=false)が別バンクの値と
+// 比較され必要な書き込みが消える、(3)read-modify-writeが別バンクの値を
+// 読む、という3つの問題が起きる。
+// CEPSGは内部シャドウでBank Bを0x100以降へ分離して持ち、チップへ送る
+// 際に8bitへ戻す。
+TEST_CASE("CEPSG keeps Bank A and Bank B separate in its register view",
+          "[psg][epsg][bank]")
+{
+    RecordingPort port;
+    auto dev = createCEPSG(&port, 2000000);
+    dev->init();
+
+    HwPatch patch = makeSoftEnvPatch();
+    patch.hwOp[0].WS = 5;      // デューティ比 (Bank B の 0x06+ch)
+
+    // ch2まで使ってBank Bの0x08(=Bank Aのch0音量と同じアドレス)を踏ませる
+    uint8_t chs[3];
+    for (int i = 0; i < 3; ++i) {
+        chs[i] = dev->allocCh(nullptr, &patch, 127);
+        REQUIRE(chs[i] != 0xFF);
+        playNote(*dev, chs[i], static_cast<uint8_t>(60 + i * 4));
+    }
+
+    std::vector<uint8_t> view;
+    REQUIRE(dev->getBankedRegisterView(view));
+    REQUIRE(view.size() >= 0x110);
+
+    // Bank B: デューティ比が各chぶん保持されている
+    for (int ch = 0; ch < 3; ++ch) {
+        INFO("ch=" << ch);
+        CHECK(view[0x100 + 0x06 + ch] == 5);
+    }
+    // Bank A: ミキサー(0x07)と音量(0x08-0x0A)がBank Bのデューティ比に
+    // 上書きされていない
+    CHECK(view[0x07] == 0x38);            // 3ch全てトーン有効・ノイズ無効
+    for (int ch = 0; ch < 3; ++ch) {
+        INFO("ch=" << ch << " vol=" << (int)view[0x08 + ch]);
+        CHECK(view[0x08 + ch] > 0);       // 発音中なので0であってはならない
+        CHECK(view[0x08 + ch] != 5);      // デューティ比が紛れ込んでいない
+    }
+
+    // Bank Aの0x06(ノイズ周期)は、Bank Bの0x06(ch0デューティ比)とは別物。
+    // このパッチはトーンのみなのでノイズ周期は書かれない。
+    CHECK(view[0x06] == 0);
+}
+
+// バンクをまたぐ書き込みの直前に、必ずレジスタ0x0Dへバンク選択が
+// 出ていなければならない(拡張モード有効ビット101も維持されること)。
+TEST_CASE("CEPSG emits a bank select before crossing banks", "[psg][epsg][bank]")
+{
+    RecordingPort port;
+    auto dev = createCEPSG(&port, 2000000);
+    dev->init();
+
+    HwPatch patch = makeSoftEnvPatch();
+    patch.hwOp[0].WS = 5;
+
+    port.history.clear();
+    uint8_t ch = dev->allocCh(nullptr, &patch, 127);
+    REQUIRE(ch != 0xFF);
+    playNote(*dev, ch, 69);
+
+    // 書き込み履歴を頭からたどり、各書き込み時点で選択されている
+    // バンクが意図どおりかを検証する。
+    int bank = -1;
+    bool sawDutyInBankB = false;
+    bool sawVolumeInBankA = false;
+    for (const auto& [addr, data] : port.history) {
+        if (addr == 0x0d) {
+            // 拡張モード有効(bit7-5=101)が維持されていること
+            INFO("bank select data=0x" << std::hex << (int)data);
+            CHECK((data & 0xE0) == 0xA0);
+            bank = (data >> 4) & 1;
+            continue;
+        }
+        if (addr == static_cast<uint16_t>(0x06 + ch) && data == 5 && bank == 1)
+            sawDutyInBankB = true;
+        if (addr == static_cast<uint16_t>(0x08 + ch) && bank == 0 && data > 0)
+            sawVolumeInBankA = true;
+    }
+    CHECK(sawDutyInBankB);
+    CHECK(sawVolumeInBankA);
 }
 
 // ラウドネスがどの値でも、音量レジスタが飛び飛びに0(無音)へ落ちてはならない

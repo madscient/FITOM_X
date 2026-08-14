@@ -286,6 +286,12 @@ public:
     virtual void setWaveRegistry(const SccWaveRegistry* /*reg*/) {}
     // ADPCM系 (CAdPcmBase 派生) のみ: PCMバンクレジストリを注入・初期化する
     virtual void setPcmRegistry(const PcmBankRegistry* /*reg*/, int /*bankNo*/ = 0) {}
+    // バンク切り替えを持つチップ (AY8930の拡張モード等) のみ:
+    // レジスタダンプ用に、バンクを分離した内部シャドウを返す。
+    // これらのチップは同一の8bitアドレスがバンクによって別の意味を持つため、
+    // 8bitアドレスだけをキーにするHWPortのシャドウでは表現できない。
+    // false を返したチップはHWPort側のシャドウがそのまま使われる。
+    virtual bool getBankedRegisterView(std::vector<uint8_t>& /*out*/) const { return false; }
     virtual void initPcmData() {}
 
     // ─── 直接レジスタアクセス ───────────────────────────────────────────

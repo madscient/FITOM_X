@@ -118,7 +118,11 @@ static const RegSizeEntry kRegSizeMap[] = {
     // PSG系 (CSSG/CEPSG/CDCSG): 0x00-0x0D。CDCSGはラッチ方式でアドレス0のみ
     {DEVICE_SSG,   0x010}, {DEVICE_PSG,   0x010}, {DEVICE_SSGL,  0x010},
     {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010}, {DEVICE_DSG,   0x010},
-    {DEVICE_EPSG,  0x010}, {DEVICE_DCSG,  0x010},
+    {DEVICE_DCSG,  0x010},
+    // EPSG(AY8930)は拡張モードでBank A/Bを多重化するため、内部シャドウで
+    // Bank Bを0x100以降へ分離して持つ(CEPSG::kBankB参照)。ダンプもその
+    // 表現をそのまま表示する
+    {DEVICE_EPSG,  0x110},
     // SCC (CSCC): 波形テーブル(無印は4ch分・SCC+は5ch分、各0x20) + 制御
     // レジスタ + deform(0xC0)。無印とSCC+を1つの範囲で覆う
     {DEVICE_SCC,   0x0D0}, {DEVICE_SCCP,  0x0D0},
@@ -885,6 +889,19 @@ std::vector<uint8_t> CFITOM::getPhysicalChipRegisterDump(int index) const
     if (index < 0 || index >= static_cast<int>(physicalChips_.size())) return {};
     const auto& info = physicalChips_[index];
     std::vector<uint8_t> result(info.dumpSize, 0);
+
+    // バンク切り替えを持つチップ(AY8930の拡張モード等)は、同一の8bitアドレス
+    // がバンクによって別の意味を持つため、HWPortのシャドウ(8bitアドレスのみを
+    // キーにする)では表現できない。ドライバ自身が持つバンク分離済みの
+    // シャドウを優先して使う。
+    for (const auto& sub : info.subDevices) {
+        std::vector<uint8_t> view;
+        if (sub.device && sub.device->getBankedRegisterView(view)) {
+            view.resize(info.dumpSize, 0);
+            return view;
+        }
+    }
+
     if (info.port2) {
         // 分離した物理ポート2つ: それぞれのローカルアドレス0x000-0x0FFを
         // 読み、0x000/0x100に配置する。
