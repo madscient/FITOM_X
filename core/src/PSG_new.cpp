@@ -3,8 +3,11 @@
 // CSSG / CDCSG / CSCC チップドライバ — ISoundDevice ベース移行版
 //
 // PSG 系の共通特性:
-//   - FnumTableType::SSG (period テーブル) または TonePeriod
-//   - 音量は線形 4bit (0=最大, 15=最小 ← OPM/OPN と逆)
+//   - 周波数レジスタは「周期」(FnumTableType::SSG / TonePeriod)。音程が
+//     上がるほど値が小さくなるため、F-number 系とはスケーリングが逆になる
+//     (CPSGBase::getFnumber() / tonePeriod() 参照)
+//   - 音量は 4bit。SSG/SCC は 0=無音・15=最大、DCSG(SN76489) のみ
+//     減衰量表現で 0=最大・15=無音
 //   - TL は 7bit で保持するが、writeReg 時に 4bit に変換
 //   - ノイズチャンネルは ALG で選択 (ALG=0:トーン/1:ノイズ/2:両方/3:MIX)
 //   - DCSG (SN76489): 非対称アドレス (writeRaw のみ)
@@ -170,6 +173,59 @@ protected:
     std::vector<uint8_t> lfoTL_; // ソフトLFO の基準TL (振幅変調用)
     std::vector<SoftEnvelope> envelopes_; // チャンネルごとのソフトウェアADSR
 
+    // ── 周期テーブル (FnumTableType::SSG / TonePeriod) の扱い ───────────────
+    // PSG系の周波数レジスタは「周期」であり、音程が上がるほど値が小さくなる。
+    // F-number (音程が上がるほど値が大きくなる) 系チップとは極性も値域も
+    // 逆であるため、基底クラスの正規化・スケーリングをそのままは使えない。
+
+    // 周期テーブルが表す1オクターブ分が、getFnumber()のオクターブ番号で
+    // 言うどの位置に当たるか。テーブルの生成基点 (noteOffset_、通常
+    // FNUM_OFFSET) とテーブルの基準ピッチ (masterPitch_ = A4 = MIDIノート69)
+    // の位置関係だけで決まるため、FNUM_OFFSETを変えても追従する。
+    int periodBaseOct() const { return (noteOffset_ + 69 * 64) / 768; }
+
+    // 周期テーブルの値を、実際のノートのオクターブへスケーリングして
+    // チップのレジスタ値に変換する。chipShift はチップ固有の分周比差分
+    // (テーブルの分周比に対し、周期が2倍なら-1、1/2なら+1)。
+    uint16_t tonePeriod(const ChState::Fnum& fn, uint16_t mask,
+                        int chipShift = 0) const
+    {
+        int sh = static_cast<int>(fn.block) - periodBaseOct() + chipShift;
+        uint32_t v = fn.fnum;
+        if (sh >= 0) {
+            v = (sh < 32) ? (v >> sh) : 0u;
+        } else {
+            v = (-sh < 16) ? (v << -sh) : 0xFFFFu;
+        }
+        return static_cast<uint16_t>(std::min<uint32_t>(v, mask));
+    }
+
+    // 周期テーブル専用の F-number 算出。基底実装は11bit F-number前提の
+    // 正規化 (bit11が立っていたら右シフトしてblockを繰り上げる / block>7を
+    // クランプして不足分をfnumの左シフトで補う) を行うが、これを周期値に
+    // 適用すると周期そのものが壊れる。ここではテーブル値とオクターブを
+    // 素通しし、実際のスケーリングは tonePeriod() に任せる。
+    ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override
+    {
+        ChState::Fnum ret;
+        if (ch >= maxChs_) return ret;
+        const auto& s = chState_[ch];
+        if (!fnumTable_ || s.lastNote >= 128) {
+            ret.block = static_cast<uint8_t>(static_cast<uint16_t>(s.fineFreq) >> 12);
+            ret.fnum  = static_cast<uint16_t>(s.fineFreq) & 0x0FFF;
+            return ret;
+        }
+        int16_t lfoOffset = s.proc.channelLfoActive() ? s.proc.channelLfoValue() : 0;
+        int32_t index = static_cast<int32_t>(s.lastNote) * 64
+                      + static_cast<int32_t>(s.fineFreq) + offset + lfoOffset;
+        int oct = 0;
+        while (index < 0)    { --oct; index += 768; }
+        while (index >= 768) { ++oct; index -= 768; }
+        ret.fnum  = fnumTable_[index];
+        ret.block = static_cast<uint8_t>(std::clamp(oct, 0, 31));
+        return ret;
+    }
+
     // PSG 系共通: キーオン/オフはソフトウェアエンベロープの起動/リリースのみ。
     // トーン/ノイズのミックスレジスタ (reg 0x07) はここでは操作しない
     // (updateVoice で一度だけ設定し、以降は音量が0になることで無音化する。
@@ -207,6 +263,13 @@ protected:
     // vol×exp×vel×patchTL×ソフトウェアエンベロープ×振幅LFO を統合した
     // 最終ラウドネス値 (0-127, 高いほど大きい) を返す。
     // 派生クラスは戻り値を自チップのレジスタ形式に変換するだけでよい。
+    //
+    // 戻り値を fitom::linear2dB() へ渡すときの step は必ず STEP075DB
+    // (=0x7F、実質マスクなし) にすること。linear2dB() は最終シフト
+    // (7-range-bw) でレジスタ幅相当のdBステップへ変換するため、step引数で
+    // 事前にマスクすると入力の上位bitが失われ、レンジ内で音量が折り返して
+    // しまう (STEP300DBだと0-127が0-31へ折り返し、最大音量でもレジスタ値が
+    // 半分以下に留まり、ラウドネスが32の倍数付近では逆に完全無音になる)。
     uint8_t computeFinalLoudness(uint8_t ch) const {
         const auto& s = chState_[ch];
         uint8_t baseLoudness = fitom::calcVolExpVel(s.volume, s.expression, s.velocity);
@@ -318,15 +381,16 @@ protected:
         if (chState_[ch].hwPatch.hwOp[0].EGT & 0x08) return; // HW EG 使用中
         uint8_t finalLoudness = computeFinalLoudness(ch);
         // PSGネイティブ4bitレジスタへ変換 (48dB/3dBステップ)。
-        // AY-3-8910/YM2149 は 0=最大音量, 15=最小音量 (反転極性)。
-        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
+        // AY-3-8910/YM2149 の Amplitude は 0=無音, 15=最大音量なので、
+        // linear2dB() が返す減衰量を15から引いて音量値に直す。
+        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
         setReg(static_cast<uint16_t>(0x08 + ch), vol & 0x0F, false);
     }
 
+    // トーン周期は12bit (0x00-0x05: Fine 8bit + Coarse 4bit)。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        uint8_t oct = fnum.block;
-        uint16_t etp = fnum.fnum >> (oct + 3);
+        uint16_t etp = tonePeriod(fnum, 0x0FFF);
         setReg(static_cast<uint16_t>(ch * 2),     static_cast<uint8_t>(etp & 0xFF), false);
         setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8),   false);
     }
@@ -369,7 +433,9 @@ public:
                    2, FNUM_OFFSET, FnumTableType::TonePeriod)
         , prevNoise_(0)
     {
-        std::fill(prevVol_,  prevVol_  + 4, 0u);
+        // init() が全chへ減衰量0xF(消音)を書くため、キャッシュも同じ値で
+        // 揃えておかないと最初の「減衰量0xF」の書き込みが抑止されてしまう。
+        std::fill(prevVol_,  prevVol_  + 4, 0xFu);
         std::fill(prevFreq_, prevFreq_ + 4, 0u);
         // ノイズチャンネル (ch3) は手動割り当てのみ
         chState_[3].autoAssign = false;
@@ -392,21 +458,23 @@ protected:
     uint8_t  prevVol_[4];
     uint16_t prevFreq_[4];
 
+    // SN76489 の音量レジスタは「減衰量」であり、0=最大音量・15=無音。
+    // linear2dB() の戻り値 (減衰量) をそのまま書けばよい (init() が
+    // 0xF を書いて消音しているのと同じ極性)。
     void updateVolExp(uint8_t ch) override {
         uint8_t finalLoudness = computeFinalLoudness(ch);
-        // DCSG も逆: 0=最大, 15=最小
-        uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
-        if (prevVol_[ch] == vol) return;
-        prevVol_[ch] = vol;
-        if (ch < 3) port_->writeRaw(0, static_cast<uint16_t>(0x90 | (ch * 32) | (vol & 0xF)));
-        else        port_->writeRaw(0, static_cast<uint16_t>(0xF0 | (vol & 0xF)));
+        uint8_t att = fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
+        if (prevVol_[ch] == att) return;
+        prevVol_[ch] = att;
+        if (ch < 3) port_->writeRaw(0, static_cast<uint16_t>(0x90 | (ch * 32) | (att & 0xF)));
+        else        port_->writeRaw(0, static_cast<uint16_t>(0xF0 | (att & 0xF)));
     }
 
+    // トーン周期は10bit (下位4bit + 上位6bit の2バイト転送)。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         if (ch >= 3) return;
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        uint8_t oct = fnum.block;
-        uint16_t etp = fnum.fnum >> (oct + 3);
+        uint16_t etp = tonePeriod(fnum, 0x03FF);
         if (prevFreq_[ch] == etp) return;
         prevFreq_[ch] = etp;
         port_->writeRaw(0, static_cast<uint16_t>(0x80 | (ch * 32) | (etp & 0xF)));
@@ -551,7 +619,7 @@ protected:
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         // SCC: 0xA0+ch*2 = period LSB, 0xA1+ch*2 = period MSB (12bit)
-        uint16_t period = fnum.fnum >> (fnum.block + 3);
+        uint16_t period = tonePeriod(fnum, 0x0FFF);
         setReg(static_cast<uint16_t>(0xA0 + ch * 2),
                static_cast<uint8_t>(period & 0xFF), false);
         setReg(static_cast<uint16_t>(0xA1 + ch * 2),
@@ -561,7 +629,7 @@ protected:
     void updateVolExp(uint8_t ch) override {
         uint8_t finalLoudness = computeFinalLoudness(ch);
         // SCC は正極性 (0=最小, 15=最大)。48dB/3dBステップは他PSG系と共通。
-        uint8_t atten = fitom::linear2dB(finalLoudness, RANGE48DB, STEP300DB, 4);
+        uint8_t atten = fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
         uint8_t vol   = 15u - atten;
         setReg(static_cast<uint16_t>(0xA8 + ch), vol & 0xF, false);
     }
@@ -634,10 +702,12 @@ public:
 protected:
     uint8_t prevMix_ = 0x3f;
 
-    // 実機式 (旧FITOM完全準拠): fnum.fnum >> (block+2) で周期値を算出。
+    // AY8930のExpand Modeはトーン周期が16bitに拡張され、分周比も
+    // 無印AY-3-8910の1/16から1/8へ変わる。同じ音程に対する周期値は
+    // SSGテーブル(1/16基準)の2倍になるため、chipShift=-1を与える。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        uint16_t etp = static_cast<uint16_t>(fnum.fnum >> (fnum.block + 2));
+        uint16_t etp = tonePeriod(fnum, 0xFFFF, -1);
         setReg(static_cast<uint16_t>(ch * 2 + 0), static_cast<uint8_t>(etp & 0xFF), false);
         setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8), false);
     }

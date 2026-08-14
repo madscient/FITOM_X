@@ -32,12 +32,16 @@ public:
     // extraPort: OPN2/OPNA のように 2 ポート必要なチップ用
     // rhythmMode: チップ内蔵リズム音源の有効/無効 (OPLL/OPL/OPL2/OPL3 等、
     //             対応するチップのみ効果を持つ。非対応チップでは無視される)
+    // clockDivider: チップのマスタークロックに対する分周比。PSG系のように
+    //             トーン周期を実クロックから算出するチップだけが使う
+    //             (例: OPN系内蔵SSGはφM/4で動作するため4)。
     static std::unique_ptr<ISoundDevice> create(
         uint32_t deviceType,
         IPort*   port,
-        int      sampleRate = 44100,
-        IPort*   extraPort  = nullptr,
-        bool     rhythmMode = false);
+        int      sampleRate   = 44100,
+        IPort*   extraPort    = nullptr,
+        bool     rhythmMode   = false,
+        int      clockDivider = 1);
 
     // デバイス ID がチップドライバでサポートされているか
     static bool isSupported(uint32_t deviceType);

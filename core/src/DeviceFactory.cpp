@@ -56,8 +56,21 @@ bool opllFamilyAcceptsFallback(uint8_t sourceVoicePatchType, uint8_t selfVoicePa
 // ================================================================
 //  DeviceFactory::create
 // ================================================================
+// PSG系チップのトーン周期は「チップのマスタークロック÷周期値」で決まるため、
+// 音声出力のサンプルレート(sampleRate)ではなく実クロックが必要になる
+// (FM系チップはマスタークロックをドライバ側の定数として持つため
+//  sampleRate引数を使わない)。取得手段はcreateCAdPcm()と同じく
+// IPort::getClock()で、取得できない場合のみsampleRateへフォールバックする。
+static int psgMasterClock(IPort* port, int sampleRate, int clockDivider)
+{
+    int clock = port ? port->getClock() : 0;
+    if (clock <= 0) clock = sampleRate;
+    return (clockDivider > 1) ? (clock / clockDivider) : clock;
+}
+
 std::unique_ptr<ISoundDevice> DeviceFactory::create(
-    uint32_t deviceType, IPort* port, int sampleRate, IPort* extraPort, bool rhythmMode)
+    uint32_t deviceType, IPort* port, int sampleRate, IPort* extraPort, bool rhythmMode,
+    int clockDivider)
 {
     if (!port) {
         FITOM_LOG_ERR("DeviceFactory::create: port is null for device 0x"
@@ -120,12 +133,14 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_SSGL:
     case DEVICE_SSGLP:
     case DEVICE_SSGS:
-    case DEVICE_DSG:       return createCSSG(port, sampleRate);
-    case DEVICE_EPSG:      return createCEPSG(port, sampleRate);
+    case DEVICE_DSG:       return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider));
 
-    case DEVICE_DCSG:      return createCDCSG(port, sampleRate);
+    case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_SCC:
-    case DEVICE_SCCP:      return createCSCC(port, sampleRate, deviceType);
+    case DEVICE_SCCP:      return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider),
+                                              deviceType);
+    // CSAA1099はマスタークロックをドライバ側の定数として持つため対象外。
     case DEVICE_SAA:       return createCSAA1099(port, sampleRate);
 
     case DEVICE_ADPCMA:

@@ -742,6 +742,12 @@ int FITOMConfig::getDeviceSampleRate(int index) const {
     return devices_[index].sampleRate;
 }
 
+int FITOMConfig::getDeviceClockDivider(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return 1;
+    int d = devices_[index].clockDivider;
+    return (d > 0) ? d : 1;
+}
+
 bool FITOMConfig::getDeviceRhythmMode(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
     return devices_[index].rhythmMode;
@@ -966,6 +972,7 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
             e.label          = baseLabel + s.labelSuffix;
             e.deviceType     = s.deviceType;
             e.sampleRate     = sampleRate;
+            e.clockDivider   = s.clockDivider;
             e.extraSlot      = extraSlot;
             e.port           = port;                          // 全サブデバイスで共有
             e.port2          = s.usesExtraPort ? port2 : nullptr;
@@ -1342,6 +1349,14 @@ bool FITOMConfig::getDeviceSpanGroupStereoPairChipLevel(int index, int k) const 
     return sg[k].stereoPairChipLevel;
 }
 
+// OPN系(YM2608/YM2610/YM2610B)に内蔵されるSSG部は、FM部と同じマスタークロック
+// φMをそのまま使うのではなくφM/4で動作する(実機データシート。例:
+// φM=7.98MHzのPC-98 OPNAならSSG部は1.9968MHz = 標準的なPSGのクロック)。
+// トーン周期の算出には分周後のクロックが必要なため、SSGサブデバイスにだけ
+// この分周比を持たせる(単独チップとしてのSSGはポートが報告するクロックが
+// そのままSSG部のクロックなので分周しない)。
+static constexpr int kOpnSsgClockDivider = 4;
+
 bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeFromProfile,
                                         std::vector<SubDeviceSpec>& outSpec)
 {
@@ -1359,7 +1374,7 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // アドレスが衝突していた。実際の高位ポートへの差し替えは
         // CFITOM::resolveHighBankPort()が行う)。
         outSpec.push_back({baseDeviceType,      "-FM",     true,  false});
-        outSpec.push_back({DEVICE_SSG,          "-SSG",    false, false});
+        outSpec.push_back({DEVICE_SSG,          "-SSG",    false, false, kOpnSsgClockDivider});
         outSpec.push_back({DEVICE_ADPCMB_OPNA,  "-ADPCMB", true,  false});
         outSpec.push_back({DEVICE_OPNA_RHY,     "-RHYTHM", false, true});
         return true;
@@ -1374,7 +1389,7 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // レジスタ体系のためusesExtraPort=trueとする(ADPCM-Bは逆にport1の
         // ままで正しい。2026年7月、ユーザー指摘により発覚)。
         outSpec.push_back({baseDeviceType, "-FM",     true,  false});
-        outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
+        outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false, kOpnSsgClockDivider});
         outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", true,  false});
         outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
         return true;
@@ -1385,7 +1400,7 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // 6chフル構成で使う点がOPNBのCOPNB(実効4ch)との違い)。
         // ADPCM-Aのport2扱いはOPNBと同じ理由(上記コメント参照)。
         outSpec.push_back({baseDeviceType, "-FM",     true,  false});
-        outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false});
+        outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false, kOpnSsgClockDivider});
         outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", true,  false});
         outSpec.push_back({DEVICE_ADPCMB,  "-ADPCMB", false, false});
         return true;
