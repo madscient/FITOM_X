@@ -230,7 +230,7 @@
           },
           "builtin": {
             "type": "object",
-            "description": "OPLL ROM音色(内部生成、opllRomPatches_)への参照。このバンクが「builtin専用バンク」(profile.jsonのhw_banks[].role=\"builtin_swpatch_meta\"で指定)である場合のみ意味を持つ。prog番号による機械的な対応ではなく、パッチ設計者が明示的に指定するuser specificな識別子。opsとは排他(2026年7月新設、docs/patch-structure-design.md参照)。",
+            "description": "ROM/ビルトイン音色(内部生成、opllRomPatches_ / dsgBuiltinPatches_)への参照。このバンクが「builtin専用バンク」(profile.jsonのhw_banks[].role=\"builtin_swpatch_meta\"で指定)である場合のみ意味を持つ。prog番号による機械的な対応ではなく、パッチ設計者が明示的に指定するuser specificな識別子。1つのバンクにOPLL系とDSGのエントリを混在させてよい(patch_typeで区別される)。opsとは排他(docs/patch-structure-design.md参照)。",
             "properties": {
               "patch_type": {
                 "type": "string",
@@ -238,15 +238,16 @@
                   "OPLL",
                   "OPLLX",
                   "OPLLP",
-                  "VRC7"
+                  "VRC7",
+                  "DSG"
                 ],
-                "description": "対象チップバリアント。PatchManager::kVariantMapと対応。"
+                "description": "対象チップ。OPLL/OPLLX/OPLLP/VRC7はPatchManager::kVariantMapと対応。DSG(YM2163)はビルトイン音色バンク(initDsgBuiltinPatches())を指す。"
               },
               "patch_no": {
                 "type": "integer",
-                "minimum": 1,
-                "maximum": 15,
-                "description": "ROM音色番号(1-15)。initOpllRomPatches()のkNames[][]参照。"
+                "minimum": 0,
+                "maximum": 19,
+                "description": "ROM/ビルトイン音色番号。値域はpatch_typeごとに異なる。OPLL系: 1-15(initOpllRomPatches()のkNames[][]参照。0はユーザー音色との衝突回避のため無音として予約)。DSG: 0-19(prog = 波形*4 + エンベロープ、0も正規の音色)。"
               }
             },
             "required": [
@@ -268,7 +269,7 @@
             ]
           }
         ],
-        "description": "opsとbuiltinはどちらか一方が必須(排他)。builtinはOPLL ROM音色への参照専用で、通常のHwPatch(ops[]でFMパラメータを記述)とは異なる用途に使う。"
+        "description": "opsとbuiltinはどちらか一方が必須(排他)。builtinはROM/ビルトイン音色(OPLL系・DSG)への参照専用で、通常のHwPatch(ops[]でFMパラメータを記述)とは異なる用途に使う。"
       }
     }
   },

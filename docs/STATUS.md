@@ -41,7 +41,7 @@
 | `OPL_new.cpp` | ✅ | OPL/OPL2/COPL3(4OPモード)/COPL3_2(2OP、CSpanDevice)/COPLRhythm(内蔵リズム5パート) |
 | `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm |
 | `PSG_new.cpp` | ✅ | SSG/DCSG/SCC (CPSGBaseはSW-EG/SW-LFO共通化のみ) |
-| `DSG_new.cpp` | 🚧 | CDSG (YM2163楽音4ch) / CDSGRhythm (内蔵リズム5パート: BD/HC/SDN/HHO/HHD)。ROM固定音色のみでユーザー音色は持たず、「エンベロープ4種×波形5種」の20音色をPatchManagerが暗黙のバンクとして機械生成する(prog = 波形*4 + エンベロープ、音色名は`<波形名>.<エンベロープ名>`)。サスティンペダルをハードウェアのSUSビットへ直結。CPSGBaseは継承せず(内蔵EGを持つためソフトウェアADSR不要)、周波数も共有の周期テーブル(SN76489の1/32スケール)では精度が足りないためHzから直接DV/octへ分解する。実機・エミュレータでの音出し確認は未実施 |
+| `DSG_new.cpp` | 🚧 | CDSG (YM2163楽音4ch) / CDSGRhythm (内蔵リズム5パート: BD/HC/SDN/HHO/HHD)。ROM固定音色のみでユーザー音色は持たず、「エンベロープ4種×波形5種」の20音色をPatchManagerが暗黙のバンクとして機械生成する(prog = 波形*4 + エンベロープ、音色名は`<波形名>.<エンベロープ名>`)。サスティンペダルをハードウェアのSUSビットへ直結。CPSGBaseは継承せず(内蔵EGを持つためソフトウェアADSR不要)、周波数も共有の周期テーブル(SN76489の1/32スケール)では精度が足りないためHzから直接DV/octへ分解する。ビルトイン音色へのSwPatch紐づけは、OPLL ROM音色用のメタバンク(`role=="builtin_swpatch_meta"`)をチップ非依存化して共有する(`opllBuiltinMetaBank_`→`builtinMetaBank_`へ改名、`BuiltinRef::patchType`に`4=DSG`を追加、`isValid()`を`patchNo>=0`へ緩和[DSGはprog 0が正規の音色のため])。実機・エミュレータでの音出し確認は未実施 |
 | `MultiDev_new.cpp` / `include/fitom/MultiDevice.h` | ✅ | CMultiDevice/CSpanDevice/CUnison (ヘッダー化済み) |
 | `ADPCM_new.cpp` | ✅ | CYmDelta(Y8950/OPNA/OPNB)/CAdPcm2610A/CAdPcmZ280 |
 | `include/fitom/DeviceFactory.h` / `.cpp` | ✅ | IPort → ISoundDevice ファクトリ |

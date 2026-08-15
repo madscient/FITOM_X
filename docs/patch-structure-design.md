@@ -274,14 +274,15 @@ getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`が
 このidをそのまま使う必要がある(生添字を使うと、OPLL以外のカテゴリで
 variantSelがずれて別チップの音色が鳴ってしまう)。
 
-### OPLL ROM音色へのパフォーマンスパッチ紐づけ（builtin参照、2026年7月新設）
+### ROM/ビルトイン音色へのパフォーマンスパッチ紐づけ（builtin参照）
 
-ROM音色は`opllRomPatches_`内で機械的に合成されるため(前節参照)、
-本来の`HwPatch::swBank`/`swProg`フィールドは常に未設定(-1)のまま
-であり、通常の仕組みではパフォーマンスパッチ(SwPatch)を紐づけられ
-なかった。この制約を解消するため、`hwProg`番号による機械的な対応
-ではなく、**パッチ設計者が明示的に指定するuser specificな識別子**
-(`BuiltinRef`)で紐づける、専用の仕組みを新設した。
+OPLL系ROM音色(`opllRomPatches_`)とDSG(YM2163)のビルトイン音色
+(`dsgBuiltinPatches_`)は、いずれもC++内部で機械的に合成されるため
+(前節参照)、本来の`HwPatch::swBank`/`swProg`フィールドは常に未設定
+(-1)のままであり、通常の仕組みではパフォーマンスパッチ(SwPatch)を
+紐づけられない。この制約を解消するため、`hwProg`番号による機械的な
+対応ではなく、**パッチ設計者が明示的に指定するuser specificな識別子**
+(`BuiltinRef`)で紐づける、専用の仕組みを持つ。
 
 ```
 ① profile.jsonのhw_banks[]に、role="builtin_swpatch_meta"を持つ
@@ -300,16 +301,32 @@ ROM音色は`opllRomPatches_`内で機械的に合成されるため(前節参�
 ③ PatchManager::resolveOpllRomVoice()が、(variantSel, instIndex)を
    HwBank::findByBuiltinRef()で線形探索し、一致するエントリが
    あればそのsw_bank/sw_progでSwPatchを解決する。
+   DSGは PatchManager::resolveDsgBuiltinVoice() が
+   (BUILTIN_TYPE_DSG, hwProg)で同じ探索を行う。
 ```
 
-このメタデータバンクは通常のHwBankRegistryには登録されず、
-`PatchManager::opllBuiltinMetaBank_`という専用の保持スロットに
-直接格納される(`loadOpllBuiltinMetaBankJson()`)。1つの共有ファイルに
-OPLL/OPLLX/OPLLP/VRC7全バリアント分のエントリをまとめて記述できる
-(`patch_type`フィールドでバリアントを区別するため)。
+`patch_type`に指定できる値と、対応する`patch_no`の値域:
 
-未設定・未一致の場合は、SwPatchが適用されないだけで、ROM音色自体の
-発音は妨げられない(既存の設計方針と同じ、ソフトな失敗)。
+| `patch_type` | `patch_no` | 対象 |
+|---|---|---|
+| `OPLL` / `OPLLX` / `OPLLP` / `VRC7` | 1〜15 | OPLL系ROM音色(`initOpllRomPatches()`)。0はユーザー音色との衝突回避のため無音として予約 |
+| `DSG` | 0〜19 | DSGビルトイン音色(`initDsgBuiltinPatches()`)。`prog = 波形*4 + エンベロープ`で、**0も正規の音色** |
+
+`BuiltinRef`の未設定センチネルは`0`ではなく`-1`であることに注意
+(`isValid()`は`patchNo >= 0`を要求する)。DSGは`patch_no: 0`
+(`St.Percussive`)が正規の音色のため、ここを`>= 1`にすると
+そのエントリだけが黙って一致しなくなる。
+
+このメタデータバンクは通常のHwBankRegistryには登録されず、
+`PatchManager::builtinMetaBank_`という専用の保持スロットに
+直接格納される(`loadBuiltinMetaBankJson()`)。1つの共有ファイルに
+OPLL/OPLLX/OPLLP/VRC7の全バリアントとDSGのエントリをまとめて記述できる
+(`patch_type`フィールドで対象チップを区別するため)。保持スロットは
+1つしか無く、`role="builtin_swpatch_meta"`を複数指定すると後勝ちで
+上書きされるため、必ず1ファイルにまとめること。
+
+未設定・未一致の場合は、SwPatchが適用されないだけで、ROM/ビルトイン
+音色自体の発音は妨げられない(既存の設計方針と同じ、ソフトな失敗)。
 
 `OPL4AWM`は対象外とした。AWMのROM音色(YRW801 GM)は`opllRomPatches_`
 のようなC++内部ハードコードではなく、既に通常のバンクファイル

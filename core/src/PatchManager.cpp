@@ -306,6 +306,20 @@ PatchManager::ResolvedTriple PatchManager::resolveDsgBuiltinVoice(
 
     result.deviceIndex = deviceIndex;
     result.hwPatch = &dsgBuiltinPatches_[hwProg];
+    // ビルトイン音色自体のswBank/swProgは常に-1(未設定)のため
+    // (initDsgBuiltinPatches参照)、代わりにbuiltinMetaBank_
+    // (profile.jsonのhw_banks[].role=="builtin_swpatch_meta"で指定された
+    // 専用バンク)を(BUILTIN_TYPE_DSG, hwProg)で検索してswPatchを解決する。
+    // OPLL ROM音色(resolveOpllRomVoice)と同じ機構・同じ1ファイルを共有し、
+    // patchTypeで区別する。未設定・未一致ならnullptrのまま(ソフトな失敗、
+    // ビルトイン音色自体の発音は妨げられない)。
+    if (hasBuiltinMetaBank_) {
+        const HwPatch* metaPatch = builtinMetaBank_.findByBuiltinRef(
+            BUILTIN_TYPE_DSG, static_cast<int8_t>(hwProg));
+        if (metaPatch) {
+            result.swPatch = resolveSwPatch(metaPatch->swBank, metaPatch->swProg);
+        }
+    }
     return result;
 }
 
@@ -353,13 +367,16 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     result.deviceIndex = deviceIndex;
     result.hwPatch = &opllRomPatches_[variantSel][instIndex];
     // ROM音色自体のswBank/swProgは常に-1(未設定)のため(initOpllRomPatches
-    // 参照)、代わりにopllBuiltinMetaBank_(profile.jsonのhw_banks[].role=
+    // 参照)、代わりにbuiltinMetaBank_(profile.jsonのhw_banks[].role=
     // "builtin_swpatch_meta"で指定された専用バンク)を、(variantSel,
     // instIndex)で検索してswPatchを解決する(2026年7月新設)。
+    // variantSelの0-3はそのままBUILTIN_TYPE_OPLL..VRC7に一致する。
+    // 同じバンクはDSGのビルトイン音色(BUILTIN_TYPE_DSG)とも共有され、
+    // patchTypeで区別される(resolveDsgBuiltinVoice参照)。
     // 未設定・未一致ならnullptrのまま(ソフトな失敗、ROM音色自体の発音は
     // 妨げられない)。
-    if (hasOpllBuiltinMetaBank_) {
-        const HwPatch* metaPatch = opllBuiltinMetaBank_.findByBuiltinRef(
+    if (hasBuiltinMetaBank_) {
+        const HwPatch* metaPatch = builtinMetaBank_.findByBuiltinRef(
             static_cast<int8_t>(variantSel), static_cast<int8_t>(instIndex));
         if (metaPatch) {
             result.swPatch = resolveSwPatch(metaPatch->swBank, metaPatch->swProg);
@@ -719,14 +736,17 @@ static int operatorCountForVoicePatchType(uint8_t vpt) {
 }
 
 json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
-    static constexpr const char* kBuiltinTypeNames[4] = {"OPLL", "OPLLX", "OPLLP", "VRC7"};
+    static constexpr const char* kBuiltinTypeNames[BUILTIN_TYPE_COUNT] = {
+        "OPLL", "OPLLX", "OPLLP", "VRC7", "DSG"
+    };
     json out;
     if (p.builtin.isValid()) {
         // builtin参照専用エントリ: ops[]は出力しない(排他)。
         out = json{
             {"id",p.id},{"name",p.name},
             {"builtin", json{
-                {"patch_type", (p.builtin.patchType >= 0 && p.builtin.patchType < 4)
+                {"patch_type", (p.builtin.patchType >= 0
+                                && p.builtin.patchType < BUILTIN_TYPE_COUNT)
                     ? kBuiltinTypeNames[p.builtin.patchType] : "OPLL"},
                 {"patch_no", p.builtin.patchNo}
             }}
@@ -765,7 +785,9 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
         // builtin参照専用エントリ: ops[]/ext等は読まない(排他、oneOfで
         // スキーマレベルでも強制済み)。
         static const std::unordered_map<std::string, int8_t> kBuiltinTypeMap = {
-            {"OPLL", 0}, {"OPLLX", 1}, {"OPLLP", 2}, {"VRC7", 3}
+            {"OPLL",  BUILTIN_TYPE_OPLL},  {"OPLLX", BUILTIN_TYPE_OPLLX},
+            {"OPLLP", BUILTIN_TYPE_OPLLP}, {"VRC7",  BUILTIN_TYPE_VRC7},
+            {"DSG",   BUILTIN_TYPE_DSG}
         };
         const auto& bj = j["builtin"];
         if (bj.contains("patch_type")) {
@@ -1173,16 +1195,16 @@ bool PatchManager::loadHwBankJson(const std::filesystem::path& path,
     }
 }
 
-bool PatchManager::loadOpllBuiltinMetaBankJson(const std::filesystem::path& path)
+bool PatchManager::loadBuiltinMetaBankJson(const std::filesystem::path& path)
 {
-    reportProgress("Loading OPLL builtin swPatch meta bank: " + path.string());
+    reportProgress("Loading builtin swPatch meta bank: " + path.string());
     std::ifstream f(path);
     if (!f) { FITOM_LOG_ERR("Cannot open: " << path.string()); return false; }
     try {
         json j = json::parse(f, nullptr, true, true);
-        opllBuiltinMetaBank_ = HwBank{};
-        if (j.contains("name")) opllBuiltinMetaBank_.name = j["name"].get<std::string>();
-        opllBuiltinMetaBank_.filename = path.string();
+        builtinMetaBank_ = HwBank{};
+        if (j.contains("name")) builtinMetaBank_.name = j["name"].get<std::string>();
+        builtinMetaBank_.filename = path.string();
         // このバンクのbank/prog番号自体は検索キーとして使われない
         // (findByBuiltinRef()がbuiltinフィールドで線形探索するため)。
         // idの一意性さえ保てればよいので、prog自体をそのままbankNoの
@@ -1192,16 +1214,16 @@ bool PatchManager::loadOpllBuiltinMetaBankJson(const std::filesystem::path& path
             for (auto& entry : j["patches"]) {
                 int prog = entry.value("prog", autoProg);
                 if (prog < 0 || prog >= BANK_PROG_SIZE) continue;
-                opllBuiltinMetaBank_.set(prog, jsonToHwPatch(entry, 0, prog));
+                builtinMetaBank_.set(prog, jsonToHwPatch(entry, 0, prog));
                 autoProg = prog + 1;
             }
         }
-        hasOpllBuiltinMetaBank_ = true;
-        FITOM_LOG_INFO("OPLL builtin swPatch meta bank loaded: " << opllBuiltinMetaBank_.name
+        hasBuiltinMetaBank_ = true;
+        FITOM_LOG_INFO("Builtin swPatch meta bank loaded: " << builtinMetaBank_.name
             << " (" << path.filename().string() << ")");
         return true;
     } catch (const std::exception& e) {
-        FITOM_LOG_ERR("OPLL builtin swPatch meta bank parse error: " << e.what());
+        FITOM_LOG_ERR("Builtin swPatch meta bank parse error: " << e.what());
         return false;
     }
 }
