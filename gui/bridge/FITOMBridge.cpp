@@ -139,6 +139,7 @@ struct BuiltinRhythmChip {
 constexpr BuiltinRhythmChip kBuiltinRhythmChips[] = {
     { VOICE_PATCH_OPN2, "OPNA" },
     { VOICE_PATCH_OPLL, "OPLL" },
+    { VOICE_PATCH_DSG,  "DSG"  },
 };
 
 // 各チップの内蔵リズムパート名(実機固定、hwProg=パート番号=デバイス
@@ -150,8 +151,13 @@ constexpr const char* kOpnaRhythmNames[] = {
 constexpr const char* kOpllRhythmNames[] = {
     "Hi-Hat", "Top Cymbal", "Tom", "Snare Drum", "Bass Drum"
 };
+// DSG(YM2163)はリズムトリガー(reg 0x90)のビット位置がそのままパート番号
+// (DSG_new.cpp::CDSGRhythm::kTriggerBit と同じ並び)。
+constexpr const char* kDsgRhythmNames[] = {
+    "Bass Drum", "Hi Conga", "Snare Drum", "Hi-Hat Open", "Hi-Hat Close"
+};
 
-// chipSel(VOICE_PATCH_OPN2/VOICE_PATCH_OPLL)から、対応する内蔵リズム
+// chipSel(kBuiltinRhythmChipsのいずれか)から、対応する内蔵リズム
 // パート名テーブルとその要素数を引く。該当なしならnullptr/0を返す。
 void getBuiltinRhythmNames(uint8_t chipSel, const char* const*& names, size_t& count)
 {
@@ -161,6 +167,9 @@ void getBuiltinRhythmNames(uint8_t chipSel, const char* const*& names, size_t& c
     } else if (chipSel == VOICE_PATCH_OPLL) {
         names = kOpllRhythmNames;
         count = std::size(kOpllRhythmNames);
+    } else if (chipSel == VOICE_PATCH_DSG) {
+        names = kDsgRhythmNames;
+        count = std::size(kDsgRhythmNames);
     } else {
         names = nullptr;
         count = 0;
@@ -708,6 +717,16 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                     const auto& sp = sampleBank->get(mon.progNo);
                     if (sp.isValid()) mon.progName = sp.name;
                 }
+            } else if (bankSelMSB == VOICE_PATCH_DSG) {
+                // DSG(YM2163)ビルトイン音色。ユーザー音色が無くバンク番号は
+                // 意味を持たない(resolveDsgBuiltinVoiceがhwBankを見ない)ため、
+                // mon.bankNoの値に関わらずビルトイン音色として名前解決する。
+                mon.bankName = "Builtin";
+                if (mon.progNo >= 0 && mon.progNo <= 0xFF) {
+                    const fitom::HwPatch* p =
+                        pm.getDsgBuiltinPatchByProg(static_cast<uint8_t>(mon.progNo));
+                    if (p) mon.progName = p->name;
+                }
             } else if (mon.bankNo == 0 && pm.getOpllRomPatches(bankSelMSB) != nullptr) {
                 // OPLL系ROM音色(バンク0固定、getHwBankList()/getHwBankPatches()
                 // と同じ理由、2026年7月追加修正)。JSON定義のバンクを一切
@@ -1112,6 +1131,18 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         return result;
     }
 
+    // DSG(YM2163): ユーザー音色を持たず、暗黙のビルトイン音色バンク
+    // (エンベロープ4種×波形5種=20音色)だけが音色ソースになる。
+    // HwBankRegistryは一切参照しない(resolveTripleがhwBankの値を問わず
+    // resolveDsgBuiltinVoice()へ抜けるのと同じ扱い)。
+    if (voicePatchType == VOICE_PATCH_DSG) {
+        FITOMBankInfo info;
+        info.bankNo = 0;
+        info.name   = "Builtin";
+        result.push_back(std::move(info));
+        return result;
+    }
+
     // OPLL系ROM音色(バンク0固定、2026年7月追加修正)。バンク0はJSON定義
     // 不可の予約領域のため、通常のhwRegistry検索とは別に合成して先頭へ
     // 追加する(hwRegistry側にバンク0が誤って登録されていても、
@@ -1177,6 +1208,25 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
             info.bank       = hwBank;
             info.prog       = static_cast<int>(i);
             info.name       = names[i];
+            info.layerCount = 1;
+            result.push_back(std::move(info));
+        }
+        return result;
+    }
+
+    // DSG(YM2163)ビルトイン音色: getHwBankList()と同じ理由。
+    // 添字がそのままProgram Changeの値になる
+    // (PatchManager::resolveDsgBuiltinVoice参照。OPLL ROM音色のように
+    //  上位ビットへチップ種別を埋め込む規約は無いのでid==添字)。
+    if (voicePatchType == VOICE_PATCH_DSG) {
+        const auto& patches = pm.getDsgBuiltinPatches();
+        for (size_t i = 0; i < patches.size(); ++i) {
+            const auto& p = patches[i];
+            if (!p.isValid()) continue;
+            FITOMPatchInfo info;
+            info.bank       = hwBank;
+            info.prog       = static_cast<int>(p.id);
+            info.name       = p.name;
             info.layerCount = 1;
             result.push_back(std::move(info));
         }

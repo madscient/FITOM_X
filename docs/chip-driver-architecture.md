@@ -850,6 +850,15 @@ D7=0でデータ」の2回書き込みで駆動する実チップだが、この
   0=BD / 1=HC / 2=SDN / 3=HHO / 4=HHD。レベルレジスタはHH/BD/HC/SDNの4本
   しか無く、HHOとHHDは実機のリズム発振器を共有するため同じreg 0x94を使う
   (OPLLリズムのHH/SDがch7を共有するのと同じ構図)。
+- **GUIの列挙は別途配線が要る**: 内蔵リズムもDSGのビルトイン音色も、
+  通常の`HwBankRegistry`を一切経由しないため、パッチピッカーへは
+  自動的には現れない。対応チップ・パート名は
+  `gui/bridge/FITOMBridge.cpp`の`kBuiltinRhythmChips[]`/
+  `getBuiltinRhythmNames()`、カテゴリ(CC#0)は
+  `apps/fitom_gui/PatchPickerDialog.cpp`の`kCategories[]`が情報源で、
+  いずれもハードコードされた表。新しい内蔵リズム搭載チップを足したら
+  ここも更新すること(コア側の`resolveBuiltinRhythm()`だけ直しても
+  GUIからは選べないままになる)。
 
 ### 4.6 ADPCM系
 

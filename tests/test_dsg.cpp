@@ -678,6 +678,31 @@ TEST_CASE("CDSGRhythm selects the part from hw.ALG", "[dsg][rhythm]")
 }
 
 // ================================================================
+//  バンク名前空間
+// ================================================================
+
+// DSGはPSG系の共有バンク名前空間(VOICE_PATCH_SSG=0x40)に属さない。
+// ユーザー音色を持たずHwBank自体が存在せず、resolveTripleも手前で
+// resolveDsgBuiltinVoice()へ抜けるため、共有入口へ寄せると
+// GUIのパッチピッカーがDSGカテゴリにSSGのバンクを並べてしまう
+// (hwBankLookupVoicePatchType経由)。psg_fallback_chipの対象外でもある。
+TEST_CASE("DSG does not share the PSG family bank namespace", "[dsg][patch]")
+{
+    CHECK_FALSE(isPsgFamilyVoicePatchType(VOICE_PATCH_DSG));
+    CHECK(PatchManager::hwBankLookupVoicePatchType(VOICE_PATCH_DSG)
+          == VOICE_PATCH_DSG);
+
+    // 共有名前空間を使う本来のPSG系は従来どおり0x40へ寄せられること
+    for (int vpt : {VOICE_PATCH_SSG, VOICE_PATCH_EPSG, VOICE_PATCH_DCSG,
+                    VOICE_PATCH_SAA, VOICE_PATCH_SCC}) {
+        INFO("voicePatchType=" << vpt);
+        CHECK(isPsgFamilyVoicePatchType(static_cast<uint8_t>(vpt)));
+        CHECK(PatchManager::hwBankLookupVoicePatchType(static_cast<uint8_t>(vpt))
+              == VOICE_PATCH_SSG);
+    }
+}
+
+// ================================================================
 //  デバイス構成
 // ================================================================
 
