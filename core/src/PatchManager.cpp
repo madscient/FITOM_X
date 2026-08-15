@@ -679,6 +679,19 @@ ResolvedPatch PatchManager::resolve(int patchBankNo, int prog,
 
 namespace {
 
+// BuiltinRef::patchType ↔ JSON文字列。BUILTIN_TYPE_*(PatchData.h)と同じ順。
+constexpr const char* kBuiltinTypeNames[BUILTIN_TYPE_COUNT] = {
+    "OPLL", "OPLLX", "OPLLP", "VRC7", "DSG"
+};
+
+// ログ用の短い表記 (例: "DSG#0" / "OPLL#3")。未設定なら "(none)"。
+std::string builtinRefLabel(const BuiltinRef& r) {
+    if (!r.isValid()) return "(none)";
+    const char* name = (r.patchType >= 0 && r.patchType < BUILTIN_TYPE_COUNT)
+                     ? kBuiltinTypeNames[r.patchType] : "?";
+    return std::string(name) + "#" + std::to_string(static_cast<int>(r.patchNo));
+}
+
 // FmHwOp ↔ JSON
 json hwOpToJson(const FmHwOp& op) {
     return json{
@@ -736,9 +749,6 @@ static int operatorCountForVoicePatchType(uint8_t vpt) {
 }
 
 json hwPatchToJson(const HwPatch& p, uint8_t voicePatchType) {
-    static constexpr const char* kBuiltinTypeNames[BUILTIN_TYPE_COUNT] = {
-        "OPLL", "OPLLX", "OPLLP", "VRC7", "DSG"
-    };
     json out;
     if (p.builtin.isValid()) {
         // builtin参照専用エントリ: ops[]は出力しない(排他)。
@@ -1209,12 +1219,40 @@ bool PatchManager::loadBuiltinMetaBankJson(const std::filesystem::path& path)
         // (findByBuiltinRef()がbuiltinフィールドで線形探索するため)。
         // idの一意性さえ保てればよいので、prog自体をそのままbankNoの
         // 代わりに使う。
+        //
+        // ただしprogは「バンク内の格納スロット番号」であり、patch_typeごとに
+        // 分かれた名前空間ではない(HwBank::patchesは128要素の配列1本)。
+        // OPLL系とDSGのエントリが同じprogを使うと後勝ちで上書きされ、
+        // 片方が黙って消える。手書きしやすいファイル形式なので、
+        // 重複・範囲外を警告で検出できるようにしておく
+        // (progを省略すればautoProgで自動採番され衝突しない)。
         if (j.contains("patches") && j["patches"].is_array()) {
             int autoProg = 0;
             for (auto& entry : j["patches"]) {
                 int prog = entry.value("prog", autoProg);
-                if (prog < 0 || prog >= BANK_PROG_SIZE) continue;
-                builtinMetaBank_.set(prog, jsonToHwPatch(entry, 0, prog));
+                if (prog < 0 || prog >= BANK_PROG_SIZE) {
+                    FITOM_LOG_WARN("Builtin swPatch meta bank: prog=" << prog
+                        << " is out of range (0-" << (BANK_PROG_SIZE - 1)
+                        << ") in " << path.filename().string() << " — skipped");
+                    continue;
+                }
+                HwPatch p = jsonToHwPatch(entry, 0, prog);
+                const HwPatch& prev = builtinMetaBank_.get(prog);
+                if (prev.isValid()) {
+                    FITOM_LOG_WARN("Builtin swPatch meta bank: duplicate prog=" << prog
+                        << " in " << path.filename().string()
+                        << " — entry " << builtinRefLabel(prev.builtin)
+                        << " is overwritten by " << builtinRefLabel(p.builtin)
+                        << " (prog is a single slot namespace shared by all"
+                           " patch_types; omit \"prog\" to auto-number)");
+                }
+                if (!p.builtin.isValid()) {
+                    FITOM_LOG_WARN("Builtin swPatch meta bank: prog=" << prog
+                        << " in " << path.filename().string()
+                        << " has no valid \"builtin\" reference — it can never"
+                           " be matched by findByBuiltinRef()");
+                }
+                builtinMetaBank_.set(prog, p);
                 autoProg = prog + 1;
             }
         }

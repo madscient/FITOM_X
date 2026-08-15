@@ -444,6 +444,78 @@ TEST_CASE("Builtin swPatch meta bank resolves DSG entries alongside OPLL ones",
     std::filesystem::remove_all(dir);
 }
 
+// メタバンクの "prog" は patch_type ごとに分かれた名前空間ではなく、
+// バンク内128スロットの格納位置そのもの。手書き時の衝突を避けるため
+// "prog" は省略でき、その場合は自動採番される。全エントリが引けること。
+TEST_CASE("Builtin meta bank auto-numbers entries when prog is omitted",
+          "[dsg][patch][meta]")
+{
+    auto dir = std::filesystem::temp_directory_path() / "fitom_dsg_meta_auto";
+    std::filesystem::create_directories(dir);
+    auto path = dir / "auto.hwbank.json";
+    {
+        std::ofstream f(path);
+        f << R"({
+  "name": "auto numbered",
+  "patches": [
+    { "builtin": { "patch_type": "OPLL", "patch_no": 1 }, "sw_bank": 1, "sw_prog": 1 },
+    { "builtin": { "patch_type": "DSG",  "patch_no": 0 }, "sw_bank": 1, "sw_prog": 2 },
+    { "builtin": { "patch_type": "DSG",  "patch_no": 19 }, "sw_bank": 1, "sw_prog": 3 }
+  ]
+})";
+    }
+
+    PatchManager pm;
+    REQUIRE(pm.loadBuiltinMetaBankJson(path));
+    const HwBank* meta = pm.getBuiltinMetaBank();
+    REQUIRE(meta != nullptr);
+
+    // prog を書かなくても3件すべてが別スロットに入り、引けること
+    REQUIRE(meta->findByBuiltinRef(BUILTIN_TYPE_OPLL, 1) != nullptr);
+    REQUIRE(meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 0) != nullptr);
+    REQUIRE(meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 19) != nullptr);
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_OPLL, 1)->swProg == 1);
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 0)->swProg == 2);
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 19)->swProg == 3);
+
+    std::filesystem::remove_all(dir);
+}
+
+// prog が衝突した場合は後勝ちで上書きされる(ローダが警告を出す)。
+// patch_type が違っても救済されない = 単一スロット名前空間であること。
+TEST_CASE("Builtin meta bank prog is one namespace shared by all patch_types",
+          "[dsg][patch][meta]")
+{
+    auto dir = std::filesystem::temp_directory_path() / "fitom_dsg_meta_dup";
+    std::filesystem::create_directories(dir);
+    auto path = dir / "dup.hwbank.json";
+    {
+        std::ofstream f(path);
+        f << R"({
+  "name": "duplicate prog",
+  "patches": [
+    { "prog": 0, "builtin": { "patch_type": "OPLL", "patch_no": 3 },
+      "sw_bank": 1, "sw_prog": 5 },
+    { "prog": 0, "builtin": { "patch_type": "DSG", "patch_no": 0 },
+      "sw_bank": 1, "sw_prog": 11 }
+  ]
+})";
+    }
+
+    PatchManager pm;
+    REQUIRE(pm.loadBuiltinMetaBankJson(path));
+    const HwBank* meta = pm.getBuiltinMetaBank();
+    REQUIRE(meta != nullptr);
+
+    // 後勝ち: DSG側が残り、OPLL側は消える
+    const HwPatch* dsg = meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 0);
+    REQUIRE(dsg != nullptr);
+    CHECK(dsg->swProg == 11);
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_OPLL, 3) == nullptr);
+
+    std::filesystem::remove_all(dir);
+}
+
 // 未設定のセンチネルは -1。0 は「DSGのprog 0」という正規の値。
 TEST_CASE("BuiltinRef treats patch_no 0 as valid but -1 as unset", "[dsg][patch][meta]")
 {

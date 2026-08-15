@@ -230,7 +230,7 @@
           },
           "builtin": {
             "type": "object",
-            "description": "ROM/ビルトイン音色(内部生成、opllRomPatches_ / dsgBuiltinPatches_)への参照。このバンクが「builtin専用バンク」(profile.jsonのhw_banks[].role=\"builtin_swpatch_meta\"で指定)である場合のみ意味を持つ。prog番号による機械的な対応ではなく、パッチ設計者が明示的に指定するuser specificな識別子。1つのバンクにOPLL系とDSGのエントリを混在させてよい(patch_typeで区別される)。opsとは排他(docs/patch-structure-design.md参照)。",
+            "description": "ROM/ビルトイン音色(内部生成、opllRomPatches_ / dsgBuiltinPatches_)への参照。このバンクが「builtin専用バンク」(profile.jsonのhw_banks[].role=\"builtin_swpatch_meta\"で指定)である場合のみ意味を持つ。prog番号による機械的な対応ではなく、パッチ設計者が明示的に指定するuser specificな識別子。1つのバンクにOPLL系とDSGのエントリを混在させてよい(patch_typeで区別される)。ただしprogは識別子ではなくバンク内128スロットの格納位置であり、patch_typeごとに分かれた名前空間ではない — OPLL系とDSGで同じprogを使うと後勝ちで上書きされる(progを省略すれば自動採番され衝突しない)。opsとは排他(docs/patch-structure-design.md参照)。",
             "properties": {
               "patch_type": {
                 "type": "string",
