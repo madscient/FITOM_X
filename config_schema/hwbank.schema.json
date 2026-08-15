@@ -17,14 +17,12 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "prog"
-        ],
         "properties": {
           "prog": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 127
+            "maximum": 127,
+            "description": "通常のパッチ(ops)ではProgram Change番号そのもので必須。builtin参照エントリ(role=\"builtin_swpatch_meta\"のバンク)ではバンク内128スロットの格納位置にすぎず、検索は(patch_type, patch_no)で行われるため任意。省略すると直前のエントリ+1で自動採番され、patch_type違いのエントリ同士でスロットが衝突して上書きされる事故を防げる。"
           },
           "name": {
             "type": "string"
@@ -260,7 +258,8 @@
         "oneOf": [
           {
             "required": [
-              "ops"
+              "ops",
+              "prog"
             ]
           },
           {
@@ -269,7 +268,7 @@
             ]
           }
         ],
-        "description": "opsとbuiltinはどちらか一方が必須(排他)。builtinはROM/ビルトイン音色(OPLL系・DSG)への参照専用で、通常のHwPatch(ops[]でFMパラメータを記述)とは異なる用途に使う。"
+        "description": "opsとbuiltinはどちらか一方が必須(排他)。builtinはROM/ビルトイン音色(OPLL系・DSG)への参照専用で、通常のHwPatch(ops[]でFMパラメータを記述)とは異なる用途に使う。progの必須/任意もこの分岐で決まる: 通常のパッチ(ops)ではprogがProgram Change番号そのもの(ローダも未指定のエントリを読み飛ばす)なので必須。builtin参照エントリではprogは格納スロット番号にすぎず検索キーではないため任意で、省略すると自動採番される(PatchManager::loadBuiltinMetaBankJson)。"
       }
     }
   },
