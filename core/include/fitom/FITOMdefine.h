@@ -334,9 +334,15 @@ inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
 // として使う。詳細はdocs/patch-structure-design.md参照。
 inline bool isPsgFamilyVoicePatchType(uint8_t vpt) noexcept {
     switch (vpt) {
+    // VOICE_PATCH_DSG(YM2163)はこの共有名前空間には含めない。ユーザー音色を
+    // 持たずHwBank自体が存在しない(resolveTripleが手前でresolveDsgBuiltin
+    // Voice()へ抜ける)ため、共有バンク入口(VOICE_PATCH_SSG)へ寄せると、
+    // GUIのパッチピッカーがDSGカテゴリにSSGのバンクを並べてしまう
+    // (hwBankLookupVoicePatchType経由)。psg_fallback_chipの対象外でも
+    // ある(ROM固定音色でありPSG系のフォールバック先になり得ない)。
     case VOICE_PATCH_SSG: case VOICE_PATCH_EPSG:
     case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
-    case VOICE_PATCH_DSG:  case VOICE_PATCH_SCC:
+    case VOICE_PATCH_SCC:
         return true;
     default:
         return false;
