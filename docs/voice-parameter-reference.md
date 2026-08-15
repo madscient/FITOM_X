@@ -335,6 +335,88 @@ DCSGはアドレス指定レジスタを持たず、`writeRaw`によるコマン
 
 ---
 
+## DSG (YM2163) — `CDSG` / `CDSGRhythm`
+
+波形メモリ方式のROM固定音色チップ。**ユーザー音色は存在しない**ため、
+音色パラメータを持つHwBank(JSONプリセット)を作ることはできない。
+音色は「エンベロープ4種 × 波形5種」の20通りが、Program Changeの値から
+機械的に決まる暗黙のバンクとして`PatchManager`が生成する
+(`initDsgBuiltinPatches()`)。`CPSGBase`は継承しない(チップ内蔵EGを持ち、
+ソフトウェアADSRを走らせる余地が無いため)。
+
+| フィールド | 実機レジスタ | 意味 |
+|---|---|---|
+| `hw.ALG` (下位2bit) | reg 0x88+ch bit6-5 (E2E1) | エンベロープ選択(0-3) |
+| `ops[0].WS` (下位3bit) | reg 0x88+ch bit2-0 (W3W2W1) | 波形メモリ選択(1-5。0/6/7は未定義=無音) |
+| `ops[0].TL` | — (計算値へ合成) | 音色レベル。vol/exp/velと合わせて2bitの音量へ丸められる |
+| サスティン(CC#64) | reg 0x88+ch bit4 (SUS) | ハードウェアのサスティンON/OFFに直結 |
+| 音量(計算値) | reg 0x8C+ch bit5-4 (VL2VL1) | 0=0dB / 1=-6dB / 2=-12dB / 3=-∞。**4段階のみ** |
+| 出力端子 | reg 0x8C+ch bit3-0 (F1-F4) | OR1-OR4への出力可否。定位ではないため常にOR1固定 |
+| Fnum(専用計算) | reg 0x80+ch / reg 0x84+ch bit4-0 | `f = clock/(DV * 2^(3-oct))`。DV=10bit、oct=B2*2+B1 |
+| キーオン | reg 0x84+ch bit6 (KON) | エッジ検出。同レジスタの分周数上位を壊さないこと |
+| 強制減衰 | reg 0x84+ch bit5 (FD) | CC#120(All Sound Off)で使う。同じくエッジ検出 |
+
+### ビルトイン音色の番号割り当て
+
+Program Change値 0-19 が、以下のように波形メジャー(同じ波形の4エンベロープが
+連続する)で並ぶ。音色名も`<波形名>.<エンベロープ名>`で機械生成される。
+
+```
+prog = 波形番号(0-4) * 4 + エンベロープ番号(0-3)
+  波形番号     0=St / 1=Or / 2=Cl / 3=Pf / 4=Hc   (レジスタ値 W = 波形番号+1)
+  エンベロープ 0=Percussive / 1=Wind / 2=Sustain / 3=Plateau
+```
+
+| prog | 音色名 | prog | 音色名 | prog | 音色名 |
+|---|---|---|---|---|---|
+| 0 | `St.Percussive` | 8 | `Cl.Percussive` | 16 | `Hc.Percussive` |
+| 1 | `St.Wind` | 9 | `Cl.Wind` | 17 | `Hc.Wind` |
+| 2 | `St.Sustain` | 10 | `Cl.Sustain` | 18 | `Hc.Sustain` |
+| 3 | `St.Plateau` | 11 | `Cl.Plateau` | 19 | `Hc.Plateau` |
+| 4 | `Or.Percussive` | 12 | `Pf.Percussive` | | |
+| 5 | `Or.Wind` | 13 | `Pf.Wind` | | |
+| 6 | `Or.Sustain` | 14 | `Pf.Sustain` | | |
+| 7 | `Or.Plateau` | 15 | `Pf.Plateau` | | |
+
+### エンベロープとサスティン(SUS)の関係
+
+SUSは音色パラメータではなくサスティンペダル(CC#64)で動く。
+時定数はマスタークロックに比例する(下表は1MHz時)。
+
+| E2E1 | SUS=0 | SUS=1 |
+|---|---|---|
+| 0 `Percussive` | 即最大 → 60msで1/2 → 1.2sで減衰。KOFFで60msリリース | 同左。**KOFFが効かない** |
+| 1 `Wind` | 60msアタック → 保持。KOFFで120msリリース | 60msアタック → 保持。KOFFで1.2sリリース |
+| 2 `Sustain` | 即最大 → 60msで1/2 → 保持。KOFFで60msリリース | 同左。KOFFで1.2sリリース |
+| 3 `Plateau` | 即最大 → 保持。KOFFで即無音(ゲート) | 即最大 → 保持。KOFFで1.2sリリース |
+
+### `CDSGRhythm`（内蔵リズム、5パート）
+
+楽音部とレジスタ空間が独立しているため、楽音4chを潰さずに共存する。
+パート番号はリズムトリガー(reg 0x90)のビット位置に一致する。
+
+| パート | 音 | トリガー(reg 0x90) | レベル | 出力端子 |
+|---|---|---|---|---|
+| 0 | BD (バスドラム) | bit0 | reg 0x95 | RH1 |
+| 1 | HC (ハイコンガ) | bit1 | reg 0x96 | RH1 |
+| 2 | SDN (スネアノイズ) | bit2 | reg 0x97 | RH2 |
+| 3 | HHO (ハイハット Open) | bit3 | reg 0x94 | RH2 |
+| 4 | HHD (ハイハット Close) | bit4 | reg 0x94 | RH2 |
+
+- パート番号は音色データの`hw.ALG`(下位3bit)で直接指定する
+  (`COPLLRhythm`と同じ規約)。
+- HHOとHHDは実機のリズム発振器を共有するため、レベルレジスタも共有する。
+- トリガービットは書くと発音して自動的に0へ戻る。他パートのビットを
+  ORしてはならず、同値連打が抑止されないよう`forceWrite`で書く。
+- レベル(LV4-LV0)は**線形減衰**で0が最大音量・31が最小音量(31でも無音には
+  ならない)。LH(bit0)=0のままにして内蔵リズムEGの減衰を働かせる。
+- **レベルはトリガーの後に書く**こと。トリガーが内蔵リズムEGのレベルを
+  最大へリセットするため、先に書くと上書きされてベロシティが効かなくなる。
+- 音量はMIDI Volume(CC#7)とベロシティの組み合わせ(Expressionは含まない、
+  `COPLLRhythm`と同じ)。音程レジスタは存在しないため`updateFreq`はno-op。
+
+---
+
 ## SCC/SCC+ (K051649/K052539) — `CSCC`
 
 | フィールド | 実機レジスタ | 意味 |

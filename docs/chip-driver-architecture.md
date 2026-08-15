@@ -228,6 +228,7 @@ struct SubDeviceSpec {
 | `DEVICE_OPL3` / `DEVICE_OPN3_L3` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ。COPL3_2側port1サブチップのch6-8を専有) |
 | `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、`rhythm_mode:true`時のみ) |
+| `DEVICE_DSG` (YM2163) | 楽音部(`CDSG`、4ch) + `DEVICE_DSG_RHY`(5パート、**常に生成**。レジスタ空間が楽音部と独立しているため`rhythm_mode`による出し分けが不要) |
 
 上記以外（単体`COPN`、`COPM`系、`CSSG`単体等）は展開されず、1エントリ=1デバイスのまま。
 `DEVICE_OPNA`系の`DEVICE_OPNA_RHY`のみ例外で、`rhythm_mode`の値に関わらず常に
@@ -783,6 +784,73 @@ CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアL
 - **ミックスレジスタのALG=0/1バグ**：`CSSG::computeMixBit`でトーンのみ/ノイズのみ
   の対応ビットが入れ替わっていたバグを修正済み。
 
+### 4.5.1 DSG (YM2163)
+
+```
+CDSG : CSoundDevice                    (YM2163 楽音部, 4ch)
+CDSGRhythm : CSoundDevice              (YM2163 内蔵リズム, 5パート)
+```
+
+波形メモリ方式のNMOS音源。単一のバスアドレスに対し「D7=1でアドレスラッチ /
+D7=0でデータ」の2回書き込みで駆動する実チップだが、この2回書き込みはHW I/F
+プラグイン側が吸収するため、ドライバは通常どおり`setReg(0x80〜0x9F, data)`で
+書く。ポートは1本のみ(`SplitPort`/`extraPort`は使わない)。
+
+- **`CPSGBase`は継承しない**。`CPSGBase`は「チップ内蔵EGが貧弱なので
+  ソフトウェアADSRで音量を時間変化させる」設計だが、YM2163は4種類の内蔵
+  エンベロープを持ち、音色パラメータ(AR/DR/SL/SR/RR)自体を受け付けない。
+  ソフトウェアEGを走らせる余地が無いため、`CSoundDevice`を直接継承し、
+  振幅LFO用の`lfoTL_`だけを自前で持つ。
+- **周波数は共有の周期テーブルを使わず、Hzから直接分解する**。
+  発音周波数は `f = clock / (DV * 2^(3-oct))`、`oct = B2*2+B1` (0-3)、
+  `DV`はDV7〜DV¼を並べた10bit整数(LSB=DV¼、データシートの分周数ΣDViの4倍値)。
+  共有の`FnumTableType::TonePeriod`テーブルはSN76489/SCCの
+  `f = master/(32*N)` 用に量子化されており(基準オクターブでのテーブル値が
+  119〜239程度しか無い)、総分周比が32倍細かいYM2163に流用すると基準
+  オクターブでの丸めがそのまま乗算され、最悪14セント近い音痴になる。
+  `CSAA1099`が実機式を直接計算しているのと同じ理由で、`CDSG::getFnumber()`が
+  ノート/ファインチューン/チャンネルLFOからHzを求め、`ChState::Fnum`へ
+  `block=oct` / `fnum=DV` として詰める(GUIのFnumber表示も実機レジスタと
+  同じ値になる)。
+  `oct`が大きいほど`2^(3-oct)`が小さくなり`DV`の有効桁が増えるため、
+  **`DV`が10bitに収まる範囲で最大の`oct`を選ぶ**こと。
+  最低音は`DV=1023`/`oct=0`の約122.2Hz(MIDIノート47 B2のすぐ下)で、
+  それより下はクランプする。
+- **音量は2bit (VL2VL1) しか無い**。0dB / -6dB / -12dB / -∞ の4段階のみで、
+  `linear2dB()`は0.75dBの2のべき乗倍しか刻めず6dBを表現できない(2bit幅だと
+  12dB/stepになる)ため、`CDCSG`が2dB/stepのために`kGM2dB`から直接換算して
+  いるのと同じ方式をとる。CC#7/CC#11/ベロシティの分解能はこの4段階に
+  丸められる — これはチップの構造的な制約。
+- **サスティンペダルはハードウェアのSUSビットに直結する**(reg 0x88+ch bit4)。
+  ROM固定音色でEGパラメータを持たないため、OPLL系と同じくSUSビットだけで
+  制御する。SUS=1でキーオフ後のリリースが1.2秒へ延び、エンベロープ0では
+  キーオフ自体が効かなくなる(データシート図2)。
+- **CC#120(All Sound Off)はFD(フォーシングダンプ)ビットを使う**。
+  SUSを落としてからFDを立て、通常のリリースより速く消音する。KON/FDとも
+  実機・エミュレータでエッジ検出のため、後続の`noteOff()`が両方を0へ戻す
+  ことで次回の立ち上がりが再武装される。同じ理由で、発音中にreg 0x84+chの
+  分周数上位/オクターブを書き替えてもリトリガーはされない(ピッチベンドに
+  必要)。
+- **内蔵リズムは楽音部とレジスタ空間が完全に独立している**(0x90-0x97 と
+  0x80-0x8F)。OPL/OPLL系のように`rhythm_mode`でFM側chを潰す必要が無いため、
+  `resolveCompositeSpec()`はOPNAの`DEVICE_OPNA_RHY`と同様に
+  `DEVICE_DSG_RHY`を**常時生成する**。
+- **リズムのレベル書き込みはトリガーより「後」でなければならない**。
+  reg 0x90のトリガービットは書くと発音して自動的に0へ戻る
+  (=他パートのビットをORしてはならず、同値連打がシャドウキャッシュに
+  抑止されないよう`forceWrite`で書く)。このトリガーが内蔵リズムEGのレベルを
+  最大へリセットするため、レベル(reg 0x94-0x97)を先に書くと上書きされて
+  ベロシティが一切効かなくなる。`CSoundDevice::noteOn()`は
+  `updateVolExp()`→`updateKey()`の順で呼ぶので、`CDSGRhythm::updateKey()`が
+  トリガー送出の直後に自分でレベルを書き直している。
+  レベルはLV4-LV0の線形減衰(0が最大音量、31が最小音量。31でも無音には
+  ならない)で、LH(bit0)=0のままにして内蔵リズムEGの減衰を働かせる
+  (LH=1は減衰せず固定レベルで鳴り続けるモード)。
+- **パート番号はトリガービットの並びに一致させる**:
+  0=BD / 1=HC / 2=SDN / 3=HHO / 4=HHD。レベルレジスタはHH/BD/HC/SDNの4本
+  しか無く、HHOとHHDは実機のリズム発振器を共有するため同じreg 0x94を使う
+  (OPLLリズムのHH/SDがch7を共有するのと同じ構図)。
+
 ### 4.6 ADPCM系
 
 ```
@@ -923,17 +991,18 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_MA3`(0x39) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA5`(0x3a) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA7`(0x3b) | (未実装) | - | 不明(将来実装時に確定) |
-| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, SSGS, DSG | `CSSG` | 1 |
+| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, SSGS | `CSSG` | 1 |
 | `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） | 1 |
 | `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` | 1 |
 | `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` | 1 |
+| `VOICE_PATCH_DSG`(0x44) | DSG | `CDSG` | HwPatch対象外(ROM固定音色、暗黙のバンク) |
 | `VOICE_PATCH_SCC`(0x48) | SCC, SCCP | `CSCC` | 1 |
 | `VOICE_PATCH_ADPCMB_Y8950`(0x50) | Y8950(ADPCM部) | `CYmDelta` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_ADPCMB`(0x51) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_PCMD8`(0x53) | PCMD8 | `CAdPcmZ280` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_AWM`(0x54) | AWM | `COPL4AWM` | HwPatch対象外(SampleZonePatch使用) |
-| なし(`VOICE_PATCH_NONE`) | OPNA_RHY, OPLL_RHY 等リズムデバイス | `COPNARhythm` / `COPLLRhythm` | HwPatch対象外(内蔵リズム、ダミーHwPatch使用) |
+| なし(`VOICE_PATCH_NONE`) | OPNA_RHY, OPLL_RHY, DSG_RHY 等リズムデバイス | `COPNARhythm` / `COPLLRhythm` / `CDSGRhythm` | HwPatch対象外(内蔵リズム、ダミーHwPatch使用) |
 
 太字は複数の`deviceType`が同じ`VoicePatchType`に統合されている箇所（同種デバイス
 自動束ねやsub-device生成の都合で意図的に統合したもの）。

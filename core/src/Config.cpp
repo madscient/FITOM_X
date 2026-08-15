@@ -807,10 +807,13 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPL_RHY: return VOICE_PATCH_OPL_RHY;
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
-    case DEVICE_SSGS: case DEVICE_DSG:
+    case DEVICE_SSGS:
         return VOICE_PATCH_SSG;
     case DEVICE_EPSG:  return VOICE_PATCH_EPSG;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
+    // DSG (YM2163) はROM固定音色専用の独自VoicePatchType。以前はSSGと
+    // 同一視されていたが、SSG用の音色データを与えても意味を成さない。
+    case DEVICE_DSG:   return VOICE_PATCH_DSG;
     case DEVICE_SAA:   return VOICE_PATCH_SAA;    // CSAA1099 実装済み
 
     case DEVICE_SCC: case DEVICE_SCCP: return VOICE_PATCH_SCC;
@@ -854,7 +857,7 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
         return VOICE_GROUP_MA3;
     case VOICE_PATCH_SSG: case VOICE_PATCH_EPSG:
     case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
-    case VOICE_PATCH_SCC:
+    case VOICE_PATCH_DSG:  case VOICE_PATCH_SCC:
         return VOICE_GROUP_PSG;
     case VOICE_PATCH_ADPCMB:
     case VOICE_PATCH_ADPCMA: case VOICE_PATCH_PCMD8:
@@ -898,6 +901,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "EPSG" || s == "AY8930") return VOICE_PATCH_EPSG;
     if (s == "DCSG")      return VOICE_PATCH_DCSG;
     if (s == "SAA1099" || s == "SAA") return VOICE_PATCH_SAA;
+    if (s == "DSG" || s == "YM2163")  return VOICE_PATCH_DSG;
     if (s == "SCC" || s == "SCCP")    return VOICE_PATCH_SCC;
     if (s == "ADPCMB")    return VOICE_PATCH_ADPCMB;
     if (s == "ADPCMA")    return VOICE_PATCH_ADPCMA;
@@ -935,6 +939,7 @@ const char* FITOMConfig::voicePatchTypeToString(uint8_t vpt) noexcept
     case VOICE_PATCH_EPSG:    return "EPSG";
     case VOICE_PATCH_DCSG:    return "DCSG";
     case VOICE_PATCH_SAA:     return "SAA";
+    case VOICE_PATCH_DSG:     return "DSG";
     case VOICE_PATCH_SCC:     return "SCC";
     case VOICE_PATCH_ADPCMB:  return "ADPCMB";
     case VOICE_PATCH_ADPCMA:  return "ADPCMA";
@@ -1500,6 +1505,16 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         }
         return true;
 
+    case DEVICE_DSG:
+        // DSG(YM2163): 楽音部(4ch) + 内蔵リズム(5パート)。
+        // OPL/OPLL系と違い、リズム音源のレジスタ(0x90-0x97)は楽音部
+        // (0x80-0x8F)と完全に独立しており、楽音chを潰さずに共存できる。
+        // このためrhythm_modeによる出し分けは不要で、OPNAの
+        // DEVICE_OPNA_RHY と同様に常時生成する。
+        outSpec.push_back({baseDeviceType,  "-TONE",   false, false});
+        outSpec.push_back({DEVICE_DSG_RHY,  "-RHYTHM", false, false});
+        return true;
+
     default:
         return false;
     }
@@ -1569,6 +1584,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"EPSG",  DEVICE_EPSG},  {"DCSG",  DEVICE_DCSG},
         {"SCC",   DEVICE_SCC},   {"SCCP",  DEVICE_SCCP},
         {"SAA",   DEVICE_SAA},   {"SAA1099", DEVICE_SAA},
+        {"DSG",   DEVICE_DSG},   {"YM2163",  DEVICE_DSG},
         {"PCMD8", DEVICE_PCMD8},
         {"ADPCMB_Y8950", DEVICE_ADPCMB_Y8950},
         // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用ラッパー
