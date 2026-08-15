@@ -378,6 +378,21 @@ prog = 波形番号(0-4) * 4 + エンベロープ番号(0-3)
 | 6 | `Or.Sustain` | 14 | `Pf.Sustain` | | |
 | 7 | `Or.Plateau` | 15 | `Pf.Plateau` | | |
 
+### パフォーマンスパッチ(SwPatch)の紐づけ
+
+ビルトイン音色は内部生成のため`swBank`/`swProg`を持てない。ベロシティ感度・
+ソフトLFO・トレモロ等を与えるには、OPLL系ROM音色と同じ
+`role=="builtin_swpatch_meta"`のメタバンクを使い、
+`builtin: { "patch_type": "DSG", "patch_no": <prog 0-19> }`で紐づける
+(`PatchManager::resolveDsgBuiltinVoice()`が`findByBuiltinRef()`で探索する)。
+OPLL系と1つのファイルを共有でき、`patch_type`で区別される。
+詳細は`patch-structure-design.md`の「ROM/ビルトイン音色へのパフォーマンス
+パッチ紐づけ」を参照。
+
+`patch_no`は**0から**有効(prog 0 = `St.Percussive`が正規の音色)。
+`BuiltinRef::isValid()`が`patchNo >= 0`である理由がこれで、`>= 1`にすると
+prog 0 のエントリだけが黙って一致しなくなる。
+
 ### エンベロープとサスティン(SUS)の関係
 
 SUSは音色パラメータではなくサスティンペダル(CC#64)で動く。

@@ -1667,14 +1667,18 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
             std::filesystem::path path = file;
             if (path.is_relative()) path = baseDir / path;
 
-            // role=="builtin_swpatch_meta": OPLL ROM音色用のswPatch
-            // メタデータ専用バンク(2026年7月新設)。通常のHwBankRegistry
+            // role=="builtin_swpatch_meta": ROM/ビルトイン音色用のswPatch
+            // メタデータ専用バンク。通常のHwBankRegistry
             // 検索経路には登録せず、専用の保持スロットへルーティングする。
+            // OPLL系ROM音色とDSGビルトイン音色が同じバンクを共有し、各
+            // エントリのbuiltin.patch_typeで区別されるため、複数チップ分の
+            // エントリは1つのファイルにまとめること(2回指定すると後勝ちで
+            // 上書きされる)。
             // group/bankフィールドはこの場合意味を持たない(スキーマ上は
             // 引き続き必須のまま、既存形式との一貫性のため)。
             std::string role = e.value("role", "");
             if (role == "builtin_swpatch_meta") {
-                pm.loadOpllBuiltinMetaBankJson(path);
+                pm.loadBuiltinMetaBankJson(path);
                 continue;
             }
 

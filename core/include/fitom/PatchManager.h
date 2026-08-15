@@ -181,6 +181,13 @@ public:
     const std::array<HwPatch, kDsgBuiltinPatchCount>& getDsgBuiltinPatches() const {
         return dsgBuiltinPatches_;
     }
+    // ROM/ビルトイン音色用swPatchメタバンク(role=="builtin_swpatch_meta")の
+    // 読み取り専用アクセサ。未ロードならnullptr。エントリの検索は
+    // HwBank::findByBuiltinRef(patch_type, patch_no)で行う。
+    const HwBank* getBuiltinMetaBank() const {
+        return hasBuiltinMetaBank_ ? &builtinMetaBank_ : nullptr;
+    }
+
     // hwProg(Program Changeの値そのもの)からビルトイン音色を解決する
     // 読み取り専用版。範囲外(>=20)ならnullptrを返す。
     const HwPatch* getDsgBuiltinPatchByProg(uint8_t hwProg) const {
@@ -195,11 +202,14 @@ public:
     // チップごとに独立する (HwBankRegistry のコメント参照)。
     bool loadHwBankJson(const std::filesystem::path& path,
                         uint8_t voicePatchType, int bankNo);
-    // OPLL ROM音色用のswPatchメタデータ専用バンクを読み込む
-    // (profile.jsonのhw_banks[].role=="builtin_swpatch_meta"用、
-    // 2026年7月新設)。通常のHwBankRegistryには登録せず、
-    // opllBuiltinMetaBank_に直接保持する。
-    bool loadOpllBuiltinMetaBankJson(const std::filesystem::path& path);
+    // ROM/ビルトイン音色用のswPatchメタデータ専用バンクを読み込む
+    // (profile.jsonのhw_banks[].role=="builtin_swpatch_meta"用)。
+    // 通常のHwBankRegistryには登録せず、builtinMetaBank_に直接保持する。
+    // OPLL系ROM音色とDSGビルトイン音色が1つのバンクを共有し、各エントリの
+    // builtin.patch_typeで区別される(BuiltinRef参照)。
+    // 呼ぶたびに前回の内容を破棄するため、複数チップ分のエントリは
+    // 1つのファイルにまとめること。
+    bool loadBuiltinMetaBankJson(const std::filesystem::path& path);
     bool loadSwBankJson(const std::filesystem::path& path, int bankNo);
     bool loadPatchBankJson(const std::filesystem::path& path, int bankNo);
 
@@ -376,14 +386,17 @@ private:
     mutable std::array<HwPatch, kDsgBuiltinPatchCount> dsgBuiltinPatches_{};
     void initDsgBuiltinPatches();
 
-    // OPLL ROM音色用のswPatchメタデータ専用バンク(2026年7月新設)。
+    // ROM/ビルトイン音色用のswPatchメタデータ専用バンク。
     // profile.jsonのhw_banks[].role=="builtin_swpatch_meta"で指定
     // されたバンクが、通常のHwBankRegistry検索を経由せず、ここに
-    // 直接保持される。resolveOpllRomVoice()が
-    // HwBank::findByBuiltinRef()で参照する。未設定ならnullptrのまま
+    // 直接保持される。resolveOpllRomVoice()(OPLL系ROM音色)と
+    // resolveDsgBuiltinVoice()(DSGビルトイン音色)が
+    // HwBank::findByBuiltinRef()で参照し、エントリの
+    // builtin.patch_typeでどちらのチップ向けかを区別する
+    // (=1つのバンクを両者で共有する)。未設定ならnullptrのまま
     // (通常通りswPatch適用なしで動作する、ソフトな失敗)。
-    HwBank opllBuiltinMetaBank_;
-    bool   hasOpllBuiltinMetaBank_ = false;
+    HwBank builtinMetaBank_;
+    bool   hasBuiltinMetaBank_ = false;
 
     HwBankRegistry hwReg_;
     SampleZoneBankRegistry sampleReg_;

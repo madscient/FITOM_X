@@ -18,6 +18,8 @@
 #include "fitom/PatchManager.h"
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -378,6 +380,83 @@ TEST_CASE("PatchManager generates the 20 DSG builtin voices from the program num
     for (const auto& p : bank) seen.emplace_back(p.hwOp[0].WS, p.hw.ALG);
     std::sort(seen.begin(), seen.end());
     CHECK(std::unique(seen.begin(), seen.end()) == seen.end());
+}
+
+// ================================================================
+//  ビルトイン音色用swPatchメタバンク
+// ================================================================
+
+// ROM固定音色はswBank/swProgを持てないため、ベロシティ感度やソフトLFOは
+// role=="builtin_swpatch_meta" のメタバンクから (patch_type, patch_no) で
+// 引く。OPLL系ROM音色と同じ1つのバンクを共有し、patch_typeで区別する。
+TEST_CASE("Builtin swPatch meta bank resolves DSG entries alongside OPLL ones",
+          "[dsg][patch][meta]")
+{
+    auto dir = std::filesystem::temp_directory_path() / "fitom_dsg_meta_test";
+    std::filesystem::create_directories(dir);
+    auto path = dir / "builtin_meta.hwbank.json";
+    {
+        std::ofstream f(path);
+        f << R"({
+  "name": "builtin meta",
+  "patches": [
+    { "prog": 0, "name": "St.Percussive perf",
+      "builtin": { "patch_type": "DSG", "patch_no": 0 },
+      "sw_bank": 2, "sw_prog": 11 },
+    { "prog": 1, "name": "Hc.Plateau perf",
+      "builtin": { "patch_type": "DSG", "patch_no": 19 },
+      "sw_bank": 2, "sw_prog": 12 },
+    { "prog": 2, "name": "OPLL Violin perf",
+      "builtin": { "patch_type": "OPLL", "patch_no": 1 },
+      "sw_bank": 3, "sw_prog": 4 }
+  ]
+})";
+    }
+
+    PatchManager pm;
+    REQUIRE(pm.getBuiltinMetaBank() == nullptr);   // 未ロード時
+    REQUIRE(pm.loadBuiltinMetaBankJson(path));
+    const HwBank* meta = pm.getBuiltinMetaBank();
+    REQUIRE(meta != nullptr);
+
+    // DSGのprog 0 は正規の音色。BuiltinRef::isValid()がpatchNo>=1を
+    // 要求していると、このエントリだけが黙って一致しなくなる。
+    const HwPatch* p0 = meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 0);
+    REQUIRE(p0 != nullptr);
+    CHECK(p0->swBank == 2);
+    CHECK(p0->swProg == 11);
+
+    const HwPatch* p19 = meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 19);
+    REQUIRE(p19 != nullptr);
+    CHECK(p19->swProg == 12);
+
+    // 同じ patch_no でも patch_type が違えば別エントリとして扱われること
+    const HwPatch* opll = meta->findByBuiltinRef(BUILTIN_TYPE_OPLL, 1);
+    REQUIRE(opll != nullptr);
+    CHECK(opll->swBank == 3);
+    CHECK(opll->swProg == 4);
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 1) == nullptr);
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_OPLL, 0) == nullptr);
+
+    // 未登録のビルトイン音色はnullptr(=swPatch無しで発音する、ソフトな失敗)
+    CHECK(meta->findByBuiltinRef(BUILTIN_TYPE_DSG, 5) == nullptr);
+
+    std::filesystem::remove_all(dir);
+}
+
+// 未設定のセンチネルは -1。0 は「DSGのprog 0」という正規の値。
+TEST_CASE("BuiltinRef treats patch_no 0 as valid but -1 as unset", "[dsg][patch][meta]")
+{
+    BuiltinRef unset;
+    CHECK(unset.patchType == -1);
+    CHECK(unset.patchNo == -1);
+    CHECK_FALSE(unset.isValid());
+
+    BuiltinRef dsgZero{BUILTIN_TYPE_DSG, 0};
+    CHECK(dsgZero.isValid());
+
+    BuiltinRef noType{-1, 0};
+    CHECK_FALSE(noType.isValid());
 }
 
 // ================================================================

@@ -77,14 +77,32 @@ static constexpr int MAX_HW_OPS = 4;
 //  紐づけるための、prog番号に依存しないuser specificな識別子。
 // ================================================================
 struct BuiltinRef {
-    // 0=OPLL/1=OPLLX/2=OPLLP/3=VRC7 (PatchManager::kVariantMap相当)。
-    // -1=未設定。
+    // 対象チップ。-1=未設定。
+    //   0=OPLL / 1=OPLLX / 2=OPLLP / 3=VRC7 (PatchManager::kVariantMap相当)
+    //   4=DSG (YM2163、initDsgBuiltinPatches()のビルトイン音色)
     int8_t patchType = -1;
-    // 1-15 (ROM音色番号、initOpllRomPatches()のkNames[][]と同じ規約)。
-    // -1=未設定。
+    // ROM/ビルトイン音色番号。-1=未設定。値域はチップごとに異なる:
+    //   OPLL系: 1-15 (initOpllRomPatches()のkNames[][]と同じ規約。
+    //           0はユーザー音色との衝突回避のため無音として予約)
+    //   DSG:    0-19 (initDsgBuiltinPatches()、prog 0 も正規の音色)
     int8_t patchNo = -1;
 
-    bool isValid() const noexcept { return patchType >= 0 && patchNo >= 1; }
+    // 未設定のセンチネルは0ではなく-1であることに注意。DSGはprog 0
+    // (St.Percussive)が正規の音色のため、patchNo>=1を要求すると
+    // そのエントリだけが黙って一致しなくなる。
+    bool isValid() const noexcept { return patchType >= 0 && patchNo >= 0; }
+};
+
+// BuiltinRef::patchType の値 (JSONの "builtin.patch_type" 文字列と対応)。
+// PatchManager.cpp の kBuiltinTypeNames / kBuiltinTypeMap が唯一の
+// 文字列変換元で、この定数はコード側から参照するための別名。
+enum : int8_t {
+    BUILTIN_TYPE_OPLL  = 0,
+    BUILTIN_TYPE_OPLLX = 1,
+    BUILTIN_TYPE_OPLLP = 2,
+    BUILTIN_TYPE_VRC7  = 3,
+    BUILTIN_TYPE_DSG   = 4,
+    BUILTIN_TYPE_COUNT = 5,
 };
 
 // ================================================================
@@ -100,10 +118,10 @@ struct HwPatch {
     FmHwOp     hwOp[MAX_HW_OPS]; // オペレータ HW パラメータ
     FmChipExt  ext;           // チップ固有拡張 (OPZ 等)
 
-    // OPLL ROM音色への参照(builtin専用バンクのみ使用、通常のops[]と
+    // ROM/ビルトイン音色への参照(builtin専用バンクのみ使用、通常のops[]と
     // 排他)。isValid()がtrueの場合、hw/hwOp[]/extの内容は無視される
-    // (ROM音色自体のFMパラメータはopllRomPatches_由来のまま変更
-    // できないため)。
+    // (ROM音色自体のFMパラメータはopllRomPatches_/dsgBuiltinPatches_由来の
+    // まま変更できないため)。
     BuiltinRef builtin;
 
     // ─── パフォーマンスパッチ(SwPatch)参照 ────────────────────────
@@ -198,10 +216,12 @@ struct HwBank {
     }
 
     // builtin専用バンク(hw_banks[].role=="builtin_swpatch_meta")内を、
-    // (patchType, patchNo)の一致で線形探索する(2026年7月新設)。
+    // (patchType, patchNo)の一致で線形探索する。
     // 通常のprog番号による機械的対応ではなく、パッチ設計者が明示的に
     // 指定したbuiltin参照でマッチングするため、一致するエントリが
-    // バンク内のどのprog番号にあっても構わない。
+    // バンク内のどのprog番号にあっても構わない。patchTypeも一致条件に
+    // 含まれるため、1つのメタバンクファイルに複数チップ(OPLL系/DSG)の
+    // エントリを混在させてよい。
     const HwPatch* findByBuiltinRef(int8_t patchType, int8_t patchNo) const noexcept {
         for (const auto& p : patches) {
             if (p.isValid() && p.builtin.patchType == patchType
