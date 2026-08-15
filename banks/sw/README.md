@@ -5,11 +5,12 @@ SwBank は HwPatch（チップレジスタ直接値）に対するソフトウ�
 
 ## ファイル一覧
 
+フォーマット例示用に1ファイルのみ置いている(`banks/README.md`参照)。
+実際に使うSwBankセットはステージングリポジトリ側で管理する。
+
 | ファイル | 音色数 | VTL | 用途 |
 |---|---|---|---|
-| `default_gm.swbank.json` | 128 | 64 | GM配列バンク向けデフォルト |
-| `default_32.swbank.json` | 32  | 64 | 32音色バンク向けデフォルト |
-| `compat_zero.swbank.json` | 128 | 0  | 全パラメータ0・旧FITOM完全互換 |
+| `default_32.swbank.json` | 32 | 64 | 32音色バンク向けデフォルト |
 
 ## パラメータ
 
@@ -29,7 +30,7 @@ SwBank は HwPatch（チップレジスタ直接値）に対するソフトウ�
 ```json
 "banks": {
   "hw_banks": [
-    { "group": "OPM", "bank": 0, "file": "banks/OPM/dx27_dx100/dx100_1.hwbank.json" }
+    { "group": "OPM", "bank": 0, "file": "banks/OPM/fb01/rom1.hwbank.json" }
   ],
   "sw_banks": [
     { "bank": 0, "file": "banks/sw/default_32.swbank.json" }
