@@ -29,6 +29,7 @@ set(FITOM_CORE_SOURCES
     src/OPL_new.cpp
     src/OPLL_new.cpp
     src/PSG_new.cpp
+    src/DSG_new.cpp
     src/MultiDev_new.cpp
     src/ADPCM_new.cpp
     src/OPL4.cpp

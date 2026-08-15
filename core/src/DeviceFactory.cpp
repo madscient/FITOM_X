@@ -35,6 +35,8 @@ std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCDSG(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCDSGRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr, uint32_t deviceType);
 std::unique_ptr<ISoundDevice> createCSAA1099(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
@@ -132,11 +134,14 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_PSG:
     case DEVICE_SSGL:
     case DEVICE_SSGLP:
-    case DEVICE_SSGS:
-    case DEVICE_DSG:       return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_SSGS:      return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider));
 
     case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    // DSG (YM2163) は以前 CSSG へ暫定的にルーティングされていたが、
+    // レジスタマップ・音色モデルともSSGとは全く別物のため専用ドライバを持つ。
+    case DEVICE_DSG:       return createCDSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_DSG_RHY:   return createCDSGRhythm(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_SCC:
     case DEVICE_SCCP:      return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider),
                                               deviceType);
@@ -179,6 +184,8 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_SSG: case DEVICE_PSG:                    return 3;
     case DEVICE_EPSG:                                    return 3;
     case DEVICE_DCSG:                                     return 4;
+    case DEVICE_DSG:                                      return 4;
+    case DEVICE_DSG_RHY:                                  return 5; // BD/HC/SDN/HHO/HHD
     case DEVICE_SCC: case DEVICE_SCCP:                   return 5;
     case DEVICE_SAA:                                     return 6;
     case DEVICE_PCMD8: case DEVICE_MA2: return 8;
@@ -222,8 +229,11 @@ bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatc
         return copl2AcceptsFallback(sourceVoicePatchType, patch);
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL:
-    case DEVICE_SSGLP: case DEVICE_SSGS: case DEVICE_DSG:
+    case DEVICE_SSGLP: case DEVICE_SSGS:
         return cssgAcceptsFallback(sourceVoicePatchType, patch);
+    // DEVICE_DSG はフォールバック非対応。ROM固定音色しか持たず、他チップの
+    // 音色パラメータを受け取っても再現できないため (OPLLのプリセット音色を
+    // フォールバック対象外にしているのと同じ理由)。
     case DEVICE_EPSG:
         return cepsgAcceptsFallback(sourceVoicePatchType, patch);
 

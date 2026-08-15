@@ -34,6 +34,12 @@ namespace fitom {
 
 class FITOMConfig;  // デバイスリストへのアクセスに使用
 
+// DSG(YM2163)のビルトイン音色数 = 波形5種 × エンベロープ4種。
+// ユーザー音色を持たないチップなので、これがDSGの全音色数でもある。
+constexpr int kDsgBuiltinWaveCount = 5;
+constexpr int kDsgBuiltinEnvCount  = 4;
+constexpr int kDsgBuiltinPatchCount = kDsgBuiltinWaveCount * kDsgBuiltinEnvCount;
+
 // ================================================================
 //  PatchManager
 // ================================================================
@@ -166,6 +172,20 @@ public:
     // variantSel>=4(未定義)またはinstIndex==0(無音として予約)の場合は
     // nullptrを返す。
     const HwPatch* getOpllRomPatchByProg(uint8_t hwProg) const;
+
+    // DSG(YM2163)の暗黙のビルトイン音色バンク(全20音色)を列挙するための
+    // 読み取り専用アクセサ(GUIのパッチピッカー/MIDIモニターのパッチ名
+    // 表示向け)。DSGはユーザー音色を一切持たないため、このバンクが唯一の
+    // 音色ソースになる。添字はそのままProgram Changeの値
+    // (resolveDsgBuiltinVoice()参照)。
+    const std::array<HwPatch, kDsgBuiltinPatchCount>& getDsgBuiltinPatches() const {
+        return dsgBuiltinPatches_;
+    }
+    // hwProg(Program Changeの値そのもの)からビルトイン音色を解決する
+    // 読み取り専用版。範囲外(>=20)ならnullptrを返す。
+    const HwPatch* getDsgBuiltinPatchByProg(uint8_t hwProg) const {
+        return (hwProg < kDsgBuiltinPatchCount) ? &dsgBuiltinPatches_[hwProg] : nullptr;
+    }
 
     // ─── バンクファイル I/O ───────────────────────────────────────
 
@@ -338,6 +358,23 @@ private:
     // 一括初期化する。
     mutable std::array<std::array<HwPatch, 16>, 4> opllRomPatches_{};
     void initOpllRomPatches();
+
+    // ─── DSG(YM2163)ビルトイン音色専用の解決ロジック ────────────────
+    // voicePatchType == VOICE_PATCH_DSG の場合に resolveTriple() から
+    // 呼ばれる。YM2163は音色パラメータを持たず「エンベロープ4種 ×
+    // 波形5種」のROM固定音色しか無いため、ユーザー音色(HwBank)は存在
+    // しない。したがってOPLL系ROM音色(バンク0のみが予約領域)と違い、
+    // hwBankの値に関わらず常にこの暗黙のバンクを引く。
+    //   hwProg: 0-19。 波形番号 = hwProg / 4 (0-4 → W3W2W1 = 1-5)
+    //                  エンベロープ番号 = hwProg % 4 (E2E1)
+    // 波形メジャーの並び(同じ波形の4エンベロープが連続する)にしてある。
+    ResolvedTriple resolveDsgBuiltinVoice(uint8_t hwProg, const FITOMConfig& config,
+                                           const std::string& logContext) const;
+
+    // resolveDsgBuiltinVoice()が返すHwPatchの実体。CDSGドライバは
+    // hw.ALG(エンベロープ番号)とhwOp[0].WS(波形番号)しか参照しない。
+    mutable std::array<HwPatch, kDsgBuiltinPatchCount> dsgBuiltinPatches_{};
+    void initDsgBuiltinPatches();
 
     // OPLL ROM音色用のswPatchメタデータ専用バンク(2026年7月新設)。
     // profile.jsonのhw_banks[].role=="builtin_swpatch_meta"で指定

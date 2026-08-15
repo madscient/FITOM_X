@@ -59,6 +59,7 @@ static const DevMapEntry kDevMap[] = {
     {DEVICE_SSG,   "SSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
     {DEVICE_PSG,   "PSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
     {DEVICE_DCSG,  "DCSG",  VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
+    {DEVICE_DSG,   "DSG",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
     {DEVICE_SCC,   "SCC",   VOICE_TYPE_PSG,  VOICE_GROUP_PSG },
     {DEVICE_ADPCM, "ADPCM", VOICE_TYPE_PCM,  VOICE_GROUP_PCM },
     {DEVICE_PCMD8, "PCMD8", VOICE_TYPE_PCM,  VOICE_GROUP_PCM },
@@ -117,8 +118,11 @@ static const RegSizeEntry kRegSizeMap[] = {
 
     // PSG系 (CSSG/CEPSG/CDCSG): 0x00-0x0D。CDCSGはラッチ方式でアドレス0のみ
     {DEVICE_SSG,   0x010}, {DEVICE_PSG,   0x010}, {DEVICE_SSGL,  0x010},
-    {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010}, {DEVICE_DSG,   0x010},
+    {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010},
     {DEVICE_DCSG,  0x010},
+    // DSG (CDSG/CDSGRhythm): 実効レジスタは0x80-0x9F だが、regBak_ は
+    // レジスタアドレスをそのまま添字にするため 0xA0 まで確保・表示する
+    {DEVICE_DSG,   0x0A0}, {DEVICE_DSG_RHY, 0x0A0},
     // EPSG(AY8930)は拡張モードでBank A/Bを多重化するため、内部シャドウで
     // Bank Bを0x10以降へ分離した「32レジスタ」として持つ(CEPSG::kBankB参照)。
     // ダンプもその表現をそのまま表示する (0x00-0x0F=Bank A / 0x10-0x1F=Bank B)
@@ -169,8 +173,9 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_OPL3_2,  "D"},
     // 内蔵リズム音源
     {DEVICE_OPNA_RHY, "RHY"}, {DEVICE_OPL_RHY, "RHY"}, {DEVICE_OPLL_RHY, "RHY"},
+    {DEVICE_DSG_RHY, "RHY"},
     // PSG系
-    {DEVICE_SSG,   "SSG"}, {DEVICE_DCSG, "DCSG"},
+    {DEVICE_SSG,   "SSG"}, {DEVICE_DCSG, "DCSG"}, {DEVICE_DSG, "DSG"},
     {DEVICE_SCC,   "SCC"}, {DEVICE_SCCP, "SCC"},
     {DEVICE_SAA,   "SAA"},
     // ADPCM/PCM系
@@ -202,6 +207,7 @@ static const RhythmChannelNameEntry kRhythmChannelNameMap[] = {
     {DEVICE_OPNA_RHY, {"BD", "SD", "CY", "HH", "Tom", "Rim"}},
     {DEVICE_OPL_RHY,  {"HH", "CY", "Tom", "SD", "BD", nullptr}},
     {DEVICE_OPLL_RHY, {"HH", "CY", "Tom", "SD", "BD", nullptr}},
+    {DEVICE_DSG_RHY,  {"BD", "HC", "SD", "HHo", "HHc", nullptr}},
     {DEVICE_NONE,     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},
 };
 

@@ -162,6 +162,7 @@
 #define DEVICE_OPL_RHY	(DEVICE_OPL | BUILTIN_RHYTHM)			//71
 #define DEVICE_OPLL_RHY	(DEVICE_OPLL | BUILTIN_RHYTHM)			//70
 #define DEVICE_OPK_RHY	(DEVICE_OPK | BUILTIN_RHYTHM)			//104
+#define DEVICE_DSG_RHY	(DEVICE_DSG | BUILTIN_RHYTHM)			//77
 
 #define DEVICE_MULTI	1024	//Multiple module
 #define DEVICE_NBV		1025	//NBV3/NBV4
@@ -276,6 +277,12 @@
 #define VOICE_PATCH_EPSG     0x41  // AY8930 (DEVICE_EPSGの命名規則に統一)
 #define VOICE_PATCH_DCSG     0x42  // SN76489
 #define VOICE_PATCH_SAA      0x43  // SAA1099
+// YM2163 (DSG)。波形ROM+内蔵EGだが、音色パラメータを一切持たず
+// 「エンベロープ4種×波形5種」のROM固定音色をProgChgで選ぶだけなので、
+// SCC(0x48、波形テーブルをユーザーが与える)とは別分類とする。
+// ユーザー音色は存在しないため、この値のHwBankは作らない
+// (PatchManager::resolveDsgBuiltinVoice が常に暗黙のバンクを返す)。
+#define VOICE_PATCH_DSG      0x44
 
 // 0x48: VoiceGroup=PSG (波形ROM)
 #define VOICE_PATCH_SCC      0x48  // SCC, SCCP
@@ -329,7 +336,7 @@ inline bool isPsgFamilyVoicePatchType(uint8_t vpt) noexcept {
     switch (vpt) {
     case VOICE_PATCH_SSG: case VOICE_PATCH_EPSG:
     case VOICE_PATCH_DCSG: case VOICE_PATCH_SAA:
-    case VOICE_PATCH_SCC:
+    case VOICE_PATCH_DSG:  case VOICE_PATCH_SCC:
         return true;
     default:
         return false;

@@ -10,6 +10,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <cstring>
+#include <cstdio>
 #include <algorithm>
 #include <unordered_map>
 
@@ -194,6 +195,7 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
 PatchManager::PatchManager()
 {
     initOpllRomPatches();
+    initDsgBuiltinPatches();
 }
 
 // [variantSel][instIndex] の全64エントリを事前に構築する。
@@ -240,6 +242,71 @@ void PatchManager::initOpllRomPatches()
             p.hw.ALG      = static_cast<uint8_t>(instIndex & 0xF); // INSTナンバー
         }
     }
+}
+
+// DSG(YM2163)の暗黙のビルトイン音色バンクを構築する。
+// CDSGドライバ(core/src/DSG_new.cpp)が参照するのは hw.ALG(エンベロープ
+// 番号)と hwOp[0].WS(波形メモリ番号)の2つだけなので、それ以外の
+// フィールドはデフォルト値のままでよい。
+void PatchManager::initDsgBuiltinPatches()
+{
+    // 波形名はデータシート表(W3W2W1)の2文字略名そのまま。W3W2W1=1-5が
+    // 有効で、0/6/7は未定義(無音)のため、配列添字0-4を W=1-5 に対応させる。
+    //   St=ストリングス / Or=オルガン / Cl=クラリネット /
+    //   Pf=ピアノ / Hc=ハープシコード
+    static const char* const kWaveNames[kDsgBuiltinWaveCount] = {
+        "St", "Or", "Cl", "Pf", "Hc"
+    };
+    // エンベロープ名 (E2E1)。データシート図2の挙動に対応する通称。
+    static const char* const kEnvNames[kDsgBuiltinEnvCount] = {
+        "Percussive", "Wind", "Sustain", "Plateau"
+    };
+
+    for (int wave = 0; wave < kDsgBuiltinWaveCount; ++wave) {
+        for (int env = 0; env < kDsgBuiltinEnvCount; ++env) {
+            const int prog = wave * kDsgBuiltinEnvCount + env;
+            HwPatch& p = dsgBuiltinPatches_[prog];
+            p = HwPatch{};
+            // id: バンク番号は常に0、prog番号はProgram Changeの生値。
+            // isValid()が正しくtrueを返すよう既定の0xFFFFFFFFuから変更する。
+            p.id = static_cast<uint32_t>(prog);
+            // 音色名も「<波形名>.<エンベロープ名>」で機械的に生成する
+            // (例: Pf.Percussive / St.Plateau)。
+            std::snprintf(p.name, sizeof(p.name), "%s.%s",
+                          kWaveNames[wave], kEnvNames[env]);
+            p.hw.ALG     = static_cast<uint8_t>(env);          // E2E1
+            p.hwOp[0].WS = static_cast<uint8_t>(wave + 1);     // W3W2W1 (1-5)
+        }
+    }
+}
+
+// DSG(YM2163)ビルトイン音色専用の解決ロジック。
+// ユーザー音色が存在しないチップのため、OPLL系ROM音色(バンク0のみが
+// 予約領域)と異なり hwBank の値を問わず常にこの暗黙のバンクを引く。
+PatchManager::ResolvedTriple PatchManager::resolveDsgBuiltinVoice(
+    uint8_t hwProg, const FITOMConfig& config, const std::string& logContext) const
+{
+    ResolvedTriple result;
+    std::string ctx = logContext.empty()
+        ? std::string("resolveDirect:")
+        : ("resolve: " + logContext);
+
+    if (hwProg >= kDsgBuiltinPatchCount) {
+        FITOM_LOG_WARN(ctx << " DSG builtin voice: prog=" << (int)hwProg
+            << " is out of range (0-" << (kDsgBuiltinPatchCount - 1) << ")");
+        return result;
+    }
+
+    // ROM固定音色のためフォールバックは行わない(OPLL系ROM音色と同じ方針)。
+    int deviceIndex = config.findDeviceIndexByVoicePatchType(VOICE_PATCH_DSG);
+    if (deviceIndex < 0) {
+        FITOM_LOG_WARN(ctx << " DSG builtin voice: no DSG device connected");
+        return result;
+    }
+
+    result.deviceIndex = deviceIndex;
+    result.hwPatch = &dsgBuiltinPatches_[hwProg];
+    return result;
 }
 
 // OPLL系ROM音色専用の解決ロジック。voicePatchTypeがOPLLファミリーの
@@ -343,6 +410,8 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
         targetDeviceType = DEVICE_OPNA_RHY;
     } else if (chipSel == VOICE_PATCH_OPLL) { // OPLL
         targetDeviceType = DEVICE_OPLL_RHY;
+    } else if (chipSel == VOICE_PATCH_DSG) {  // DSG (YM2163)
+        targetDeviceType = DEVICE_DSG_RHY;
     } else {
         // OPL(COPLRhythm)は現状未実装、その他の値も無効。
         FITOM_LOG_WARN(ctx << " builtin-rhythm: undefined chip selector=0x"
@@ -409,6 +478,12 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // HwBankRegistry検索を一切経由しない。
     if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
         return resolveBuiltinRhythm(hwBank, hwProg, config, logContext);
+    }
+
+    // DSG(YM2163)ビルトイン音色専用バンク: ユーザー音色が存在しないため、
+    // hwBankの値を問わず常に暗黙のバンク(20音色)を引く。
+    if (voicePatchType == VOICE_PATCH_DSG) {
+        return resolveDsgBuiltinVoice(hwProg, config, logContext);
     }
 
     // OPLL系ROM音色専用バンク: バンク0はROM音色専用の予約領域であり、
