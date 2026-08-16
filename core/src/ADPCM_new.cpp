@@ -828,16 +828,17 @@ protected:
 
     // サンプリングレート指定（値の対応は推測）
     static constexpr uint32_t kSamplingRates[4] = {4000, 8000, 16000, 32000};
+    static constexpr uint8_t  kSamplingCodeMax = 3;   // 32kHz
 
     static uint8_t samplingCodeOf(uint32_t sampleRate) {
-        if (sampleRate == 0) return 0;   // 未指定は最高レート
+        if (sampleRate == 0) return kSamplingCodeMax;   // 未指定は最高レート
         for (uint8_t i = 0; i < 4; ++i) {
             if (kSamplingRates[i] == sampleRate) return i;
         }
         FITOM_LOG_WARN("CSSGSAdPcm: sample_rate=" << sampleRate
             << " は YMZ705 が選択できる 32000/16000/8000/4000 のいずれでもありません。"
             " 32kHz として扱います");
-        return 0;
+        return kSamplingCodeMax;
     }
 
     static uint16_t regOf(uint8_t ch, uint8_t offset) {

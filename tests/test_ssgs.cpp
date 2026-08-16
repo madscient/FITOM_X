@@ -562,7 +562,7 @@ TEST_CASE("CSSGSAdPcm: ボイス番号とサンプリング周波数コードを
 
     PcmBankRegistry reg;
     PcmBank& bank = reg.getOrCreate(0);
-    bank.sampleRate = 16000;          // S1S0 = 01
+    bank.sampleRate = 16000;          // S1S0 = 10
     PcmEntry e;
     e.entryNo    = 5;
     e.startOffset = 0x1000;
@@ -574,17 +574,17 @@ TEST_CASE("CSSGSAdPcm: ボイス番号とサンプリング周波数コードを
     SampleZonePatch sp = makeSamplePatch(5);
     dev->assignCh(2, nullptr, nullptr, 100, nullptr, &sp);
 
-    // $60 = ch2 のボイス指定レジスタ。S1S0=01 (16kHz) + ボイス番号5
-    CHECK(port.at(0x60) == static_cast<uint8_t>((1 << 6) | 5));
+    // $60 = ch2 のボイス指定レジスタ。S1S0=10 (16kHz) + ボイス番号5
+    CHECK(port.at(0x60) == static_cast<uint8_t>((2 << 6) | 5));
     // 開始/終了アドレスレジスタは存在しないため、1chあたり4レジスタ
     // ($60-$63) しか使わない。残り12バイトには一切書かない。
     for (uint16_t r = 0x64; r <= 0x6F; ++r) CHECK_FALSE(port.wrote(r));
 }
 
-TEST_CASE("CSSGSAdPcm: サンプリング周波数コードは 32k/16k/8k/4k に対応する", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: サンプリング周波数コードは 4k/8k/16k/32k に対応する", "[ssgs]")
 {
     const std::pair<uint32_t, uint8_t> cases[] = {
-        {32000, 0}, {16000, 1}, {8000, 2}, {4000, 3},
+        {4000, 0}, {8000, 1}, {16000, 2}, {32000, 3},
     };
     for (const auto& [rate, code] : cases) {
         RecordingPort port;
@@ -603,6 +603,28 @@ TEST_CASE("CSSGSAdPcm: サンプリング周波数コードは 32k/16k/8k/4k に
         SampleZonePatch sp = makeSamplePatch(0);
         dev->assignCh(0, nullptr, nullptr, 100, nullptr, &sp);
         CHECK(port.at(0x40) == static_cast<uint8_t>(code << 6));
+    }
+}
+
+TEST_CASE("CSSGSAdPcm: sample_rate未指定・非対応値は最高レート(32kHz)へ丸める", "[ssgs]")
+{
+    for (uint32_t rate : {uint32_t{0}, uint32_t{24000}}) {
+        RecordingPort port;
+        auto dev = makeSsgsAdpcm(port);
+
+        PcmBankRegistry reg;
+        PcmBank& bank = reg.getOrCreate(0);
+        bank.sampleRate = rate;
+        PcmEntry e;
+        e.entryNo = 0;
+        e.paddedSize = 0x100;
+        bank.setEntry(0, e);
+        dev->setPcmRegistry(&reg, 0);
+        dev->initPcmData();
+
+        SampleZonePatch sp = makeSamplePatch(0);
+        dev->assignCh(0, nullptr, nullptr, 100, nullptr, &sp);
+        CHECK(port.at(0x40) == static_cast<uint8_t>(3 << 6));
     }
 }
 
