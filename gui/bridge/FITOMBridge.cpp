@@ -750,6 +750,11 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                     if (hp.isValid()) mon.progName = hp.name;
                 }
             }
+        } else if (bankSelMSB == VOICE_PATCH_SILENCE) {
+            // 無音バンク。CC#32/ProgChgは参照されないため、それらの数値を
+            // 表示しても意味が無い(固定ラベルで埋めて未解決扱いを避ける)。
+            mon.bankName = "無音";
+            mon.progName = "(silence)";
         } else if (bankSelMSB == VOICE_PATCH_BUILTIN_RHYTHM) {
             // 内蔵リズム音源(2026年7月追加修正、getHwBankList()/
             // getHwBankPatches()と同じ理由)。mon.bankNoがchipSel

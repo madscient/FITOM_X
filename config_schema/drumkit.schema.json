@@ -101,7 +101,7 @@
                 "minimum": 0,
                 "maximum": 127,
                 "default": 0,
-                "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progで楽器(チャンネル)番号を直接指定する(必須。範囲外の場合は解決失敗として扱われ、動的チャンネル割り当てへのフォールバックは行われない=誤った楽器が鳴るより無音を優先)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
+                "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progで楽器(チャンネル)番号を直接指定する(必須。範囲外の場合は解決失敗として扱われ、動的チャンネル割り当てへのフォールバックは行われない=誤った楽器が鳴るより無音を優先)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。0x7F(VOICE_PATCH_SILENCE)=無音バンク: patch_bank/patch_progを一切参照せず、必ず無音になる。まだ音色を決めていないノートのプレースホルダに使う(定義自体を省略した場合と違い、確実に無音であることが保証される)。"
               },
               "sw_bank": {
                 "type": "integer",
@@ -216,7 +216,7 @@
           "minimum": 0,
           "maximum": 127,
           "default": 0,
-          "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progで楽器(チャンネル)番号を直接指定する(必須。範囲外の場合は解決失敗として扱われ、動的チャンネル割り当てへのフォールバックは行われない=誤った楽器が鳴るより無音を優先)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。"
+          "description": "モード選択子。CC#0(Bank Select MSB)と全く同じセマンティクス。0(VOICE_PATCH_NONE、省略時のデフォルト)=通常モード: patch_bank/patch_progはPatchBank番号/Progとして解決される (PatchBank→Patch→ToneLayer[]のマルチレイヤー、SwPatch適用あり)。0x01-0x6F=直接モード: この値自体がVOICE_PATCH_*定数となり、patch_bank/patch_progはそのVoicePatchType用のHwBankインデックス/HwProgとして読み替わる(単層Patch、SwPatchなし)。0x70=内蔵リズム音源専用バンク(OPNA/OPLLのCOPNARhythm/COPLLRhythm)。patch_bankで対象チップを選ぶ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。patch_progで楽器(チャンネル)番号を直接指定する(必須。範囲外の場合は解決失敗として扱われ、動的チャンネル割り当てへのフォールバックは行われない=誤った楽器が鳴るより無音を優先)。詳細はdocs/terminology.mdの「内蔵リズム音源専用バンク」を参照。0x7F(VOICE_PATCH_SILENCE)=無音バンク: patch_bank/patch_progを一切参照せず、必ず無音になる。まだ音色を決めていないノートのプレースホルダに使う(定義自体を省略した場合と違い、確実に無音であることが保証される)。"
         },
         "sw_bank": {
           "type": "integer",

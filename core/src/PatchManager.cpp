@@ -138,6 +138,11 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
 
         auto rt = resolveTriple(layer.voicePatchType, layer.hwBank, layer.hwProg,
                                  config, "layer=" + std::to_string(i));
+        // 無音バンク(rt.silent)もここでスキップされる。解決失敗と違い
+        // 警告は出ず、意図された無音として扱われる。全レイヤーが無音
+        // またはスキップになった場合、layerCount==0のResolvedPatchが
+        // 返るが、これはPatch自体が見つかっている以上「有効」であり、
+        // CInstCh::progChange()は直前のパッチを維持しない(=無音になる)。
         if (!rt.isValid()) continue;
 
         ResolvedLayer rl;
@@ -157,6 +162,20 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
                                           const FITOMConfig& config, Patch& storage) const
 {
     auto rt = resolveTriple(voicePatchType, hwBank, hwProg, config);
+
+    // 無音バンク(VOICE_PATCH_SILENCE): レイヤーを1本も持たない、しかし
+    // 「有効な」ResolvedPatchを返す。ResolvedPatch::isValid()はpatchが
+    // 非nullかどうかだけを見るため、これはCInstCh::progChange()から
+    // 見て解決成功であり、直前のパッチは破棄される。発音側は
+    // layerCount==0で即returnするので確実に無音になる。
+    if (rt.silent) {
+        static const HwPatch kSilentPatch{};
+        storage = Patch::fromSingleLayer(kSilentPatch, voicePatchType, hwBank, hwProg);
+        std::strncpy(storage.name, "(silence)", sizeof(storage.name) - 1);
+        ResolvedPatch result;
+        result.patch = &storage;   // layerCount は 0 のまま
+        return result;
+    }
     if (!rt.isValid()) return {};
 
     // storage (呼び出し元が寿命を保持) に単層Patchを構築する。
@@ -489,6 +508,15 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // 場合、ToneLayer同士が循環参照する経路を開いてしまうため、
     // この入口で構造的に禁止しておく。
     if (voicePatchType == VOICE_PATCH_NONE) return result;
+
+    // 無音バンク: チップ種別もhwBank/hwProgも一切参照せず、常に
+    // 「解決成功・ただし発音しない」を返す(FITOMdefine.hの
+    // VOICE_PATCH_SILENCEコメント参照)。デバイスに触れないため、
+    // どのプロファイル構成でも同じ結果になることが保証される。
+    if (voicePatchType == VOICE_PATCH_SILENCE) {
+        result.silent = true;
+        return result;
+    }
 
     // 内蔵リズム音源専用バンク: hwBank(CC#32相当)が対象チップを、
     // hwProg(ProgChg相当)がそのチップ内の楽器番号を選ぶ。通常の

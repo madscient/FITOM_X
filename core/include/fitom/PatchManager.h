@@ -147,6 +147,9 @@ public:
     // storage は呼び出し側 (CInstCh) が寿命を保持する実体
     // (ResolvedPatch::patch はここを指す)。
     // SwPatch は常に nullptr (直接モードはベロシティ感度等を持たない)。
+    // voicePatchType == VOICE_PATCH_SILENCE の場合のみ、layerCount==0 の
+    // 「有効な」ResolvedPatch を返す (無効な戻り値との違いは重要:
+    //  ResolvedTriple::silent のコメント参照)。
     ResolvedPatch resolveDirect(uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
                                 const FITOMConfig& config, Patch& storage) const;
 
@@ -305,6 +308,10 @@ private:
     //  相当する値。もしこの関数がPatchBank参照も扱えるよう将来拡張
     //  された場合、ToneLayer同士が循環参照する経路を開いてしまう
     //  ため、この関数の入口で構造的に禁止しておく)。
+    //
+    // voicePatchType == VOICE_PATCH_SILENCE(0x7F) は、hwBank/hwProgを
+    // 一切参照せず silent=true だけを立てて返す (常に成功する唯一の
+    // 経路)。
     struct ResolvedTriple {
         int deviceIndex = -1;
         const HwPatch* hwPatch = nullptr;
@@ -316,6 +323,13 @@ private:
         // allocCh/DVAによる動的割り当てが可能)。ビルトインリズム音源
         // (resolveBuiltinRhythm参照)が現状唯一の設定元。
         int8_t forcedCh = -1;
+        // 無音バンク(VOICE_PATCH_SILENCE)による解決。「解決には成功したが
+        // 発音しない」という第3の結果を表すため、isValid()(=デバイスが
+        // 決まったか)とは独立したフラグにしてある。呼び出し元は、これが
+        // trueならResolvedLayerを1本も作らず、かつ解決失敗としても扱わない
+        // (失敗扱いにすると CInstCh::progChange が直前のパッチを維持して
+        //  しまい、無音にならない)。
+        bool silent = false;
         bool isValid() const { return deviceIndex >= 0; }
     };
     // logContext: ログメッセージの主語("layer=N" 等)。空文字なら

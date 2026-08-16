@@ -955,6 +955,7 @@ const char* FITOMConfig::voicePatchTypeToString(uint8_t vpt) noexcept
     case VOICE_PATCH_AWM:     return "AWM";
     case VOICE_PATCH_SSGS_ADPCM: return "SSGS_ADPCM";
     case VOICE_PATCH_BUILTIN_RHYTHM: return "BUILTIN_RHYTHM";
+    case VOICE_PATCH_SILENCE: return "SILENCE";
     default:                  return "?";
     }
 }
