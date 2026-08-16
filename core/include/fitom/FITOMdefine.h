@@ -308,7 +308,8 @@
 // 0x50: VoiceGroup=PCM
 // (旧0x70-0x74から変更。BankSel.MSB(CC#0)による直接モードのチップ選択
 //  IDとして使うため、0x01-0x6Fの範囲に収める必要がある。0x70-0x7Fは
-//  将来の予約領域および GM2 リズム/メロディ切替 (0x78/0x79) 専用とする)
+//  特定チップを指さないモード選択子(0x70/0x7F)、GM2 リズム/メロディ
+//  切替 (0x78/0x79)、および将来の予約領域とする)
 //
 // 0x50は予約領域(2026年7月、VOICE_PATCH_ADPCMB_Y8950を削除した際に
 // 空いた枠)。Y8950内蔵ADPCM-BはDEVICE_ADPCMB_Y8950というdeviceType
@@ -337,6 +338,18 @@
 // 内蔵リズムユニット内の楽器番号(0起算、チップごとに固定チャンネル数)
 // を選ぶ。詳細はPatchManager::resolveBuiltinRhythm()参照。
 #define VOICE_PATCH_BUILTIN_RHYTHM 0x70
+
+// 0x7F: 無音バンク選択子。チップ種別を一切参照せず、常に「解決に成功した
+// 上で発音しない」結果を返す(PatchManager::resolveTriple()の入口で処理)。
+// hwBank(CC#32)・hwProg(ProgChg)相当の値は一切参照しないため、CC#0=127を
+// 選んだ時点で128×128の空間すべてが無音になる。
+//
+// 存在しないバンク/プログラムを指定した場合との違いに注意。そちらは
+// 「解決失敗」であり、CInstCh::progChange()が直前のパッチを維持して
+// 無音にならない。パッチ定義のプレースホルダ(まだ音色を決めていない
+// ToneLayer、埋めていないDrumNote等)には、チップ種別ごとに無音用の
+// HwPatchを用意する代わりにこの値を使う。
+#define VOICE_PATCH_SILENCE 0x7F
 
 // サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM/SSGS-ADPCM) かどうかを
 // 判定する。これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch

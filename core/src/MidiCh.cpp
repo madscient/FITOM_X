@@ -100,6 +100,9 @@ void CInstCh::setup(PatchManager* pm, CFITOM* fitom)
 //               HwBankのインデックスを選択する。
 //    0x78/0x79: MidiProcessor層で消費済み (リズム/メロディ切替)。
 //               このメソッドに渡るbankSelM_には決して現れない。
+//    0x7F     : 無音バンク。CC#32/ProgChgの値によらず必ず無音になる
+//               (VOICE_PATCH_SILENCE参照)。「解決に失敗して直前の
+//               パッチを維持する」下の分岐とは別物であることに注意。
 // ----------------------------------------------------------------
 void CInstCh::progChange(uint8_t prog)
 {
@@ -149,7 +152,10 @@ void CInstCh::progChange(uint8_t prog)
     // 最小のチャンネル数を持つデバイスが上限になる (どのレイヤーも
     // 同時に鳴らす必要があるため、一番小さいデバイスがボトルネックになる)。
     // channel_map等の固定設定は使わず、ProgChangeのたびに動的に決定する。
-    uint8_t newPoly = MAX_NOTES;
+    // レイヤーが1本も無い場合(無音バンク、または全レイヤーが解決不能
+    // だった有効パッチ)は、算出の根拠になるデバイスが存在しない。
+    // MAX_NOTESのまま残すとボイス数上限だけが不必要に広がるため1に倒す。
+    uint8_t newPoly = (resolved.layerCount > 0) ? MAX_NOTES : 1;
     for (int li = 0; li < resolved.layerCount; ++li) {
         const auto& rl = resolved.layers[li];
         ISoundDevice* dev = fitom_->getDevice(rl.deviceIndex);
