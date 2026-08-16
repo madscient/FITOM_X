@@ -807,7 +807,12 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPL_RHY: return VOICE_PATCH_OPL_RHY;
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
-    case DEVICE_SSGS:
+    // SSGS(YMZ705)/SSGS2(YMZ732)のSSG部はYM2149とレジスタ互換で音色データ
+    // 形式も同一(chごとのパンポットはMIDI側のCC#10で制御され音色データには
+    // 現れない)。同じVoicePatchTypeを返すことで、SSGSとSSGS2が混在する構成
+    // でもCSpanDeviceの束ね対象になる(束ねのキーはVoicePatchType、
+    // mergeSpannableDevices参照)。
+    case DEVICE_SSGS: case DEVICE_SSGS2:
         return VOICE_PATCH_SSG;
     case DEVICE_EPSG:  return VOICE_PATCH_EPSG;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
@@ -827,6 +832,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_ADPCMB_Y8950: return VOICE_PATCH_ADPCMB;
     case DEVICE_ADPCMA: return VOICE_PATCH_ADPCMA;
     case DEVICE_PCMD8:  return VOICE_PATCH_PCMD8;
+    case DEVICE_SSGS_ADPCM: return VOICE_PATCH_SSGS_ADPCM;
 
     default:
         return VOICE_PATCH_NONE;
@@ -861,7 +867,7 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
         return VOICE_GROUP_PSG;
     case VOICE_PATCH_ADPCMB:
     case VOICE_PATCH_ADPCMA: case VOICE_PATCH_PCMD8:
-    case VOICE_PATCH_AWM:
+    case VOICE_PATCH_AWM:    case VOICE_PATCH_SSGS_ADPCM:
         return VOICE_GROUP_PCM;
     default:
         return VOICE_GROUP_NONE;
@@ -907,6 +913,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "ADPCMA")    return VOICE_PATCH_ADPCMA;
     if (s == "PCMD8")     return VOICE_PATCH_PCMD8;
     if (s == "AWM")       return VOICE_PATCH_AWM;
+    if (s == "SSGS_ADPCM") return VOICE_PATCH_SSGS_ADPCM;
     // 後方互換: 旧来の粗い "PSG"/"PCM" 指定は代表値にフォールバック
     if (s == "PSG")       return VOICE_PATCH_SSG;
     if (s == "PCM")       return VOICE_PATCH_ADPCMB;
@@ -945,6 +952,7 @@ const char* FITOMConfig::voicePatchTypeToString(uint8_t vpt) noexcept
     case VOICE_PATCH_ADPCMA:  return "ADPCMA";
     case VOICE_PATCH_PCMD8:   return "PCMD8";
     case VOICE_PATCH_AWM:     return "AWM";
+    case VOICE_PATCH_SSGS_ADPCM: return "SSGS_ADPCM";
     case VOICE_PATCH_BUILTIN_RHYTHM: return "BUILTIN_RHYTHM";
     default:                  return "?";
     }
@@ -1021,7 +1029,12 @@ bool FITOMConfig::subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept
     // 引き続き対象で、例えば「OPL4のFM部 + OPL3」をL/Rペアとして
     // ステレオ化する用法が成立する(両者ともFM部のサブデバイス構成が
     // DEVICE_OPL3/DEVICE_OPL3_2で一致するため)。
-    return deviceType != DEVICE_OPL4AWM;
+    // SSGS(YMZ705)/SSGS2(YMZ732)はSSG部・ADPCM部ともchごとのパンポット
+    // レジスタを持つため同じ理由で対象外。
+    return deviceType != DEVICE_OPL4AWM
+        && deviceType != DEVICE_SSGS
+        && deviceType != DEVICE_SSGS2
+        && deviceType != DEVICE_SSGS_ADPCM;
 }
 
 FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexcept
@@ -1056,8 +1069,10 @@ FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexce
     // 連続的なパンポットレジスタを持つチップ。
     // OPL4 AWM: 0x68+ch の4bit符号付き(-7..+7)。YMZ280B: 0x03+ch*4 の4bit(0-15)。
     // SAA1099: 0x00+ch に左右独立の4bit音量を書く(ドライバ側が等パワー
-    // パンニングで算出)。
+    // パンニングで算出)。SSGS(YMZ705)/SSGS2(YMZ732): SSG部は$10-$12/$30-$32、
+    // ADPCM部は$42+ch*$10 の4bit(0-15、8=中央)。
     case DEVICE_OPL4AWM: case DEVICE_PCMD8: case DEVICE_SAA:
+    case DEVICE_SSGS:    case DEVICE_SSGS2: case DEVICE_SSGS_ADPCM:
         return ChipPanType::Continuous;
 
     default:
@@ -1505,6 +1520,21 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         }
         return true;
 
+    case DEVICE_SSGS:
+    case DEVICE_SSGS2:
+        // SSGS(YMZ705)/SSGS2(YMZ732): SSG互換部(YM2149相当×2 = 6ch) +
+        // ADPCM部(8ch)。両者は同一の8bitレジスタ空間($00-$3F / $40-$B3)を
+        // 共有するため、同じポートをそのまま使う(extraPort・オフセットとも不要)。
+        // 内蔵シーケンサはFITOMからは使わない(CPU直接ドライブ)ので、
+        // シーケンサ用サブデバイスは作らない。
+        // ADPCM部はSSGSとSSGS2で制御が完全に同一(レジスタマップ・外部メモリ
+        // 上のボイステーブルとも共通)のため、deviceTypeを分けずに共有する。
+        // これにより混在構成でも自動的に同一グループとして束ねられ、PCM
+        // バンク/メモリイメージ(カタログ種別SSGS_ADPCM)も1つで足りる。
+        outSpec.push_back({baseDeviceType,       "-SSG",   false, false});
+        outSpec.push_back({DEVICE_SSGS_ADPCM,    "-ADPCM", false, false});
+        return true;
+
     case DEVICE_DSG:
         // DSG(YM2163): 楽音部(4ch) + 内蔵リズム(5パート)。
         // OPL/OPLL系と違い、リズム音源のレジスタ(0x90-0x97)は楽音部
@@ -1581,6 +1611,8 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPLLP", DEVICE_OPLLP}, {"OPLLX", DEVICE_OPLLX},
         {"VRC7",  DEVICE_VRC7},
         {"SSG",   DEVICE_SSG},   {"PSG",   DEVICE_PSG},
+        {"SSGS",  DEVICE_SSGS},  {"YMZ705", DEVICE_SSGS},
+        {"SSGS2", DEVICE_SSGS2}, {"YMZ732", DEVICE_SSGS2},
         {"EPSG",  DEVICE_EPSG},  {"DCSG",  DEVICE_DCSG},
         {"SCC",   DEVICE_SCC},   {"SCCP",  DEVICE_SCCP},
         {"SAA",   DEVICE_SAA},   {"SAA1099", DEVICE_SAA},

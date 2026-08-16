@@ -43,6 +43,7 @@ constexpr CategoryEntry kCategories[] = {
     { 0x52, "ADPCM-A" },
     { 0x53, "PCMD8" },
     { 0x54, "AWM" },
+    { 0x55, "SSGS-ADPCM" },
     // 0x70の配下でさらに対象チップ(CC#32)を選ぶ。対応チップの一覧は
     // FITOMBridge.cppのkBuiltinRhythmChipsが唯一の情報源なので、
     // ここのラベルにはチップ名を並べない(片方だけ更新されるのを防ぐ)。

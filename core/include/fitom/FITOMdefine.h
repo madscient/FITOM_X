@@ -78,6 +78,19 @@
 // とハードウェア挙動に互換性があり、spanning対象になる
 // (OPN2とOPNBのFM音源部が同じVoicePatchTypeを共有するのと同じ考え方)。
 #define	DEVICE_ADPCMB_Y8950	59
+// YMZ705(SSGS)内蔵ADPCM部。DEVICE_SSGS(SSG互換部)のcomposite展開で生成
+// される。他のADPCM系と違い、チップが波形の開始/終了アドレスレジスタを
+// 持たず、外部メモリ先頭のボイステーブル(データシート「8M byte Play data
+// ROM address map」)を自力で引くため、専用のdeviceTypeを持つ
+// (CSSGSAdPcm、ADPCM_new.cpp)。YMZ732(SSGS2)のADPCM部も制御が全く同じ
+// (レジスタマップ・ボイステーブルとも共通)なので、このdeviceTypeを共有する。
+#define	DEVICE_SSGS_ADPCM	62
+// YMZ732(SSGS2)のSSG互換部。レジスタマップはYMZ705(SSGS)と完全に同一で、
+// ドライバも CSSGS を共用する。deviceTypeを分けるのはマスタークロックから
+// SSGブロック(2.048MHz)を導く分周比が違うため(SSGSは4.096MHz/2または
+// 6.144MHz/3、SSGS2は12.288MHz/6固定)。VoicePatchTypeは同じ
+// VOICE_PATCH_SSG のため、SSGSと混在していてもCSpanDeviceで束ねられる。
+#define	DEVICE_SSGS2		63
 
 #define DEVICE_RHYTHM	120	// Virtual device for rhythm channel
 
@@ -303,6 +316,11 @@
 #define VOICE_PATCH_ADPCMA       0x52  // YM2610
 #define VOICE_PATCH_PCMD8        0x53  // YMZ280
 #define VOICE_PATCH_AWM          0x54  // YMF278-AWM+YRW801
+// YMZ705(SSGS)内蔵ADPCM。音程変更ができず、波形の開始/終了アドレスも
+// チップが外部メモリのボイステーブルから自力で引くため、他のADPCM系
+// (アドレスレジスタへオフセットを書く方式)とは音色データの意味づけが
+// 異なる。SampleZone::waveIndex はチップのボイス番号(0-63)そのもの。
+#define VOICE_PATCH_SSGS_ADPCM   0x55  // YMZ705
 
 // 0x70: 内蔵リズム音源(builtin-rhythm)専用バンク選択子。
 // 通常のVOICE_PATCH_*(特定チップを指す値)とは異なり、これ自体は
@@ -315,14 +333,14 @@
 // を選ぶ。詳細はPatchManager::resolveBuiltinRhythm()参照。
 #define VOICE_PATCH_BUILTIN_RHYTHM 0x70
 
-// サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM) かどうかを判定する。
-// これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch
+// サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM/SSGS-ADPCM) かどうかを
+// 判定する。これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch
 // (キーゾーン+ベロシティレイヤー+波形/サンプル参照)を使う共通スキーマで
 // 扱われる (PatchManager::resolve()の分岐、PatchData.hのSampleZone*参照)。
-// 範囲の下限は0x50(予約領域、現状未使用)から。0x50-0x54は連続した
+// 範囲の下限は0x50(予約領域、現状未使用)から。0x50-0x55は連続した
 // 値として意図的に採番されているため、範囲チェックで判定できる。
 inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
-    return vpt >= 0x50 && vpt <= VOICE_PATCH_AWM;
+    return vpt >= 0x50 && vpt <= VOICE_PATCH_SSGS_ADPCM;
 }
 
 // PSG系(SSG/EPSG/DCSG/SAA/SCC)かどうかを判定する(2026年7月新設)。

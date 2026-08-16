@@ -2,9 +2,10 @@
 // fitom/ADPCM_new.cpp
 // ADPCM / PCM チップドライバ — ISoundDevice ベース移行版
 //
-// CAdPcmBase: YM2608 ADPCM-A/B, YMZ280B(PCMD8) の共通基底
-// CYmDelta:   YM2608 ADPCM-B (Delta-T) / OPNA 内蔵
-// CAdPcmZ280: YMZ280B (PCMD8) 8ch ADPCM
+// CAdPcmBase:  YM2608 ADPCM-A/B, YMZ280B(PCMD8) の共通基底
+// CYmDelta:    YM2608 ADPCM-B (Delta-T) / OPNA 内蔵
+// CAdPcmZ280:  YMZ280B (PCMD8) 8ch ADPCM
+// CSSGSAdPcm:  YMZ705 (SSGS) 8ch ADPCM
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
@@ -756,6 +757,160 @@ protected:
 };
 
 // ================================================================
+//  CSSGSAdPcm (YMZ705 / SSGS の ADPCM 部) — 8ch、4bit ADPCM
+//
+//  他の ADPCM 系ドライバと決定的に違う点が2つある:
+//
+//   1. 波形の開始/終了アドレスレジスタが存在しない。チップは外部メモリ
+//      先頭のボイステーブル (データシート「8M byte Play data ROM address
+//      map」の $000000-$00017F、ボイス0-63の Start/End アドレス) を自力で
+//      引くため、ドライバが書くのは 6bit のボイス番号だけでよい。
+//      よって registerVoice() はチップへ何も反映せず、pcmbank.json の
+//      エントリ番号 (= SampleZone::waveIndex) がそのままボイス番号になる。
+//   2. 再生ピッチを変えられない。持っているのはサンプリング周波数の
+//      4択 (32k/16k/8k/4k) だけで、これはバンク側の収録レートを表す
+//      設定値であり、ノート番号から算出するものではない。
+//      よって updateFreq() は no-op (CAdPcm2610A と同じ)。
+//
+//  レジスタマップ (ch は 0-7、base = $40 + ch*$10):
+//    base+0: S1S0(bit7-6)=サンプリング周波数 | N5-N0(bit5-0)=ボイス番号
+//    base+1: L3-L0 (音量、4bit)
+//    base+2: P3-P0 (パンポット、4bit)
+//    base+3: KON(bit1) | LOOP(bit0)
+//  【データシート誤記】$42 (Channel-1 Pan-pot) だけ P2-P0 が D3-D1 に
+//  ずれて描かれているが、他の7chはすべて P3-P0 が D3-D0 であり、
+//  $42 も同じ配置が正しい。
+// ================================================================
+class CSSGSAdPcm : public CAdPcmBase {
+public:
+    // 外部メモリは最大8Mバイト (データシート FEATURES)。
+    CSSGSAdPcm(IPort* port, int sampleRate, size_t memSize)
+        : CAdPcmBase(DEVICE_SSGS_ADPCM, port, 0xC0, sampleRate, 0,
+                     448 /* YMDELTA_OFFSET、他ADPCM系と同値。ピッチ制御に
+                            使わないが基底がFnumテーブルを構築するため渡す */,
+                     memSize, 8, DEVICE_SSGS)
+    {}
+
+    std::string getDescriptor() const override { return "SSGS ADPCM (YMZ705) 8ch"; }
+
+    void init() override {
+        for (uint8_t ch = 0; ch < maxChs_; ++ch) {
+            setReg(regOf(ch, 3), 0x00, true);        // KON/LOOP クリア
+            setReg(regOf(ch, 2), kPanCenter, true);  // CSSGS::init() と同じ理由
+        }
+    }
+
+    // ボイス番号は6bitのため、エントリ番号64以上はこのチップでは指定できない。
+    // 実アドレスはチップが外部メモリのボイステーブルから引くので、
+    // offset/length は「エントリが存在するか」の判定にしか使わない。
+    void registerVoice(int prog, uint32_t offset, uint32_t length) override {
+        if (prog < 0 || prog >= 128) return;
+        if (prog > 63) {
+            FITOM_LOG_WARN("CSSGSAdPcm: entry " << prog << " is out of range; "
+                "YMZ705 のボイス番号は6bit (0-63) までしか指定できません");
+            return;
+        }
+        voices_[prog].startAddr = offset;
+        voices_[prog].length    = length;
+        usedMem_ += length;
+    }
+
+    // バンクの収録レートからサンプリング周波数コード (S1S0) を決めておく。
+    void initPcmData() override {
+        CAdPcmBase::initPcmData();
+        if (!pcmReg_) return;
+        const PcmBank* bank = pcmReg_->find(pcmBankNo_);
+        if (bank) samplingCode_ = samplingCodeOf(bank->sampleRate);
+    }
+
+protected:
+    static constexpr uint8_t kPanCenter = 8;   // CSSGS と同じ分配則
+
+    // サンプリング周波数 S1S0。データシートは選択肢 (32k/16k/8k/4k) を
+    // 挙げるだけでビット値との対応を書いていないため、記載順どおりの
+    // 「00=32k / 01=16k / 10=8k / 11=4k」(値が1増えるごとに半分) と解釈する。
+    static constexpr uint32_t kSamplingRates[4] = {32000, 16000, 8000, 4000};
+
+    static uint8_t samplingCodeOf(uint32_t sampleRate) {
+        if (sampleRate == 0) return 0;   // 未指定は最高レート
+        for (uint8_t i = 0; i < 4; ++i) {
+            if (kSamplingRates[i] == sampleRate) return i;
+        }
+        FITOM_LOG_WARN("CSSGSAdPcm: sample_rate=" << sampleRate
+            << " は YMZ705 が選択できる 32000/16000/8000/4000 のいずれでもありません。"
+            " 32kHz として扱います");
+        return 0;
+    }
+
+    static uint16_t regOf(uint8_t ch, uint8_t offset) {
+        return static_cast<uint16_t>(0x40 + ch * 0x10 + offset);
+    }
+
+    uint8_t samplingCode_ = 0;
+
+    // 再生ピッチを変えるレジスタが存在しない (クラス先頭のコメント参照)。
+    void updateFreq(uint8_t /*ch*/, const ChState::Fnum* /*fn*/) override {}
+
+    void updateVoice(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        const SampleZone* zone = resolveSampleZone(s);
+        if (!zone) {
+            FITOM_LOG_WARN("CSSGSAdPcm::updateVoice: ch=" << (int)ch
+                << " no SampleZone resolved (samplePatch not set?)");
+            return;
+        }
+        // ボイス番号は6bit。マスクで丸めると全く別のサンプルが黙って
+        // 鳴るため、範囲外は発音しない (registerVoice の警告と対)。
+        if (zone->waveIndex > 63) {
+            FITOM_LOG_WARN("CSSGSAdPcm::updateVoice: ch=" << (int)ch
+                << " waveIndex=" << zone->waveIndex
+                << " is out of range (YMZ705 のボイス番号は0-63)");
+            return;
+        }
+        const uint8_t num = static_cast<uint8_t>(zone->waveIndex);
+        setReg(regOf(ch, 0),
+               static_cast<uint8_t>((samplingCode_ << 6) | num), true);
+        updateVolExp(ch);
+        updatePanpot(ch);
+    }
+
+    // 音量は4bit。同じチップのSSG部と同じ対数DAC (3dB/step、0=無音・
+    // 15=最大) と解釈する。データシートに変換則の記載は無いが、4bitを
+    // リニア減衰として使うと実効レンジが -23.5dB しか取れず、同一チップの
+    // SSG側と音量カーブが揃わなくなる。
+    void updateVolExp(uint8_t ch) override {
+        const auto& s = chState_[ch];
+        uint8_t loudness = s.proc.effectiveTL(0);
+        uint8_t vol = 15u - fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
+        setReg(regOf(ch, 1), static_cast<uint8_t>(vol & 0x0F), false);
+    }
+
+    // 音量が effectiveTL(0) のみで決まる設計のため、samplePatch 経路でも
+    // VoiceProcessor::onNoteOn() を呼んで SwPatch のトレモロ/VTL感度を効かせる
+    // (チャンネルLFO/fine_transpose は updateFreq が no-op のため無効)。
+    bool usesVoiceProcessorForSamplePatch() const override { return true; }
+
+    void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t /*tl*/) override {
+        updateVolExp(ch);
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        const int pan = static_cast<int>(chState_[ch].panpot) + 64;
+        const int pan4 = std::clamp(static_cast<int>(std::lround(pan * 15.0 / 127.0)), 0, 15);
+        setReg(regOf(ch, 2), static_cast<uint8_t>(pan4), false);
+    }
+
+    void updateSustain(uint8_t /*ch*/) override {}
+
+    // KON(bit1) のみ。LOOP(bit0) はワンショット再生のため常に0
+    // (CAdPcmZ280 がループアドレスをゼロ固定にしているのと同じ方針)。
+    void updateKey(uint8_t ch, bool keyOn) override {
+        if (ch >= maxChs_) return;
+        setReg(regOf(ch, 3), static_cast<uint8_t>(keyOn ? 0x02 : 0x00), true);
+    }
+};
+
+// ================================================================
 //  ファクトリ関数
 // ================================================================
 
@@ -799,6 +954,9 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
     case DEVICE_ADPCMA:
         // ADPCM-A (YM2610) は ADPCM-B (Delta-T) とは全く異なるレジスタ体系。
         return std::make_unique<CAdPcm2610A>(p, clock, 1024 * 1024, DEVICE_OPNB); // 1MB
+    case DEVICE_SSGS_ADPCM:
+        // YMZ705 (SSGS) 内蔵ADPCM。外部メモリは最大8MB。
+        return std::make_unique<CSSGSAdPcm>(p, clock, 8 * 1024 * 1024);
     default:
         return nullptr;
     }
