@@ -60,6 +60,7 @@ public:
 constexpr int kMaster4096  = 4096000;
 constexpr int kMaster6144  = 6144000;
 constexpr int kMaster12288 = 12288000;  // YMZ732 (SSGS2)
+constexpr int kMaster16384 = 16384000;  // YMZ771 (SSGS3)
 constexpr int kSsgBlock    = 2048000;
 
 double noteHz(int note) { return 440.0 * std::pow(2.0, (note - 69) / 12.0); }
@@ -119,6 +120,13 @@ std::unique_ptr<ISoundDevice> makeSsgsAdpcm(RecordingPort& port)
 int decodePeriod(const RecordingPort& port, uint8_t ch)
 {
     const uint16_t base = static_cast<uint16_t>((ch / 3) * 0x20 + (ch % 3) * 2);
+    return ((port.at(static_cast<uint16_t>(base + 1)) & 0x0F) << 8) | port.at(base);
+}
+
+// SSGS3 (YMZ771) のトーン周期は $10+ch*2 (Fine) / +1 (Coarse)
+int decodePeriodSsgs3(const RecordingPort& port, uint8_t ch)
+{
+    const uint16_t base = static_cast<uint16_t>(0x10 + ch * 2);
     return ((port.at(static_cast<uint16_t>(base + 1)) & 0x0F) << 8) | port.at(base);
 }
 
@@ -247,6 +255,146 @@ TEST_CASE("CSSGS2: レジスタ配置はSSGSと完全に同一", "[ssgs]")
     drive(ssgs2, DEVICE_SSGS2, kMaster12288);
 
     CHECK(ssgs.regs == ssgs2.regs);
+}
+
+// ================================================================
+//  CSSGS3 — YMZ771 (レジスタ配置が機能ごとにまとめ直されている)
+// ================================================================
+
+TEST_CASE("CSSGS3: レジスタが機能ごとに $10-$32 へまとめて配置される", "[ssgs]")
+{
+    RecordingPort port;
+    auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
+    REQUIRE(dev->getChCount() == 6);
+    CHECK(dev->getDescriptor() == "SSGS3 (YMZ771) SSG 6ch");
+
+    HwPatch tone = makeTonePatch();
+    for (uint8_t ch = 0; ch < 6; ++ch) {
+        dev->assignCh(ch, nullptr, &tone, 100);
+        dev->setNoteFine(ch, 69, 0);
+        dev->noteOn(ch, 100);
+    }
+    runEnvelope(*dev);
+
+    for (uint8_t ch = 0; ch < 6; ++ch) {
+        // トーン周期 TP1A..TP2C: $10-$1B (2バイトずつ連続)
+        CHECK(port.wrote(static_cast<uint16_t>(0x10 + ch * 2)));
+        CHECK(port.wrote(static_cast<uint16_t>(0x10 + ch * 2 + 1)));
+        // 音量: $20-$25
+        CHECK(port.wrote(static_cast<uint16_t>(0x20 + ch)));
+        // パンポット: $2C-$31
+        CHECK(port.wrote(static_cast<uint16_t>(0x2C + ch)));
+    }
+    // ミックスはユニットごとに $1E / $1F
+    CHECK(port.wrote(0x1E));
+    CHECK(port.wrote(0x1F));
+    // SSGS/SSGS2 のアドレス ($00-$0D) には一切書かない
+    for (uint16_t r = 0x00; r < 0x10; ++r) CHECK_FALSE(port.wrote(r));
+}
+
+TEST_CASE("CSSGS3: 16.384MHzを1/8してSSGブロックの2.048MHzを得る", "[ssgs]")
+{
+    const int expected = static_cast<int>(std::lround(kSsgBlock / (16.0 * noteHz(69))));
+
+    RecordingPort port;
+    auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
+    HwPatch p = makeTonePatch();
+    dev->assignCh(0, nullptr, &p, 100);
+    dev->setNoteFine(0, 69, 0);
+    dev->noteOn(0, 100);
+
+    CHECK(std::abs(decodePeriodSsgs3(port, 0) - expected) <= 1);
+}
+
+TEST_CASE("CSSGS3: init() が両ユニットを消音し、パンポット中央とトータル音量を書く", "[ssgs]")
+{
+    RecordingPort port;
+    auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
+
+    CHECK(port.at(0x1E) == 0x3F);
+    CHECK(port.at(0x1F) == 0x3F);
+    // パンポットは5bitなので中央は16 (4bitの8ではない)
+    for (uint8_t ch = 0; ch < 6; ++ch) {
+        CHECK(port.wrote(static_cast<uint16_t>(0x2C + ch)));
+        CHECK(port.at(static_cast<uint16_t>(0x2C + ch)) == 16);
+    }
+    // SSGトータルボリューム($32)のリセット値0は完全無音なので必ず書く
+    CHECK(port.wrote(0x32));
+    CHECK(port.at(0x32) == 128);
+}
+
+TEST_CASE("CSSGS3: パンポットは5bit (0=左端 / 16=中央 / 31=右端)", "[ssgs]")
+{
+    RecordingPort port;
+    auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
+
+    HwPatch p = makeTonePatch();
+    for (uint8_t ch = 0; ch < 3; ++ch) dev->assignCh(ch, nullptr, &p, 100);
+
+    dev->setPanpot(0, -64);
+    dev->setPanpot(1,   0);
+    dev->setPanpot(2,  63);
+    CHECK(port.at(0x2C) == 0);
+    CHECK(port.at(0x2D) == 16);
+    CHECK(port.at(0x2E) == 31);
+}
+
+TEST_CASE("CSSGS3: ノイズ周波数・HWエンベロープもユニットごとに分かれる", "[ssgs]")
+{
+    RecordingPort port;
+    auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
+
+    // ノイズ音色は各ユニットの最終ch (ch2 / ch5) へ割り当てられる
+    HwPatch n1 = makeNoisePatch(0x15);
+    dev->assignCh(2, nullptr, &n1, 100);
+    CHECK(port.at(0x1C) == 0x15);     // NP1
+    CHECK_FALSE(port.wrote(0x1D));
+
+    HwPatch n2 = makeNoisePatch(0x0A);
+    dev->assignCh(5, nullptr, &n2, 100);
+    CHECK(port.at(0x1D) == 0x0A);     // NP2
+    CHECK(port.at(0x1C) == 0x15);
+
+    // HWエンベロープ: EP2 = $28(Fine)/$29(Coarse)、形状 = $2B
+    HwPatch e = makeTonePatch();
+    e.hwOp[0].EGT = 0x08 | 0x0E;
+    e.ext.HWEP    = 0x1234;
+    dev->assignCh(4, nullptr, &e, 100);
+    CHECK(port.at(0x28) == 0x34);
+    CHECK(port.at(0x29) == 0x12);
+    CHECK(port.at(0x2B) == 0x0E);
+    CHECK_FALSE(port.wrote(0x26));    // EP1側は触らない
+    CHECK_FALSE(port.wrote(0x27));
+    CHECK_FALSE(port.wrote(0x2A));
+    CHECK((port.at(0x24) & 0x10) != 0); // 音量レジスタ(ch4=$24)のHW EG使用ビット
+}
+
+TEST_CASE("CSSGS3: 音程・音量はSSGSと同じ値になる (配置だけが違う)", "[ssgs]")
+{
+    // 機能はSSGS/SSGS2と同一。同じ音程・同じベロシティで駆動したとき、
+    // 書かれる「値」はアドレスが違うだけで一致するはず
+    // (パンポットだけは分解能が4bit/5bitで異なるため対象外)。
+    auto drive = [](RecordingPort& port, uint32_t deviceType, int masterClock) {
+        auto dev = makeSsgs(port, masterClock, deviceType);
+        HwPatch tone = makeTonePatch();
+        for (uint8_t ch = 0; ch < 6; ++ch) {
+            dev->assignCh(ch, nullptr, &tone, 100);
+            dev->setNoteFine(ch, static_cast<uint8_t>(60 + ch), 0);
+            dev->noteOn(ch, 100);
+        }
+        runEnvelope(*dev);
+    };
+
+    RecordingPort ssgs, ssgs3;
+    drive(ssgs,  DEVICE_SSGS,  kMaster4096);
+    drive(ssgs3, DEVICE_SSGS3, kMaster16384);
+
+    for (uint8_t ch = 0; ch < 6; ++ch) {
+        CHECK(decodePeriod(ssgs, ch) == decodePeriodSsgs3(ssgs3, ch));
+        const uint16_t volSsgs  = static_cast<uint16_t>((ch / 3) * 0x20 + 0x08 + (ch % 3));
+        const uint16_t volSsgs3 = static_cast<uint16_t>(0x20 + ch);
+        CHECK(ssgs.at(volSsgs) == ssgs3.at(volSsgs3));
+    }
 }
 
 TEST_CASE("CSSGS: init() が両ユニットを消音し、パンポットを中央にする", "[ssgs]")
@@ -581,14 +729,24 @@ TEST_CASE("SSGS/SSGS2: SSG部とADPCM部の2サブデバイスへcomposite展開
     }
 }
 
-TEST_CASE("SSGS/SSGS2: 混在構成でもSSG部・ADPCM部がそれぞれ束ねの対象になる", "[ssgs]")
+TEST_CASE("SSGS3: AMM部が非対応のためcomposite展開されない", "[ssgs]")
+{
+    // ADPCMの代わりに搭載されたAMM(MPEG Audio系コーデック)部は当面非対応で、
+    // 生成すべきサブデバイスがSSG部しかないため単一デバイスのままにする。
+    std::vector<FITOMConfig::SubDeviceSpec> spec;
+    CHECK_FALSE(FITOMConfig::resolveCompositeSpec(DEVICE_SSGS3, false, spec));
+}
+
+TEST_CASE("SSGS/SSGS2/SSGS3: 混在構成でもSSG部・ADPCM部がそれぞれ束ねの対象になる", "[ssgs]")
 {
     // CSpanDeviceの束ねのグループ化キーはVoicePatchType
     // (mergeSpannableDevices、docs/chip-driver-architecture.md 3節)。
-    // deviceTypeはサブチップごとに独立して保持されるため、分周比の違いは
-    // 束ねの妨げにならない。
+    // deviceTypeはサブチップごとに独立して保持されるため、分周比や
+    // レジスタ配置の違いは束ねの妨げにならない。
     CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS)
           == FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS2));
+    CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS)
+          == FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS3));
 
     // ADPCM部はcomposite展開の時点で同一deviceTypeになるため自明に同一グループ
     std::vector<FITOMConfig::SubDeviceSpec> s1, s2;
@@ -602,6 +760,7 @@ TEST_CASE("SSGS: VoicePatchType と パンポット種別の分類", "[ssgs]")
     // SSG部は YM2149 とレジスタ互換なので音色データも SSG と共有する
     CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS) == VOICE_PATCH_SSG);
     CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS2) == VOICE_PATCH_SSG);
+    CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS3) == VOICE_PATCH_SSG);
     CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS_ADPCM)
           == VOICE_PATCH_SSGS_ADPCM);
 
@@ -617,8 +776,10 @@ TEST_CASE("SSGS: VoicePatchType と パンポット種別の分類", "[ssgs]")
     using PanType = FITOMConfig::ChipPanType;
     CHECK(FITOMConfig::getChipPanType(DEVICE_SSGS)       == PanType::Continuous);
     CHECK(FITOMConfig::getChipPanType(DEVICE_SSGS2)      == PanType::Continuous);
+    CHECK(FITOMConfig::getChipPanType(DEVICE_SSGS3)      == PanType::Continuous);
     CHECK(FITOMConfig::getChipPanType(DEVICE_SSGS_ADPCM) == PanType::Continuous);
     CHECK_FALSE(FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_SSGS));
     CHECK_FALSE(FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_SSGS2));
+    CHECK_FALSE(FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_SSGS3));
     CHECK_FALSE(FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_SSGS_ADPCM));
 }
