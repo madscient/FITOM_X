@@ -12,13 +12,13 @@
     },
     "codec": {
       "type": "string",
-      "enum": ["adpcm-b", "adpcm-a", "pcmd8", "ssgs-adpcm"],
-      "description": "コーデック種別。adpcm-b=YM Delta-T(YM2608/2610B), adpcm-a=YM2610A, pcmd8=YMZ280B, ssgs-adpcm=YMZ705(SSGS)/YMZ732(SSGS2)共通"
+      "enum": ["adpcm-b", "adpcm-a", "pcmd8", "ssgs"],
+      "description": "コーデック種別。adpcm-b=YM Delta-T(YM2608/2610B), adpcm-a=YM2610A, pcmd8=YMZ280B, ssgs=YMZ705(SSGS)/YMZ732(SSGS2)共通"
     },
     "sample_rate": {
       "type": "integer",
       "enum": [4000, 8000, 16000, 24000, 32000],
-      "description": "ADPCM-B のサンプルレート。adpcm-a / pcmd8 では不要。ssgs-adpcm では 4000/8000/16000/32000 のいずれかを指定し、これがチャンネルレジスタのサンプリング周波数(S1S0)になる(YMZ705は再生ピッチを変えられないため、収録レートの指定が唯一のピッチ関連設定になる)。"
+      "description": "ADPCM-B のサンプルレート。adpcm-a / pcmd8 では不要。ssgs では 4000/8000/16000/32000 のいずれかを指定し、これがチャンネルレジスタのサンプリング周波数(S1S0)になる(YMZ705/YMZ732は再生ピッチを変えられないため、収録レートの指定が唯一のピッチ関連設定になる)。"
     },
     "boundary": {
       "type": "integer",
@@ -42,7 +42,7 @@
         "properties": {
           "entry_no": {
             "type": "integer", "minimum": 0, "maximum": 127,
-            "description": "エントリ番号。HwPatch.hwOp[0].WS で指定する値。codec=ssgs-adpcm の場合はチップのボイス番号そのものになり、6bit(0-63)までしか指定できない(64以上のエントリはロード時に警告して無視される)。"
+            "description": "エントリ番号。HwPatch.hwOp[0].WS で指定する値。codec=ssgs の場合はチップのボイス番号そのものになり、6bit(0-63)までしか指定できない(64以上のエントリはロード時に警告して無視される)。"
           },
           "name": {
             "type": "string",
