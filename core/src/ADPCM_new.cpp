@@ -826,10 +826,8 @@ public:
 protected:
     static constexpr uint8_t kPanCenter = 8;   // CSSGS と同じ分配則
 
-    // サンプリング周波数 S1S0。データシートは選択肢 (32k/16k/8k/4k) を
-    // 挙げるだけでビット値との対応を書いていないため、記載順どおりの
-    // 「00=32k / 01=16k / 10=8k / 11=4k」(値が1増えるごとに半分) と解釈する。
-    static constexpr uint32_t kSamplingRates[4] = {32000, 16000, 8000, 4000};
+    // サンプリングレート指定（値の対応は推測）
+    static constexpr uint32_t kSamplingRates[4] = {4000, 8000, 16000, 32000};
 
     static uint8_t samplingCodeOf(uint32_t sampleRate) {
         if (sampleRate == 0) return 0;   // 未指定は最高レート
