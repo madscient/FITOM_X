@@ -19,6 +19,11 @@
 #define DEVICE_OPNB 11	//YM2610
 #define DEVICE_SAA	12	//SAA1099
 #define DEVICE_DSG	13	//YM2163
+// YMZ771(SSGS3)のSSG互換部。SSGS/SSGS2と機能は同一だがレジスタ配置が
+// 機能ごとにまとめ直されている($10-$32)。ドライバはCSSGS派生のCSSGS3が
+// アドレス索引とパンポット分解能(5bit)だけを差し替えて担当する。
+// AMM(MPEG Audioコーデック)部は当面非対応のためサブデバイスを作らない。
+#define DEVICE_SSGS3	14	//YMZ771
 #define	DEVICE_PSG	15	//AY-3-891x
 #define	DEVICE_DCSG	16	//SN76489
 #define	DEVICE_SCC	17	//SCC with ROM

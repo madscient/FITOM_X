@@ -122,6 +122,8 @@ static const RegSizeEntry kRegSizeMap[] = {
     {DEVICE_DCSG,  0x010},
     // SSGS/SSGS2 (CSSGS): SSG-1が0x00-0x12、SSG-2が0x20-0x32の2ユニット構成
     {DEVICE_SSGS,  0x040}, {DEVICE_SSGS2, 0x040},
+    // SSGS3 (CSSGS3): 2ユニットを機能ごとにまとめ直した0x10-0x32
+    {DEVICE_SSGS3, 0x040},
     // SSGS ADPCM (CSSGSAdPcm): 0x40-0xB3 (8ch × 4レジスタ、16byteおき)
     {DEVICE_SSGS_ADPCM, 0x0C0},
     // DSG (CDSG/CDSGRhythm): 実効レジスタは0x80-0x9F だが、regBak_ は
@@ -180,7 +182,7 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_DSG_RHY, "RHY"},
     // PSG系
     {DEVICE_SSG,   "SSG"}, {DEVICE_DCSG, "DCSG"}, {DEVICE_DSG, "DSG"},
-    {DEVICE_SSGS,  "SSG"}, {DEVICE_SSGS2, "SSG"},
+    {DEVICE_SSGS,  "SSG"}, {DEVICE_SSGS2, "SSG"}, {DEVICE_SSGS3, "SSG"},
     {DEVICE_SCC,   "SCC"}, {DEVICE_SCCP, "SCC"},
     {DEVICE_SAA,   "SAA"},
     // ADPCM/PCM系

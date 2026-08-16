@@ -807,12 +807,13 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPL_RHY: return VOICE_PATCH_OPL_RHY;
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
-    // SSGS(YMZ705)/SSGS2(YMZ732)のSSG部はYM2149とレジスタ互換で音色データ
-    // 形式も同一(chごとのパンポットはMIDI側のCC#10で制御され音色データには
-    // 現れない)。同じVoicePatchTypeを返すことで、SSGSとSSGS2が混在する構成
-    // でもCSpanDeviceの束ね対象になる(束ねのキーはVoicePatchType、
-    // mergeSpannableDevices参照)。
-    case DEVICE_SSGS: case DEVICE_SSGS2:
+    // SSGS(YMZ705)/SSGS2(YMZ732)/SSGS3(YMZ771)のSSG部はYM2149と機能が同一で
+    // 音色データ形式も同じ(chごとのパンポットはMIDI側のCC#10で制御され音色
+    // データには現れない)。SSGS3はレジスタ配置とパンポット分解能が異なるが、
+    // それはチップドライバ(CSSGS3)が吸収する差であって音色データには現れない。
+    // 同じVoicePatchTypeを返すことで、3品種が混在する構成でもCSpanDeviceの
+    // 束ね対象になる(束ねのキーはVoicePatchType、mergeSpannableDevices参照)。
+    case DEVICE_SSGS: case DEVICE_SSGS2: case DEVICE_SSGS3:
         return VOICE_PATCH_SSG;
     case DEVICE_EPSG:  return VOICE_PATCH_EPSG;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
@@ -1029,11 +1030,12 @@ bool FITOMConfig::subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept
     // 引き続き対象で、例えば「OPL4のFM部 + OPL3」をL/Rペアとして
     // ステレオ化する用法が成立する(両者ともFM部のサブデバイス構成が
     // DEVICE_OPL3/DEVICE_OPL3_2で一致するため)。
-    // SSGS(YMZ705)/SSGS2(YMZ732)はSSG部・ADPCM部ともchごとのパンポット
-    // レジスタを持つため同じ理由で対象外。
+    // SSGS(YMZ705)/SSGS2(YMZ732)/SSGS3(YMZ771)はSSG部・ADPCM部ともchごとの
+    // パンポットレジスタを持つため同じ理由で対象外。
     return deviceType != DEVICE_OPL4AWM
         && deviceType != DEVICE_SSGS
         && deviceType != DEVICE_SSGS2
+        && deviceType != DEVICE_SSGS3
         && deviceType != DEVICE_SSGS_ADPCM;
 }
 
@@ -1070,9 +1072,11 @@ FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexce
     // OPL4 AWM: 0x68+ch の4bit符号付き(-7..+7)。YMZ280B: 0x03+ch*4 の4bit(0-15)。
     // SAA1099: 0x00+ch に左右独立の4bit音量を書く(ドライバ側が等パワー
     // パンニングで算出)。SSGS(YMZ705)/SSGS2(YMZ732): SSG部は$10-$12/$30-$32、
-    // ADPCM部は$42+ch*$10 の4bit(0-15、8=中央)。
+    // ADPCM部は$42+ch*$10 の4bit(0-15、8=中央)。SSGS3(YMZ771): SSG部は
+    // $2C-$31 の5bit(0-31、16=中央)。
     case DEVICE_OPL4AWM: case DEVICE_PCMD8: case DEVICE_SAA:
-    case DEVICE_SSGS:    case DEVICE_SSGS2: case DEVICE_SSGS_ADPCM:
+    case DEVICE_SSGS:    case DEVICE_SSGS2: case DEVICE_SSGS3:
+    case DEVICE_SSGS_ADPCM:
         return ChipPanType::Continuous;
 
     default:
@@ -1531,6 +1535,9 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // 上のボイステーブルとも共通)のため、deviceTypeを分けずに共有する。
         // これにより混在構成でも自動的に同一グループとして束ねられ、PCM
         // バンク/メモリイメージ(カタログ種別SSGS_ADPCM)も1つで足りる。
+        // SSGS3(YMZ771)はここに含めない。ADPCMの代わりに搭載されたAMM
+        // (MPEG Audio系コーデック)部が当面非対応で、生成すべきサブデバイスが
+        // SSG部しかないため、composite展開せず単一デバイスのままにする。
         outSpec.push_back({baseDeviceType,       "-SSG",   false, false});
         outSpec.push_back({DEVICE_SSGS_ADPCM,    "-ADPCM", false, false});
         return true;
@@ -1613,6 +1620,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"SSG",   DEVICE_SSG},   {"PSG",   DEVICE_PSG},
         {"SSGS",  DEVICE_SSGS},  {"YMZ705", DEVICE_SSGS},
         {"SSGS2", DEVICE_SSGS2}, {"YMZ732", DEVICE_SSGS2},
+        {"SSGS3", DEVICE_SSGS3}, {"YMZ771", DEVICE_SSGS3},
         {"EPSG",  DEVICE_EPSG},  {"DCSG",  DEVICE_DCSG},
         {"SCC",   DEVICE_SCC},   {"SCCP",  DEVICE_SCCP},
         {"SAA",   DEVICE_SAA},   {"SAA1099", DEVICE_SAA},

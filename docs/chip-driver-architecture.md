@@ -229,7 +229,7 @@ struct SubDeviceSpec {
 | `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_DSG` (YM2163) | 楽音部(`CDSG`、4ch) + `DEVICE_DSG_RHY`(5パート、**常に生成**。レジスタ空間が楽音部と独立しているため`rhythm_mode`による出し分けが不要) |
-| `DEVICE_SSGS` (YMZ705) / `DEVICE_SSGS2` (YMZ732) | SSG互換部(`CSSGS`、YM2149相当×2 = 6ch) + `DEVICE_SSGS_ADPCM`(8ch)。両者は同一の8bitレジスタ空間($00-$3F / $40-$B3)を共有するためport2・オフセットとも不要。**ADPCM部のdeviceTypeはSSGS/SSGS2で共有する**(制御が完全に同一のため。混在構成でも自動的に同一グループとして束ねられ、PCMバンク/メモリイメージも1つで足りる) |
+| `DEVICE_SSGS` (YMZ705) / `DEVICE_SSGS2` (YMZ732) | SSG互換部(`CSSGS`、YM2149相当×2 = 6ch) + `DEVICE_SSGS_ADPCM`(8ch)。両者は同一の8bitレジスタ空間($00-$3F / $40-$B3)を共有するためport2・オフセットとも不要。**ADPCM部のdeviceTypeはSSGS/SSGS2で共有する**(制御が完全に同一のため。混在構成でも自動的に同一グループとして束ねられ、PCMバンク/メモリイメージも1つで足りる)。**`DEVICE_SSGS3`(YMZ771)は展開対象外** — AMM部が当面非対応で生成すべきサブデバイスがSSG部しかないため、単一デバイスのままにする |
 
 上記以外（単体`COPN`、`COPM`系、`CSSG`単体等）は展開されず、1エントリ=1デバイスのまま。
 `DEVICE_OPNA`系の`DEVICE_OPNA_RHY`のみ例外で、`rhythm_mode`の値に関わらず常に
@@ -730,7 +730,8 @@ COPLLRhythm : CSoundDevice             (OPLL内蔵リズム、5パート、独�
 ```
 CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアLFO制御の共通化のみ)
   ├── CSSG : CPSGBase                  (AY-3-8910/YM2149, 3ch)
-  │     └── CSSGS : CSSG               (YMZ705 SSG互換部, 3ch×2ユニット = 6ch)
+  │     └── CSSGS : CSSG               (YMZ705/YMZ732 SSG互換部, 3ch×2ユニット = 6ch)
+  │           └── CSSGS3 : CSSGS       (YMZ771 SSG互換部, 6ch。レジスタ配置のみ差し替え)
   ├── CDCSG : CPSGBase                 (SN76489, 4ch)
   └── CSCC : CPSGBase                  (SCC/SCCP, 5ch, 波形ROM)
 ```
@@ -785,26 +786,35 @@ CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアL
   1/8分周のため`-1`）。
 - **ミックスレジスタのALG=0/1バグ**：`CSSG::computeMixBit`でトーンのみ/ノイズのみ
   の対応ビットが入れ替わっていたバグを修正済み。
-- **`CSSG`はレジスタ空間を「ユニット」単位で索引する**：YMZ705(SSGS)のように
-  YM2149相当のSSGブロックを複数内蔵するチップに備え、`CSSG`のレジスタ
+- **`CSSG`はレジスタアドレスを仮想の索引メソッド経由で決める**：YMZ705(SSGS)の
+  ようにYM2149相当のSSGブロックを複数内蔵するチップに備え、`CSSG`のレジスタ
   アクセスは`unitBase(ch)`(=`(ch/3)*0x20`)と`unitCh(ch)`(=`ch%3`)を必ず経由する。
   単体のYM2149(`maxChs_`=3)では`unitBase()`が常に0・`unitCh()`が`ch`そのもの
   になるため、アドレスは1バイトも変わらない。ノイズ発生器・HWエンベロープ・
   ミックスレジスタはいずれもユニット内3chで共有される実機構造なので、
   ノイズ音色の`queryCh`も「各ユニットの最終ch(ch2/ch5)を順に探す」形に
   一般化してある。
+  さらに、実アドレスは`toneReg`/`noiseReg`/`mixReg`/`volReg`/`envPeriodReg`/
+  `envShapeReg`の6つの仮想メソッドに集約してある。**ビットフィールドの意味は
+  YM2149と同じでアドレスの並べ方だけが違うチップは、これらを差し替えるだけで
+  対応できる**(YMZ771/SSGS3が実例。レジスタ書き込みの本体コードは一切変えて
+  いない)。逆に言うと、これらを経由せず生アドレスを直書きすると派生チップが
+  黙って壊れるので、新しいレジスタを足すときも必ず索引メソッドを追加すること。
 
-### 4.5.1 SSGS (YMZ705) / SSGS2 (YMZ732)
+### 4.5.1 SSGS (YMZ705) / SSGS2 (YMZ732) / SSGS3 (YMZ771)
 
 ```
 CSSGS : CSSG                           (SSG互換部, 3ch×2ユニット = 6ch)
-CSSGSAdPcm : CAdPcmBase                (ADPCM部, 8ch)
+  └── CSSGS3 : CSSGS                   (YMZ771のSSG互換部。レジスタ配置とパンポット分解能のみ差し替え)
+CSSGSAdPcm : CAdPcmBase                (ADPCM部, 8ch。SSGS/SSGS2のみ)
 ```
 
-YM2149相当のSSGを2系統とADPCM再生部を1チップに収めた音源。両ブロックは
-同一の8bitレジスタ空間($00-$3F がSSG、$40-$B3 がADPCM)を共有するため、
-composite展開(`DEVICE_SSGS`/`DEVICE_SSGS2` → SSG部 + `DEVICE_SSGS_ADPCM`)しても
-`extraPort`やアドレスオフセットは要らない。
+YM2149相当のSSGを2系統と、サンプル再生部(SSGS/SSGS2はADPCM、SSGS3はAMM)を
+1チップに収めた音源。SSGS/SSGS2では両ブロックが同一の8bitレジスタ空間
+($00-$3F がSSG、$40-$B3 がADPCM)を共有するため、composite展開
+(`DEVICE_SSGS`/`DEVICE_SSGS2` → SSG部 + `DEVICE_SSGS_ADPCM`)しても
+`extraPort`やアドレスオフセットは要らない。以下、SSGS3固有の差分は
+末尾の「SSGS3 (YMZ771) の差分」にまとめる。
 
 **YMZ732(SSGS2)はYMZ705(SSGS)の上位互換**で、SSG部・ADPCM部ともレジスタ
 マップは完全に同一(YMZ732データシートにも「YMZ705(SSGS)とレジスタコンパチ
@@ -835,7 +845,9 @@ composite展開(`DEVICE_SSGS`/`DEVICE_SSGS2` → SSG部 + `DEVICE_SSGS_ADPCM`)�
   完全に同一のため分ける理由が無く、共有することで混在時も自動的に同一
   グループとして束ねられ、PCMバンク/メモリイメージ(カタログ種別`SSGS_ADPCM`)も
   1つで足りる。
-- **パンポットのリセット値0は「中央」ではなく左端**(0=左端 / 8=中央 / 15=右端)。
+
+- **パンポットのリセット値0は「中央」ではなく左端**(SSGS/SSGS2は4bitで
+  0=左端 / 8=中央 / 15=右端、SSGS3は5bitで 0 / 16 / 31)。
   `CSoundDevice::noteOn()`は`panpot`が既定値0のままだと`panDirty`が立たず
   `updatePanpot()`を一度も呼ばないため、`init()`で全chに中央値を書いておかないと
   パンCCを送らない限り全チャンネルが左に張り付く。
@@ -856,6 +868,44 @@ composite展開(`DEVICE_SSGS`/`DEVICE_SSGS2` → SSG部 + `DEVICE_SSGS_ADPCM`)�
   P2-P0がD3-D1にずれて描かれているが、他7chと同じくP3-P0がD3-D0が正しい。
   いずれもYMZ732データシートの対応表では正しく記載されており、そちらが
   正しいことの裏付けになっている。
+
+#### SSGS3 (YMZ771) の差分
+
+SSG音源としての機能はSSGS/SSGS2と全く同じで、`CSSGS`を継承する`CSSGS3`が
+違いを3点だけ差し替える。音色データも同じ`VOICE_PATCH_SSG`のままなので、
+3品種が混在する構成でも同一グループとして束ねられる。
+
+1. **レジスタが「ユニットごと」ではなく「機能ごと」にまとめ直され、`$10`-`$32`の
+   連続した空間に並ぶ**。ビットフィールドの意味はYM2149と同一のため、`CSSG`の
+   仮想索引メソッド(4.5節)を差し替えるだけで対応でき、レジスタ書き込みの
+   本体コードには一切手を入れていない。
+
+   | アドレス | 内容 |
+   |---|---|
+   | `$10`-`$1B` | トーン周期 TP1A/1B/1C/2A/2B/2C（各2バイト、Fine→Coarse） |
+   | `$1C`/`$1D` | ノイズ周期 NP1 / NP2 |
+   | `$1E`/`$1F` | ミックス設定（`N*C N*B N*A T*C T*B T*A`、YM2149の`$07`と同配置） |
+   | `$20`-`$25` | 音量 M/L（1A,1B,1C,2A,2B,2C） |
+   | `$26`-`$29` | エンベロープ周期 EP1（2バイト）/ EP2（2バイト） |
+   | `$2A`/`$2B` | エンベロープ形状（CONT/ATT/ALT/HOLD） |
+   | `$2C`-`$31` | パンポット（1A,1B,1C,2A,2B,2C） |
+   | `$32` | SSGトータルボリューム |
+
+2. **パンポットが5bit**(0-31、16=中央)。SSGS/SSGS2の4bit(0-15、8=中央)から
+   分解能だけが上がっている(値とL/Rレベルの対応はデータシートに記載が無く、
+   いずれもYMZ280B準拠の分配則で解釈する)。`CSSGS::panMax()`をオーバーライド
+   して表現する。
+3. **SSGトータルボリューム(`$32`)が追加**。128で100%の線形ボリュームで、
+   **リセット値0は完全無音**。パンポットのリセット値(左端)と同じく、`init()`で
+   明示的に書かないと一切音が出ない。FITOMは音量をチャンネルごとの音量
+   レジスタで作るため、常に100%固定で書く。
+
+クロックは16.384MHzを1/8して2.048MHz。データシートにSSGブロックの動作クロックの
+記載は無いが、この分周比がファミリ共通の2.048MHzと一致する。
+
+**AMM部は当面非対応**。ADPCMの代わりに搭載されたMPEG Audio系コーデックの
+フレーズ再生部で、生成すべきサブデバイスがSSG部しか無いため、SSGS/SSGS2と
+違いcomposite展開もしない(単一デバイスのまま)。
 
 ### 4.5.2 DSG (YM2163)
 
@@ -1074,7 +1124,7 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_MA3`(0x39) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA5`(0x3a) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA7`(0x3b) | (未実装) | - | 不明(将来実装時に確定) |
-| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, **SSGS**, **SSGS2** | `CSSG` / `CSSGS` | 1 |
+| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, **SSGS**, **SSGS2**, **SSGS3** | `CSSG` / `CSSGS` / `CSSGS3` | 1 |
 | `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） | 1 |
 | `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` | 1 |
 | `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` | 1 |
