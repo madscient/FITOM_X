@@ -32,6 +32,8 @@ legacy/          旧実装(ビルド対象外、参照用に保管。core/には
 backends/        差し替え可能なプラグインDLL(HW I/F、MIDIバックエンド各種)
 plugin_sdk/      DLLプラグインのC API契約(IHWPlugin.h、IMidiPlugin.h)
 docs/            設計ドキュメント(下記参照)
+spec/            外部ツール(パッチエディタ等)向けの機械可読仕様データ。
+                 コアは読まない(spec/README.md参照)
 tests/           Catch2テスト
 banks/           バンクファイルのフォーマット例示のみ(下記「バンク・
                  プロファイルの扱い」参照)
@@ -72,6 +74,7 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 - **ドキュメントと実装の設計意図を一致させ続ける。** 挙動を変えたら、対応する`docs/`配下の記述も同じコミット/セッション内で更新する
 - 新しいgetter/setterを追加する前に、既存のインターフェース(`IMidiCh`・`ISoundDevice`等)に既に同等のものが無いか確認する
 - JSONスキーマ(`config_schema/`)を変更したら、対応するリファレンスドキュメント(下記)も更新する
+- チップドライバがHwPatchのどのフィールドを参照するか(または値の変換方法)を変えたら、`spec/chip-capabilities.json`も同じセッション内で更新する
 
 ## 主要ドキュメント
 
@@ -82,6 +85,7 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 | `docs/manuals/midi-implementation-chart.md` | 上記の対応状況一覧表 |
 | `docs/midi-implementation-status.md` | 開発者向けMIDI実装状況(内部実装詳細つき) |
 | `docs/manuals/hwpatch-reference.md` | HwPatch(音色合成パラメータ)リファレンス |
+| `spec/chip-capabilities.json` | 上記の機械可読版(チップ種別ごとの有効パラメータ・値域・実効解像度・排他条件)。パッチエディタ等の外部ツール向け |
 | `docs/manuals/swpatch-reference.md` | SwPatch(演奏特性パラメータ)リファレンス |
 | `docs/manuals/layered-patch-reference.md` | レイヤードパッチ(ToneLayer)リファレンス |
 | `docs/plugin-hwif.md` | HW I/Fプラグイン要件定義(実装リポジトリ: FitomEmuIF) |

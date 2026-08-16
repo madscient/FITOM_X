@@ -1,0 +1,831 @@
+{
+  "format": "fitom-chip-capabilities",
+  "format_version": 1,
+  "description": "チップ種別(VoicePatchType)ごとに、HwPatch(*.hwbank.json)のどのフィールドが実際に意味を持ち、値域・実効解像度・排他条件がどうなるかを機械可読な形で定義する。hwbank.schema.jsonはフィールド型の共通上限しか表現できないため、チップ単位の妥当性検証・UI構築はこのファイルを参照する。読み方はspec/README.md、背景はdocs/manuals/hwpatch-reference.mdを参照。",
+
+  "conventions": {
+    "chip_params_are_exhaustive": "chips[].params に列挙されていないパラメータは、そのチップのドライバが一切参照しない(値を書いても無視される)。エディタは非表示または無効表示にしてよい。",
+    "range": "[min, max]。そのチップで意味を持つ値域。hwbank.schema.jsonの型上限より狭いことがある。",
+    "effective_range": "range内で実際に音へ反映される範囲。これを外れた値はクランプ・飽和する。省略時はrangeと同じ。",
+    "quantum": "実機レジスタ1段に対応するパッチ値の刻み。省略時1。例えば2なら、隣り合う奇偶の値は同じレジスタ値になる。",
+    "register_bits": "対応する実機レジスタのビット幅。",
+    "mapping": "direct=値がそのままレジスタへ / attenuation_db=減衰量(0=最大音量、パッチ値1あたりstep_dB。quantumがある場合、実機レジスタが1段動くのはquantum刻み=quantum×step_dB dBごと) / bitfield=ビットごとに別の意味 / enum=values[]の離散値 / index=テーブルへの索引 / raw=チップ固有の生値",
+    "condition": "そのパラメータが有効になる条件。param(+mask)とequals/not_equals/inで他フィールドの値を、channelsで発音チャンネル番号を制約する。条件を満たさない場合そのパラメータは参照されない。",
+    "per_op": "オペレータ番号ごとの上書き定義。キーはops[]の添字。",
+    "per_condition": "条件によって意味そのものが変わるパラメータの定義。各要素のconditionを満たす定義を採用する。",
+    "same_params_as": "params が空で、別のチップ定義をそのまま流用することを示す。エディタは参照先のparamsを解決して使う。"
+  },
+
+  "patch_kinds": {
+    "fm": "HwPatch(ops[]付き)で音色を記述する。*.hwbank.jsonの対象。",
+    "builtin_rom": "音色がチップROM固定でユーザー音色を持たない。HwBankを作成できない。",
+    "sample_zone": "SampleZonePatch(*.samplezonebank.json)を使う。HwPatchのops[]は一切使わない。",
+    "mode_selector": "特定チップを指さないバンク選択子。音色データを持たない。",
+    "unimplemented": "VoicePatchTypeの値のみ予約。ドライバ未実装。"
+  },
+
+  "parameters": {
+    "FB": {"scope": "channel", "path": "FB", "type": "integer", "schema_range": [0, 7], "label": "Feedback"},
+    "ALG": {"scope": "channel", "path": "ALG", "type": "integer", "schema_range": [0, 7], "label": "Algorithm"},
+    "AMS": {"scope": "channel", "path": "AMS", "type": "integer", "schema_range": [0, 3], "label": "AM Sensitivity"},
+    "PMS": {"scope": "channel", "path": "PMS", "type": "integer", "schema_range": [0, 7], "label": "PM Sensitivity"},
+    "NFQ": {"scope": "channel", "path": "NFQ", "type": "integer", "schema_range": [0, 31], "label": "Noise Frequency"},
+    "FB2": {"scope": "channel", "path": "FB2", "type": "integer", "schema_range": [0, 7], "label": "Feedback (後半ペア)"},
+
+    "AR": {"scope": "operator", "path": "ops[i].AR", "type": "integer", "schema_range": [0, 31], "label": "Attack Rate"},
+    "DR": {"scope": "operator", "path": "ops[i].DR", "type": "integer", "schema_range": [0, 31], "label": "Decay Rate"},
+    "SL": {"scope": "operator", "path": "ops[i].SL", "type": "integer", "schema_range": [0, 15], "label": "Sustain Level (減衰量、大きいほど小音量)"},
+    "SR": {"scope": "operator", "path": "ops[i].SR", "type": "integer", "schema_range": [0, 31], "label": "Sustain Rate"},
+    "RR": {"scope": "operator", "path": "ops[i].RR", "type": "integer", "schema_range": [0, 15], "label": "Release Rate"},
+    "TL": {"scope": "operator", "path": "ops[i].TL", "type": "integer", "schema_range": [0, 127], "label": "Total Level (減衰量、0=最大音量)"},
+    "KSR": {"scope": "operator", "path": "ops[i].KSR", "type": "integer", "schema_range": [0, 3], "label": "Key Scale Rate"},
+    "KSL": {"scope": "operator", "path": "ops[i].KSL", "type": "integer", "schema_range": [0, 3], "label": "Key Scale Level"},
+    "MUL": {"scope": "operator", "path": "ops[i].MUL", "type": "integer", "schema_range": [0, 15], "label": "Multiple"},
+    "DT1": {"scope": "operator", "path": "ops[i].DT1", "type": "integer", "schema_range": [0, 7], "label": "Detune 1"},
+    "DT2": {"scope": "operator", "path": "ops[i].DT2", "type": "integer", "schema_range": [0, 3], "label": "Detune 2"},
+    "PDT": {"scope": "operator", "path": "ops[i].PDT", "type": "integer", "schema_range": [-32768, 32767], "label": "疑似デチューン/拡張周波数オフセット"},
+    "AM": {"scope": "operator", "path": "ops[i].AM", "type": "integer", "schema_range": [0, 1], "label": "AM Enable"},
+    "VIB": {"scope": "operator", "path": "ops[i].VIB", "type": "integer", "schema_range": [0, 1], "label": "Vibrato Enable"},
+    "EGT": {"scope": "operator", "path": "ops[i].EGT", "type": "integer", "schema_range": [0, 15], "label": "EG Type / SSG-EG / HWエンベロープ制御"},
+    "WS": {"scope": "operator", "path": "ops[i].WS", "type": "integer", "schema_range": [0, 127], "label": "Wave Select"},
+    "REV": {"scope": "operator", "path": "ops[i].REV", "type": "integer", "schema_range": [0, 7], "label": "Reverberation"},
+    "EGS": {"scope": "operator", "path": "ops[i].EGS", "type": "integer", "schema_range": [0, 127], "label": "EG Bias"},
+    "DT3": {"scope": "operator", "path": "ops[i].DT3", "type": "integer", "schema_range": [0, 15], "label": "Fine Frequency (ratio mode)"},
+
+    "FIX": {"scope": "ext", "path": "ext.FIX", "type": "integer", "schema_range": [0, 3], "label": "Fixed Frequency / FXモード"},
+    "ALG_EXT": {"scope": "ext", "path": "ext.ALG_EXT", "type": "integer", "schema_range": [0, 1], "label": "ALG拡張ビット"},
+    "HWEP": {"scope": "ext", "path": "ext.HWEP", "type": "integer", "schema_range": [0, 65535], "label": "HW Envelope Period"},
+    "target_voice_patch_type": {"scope": "ext", "path": "ext.target_voice_patch_type", "type": "integer", "schema_range": [0, 255], "label": "対象チップ(PSG系共有バンク専用)"},
+    "rhythm_ch": {"scope": "ext", "path": "ext.rhythm_ch", "type": "integer", "schema_range": [0, 255], "label": "対象リズムチャンネル(楽器)"}
+  },
+
+  "common_patch_fields": {
+    "prog": {"path": "prog", "type": "integer", "range": [0, 127], "required": true, "note": "Program Change番号。builtin参照エントリでは格納スロット番号にすぎず任意。"},
+    "name": {"path": "name", "type": "string", "note": "音色名。"},
+    "sw_bank": {"path": "sw_bank", "type": "integer", "range": [-1, 127], "default": -1, "note": "参照するSwPatchのバンク番号。-1=参照なし。全チップ共通。"},
+    "sw_prog": {"path": "sw_prog", "type": "integer", "range": [-1, 127], "default": -1, "note": "参照するSwPatchのプログラム番号。-1=参照なし。全チップ共通。"}
+  },
+
+  "chips": [
+    {
+      "id": "OPN",
+      "voice_patch_type": 16,
+      "voice_patch_type_hex": "0x10",
+      "display_name": "OPN (YM2203)",
+      "devices": ["YM2203", "YMF264"],
+      "voice_group": "OPNA",
+      "patch_kind": "fm",
+      "operator_count": 4,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 7], "register_bits": 3, "mapping": "enum", "note": "実機の8アルゴリズム。"},
+        "AR": {"range": [0, 31], "register_bits": 5},
+        "DR": {"range": [0, 31], "register_bits": 5},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "register_bits": 5, "note": "実機D2R(第2ディケイレート)。OPL系のようなパーカッシブ/サステイン切替の意味は持たない。"},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "register_bits": 7, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "DT1": {"range": [0, 7], "register_bits": 3},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "EGT": {"range": [0, 15], "register_bits": 4, "note": "SSG-EG。bit3=有効フラグ、下位3bit=波形。"},
+        "FIX": {"range": [0, 3], "mapping": "enum", "condition": {"channels": [2]},
+          "values": [
+            {"value": 0, "label": "通常(FXモード無効)"},
+            {"value": 1, "label": "疑似デチューン"},
+            {"value": 2, "label": "非整数倍率"},
+            {"value": 3, "label": "固定周波数"}
+          ],
+          "note": "ch2専用(実機の3rd channel special mode)。FIX!=0のパッチは常にch2へ割り当てられる。"},
+        "PDT": {"range": [-32768, 32767], "condition": {"param": "FIX", "not_equals": 0, "channels": [2]},
+          "note": "FIX=1/2では100/64セント単位の符号付きオフセット、FIX=3では0.1Hz単位の絶対周波数。オペレータごとに独立。"}
+      }
+    },
+    {
+      "id": "OPN2",
+      "voice_patch_type": 17,
+      "voice_patch_type_hex": "0x11",
+      "display_name": "OPN2 / OPNA系 (YM2608, YM2612, YM2610 ほか)",
+      "devices": ["YM2612", "YM3438", "YMF276", "YM2608", "YMF288", "YM2610", "YM2610B", "YMF286K"],
+      "voice_group": "OPNA",
+      "patch_kind": "fm",
+      "operator_count": 4,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 7], "register_bits": 3, "mapping": "enum"},
+        "AR": {"range": [0, 31], "register_bits": 5},
+        "DR": {"range": [0, 31], "register_bits": 5},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "register_bits": 5},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "register_bits": 7, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "DT1": {"range": [0, 7], "register_bits": 3},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "EGT": {"range": [0, 15], "register_bits": 4, "note": "SSG-EG。"},
+        "FIX": {"range": [0, 3], "mapping": "enum", "condition": {"channels": [2]},
+          "values": [
+            {"value": 0, "label": "通常(FXモード無効)"},
+            {"value": 1, "label": "疑似デチューン"},
+            {"value": 2, "label": "非整数倍率"},
+            {"value": 3, "label": "固定周波数"}
+          ],
+          "note": "6ch構成のうち前半サブチップのch2のみ対応。後半サブチップ(ch3-5)では無視される。"},
+        "PDT": {"range": [-32768, 32767], "condition": {"param": "FIX", "not_equals": 0, "channels": [2]}}
+      },
+      "notes": ["HW LFO(AMS/PMS)はFITOM_Xではパフォーマンスパラメータ扱いのため、HwPatchでは指定しない。"]
+    },
+    {
+      "id": "OPM",
+      "voice_patch_type": 25,
+      "voice_patch_type_hex": "0x19",
+      "display_name": "OPM (YM2151) / OPP (YM2164)",
+      "devices": ["YM2151", "YM2164"],
+      "voice_group": "OPM",
+      "patch_kind": "fm",
+      "operator_count": 4,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 7], "register_bits": 3, "mapping": "enum"},
+        "AMS": {"range": [0, 3], "register_bits": 2},
+        "PMS": {"range": [0, 7], "register_bits": 3},
+        "NFQ": {"range": [0, 31], "register_bits": 5, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 1, "channels": [7]},
+          "note": "ノイズ周波数。ノイズはch7専用。"},
+        "AR": {"range": [0, 31], "register_bits": 5},
+        "DR": {"range": [0, 31], "register_bits": 5},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "register_bits": 5, "note": "実機D2R。"},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "register_bits": 7, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "DT1": {"range": [0, 7], "register_bits": 3},
+        "DT2": {"range": [0, 3], "register_bits": 2},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "ALG_EXT": {"range": [0, 1], "mapping": "bitfield", "condition": {"channels": [7]},
+          "bits": [{"mask": 1, "label": "ノイズ有効(ch7専用)"}],
+          "note": "1にするとノイズを要求し、自動的にch7へ割り当てられる。"}
+      }
+    },
+    {
+      "id": "OPZ",
+      "voice_patch_type": 26,
+      "voice_patch_type_hex": "0x1a",
+      "display_name": "OPZ (YM2414)",
+      "devices": ["YM2414"],
+      "voice_group": "OPM",
+      "patch_kind": "fm",
+      "operator_count": 4,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 7], "register_bits": 3, "mapping": "enum"},
+        "AMS": {"range": [0, 3], "register_bits": 2},
+        "PMS": {"range": [0, 7], "register_bits": 3},
+        "NFQ": {"range": [0, 31], "register_bits": 5, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 1, "channels": [7]}},
+        "AR": {"range": [0, 31], "register_bits": 5},
+        "DR": {"range": [0, 31], "register_bits": 5},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "register_bits": 5},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "register_bits": 7, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "DT1": {"range": [0, 7], "register_bits": 3},
+        "DT2": {"range": [0, 3], "register_bits": 2},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "ALG_EXT": {"range": [0, 1], "mapping": "bitfield", "condition": {"channels": [7]},
+          "bits": [{"mask": 1, "label": "ノイズ有効(ch7専用)"}]},
+        "WS": {"range": [0, 7], "register_bits": 3, "note": "OPZ独自波形。"},
+        "REV": {"range": [0, 7], "register_bits": 3},
+        "EGS": {"range": [0, 127], "effective_range": [0, 3], "register_bits": 2,
+          "note": "チップへ送られるのは下位2bitのみ。値域を7bit幅のまま残しているのは既存バンクデータとの互換のため。"},
+        "DT3": {"range": [0, 15], "register_bits": 4}
+      },
+      "notes": [
+        "固定周波数モードと2系統のLFOリソースは未対応(ext.FIXはOPZでは参照されない)。",
+        "パンポットに左寄せを表すビットがチップに無いため、左寄せ指定は両出力(センター相当)になる。"
+      ]
+    },
+    {
+      "id": "OPZ2",
+      "voice_patch_type": 27,
+      "voice_patch_type_hex": "0x1b",
+      "display_name": "OPZ2 (YM2424)",
+      "devices": ["YM2424"],
+      "voice_group": "OPM",
+      "patch_kind": "fm",
+      "operator_count": 4,
+      "same_params_as": "OPZ",
+      "params": {},
+      "notes": ["ドライバはCOPZを共用する。パラメータ定義はOPZと完全に同一。"]
+    },
+    {
+      "id": "OPL",
+      "voice_patch_type": 32,
+      "voice_patch_type_hex": "0x20",
+      "display_name": "OPL (YM3526) / Y8950",
+      "devices": ["YM3526", "YM3801", "Y8950"],
+      "voice_group": "OPL2",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 1], "register_bits": 1, "mapping": "enum",
+          "values": [{"value": 0, "label": "FM(op0→op1)"}, {"value": 1, "label": "AM(op0+op1並列)"}]},
+        "AR": {"range": [0, 31], "quantum": 2, "register_bits": 4, "note": "実機は4bit。下位1bitは無視され、区別できるのは16段階。"},
+        "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4,
+          "note": "0より大きいとパーカッシブモード(実機RRレジスタにSRの値を書く)。0で通常のサステインモード。キーオン/キーオフのたびに動的に切り替わるため、SR>0でもキーオフ後のリリースはRRの速さになる。"},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "register_bits": 6, "mapping": "attenuation_db", "step_db": 0.75,
+          "note": "実機の減衰レンジが48dBしかないため、TL=63付近で無音に達する(64以上を指定しても意味がない)。刻みは0.75dB=1で、丸めは発生しない。"},
+        "KSR": {"range": [0, 1], "register_bits": 1},
+        "KSL": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "VIB": {"range": [0, 1], "register_bits": 1}
+      },
+      "notes": ["EGTは参照されない。実機のEG typeビットはSRの値(SR>0か否か)から自動で決まる。"]
+    },
+    {
+      "id": "OPL2",
+      "voice_patch_type": 33,
+      "voice_patch_type_hex": "0x21",
+      "display_name": "OPL2 (YM3812)",
+      "devices": ["YM3812"],
+      "voice_group": "OPL2",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 1], "register_bits": 1, "mapping": "enum",
+          "values": [{"value": 0, "label": "FM(op0→op1)"}, {"value": 1, "label": "AM(op0+op1並列)"}]},
+        "AR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "register_bits": 6, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 1], "register_bits": 1},
+        "KSL": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "VIB": {"range": [0, 1], "register_bits": 1},
+        "WS": {"range": [0, 3], "register_bits": 2, "mapping": "index", "note": "4波形。OPL(YM3526)には無い。"}
+      }
+    },
+    {
+      "id": "OPL3_2",
+      "voice_patch_type": 34,
+      "voice_patch_type_hex": "0x22",
+      "display_name": "OPL3 2オペレータモード (YMF262)",
+      "devices": ["YMF262", "YMF289", "YMF278"],
+      "voice_group": "OPL2",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "params": {
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 1], "register_bits": 1, "mapping": "enum",
+          "values": [{"value": 0, "label": "FM(op0→op1)"}, {"value": 1, "label": "AM(op0+op1並列)"}]},
+        "AR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "register_bits": 6, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 1], "register_bits": 1},
+        "KSL": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "VIB": {"range": [0, 1], "register_bits": 1},
+        "WS": {"range": [0, 7], "register_bits": 3, "mapping": "index", "note": "8波形。"}
+      },
+      "notes": ["WS<4のパッチのみOPL2バンクへフォールバックできる(WS>=4はOPL2で再現不能のため別分類)。"]
+    },
+    {
+      "id": "OPL_RHY",
+      "voice_patch_type": 35,
+      "voice_patch_type_hex": "0x23",
+      "display_name": "OPL系内蔵リズムチャンネル",
+      "devices": ["YM3526", "YM3812", "YMF262"],
+      "voice_group": "RHYTHM",
+      "patch_kind": "fm",
+      "operator_count": {"variable": true, "range": [1, 2], "by_rhythm_ch": [1, 1, 1, 1, 2]},
+      "params": {
+        "rhythm_ch": {"range": [0, 4], "required": true, "mapping": "enum",
+          "values": [
+            {"value": 0, "label": "HH (ハイハット)", "operator_count": 1},
+            {"value": 1, "label": "CYM (シンバル)", "operator_count": 1},
+            {"value": 2, "label": "TOM (タム)", "operator_count": 1},
+            {"value": 3, "label": "SD (スネア)", "operator_count": 1},
+            {"value": 4, "label": "BD (バスドラム)", "operator_count": 2}
+          ],
+          "note": "この音色がどの楽器向けかを指定する。未設定(255)または範囲外は解決失敗(無音)。progとは独立した軸で、同じ楽器に複数の音色バリエーションを別スロットとして用意できる。"},
+        "FB": {"range": [0, 7], "register_bits": 3},
+        "ALG": {"range": [0, 1], "register_bits": 1, "mapping": "enum", "condition": {"param": "rhythm_ch", "equals": 4},
+          "values": [{"value": 0, "label": "FM(op0→op1)"}, {"value": 1, "label": "AM(op0+op1並列)"}],
+          "note": "2オペレータのBDのみ意味を持つ。単一オペレータの楽器では無視される。"},
+        "AR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "register_bits": 6, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 1], "register_bits": 1},
+        "KSL": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "VIB": {"range": [0, 1], "register_bits": 1},
+        "WS": {"range": [0, 3], "register_bits": 2, "mapping": "index", "note": "OPL2以降のみ有効。"}
+      },
+      "notes": [
+        "単一オペレータ楽器(HH/CYM/TOM/SD)はops[0]のみを使う。ops[1]以降を書いても無視される。",
+        "リズムパートではCC#7/パンポット/サステインペダルによるリアルタイム制御が無視される。",
+        "HwBankの名前空間はOPL2等と独立(VOICE_GROUP_RHYTHM)。"
+      ]
+    },
+    {
+      "id": "OPLL",
+      "voice_patch_type": 40,
+      "voice_patch_type_hex": "0x28",
+      "display_name": "OPLL (YM2413 / YM2420)",
+      "devices": ["YM2413", "YM2420"],
+      "voice_group": "OPLL",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "params": {
+        "ALG_EXT": {"range": [0, 1], "mapping": "bitfield",
+          "bits": [{"mask": 1, "label": "プリセット音色選択(1=チップ内蔵ROM音色、0=ユーザー音色)"}],
+          "note": "1にすると、ALGとALG_EXT以外のフィールドは一切参照されない。"},
+        "ALG": {"range": [0, 7], "mapping": "index", "condition": {"param": "ALG_EXT", "mask": 1, "equals": 1},
+          "note": "プリセット音色番号。実機は0-15(1-15がROM音色、0はユーザー音色)だが、ALGフィールドのスキーマ上限が7のため、hwbank.jsonから直接指定できるのは0-7まで。8-15を含むROM音色は、プロファイルのbuiltin_swpatch_metaバンク経由(builtin.patch_type/patch_no)で選ぶ。ユーザー音色(ALG_EXT=0)ではALGは参照されない(OPLLは常にop0→op1の2オペレータFM固定)。"},
+        "FB": {"range": [0, 7], "register_bits": 3, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "AR": {"range": [0, 31], "quantum": 2, "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "SL": {"range": [0, 15], "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0},
+          "note": "0より大きいとパーカッシブモード。OPLL系はこの切り替えを音色設定時に一度だけ静的に行うため、SR>0のときは実機RRレジスタにSRが書かれたままとなり、キーオフ後のリリースもSRの速さになる(RRは効かない)。リリースをRRで制御したい場合はSR=0にする。"},
+        "RR": {"range": [0, 15], "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "TL": {"condition": {"param": "ALG_EXT", "mask": 1, "equals": 0},
+          "per_op": {
+            "0": {"range": [0, 127], "effective_range": [0, 63], "register_bits": 6, "mapping": "attenuation_db", "step_db": 0.75,
+              "note": "モジュレータレベル(変調指数)。無視されない。"},
+            "1": {"range": [0, 127], "effective_range": [0, 63], "quantum": 4, "register_bits": 4, "mapping": "attenuation_db", "step_db": 3.0,
+              "note": "キャリア音量。実機が4bit・3dBステップの音量レジスタしか持たないため、4刻みでしか区別できない。"}
+          }},
+        "KSR": {"range": [0, 1], "register_bits": 1, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "KSL": {"range": [0, 3], "register_bits": 2, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "MUL": {"range": [0, 15], "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "AM": {"range": [0, 1], "register_bits": 1, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "VIB": {"range": [0, 1], "register_bits": 1, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
+        "WS": {"range": [0, 1], "register_bits": 1, "mapping": "index", "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0},
+          "note": "0=正弦波/1=半波整流。オペレータごとに指定できる。"}
+      },
+      "builtin_presets": {"patch_type": "OPLL", "patch_no_range": [1, 15],
+        "note": "ROM音色はhwbank.jsonのbuiltinエントリ(role=\"builtin_swpatch_meta\"バンク)経由で参照する。patch_no=0はユーザー音色との衝突回避のため無音として予約。"},
+      "notes": [
+        "EGTは参照されない(実機EG typeビットはSRの値から決まる)。",
+        "サステインペダル(CC#64)はSR/RRとは独立に実機のSUSビットで制御される。"
+      ]
+    },
+    {
+      "id": "OPLLP",
+      "voice_patch_type": 41,
+      "voice_patch_type_hex": "0x29",
+      "display_name": "OPLLP (YMF281)",
+      "devices": ["YMF281"],
+      "voice_group": "OPLL",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "same_params_as": "OPLL",
+      "params": {},
+      "builtin_presets": {"patch_type": "OPLLP", "patch_no_range": [1, 15]},
+      "notes": ["パラメータ定義はOPLLと同一。内蔵ROM音色の内容のみ異なる。"]
+    },
+    {
+      "id": "OPLLX",
+      "voice_patch_type": 42,
+      "voice_patch_type_hex": "0x2a",
+      "display_name": "OPLLX (YM2423)",
+      "devices": ["YM2423"],
+      "voice_group": "OPLL",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "same_params_as": "OPLL",
+      "params": {},
+      "builtin_presets": {"patch_type": "OPLLX", "patch_no_range": [1, 15]},
+      "notes": ["パラメータ定義はOPLLと同一。内蔵ROM音色の内容のみ異なる。"]
+    },
+    {
+      "id": "VRC7",
+      "voice_patch_type": 43,
+      "voice_patch_type_hex": "0x2b",
+      "display_name": "VRC7 (FS1001)",
+      "devices": ["FS1001"],
+      "voice_group": "OPLL",
+      "patch_kind": "fm",
+      "operator_count": 2,
+      "same_params_as": "OPLL",
+      "params": {},
+      "builtin_presets": {"patch_type": "VRC7", "patch_no_range": [1, 15]},
+      "notes": ["パラメータ定義はOPLLと同一。内蔵ROM音色の内容のみ異なる。内蔵リズムを持たない。"]
+    },
+    {
+      "id": "OPL3",
+      "voice_patch_type": 48,
+      "voice_patch_type_hex": "0x30",
+      "display_name": "OPL3 4オペレータモード (YMF262)",
+      "devices": ["YMF262", "YMF289", "YMF278"],
+      "voice_group": "OPL3",
+      "patch_kind": "fm",
+      "operator_count": 4,
+      "params": {
+        "ALG": {"range": [0, 7], "register_bits": 3, "mapping": "bitfield",
+          "bits": [
+            {"mask": 1, "label": "CON1: 前半ペア(op0/op1)の接続 0=FM/1=AM"},
+            {"mask": 2, "label": "CON2: 後半ペア(op2/op3)の接続 0=FM/1=AM"},
+            {"mask": 4, "label": "ConnectionSEL: 4オペレータ結合の有効化"}
+          ],
+          "note": "3bit全体を1つのパック値として扱う(接続図表示を単一パラメータに一元化するため)。ConnectionSEL=1の間、実機は後半ペア自身のBxレジスタ(Key-On/Block/F-Number)を無視し、前半ペアの値だけで4オペレータ全体を駆動する。"},
+        "FB": {"range": [0, 7], "register_bits": 3, "note": "前半ペア(op0/op1)のフィードバック。"},
+        "FB2": {"range": [0, 7], "register_bits": 3, "note": "後半ペア(op2/op3)のフィードバック。実機は前半・後半で独立したFBレジスタを持つ。"},
+        "AR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4},
+        "SL": {"range": [0, 15], "register_bits": 4},
+        "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4,
+          "note": "OPL/OPL2と同じくパーカッシブ/サステインの切替。キーオン/キーオフのたびに動的に切り替わる。"},
+        "RR": {"range": [0, 15], "register_bits": 4},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "register_bits": 6, "mapping": "attenuation_db", "step_db": 0.75},
+        "KSR": {"range": [0, 1], "register_bits": 1},
+        "KSL": {"range": [0, 3], "register_bits": 2},
+        "MUL": {"range": [0, 15], "register_bits": 4},
+        "AM": {"range": [0, 1], "register_bits": 1},
+        "VIB": {"range": [0, 1], "register_bits": 1},
+        "WS": {"range": [0, 7], "register_bits": 3, "mapping": "index"},
+        "PDT": {"range": [-32768, 32767], "mapping": "raw",
+          "per_op": {
+            "0": {"note": "前半ペア用、100/64セント単位の符号付きオフセット。"},
+            "2": {"note": "後半ペア用、同上。"}
+          },
+          "note": "疑似デチューン。op1/op3のPDTは参照されない。"}
+      },
+      "notes": [
+        "DT1/DT2はOPL系に対応する仕組みが無く、常に無視される(疑似デチューンはPDTを使う)。",
+        "EGTは参照されない。"
+      ]
+    },
+    {
+      "id": "SD1",
+      "voice_patch_type": 56,
+      "voice_patch_type_hex": "0x38",
+      "display_name": "SD-1 (YMF825)",
+      "devices": ["YMF825"],
+      "voice_group": "MA3",
+      "patch_kind": "unimplemented",
+      "params": {}
+    },
+    {
+      "id": "MA3",
+      "voice_patch_type": 57,
+      "voice_patch_type_hex": "0x39",
+      "display_name": "MA-3",
+      "devices": [],
+      "voice_group": "MA3",
+      "patch_kind": "unimplemented",
+      "params": {}
+    },
+    {
+      "id": "MA5",
+      "voice_patch_type": 58,
+      "voice_patch_type_hex": "0x3a",
+      "display_name": "MA-5",
+      "devices": [],
+      "voice_group": "MA3",
+      "patch_kind": "unimplemented",
+      "params": {}
+    },
+    {
+      "id": "MA7",
+      "voice_patch_type": 59,
+      "voice_patch_type_hex": "0x3b",
+      "display_name": "MA-7",
+      "devices": [],
+      "voice_group": "MA3",
+      "patch_kind": "unimplemented",
+      "params": {}
+    },
+    {
+      "id": "SSG",
+      "voice_patch_type": 64,
+      "voice_patch_type_hex": "0x40",
+      "display_name": "SSG (YM2149 / AY-3-8910)",
+      "devices": ["YM2149", "AY-3-8910", "YMZ705", "YMZ732", "YMZ771"],
+      "voice_group": "PSG",
+      "bank_voice_patch_type": 64,
+      "patch_kind": "fm",
+      "operator_count": 1,
+      "params": {
+        "ALG": {"range": [0, 3], "mapping": "enum",
+          "values": [
+            {"value": 0, "label": "トーンのみ"},
+            {"value": 1, "label": "ノイズのみ"},
+            {"value": 2, "label": "トーン+ノイズ"},
+            {"value": 3, "label": "両方無効(消音)"}
+          ]},
+        "NFQ": {"range": [0, 31], "register_bits": 5, "condition": {"param": "ALG", "in": [1, 2]}, "note": "ノイズ周波数。"},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "quantum": 4, "register_bits": 4, "mapping": "attenuation_db", "step_db": 0.75,
+          "note": "基準音量。音量レジスタは4bit・3dB/段(合計48dBのみ)。TL自体は0.75dB刻みで効くが、CC#7/CC#11/ベロシティ/SLと同じ48dBの枠を食い合う。"},
+        "AR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープ(実機レジスタの制約を受けず1刻みで反映される)。"},
+        "DR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "SL": {"range": [0, 15], "condition": {"param": "EGT", "mask": 8, "equals": 0},
+          "note": "3dB/段の減衰量。持続音では0〜2程度に抑えないと、48dBの枠を使い切って無音になる。"},
+        "SR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "RR": {"range": [0, 15], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "EGT": {"range": [0, 15], "mapping": "bitfield",
+          "bits": [
+            {"mask": 8, "label": "HWエンベロープ使用フラグ(1=HW、0=ソフトウェアエンベロープ)"},
+            {"mask": 7, "label": "HWエンベロープ波形シェイプ(実機レジスタ0x0D下位3bit + CONTINUEビット)"}
+          ],
+          "note": "bit3=1のとき、AR/DR/SL/SR/RRは完全に無視され、HWEPとEGT下位4bitのみで減衰カーブが決まる。"},
+        "HWEP": {"range": [0, 65535], "register_bits": 16, "condition": {"param": "EGT", "mask": 8, "equals": 8},
+          "note": "実機レジスタ0x0B(Fine)+0x0C(Coarse)の16bit値。分割不可の単一パラメータとして指定する。"},
+        "target_voice_patch_type": {"range": [0, 255], "mapping": "enum",
+          "values": [
+            {"value": 0, "label": "未設定(プロファイルのpsg_fallback_chipへフォールバック)"},
+            {"value": 64, "label": "SSG"},
+            {"value": 65, "label": "EPSG"},
+            {"value": 66, "label": "DCSG"},
+            {"value": 67, "label": "SAA"},
+            {"value": 72, "label": "SCC"}
+          ],
+          "note": "PSG系は全チップが共通のバンク名前空間(直接デバイス選択値0x40固定)を共有する。このフィールドで、パッチが実際に対象とするチップを選ぶ。"}
+      },
+      "notes": [
+        "YMZ705(SSGS)/YMZ732(SSGS2)/YMZ771(SSGS3)のSSG互換部も同じパラメータで扱う(パンポットの分解能とトータルボリュームの有無のみ実機差があるが、HwPatchには現れない)。"
+      ]
+    },
+    {
+      "id": "EPSG",
+      "voice_patch_type": 65,
+      "voice_patch_type_hex": "0x41",
+      "display_name": "EPSG (AY8930)",
+      "devices": ["AY8930"],
+      "voice_group": "PSG",
+      "bank_voice_patch_type": 64,
+      "patch_kind": "fm",
+      "operator_count": 1,
+      "params": {
+        "ALG": {"range": [0, 3], "mapping": "enum",
+          "values": [
+            {"value": 0, "label": "トーンのみ"},
+            {"value": 1, "label": "ノイズのみ"},
+            {"value": 2, "label": "トーン+ノイズ"},
+            {"value": 3, "label": "両方無効(消音)"}
+          ]},
+        "NFQ": {"range": [0, 31], "register_bits": 5, "condition": {"param": "ALG", "in": [1, 2]},
+          "note": "拡張ノイズ周波数の下位5bit。FB(3bit)と合わせて8bitのノイズ周期になる。"},
+        "FB": {"range": [0, 7], "register_bits": 3, "condition": {"param": "ALG", "in": [1, 2]},
+          "note": "拡張ノイズ周波数の上位3bit。FM音源のフィードバックとは無関係。"},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "quantum": 2, "register_bits": 5, "mapping": "attenuation_db", "step_db": 0.75,
+          "note": "AY8930のみ音量レジスタが5bit。"},
+        "WS": {"range": [0, 15], "effective_range": [0, 8], "register_bits": 4, "mapping": "enum",
+          "values": [
+            {"value": 0, "label": "3.125% (50%比 -20dB)"},
+            {"value": 1, "label": "6.25% (-14dB)"},
+            {"value": 2, "label": "12.5% (-8dB)"},
+            {"value": 3, "label": "25% (-2.5dB)"},
+            {"value": 4, "label": "50% (0dB)"},
+            {"value": 5, "label": "75% (-2.5dB)"},
+            {"value": 6, "label": "87.5% (-8dB)"},
+            {"value": 7, "label": "93.75% (-14dB)"},
+            {"value": 8, "label": "96.875% (-20dB)"}
+          ],
+          "note": "デューティ比(AY-3-8910には無い拡張)。9-15は8と同じ。基本波成分がsin(πd)に比例するため、極端なデューティ比は同じ音量設定でも大幅に小さく聞こえる。"},
+        "AR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープ。"},
+        "DR": {"range": [0, 31], "per_condition": [
+            {"condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープのディケイレート。"},
+            {"condition": {"param": "EGT", "mask": 8, "equals": 8}, "effective_range": [0, 15], "quantum": 1, "register_bits": 4,
+              "note": "HWエンベロープ周期(上位バイトの上位ニブル)として転用される。下位4bitのみ書かれるため16で折り返す。"}
+          ]},
+        "SL": {"range": [0, 15], "per_condition": [
+            {"condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープのサステインレベル。"},
+            {"condition": {"param": "EGT", "mask": 8, "equals": 8}, "note": "HWエンベロープ周期(下位バイトの上位ニブル)として転用される。"}
+          ]},
+        "SR": {"range": [0, 31], "per_condition": [
+            {"condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープのサステインレート。"},
+            {"condition": {"param": "EGT", "mask": 8, "equals": 8}, "effective_range": [0, 15], "register_bits": 4,
+              "note": "HWエンベロープ周期(上位バイトの下位ニブル)として転用される。16で折り返す。"}
+          ]},
+        "RR": {"range": [0, 15], "per_condition": [
+            {"condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープのリリースレート。"},
+            {"condition": {"param": "EGT", "mask": 8, "equals": 8}, "note": "HWエンベロープ周期(下位バイトの下位ニブル)として転用される。"}
+          ]},
+        "EGT": {"range": [0, 15], "mapping": "bitfield",
+          "bits": [
+            {"mask": 8, "label": "HWエンベロープ使用フラグ"},
+            {"mask": 7, "label": "HWエンベロープ波形シェイプ"}
+          ]},
+        "target_voice_patch_type": {"range": [0, 255], "note": "SSGの定義と同じ。"}
+      },
+      "notes": [
+        "AY8930のHWエンベロープ周期は、SSGのようなext.HWEPではなくSL/RR/DR/SRの4フィールドを流用して指定する。ext.HWEPはEPSGでは参照されない。"
+      ]
+    },
+    {
+      "id": "DCSG",
+      "voice_patch_type": 66,
+      "voice_patch_type_hex": "0x42",
+      "display_name": "DCSG (SN76489)",
+      "devices": ["SN76489"],
+      "voice_group": "PSG",
+      "bank_voice_patch_type": 64,
+      "patch_kind": "fm",
+      "operator_count": 1,
+      "params": {
+        "ALG": {"range": [0, 1], "mapping": "enum",
+          "values": [{"value": 0, "label": "トーン"}, {"value": 1, "label": "ノイズ(専用チャンネル)"}]},
+        "FB": {"range": [0, 1], "register_bits": 1, "condition": {"param": "ALG", "equals": 1}, "mapping": "enum",
+          "values": [{"value": 0, "label": "周期性ノイズ"}, {"value": 1, "label": "白色雑音"}],
+          "note": "ノイズタイプ。FM音源のフィードバックとは無関係。"},
+        "NFQ": {"range": [0, 3], "register_bits": 2, "condition": {"param": "ALG", "equals": 1}, "note": "ノイズ周波数選択。"},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "quantum": 4, "register_bits": 4, "mapping": "attenuation_db", "step_db": 0.75},
+        "AR": {"range": [0, 31], "note": "ソフトウェアエンベロープ。実機にHWエンベロープ機構が無いため常に使用される。"},
+        "DR": {"range": [0, 31]},
+        "SL": {"range": [0, 15], "note": "3dB/段の減衰量。"},
+        "SR": {"range": [0, 31]},
+        "RR": {"range": [0, 15]},
+        "target_voice_patch_type": {"range": [0, 255], "note": "SSGの定義と同じ。"}
+      },
+      "notes": ["EGTは実機にHWエンベロープが無いため無視される。"]
+    },
+    {
+      "id": "SAA",
+      "voice_patch_type": 67,
+      "voice_patch_type_hex": "0x43",
+      "display_name": "SAA1099",
+      "devices": ["SAA1099"],
+      "voice_group": "PSG",
+      "bank_voice_patch_type": 64,
+      "patch_kind": "fm",
+      "operator_count": 1,
+      "params": {
+        "ALG": {"range": [0, 2], "mapping": "enum",
+          "values": [
+            {"value": 0, "label": "トーンのみ"},
+            {"value": 1, "label": "ノイズのみ"},
+            {"value": 2, "label": "トーン+ノイズ"}
+          ]},
+        "NFQ": {"range": [0, 3], "register_bits": 2, "condition": {"param": "ALG", "in": [1, 2]},
+          "note": "ノイズパラメータ。チャンネル0-2/3-5の2系統で共有される実機制約がある。"},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "quantum": 4, "register_bits": 4, "mapping": "attenuation_db", "step_db": 0.75},
+        "AR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}, "note": "ソフトウェアエンベロープ。"},
+        "DR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "SL": {"range": [0, 15], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "SR": {"range": [0, 31], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "RR": {"range": [0, 15], "condition": {"param": "EGT", "mask": 8, "equals": 0}},
+        "EGT": {"range": [0, 15], "mapping": "bitfield",
+          "bits": [{"mask": 8, "label": "HWエンベロープ使用フラグ"}],
+          "note": "HWエンベロープはチャンネル0-2/3-5の3ch単位で共有されるため、同じ設定で発音中のチャンネルがあるグループが優先的に選ばれる。"},
+        "HWEP": {"range": [0, 63], "register_bits": 6, "mapping": "bitfield", "condition": {"param": "EGT", "mask": 8, "equals": 8},
+          "note": "実機のエンベロープ制御レジスタ下位6bit。波形・分解能・クロックソース・右チャンネル反転をビットで指定する。"},
+        "target_voice_patch_type": {"range": [0, 255], "note": "SSGの定義と同じ。"}
+      },
+      "notes": ["パンポットは等パワーパンニングで自動計算されるため、パッチ側での指定は不要。"]
+    },
+    {
+      "id": "DSG",
+      "voice_patch_type": 68,
+      "voice_patch_type_hex": "0x44",
+      "display_name": "DSG (YM2163)",
+      "devices": ["YM2163"],
+      "voice_group": "PSG",
+      "patch_kind": "builtin_rom",
+      "params": {},
+      "builtin_programs": {
+        "count": 20,
+        "prog_formula": "prog = 波形番号 * 4 + エンベロープ番号",
+        "waveforms": ["St (ストリングス)", "Or (オルガン)", "Cl (クラリネット)", "Pf (ピアノ)", "Hc (ハープシコード)"],
+        "envelopes": ["Percussive (即最大→1/2へ減衰→1.2秒で消える)", "Wind (ゆるやかに立ち上がって保持)", "Sustain (即最大→1/2まで減衰して保持)", "Plateau (即最大のまま保持、離鍵で即消音)"],
+        "builtin_ref": {"patch_type": "DSG", "patch_no_range": [0, 19]}
+      },
+      "notes": [
+        "ユーザー音色を持たず、HwBankを作成できない。音色はProgram Changeだけで選ぶ。",
+        "演奏特性(SwPatch)の紐づけのみ、builtin_swpatch_metaバンクのbuiltinエントリで指定できる。",
+        "チャンネル音量は0dB/-6dB/-12dB/消音の4段階しかなく、CC#7・CC#11・ベロシティはすべてこの4段階に丸められる。",
+        "最低音は約122Hz(MIDIノート47の少し下)で、それより低いノートは頭打ちになる。",
+        "サスティンペダル(CC#64)が実機のSUSビットへ直結する。"
+      ]
+    },
+    {
+      "id": "SCC",
+      "voice_patch_type": 72,
+      "voice_patch_type_hex": "0x48",
+      "display_name": "SCC / SCC+ (K051649 / K052539)",
+      "devices": ["K051649", "K052539"],
+      "voice_group": "PSG",
+      "bank_voice_patch_type": 64,
+      "patch_kind": "fm",
+      "operator_count": 1,
+      "params": {
+        "WS": {"range": [0, 127], "register_bits": 7, "mapping": "index", "note": "波形メモリへの直接インデックス。"},
+        "TL": {"range": [0, 127], "effective_range": [0, 63], "quantum": 4, "register_bits": 4, "mapping": "attenuation_db", "step_db": 0.75},
+        "AR": {"range": [0, 31], "note": "ソフトウェアエンベロープ(実機にHWエンベロープが無い)。"},
+        "DR": {"range": [0, 31]},
+        "SL": {"range": [0, 15], "note": "3dB/段の減衰量。"},
+        "SR": {"range": [0, 31]},
+        "RR": {"range": [0, 15]},
+        "target_voice_patch_type": {"range": [0, 255], "note": "SSGの定義と同じ。"}
+      },
+      "notes": ["無印SCCはチャンネル3・4が波形メモリを物理的に共有するが、パッチデータ側での対応は不要(自動的に扱われる)。"]
+    },
+    {
+      "id": "ADPCMB",
+      "voice_patch_type": 81,
+      "voice_patch_type_hex": "0x51",
+      "display_name": "ADPCM-B (YM2608 / Y8950 内蔵)",
+      "devices": ["YM2608", "Y8950"],
+      "voice_group": "PCM",
+      "patch_kind": "sample_zone",
+      "params": {},
+      "sample_zone": {"schema": "config_schema/samplezonebank.schema.json", "pitch_variable": true, "pcm_bank_group": "ADPCMB"}
+    },
+    {
+      "id": "ADPCMA",
+      "voice_patch_type": 82,
+      "voice_patch_type_hex": "0x52",
+      "display_name": "ADPCM-A (YM2610 内蔵)",
+      "devices": ["YM2610"],
+      "voice_group": "PCM",
+      "patch_kind": "sample_zone",
+      "params": {},
+      "sample_zone": {"schema": "config_schema/samplezonebank.schema.json", "pitch_variable": false, "pcm_bank_group": "ADPCMA",
+        "note": "再生ピッチを変えられないため、zones[].root_noteは未使用。"}
+    },
+    {
+      "id": "PCMD8",
+      "voice_patch_type": 83,
+      "voice_patch_type_hex": "0x53",
+      "display_name": "PCM-D8 (YMZ280)",
+      "devices": ["YMZ280B"],
+      "voice_group": "PCM",
+      "patch_kind": "sample_zone",
+      "params": {},
+      "sample_zone": {"schema": "config_schema/samplezonebank.schema.json", "pitch_variable": true, "pcm_bank_group": "PCMD8"}
+    },
+    {
+      "id": "AWM",
+      "voice_patch_type": 84,
+      "voice_patch_type_hex": "0x54",
+      "display_name": "AWM (YMF278 + YRW801)",
+      "devices": ["YMF278"],
+      "voice_group": "PCM",
+      "patch_kind": "sample_zone",
+      "params": {},
+      "sample_zone": {"schema": "config_schema/samplezonebank.schema.json", "pitch_variable": true,
+        "note": "zones[].wave_indexは内蔵ROM波形の番号。pcmbank.jsonからの自動合成は対象外。"}
+    },
+    {
+      "id": "SSGS_ADPCM",
+      "voice_patch_type": 85,
+      "voice_patch_type_hex": "0x55",
+      "display_name": "SSGS-ADPCM (YMZ705 / YMZ732 内蔵)",
+      "devices": ["YMZ705", "YMZ732"],
+      "voice_group": "PCM",
+      "patch_kind": "sample_zone",
+      "params": {},
+      "sample_zone": {"schema": "config_schema/samplezonebank.schema.json", "pitch_variable": false, "pcm_bank_group": "SSGS_ADPCM",
+        "wave_index_range": [0, 63],
+        "note": "wave_indexはチップのボイス番号(6bit)そのもの。再生ピッチを変えられず、サンプリング周波数はpcmbank.jsonのsample_rate(4000/8000/16000/32000)で決まる。"}
+    },
+    {
+      "id": "BUILTIN_RHYTHM",
+      "voice_patch_type": 112,
+      "voice_patch_type_hex": "0x70",
+      "display_name": "内蔵リズム音源専用バンク選択子",
+      "devices": [],
+      "patch_kind": "mode_selector",
+      "params": {},
+      "notes": [
+        "特定のチップを指す値ではなく、内蔵リズム専用バンクへのアクセスを意味する。",
+        "hwBank(CC#32)相当のフィールドで対象チップ(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL、VOICE_PATCH_DSG=DSG等の既存値を再利用)を選び、hwProg(Program Change)相当のフィールドでリズムユニット内の楽器番号(0起算)を選ぶ。",
+        "音色はチップROM固定であり、HwPatchを作成できない。"
+      ]
+    },
+    {
+      "id": "SILENCE",
+      "voice_patch_type": 127,
+      "voice_patch_type_hex": "0x7F",
+      "display_name": "無音バンク選択子",
+      "devices": [],
+      "patch_kind": "mode_selector",
+      "params": {},
+      "notes": [
+        "チップ種別を一切参照せず、常に「解決に成功した上で発音しない」結果を返す。hwBank/hwProg相当の値は参照されない。",
+        "音色未定のプレースホルダ(ToneLayer・DrumNote等)に使う。存在しないバンク/プログラムを指定した場合(=解決失敗、直前のパッチが維持される)とは異なる。"
+      ]
+    }
+  ]
+}
