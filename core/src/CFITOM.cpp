@@ -118,8 +118,12 @@ static const RegSizeEntry kRegSizeMap[] = {
 
     // PSG系 (CSSG/CEPSG/CDCSG): 0x00-0x0D。CDCSGはラッチ方式でアドレス0のみ
     {DEVICE_SSG,   0x010}, {DEVICE_PSG,   0x010}, {DEVICE_SSGL,  0x010},
-    {DEVICE_SSGLP, 0x010}, {DEVICE_SSGS,  0x010},
+    {DEVICE_SSGLP, 0x010},
     {DEVICE_DCSG,  0x010},
+    // SSGS/SSGS2 (CSSGS): SSG-1が0x00-0x12、SSG-2が0x20-0x32の2ユニット構成
+    {DEVICE_SSGS,  0x040}, {DEVICE_SSGS2, 0x040},
+    // SSGS ADPCM (CSSGSAdPcm): 0x40-0xB3 (8ch × 4レジスタ、16byteおき)
+    {DEVICE_SSGS_ADPCM, 0x0C0},
     // DSG (CDSG/CDSGRhythm): 実効レジスタは0x80-0x9F だが、regBak_ は
     // レジスタアドレスをそのまま添字にするため 0xA0 まで確保・表示する
     {DEVICE_DSG,   0x0A0}, {DEVICE_DSG_RHY, 0x0A0},
@@ -176,6 +180,7 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_DSG_RHY, "RHY"},
     // PSG系
     {DEVICE_SSG,   "SSG"}, {DEVICE_DCSG, "DCSG"}, {DEVICE_DSG, "DSG"},
+    {DEVICE_SSGS,  "SSG"}, {DEVICE_SSGS2, "SSG"},
     {DEVICE_SCC,   "SCC"}, {DEVICE_SCCP, "SCC"},
     {DEVICE_SAA,   "SAA"},
     // ADPCM/PCM系
@@ -185,6 +190,7 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_ADPCMB_Y8950, "PB"},
     {DEVICE_ADPCM,        "PCM"},
     {DEVICE_PCMD8,        "PCM"},
+    {DEVICE_SSGS_ADPCM,   "PCM"},
     // AWM (サンプル音源)。OPL4は24chあるため1文字にする(上記OPL3と同じ理由)。
     {DEVICE_OPL4AWM, "A"},
     {DEVICE_NONE, nullptr},

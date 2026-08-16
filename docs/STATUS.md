@@ -40,10 +40,11 @@
 | `OPN2_new.cpp` | ✅ | COPNA/COPN2 (CSpanDevice、6ch) / COPNB (YM2610無印、ch0/ch3無効化した実効4ch) / COPNARhythm |
 | `OPL_new.cpp` | ✅ | OPL/OPL2/COPL3(4OPモード)/COPL3_2(2OP、CSpanDevice)/COPLRhythm(内蔵リズム5パート) |
 | `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm |
-| `PSG_new.cpp` | ✅ | SSG/DCSG/SCC (CPSGBaseはSW-EG/SW-LFO共通化のみ) |
+| `PSG_new.cpp` | ✅ | SSG/DCSG/SCC (CPSGBaseはSW-EG/SW-LFO共通化のみ)。CSSGはレジスタ空間を`unitBase(ch)`/`unitCh(ch)`(0x20刻み)経由で索引し、YM2149相当を複数内蔵するチップへ同じ実装を展開できる。CSSGS (SSG互換部、3ch×2ユニット=6ch) はこれを継承し、chごとの4bitパンポット($10-$12/$30-$32)を追加するのみ。CSSGSはYMZ705(SSGS)とその上位互換のYMZ732(SSGS2)を共用で担当する(レジスタマップは完全に同一。deviceTypeを分けているのはマスタークロックの分周比の違い[SSGS=4.096MHz÷2または6.144MHz÷3 / SSGS2=12.288MHz÷6固定]だけで、判定はDeviceFactory::ssgsSsgBlockClock()が行う。SSGS2のシンプルアクセスモードはFITOMが使わないハードウェアモードのため対応不要)。VoicePatchTypeは両方ともVOICE_PATCH_SSGなので混在構成でもCSpanDeviceで束ねられる。実機・エミュレータでの音出し確認は未実施(SSGS/SSGS2とも) |
 | `DSG_new.cpp` | 🚧 | CDSG (YM2163楽音4ch) / CDSGRhythm (内蔵リズム5パート: BD/HC/SDN/HHO/HHD)。ROM固定音色のみでユーザー音色は持たず、「エンベロープ4種×波形5種」の20音色をPatchManagerが暗黙のバンクとして機械生成する(prog = 波形*4 + エンベロープ、音色名は`<波形名>.<エンベロープ名>`)。サスティンペダルをハードウェアのSUSビットへ直結。CPSGBaseは継承せず(内蔵EGを持つためソフトウェアADSR不要)、周波数も共有の周期テーブル(SN76489の1/32スケール)では精度が足りないためHzから直接DV/octへ分解する。ビルトイン音色へのSwPatch紐づけは、OPLL ROM音色用のメタバンク(`role=="builtin_swpatch_meta"`)をチップ非依存化して共有する(`opllBuiltinMetaBank_`→`builtinMetaBank_`へ改名、`BuiltinRef::patchType`に`4=DSG`を追加、`isValid()`を`patchNo>=0`へ緩和[DSGはprog 0が正規の音色のため])。GUI導線も接続済み(パッチピッカーのカテゴリに`0x44 "DSG"`[単一の"Builtin"バンク+20音色]、内蔵リズム`0x70`配下のチップ一覧に`DSG`[5パート]を追加。MIDIモニターの名前解決も両方に対応)。なお`VOICE_PATCH_DSG`は`isPsgFamilyVoicePatchType()`に**含めない** — ユーザー音色を持たずHwBankが存在しないため、共有バンク入口(`VOICE_PATCH_SSG`)へ寄せるとパッチピッカーのDSGカテゴリにSSGのバンクが並んでしまう。実機・エミュレータでの音出し確認、およびGUIの目視確認は未実施 |
 | `MultiDev_new.cpp` / `include/fitom/MultiDevice.h` | ✅ | CMultiDevice/CSpanDevice/CUnison (ヘッダー化済み) |
-| `ADPCM_new.cpp` | ✅ | CYmDelta(Y8950/OPNA/OPNB)/CAdPcm2610A/CAdPcmZ280 |
+| `ADPCM_new.cpp` | ✅ | CYmDelta(Y8950/OPNA/OPNB)/CAdPcm2610A/CAdPcmZ280/CSSGSAdPcm |
+| └ `CSSGSAdPcm` | 🚧 | YMZ705(SSGS)/YMZ732(SSGS2)内蔵ADPCM 8ch(両チップで制御が完全に同一のためdeviceType `DEVICE_SSGS_ADPCM` を共有し、混在構成でも束ね対象・PCMイメージも共通)。他のADPCM系と違い、①波形の開始/終了アドレスレジスタを持たず(チップが外部メモリ先頭のボイステーブルを自力で引くため、書くのは6bitのボイス番号=`SampleZone::waveIndex`だけ)、②再生ピッチを変えられない(サンプリング周波数32k/16k/8k/4kの4択のみ、`pcmbank.json`の`sample_rate`から決まる)。専用の`VOICE_PATCH_SSGS_ADPCM`(0x55)、PCMメモリイメージのカタログ種別は`SSGS_ADPCM`。**ADPCMのコーデックが不明でエミュレーションエンジン側に実装が無いため、音出し確認は不可能**。レジスタ書き込みの検証(`tests/test_ssgs.cpp`)のみ実施済み。音量4bitを同一チップのSSG部と同じ対数DAC(3dB/step)と解釈している点、およびサンプリング周波数のビット値対応(00=32k〜11=4k)はデータシートに記載が無く、実機での確認が必要 |
 | `include/fitom/DeviceFactory.h` / `.cpp` | ✅ | IPort → ISoundDevice ファクトリ |
 
 #### MIDI 処理

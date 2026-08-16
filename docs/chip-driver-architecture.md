@@ -229,6 +229,7 @@ struct SubDeviceSpec {
 | `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_DSG` (YM2163) | 楽音部(`CDSG`、4ch) + `DEVICE_DSG_RHY`(5パート、**常に生成**。レジスタ空間が楽音部と独立しているため`rhythm_mode`による出し分けが不要) |
+| `DEVICE_SSGS` (YMZ705) / `DEVICE_SSGS2` (YMZ732) | SSG互換部(`CSSGS`、YM2149相当×2 = 6ch) + `DEVICE_SSGS_ADPCM`(8ch)。両者は同一の8bitレジスタ空間($00-$3F / $40-$B3)を共有するためport2・オフセットとも不要。**ADPCM部のdeviceTypeはSSGS/SSGS2で共有する**(制御が完全に同一のため。混在構成でも自動的に同一グループとして束ねられ、PCMバンク/メモリイメージも1つで足りる) |
 
 上記以外（単体`COPN`、`COPM`系、`CSSG`単体等）は展開されず、1エントリ=1デバイスのまま。
 `DEVICE_OPNA`系の`DEVICE_OPNA_RHY`のみ例外で、`rhythm_mode`の値に関わらず常に
@@ -729,6 +730,7 @@ COPLLRhythm : CSoundDevice             (OPLL内蔵リズム、5パート、独�
 ```
 CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアLFO制御の共通化のみ)
   ├── CSSG : CPSGBase                  (AY-3-8910/YM2149, 3ch)
+  │     └── CSSGS : CSSG               (YMZ705 SSG互換部, 3ch×2ユニット = 6ch)
   ├── CDCSG : CPSGBase                 (SN76489, 4ch)
   └── CSCC : CPSGBase                  (SCC/SCCP, 5ch, 波形ROM)
 ```
@@ -783,8 +785,79 @@ CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアL
   1/8分周のため`-1`）。
 - **ミックスレジスタのALG=0/1バグ**：`CSSG::computeMixBit`でトーンのみ/ノイズのみ
   の対応ビットが入れ替わっていたバグを修正済み。
+- **`CSSG`はレジスタ空間を「ユニット」単位で索引する**：YMZ705(SSGS)のように
+  YM2149相当のSSGブロックを複数内蔵するチップに備え、`CSSG`のレジスタ
+  アクセスは`unitBase(ch)`(=`(ch/3)*0x20`)と`unitCh(ch)`(=`ch%3`)を必ず経由する。
+  単体のYM2149(`maxChs_`=3)では`unitBase()`が常に0・`unitCh()`が`ch`そのもの
+  になるため、アドレスは1バイトも変わらない。ノイズ発生器・HWエンベロープ・
+  ミックスレジスタはいずれもユニット内3chで共有される実機構造なので、
+  ノイズ音色の`queryCh`も「各ユニットの最終ch(ch2/ch5)を順に探す」形に
+  一般化してある。
 
-### 4.5.1 DSG (YM2163)
+### 4.5.1 SSGS (YMZ705) / SSGS2 (YMZ732)
+
+```
+CSSGS : CSSG                           (SSG互換部, 3ch×2ユニット = 6ch)
+CSSGSAdPcm : CAdPcmBase                (ADPCM部, 8ch)
+```
+
+YM2149相当のSSGを2系統とADPCM再生部を1チップに収めた音源。両ブロックは
+同一の8bitレジスタ空間($00-$3F がSSG、$40-$B3 がADPCM)を共有するため、
+composite展開(`DEVICE_SSGS`/`DEVICE_SSGS2` → SSG部 + `DEVICE_SSGS_ADPCM`)しても
+`extraPort`やアドレスオフセットは要らない。
+
+**YMZ732(SSGS2)はYMZ705(SSGS)の上位互換**で、SSG部・ADPCM部ともレジスタ
+マップは完全に同一(YMZ732データシートにも「YMZ705(SSGS)とレジスタコンパチ
+ブルです」と明記)。したがってドライバは`CSSGS`/`CSSGSAdPcm`をそのまま共用し、
+`deviceType`を分けているのは下記のクロック分周比の違いだけのためである。
+実際の差分は次の2点:
+
+- **マスタークロックと分周比**: SSGSは4.096MHz÷2または6.144MHz÷3(S6Mピンで
+  選択)、SSGS2は12.288MHz÷6固定(クロックは1択で、S6Mピンの役割自体が
+  CPUインターフェイスモード選択へ変わっている)。どちらでもSSGブロックは
+  2.048MHzになる。分周比がクロック値そのものに依存するので
+  `SubDeviceSpec::clockDivider`(固定値)では表現できず、`DeviceFactory`の
+  `ssgsSsgBlockClock()`で`deviceType`とクロック値から判定する。この判定規則は
+  エミュレーションエンジン(EPSGemuEngineの`ssgsInternalClock`)と一致させること。
+- **シンプルアクセスモード(SSGS2のみ)**: `/SEL`ピンをLにすると、データバス
+  8本のみ($40-$FFの192コード)で外部ROM上のシーケンスを起動できるハードウェア
+  モード。FITOMはCPUインターフェイスからレジスタを直接叩く構成でこのモードを
+  使わないため、ドライバ側の対応は不要(外部ROMのシンプルアクセスコード
+  テーブル領域`$000240`-`$00047F`も参照しない)。
+
+- **SSG互換部の音色データは単体のSSGと完全に共有する**(`VOICE_PATCH_SSG`)。
+  レジスタ互換であり、追加されたパンポットは音色データではなくMIDIの
+  CC#10で制御されるため、音色形式に差が出ない。SSGSとSSGS2が混在する構成でも
+  同一`VoicePatchType`なので`CSpanDevice`の束ね対象になる(束ねのグループ化キーは
+  `VoicePatchType`のみで、`deviceType`はサブチップごとに独立して保持される。
+  3節参照)。
+- **ADPCM部の`deviceType`はSSGSとSSGS2で共有する**(`DEVICE_SSGS_ADPCM`)。制御が
+  完全に同一のため分ける理由が無く、共有することで混在時も自動的に同一
+  グループとして束ねられ、PCMバンク/メモリイメージ(カタログ種別`SSGS_ADPCM`)も
+  1つで足りる。
+- **パンポットのリセット値0は「中央」ではなく左端**(0=左端 / 8=中央 / 15=右端)。
+  `CSoundDevice::noteOn()`は`panpot`が既定値0のままだと`panDirty`が立たず
+  `updatePanpot()`を一度も呼ばないため、`init()`で全chに中央値を書いておかないと
+  パンCCを送らない限り全チャンネルが左に張り付く。
+- **ADPCM部は他のADPCM系と2点で決定的に異なる**:
+  - 波形の開始/終了アドレスレジスタを持たない。チップが外部メモリ先頭の
+    ボイステーブル(データシート「8M byte Play data ROM address map」の
+    $000000-$00017F)を自力で引くため、ドライバが書くのは6bitのボイス番号
+    (`SampleZone::waveIndex`、0-63)だけでよい。よって`registerVoice()`は
+    チップへ何も反映しない。PCMメモリイメージ側にこのボイステーブルが
+    含まれている必要がある(`pcm_image_catalog`の種別`SSGS_ADPCM`)。
+  - 再生ピッチを変えられない。持っているのはサンプリング周波数の4択
+    (32k/16k/8k/4k、`pcmbank.json`の`sample_rate`から決まる)だけで、
+    ノート番号からは算出しない(`updateFreq()`はno-op)。
+- **YMZ705データシートの誤記2箇所**: SSGレジスタマップの$28-$2A/$30-$32は
+  「Pan-pot / Frequency」と書かれているが、ビットフィールド(M/L3-L0 と
+  P3-P0)と「$20-$2D はYM2149互換」という同ページの注記から、正しくは
+  $28-$2Aが音量・$30-$32がパンポット。ADPCMレジスタマップの$42のみ
+  P2-P0がD3-D1にずれて描かれているが、他7chと同じくP3-P0がD3-D0が正しい。
+  いずれもYMZ732データシートの対応表では正しく記載されており、そちらが
+  正しいことの裏付けになっている。
+
+### 4.5.2 DSG (YM2163)
 
 ```
 CDSG : CSoundDevice                    (YM2163 楽音部, 4ch)
@@ -866,7 +939,8 @@ D7=0でデータ」の2回書き込みで駆動する実チップだが、この
 CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮想の共通基底)
   ├── CYmDelta : CAdPcmBase             (Delta-T方式、YM2608/YM3801/YM2610B ADPCM-B)
   ├── CAdPcm2610A : CAdPcmBase          (YM2610 ADPCM-A、多チャンネルPCM、Delta-Tと無関係)
-  └── CAdPcmZ280 : CAdPcmBase           (YMZ280B/PCMD8, 8ch)
+  ├── CAdPcmZ280 : CAdPcmBase           (YMZ280B/PCMD8, 8ch)
+  └── CSSGSAdPcm : CAdPcmBase           (YMZ705/SSGS, 8ch。詳細は4.5.1参照)
 ```
 
 - **`CYmDelta`はチップごとに異なる`RegMap`（レジスタアドレス集合）を持つ**：
@@ -1000,7 +1074,7 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_MA3`(0x39) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA5`(0x3a) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA7`(0x3b) | (未実装) | - | 不明(将来実装時に確定) |
-| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, SSGS | `CSSG` | 1 |
+| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, **SSGS**, **SSGS2** | `CSSG` / `CSSGS` | 1 |
 | `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） | 1 |
 | `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` | 1 |
 | `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` | 1 |
@@ -1011,6 +1085,7 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_PCMD8`(0x53) | PCMD8 | `CAdPcmZ280` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_AWM`(0x54) | AWM | `COPL4AWM` | HwPatch対象外(SampleZonePatch使用) |
+| `VOICE_PATCH_SSGS_ADPCM`(0x55) | SSGS_ADPCM (YMZ705/YMZ732共通) | `CSSGSAdPcm` | HwPatch対象外(SampleZonePatch使用) |
 | なし(`VOICE_PATCH_NONE`) | OPNA_RHY, OPLL_RHY, DSG_RHY 等リズムデバイス | `COPNARhythm` / `COPLLRhythm` / `CDSGRhythm` | HwPatch対象外(内蔵リズム、ダミーHwPatch使用) |
 
 太字は複数の`deviceType`が同じ`VoicePatchType`に統合されている箇所（同種デバイス

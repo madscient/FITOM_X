@@ -395,14 +395,16 @@ SSGと同じ基本的な意味論に加え、拡張機能を持ちます。
 |---|---|
 | `key_min` / `key_max` | このゾーンが適用されるMIDIノート範囲 |
 | `vel_min` / `vel_max` | ベロシティレイヤー範囲(省略時0–127=無制限) |
-| `wave_index` | チップ側のROM/PCM波形番号(チップ依存の生値)。AWMなら内蔵ROM波形の番号、ADPCM-B/ADPCM-A/PCM-D8ならPCM波形バンク(`*.pcmbank.json`)内のエントリ番号 |
-| `root_note` | 録音時の基準ノート(MIDI note番号)。ピッチ可変のPCM系チップがノートからの相対ピッチシフト量を計算するのに使う。省略時69(A4) |
+| `wave_index` | チップ側のROM/PCM波形番号(チップ依存の生値)。AWMなら内蔵ROM波形の番号、ADPCM-B/ADPCM-A/PCM-D8ならPCM波形バンク(`*.pcmbank.json`)内のエントリ番号。SSGS-ADPCMはチップのボイス番号そのもので**6bit(0-63)まで** |
+| `root_note` | 録音時の基準ノート(MIDI note番号)。ピッチ可変のPCM系チップがノートからの相対ピッチシフト量を計算するのに使う。省略時69(A4)。ピッチを変えられないチップ(ADPCM-A/SSGS-ADPCM)では未使用 |
 
-ノートオン時、`zones[]`を先頭から探索し、ノート番号とベロシティの両方が範囲内に収まる最初のゾーンが使われます。専用のバンクファイル形式(`*.samplezonebank.json`)で記述するか、ADPCM-B/ADPCM-A/PCM-D8の場合は下記の自動合成を使えます。
+ノートオン時、`zones[]`を先頭から探索し、ノート番号とベロシティの両方が範囲内に収まる最初のゾーンが使われます。専用のバンクファイル形式(`*.samplezonebank.json`)で記述するか、ADPCM-B/ADPCM-A/PCM-D8/SSGS-ADPCMの場合は下記の自動合成を使えます。
 
-### ADPCM-B/ADPCM-A/PCM-D8: pcmbank.jsonからの自動合成
+### ADPCM-B/ADPCM-A/PCM-D8/SSGS-ADPCM: pcmbank.jsonからの自動合成
 
-個々のパッチ(`zones`が1件だけの最小限のSampleZonePatch、`wave_index`=PCM波形バンクのエントリ番号)は、`*.samplezonebank.json`を手書きしなくても自動生成できます。プロファイルの`banks.pcm_banks[]`エントリに`"group": "ADPCMB"` / `"ADPCMA"` / `"PCMD8"`を指定すると、参照先の`*.pcmbank.json`(`entries[]`、adpcm_packer出力由来)の各サンプルから、`prog`=エントリ番号・`name`=サンプル名・`zones[0].wave_index`=同じエントリ番号・`zones[0].root_note`=adpcm_packer出力の`root_note`(省略時69)というnamed patchを`PatchManager::loadPcmBankJson()`が自動的に合成し、通常の`*.samplezonebank.json`経由のパッチと同様にパッチピッカー(CC#0=ADPCM-B/ADPCM-A/PCM-D8)から選択・試聴できるようにします。`group`を省略した場合は波形データの登録のみが行われ、named patchは合成されません(後方互換)。
+個々のパッチ(`zones`が1件だけの最小限のSampleZonePatch、`wave_index`=PCM波形バンクのエントリ番号)は、`*.samplezonebank.json`を手書きしなくても自動生成できます。プロファイルの`banks.pcm_banks[]`エントリに`"group": "ADPCMB"` / `"ADPCMA"` / `"PCMD8"` / `"SSGS_ADPCM"`を指定すると、参照先の`*.pcmbank.json`(`entries[]`、adpcm_packer出力由来)の各サンプルから、`prog`=エントリ番号・`name`=サンプル名・`zones[0].wave_index`=同じエントリ番号・`zones[0].root_note`=adpcm_packer出力の`root_note`(省略時69)というnamed patchを`PatchManager::loadPcmBankJson()`が自動的に合成し、通常の`*.samplezonebank.json`経由のパッチと同様にパッチピッカー(CC#0=ADPCM-B/ADPCM-A/PCM-D8/SSGS-ADPCM)から選択・試聴できるようにします。`group`を省略した場合は波形データの登録のみが行われ、named patchは合成されません(後方互換)。
+
+SSGS-ADPCM(YMZ705)は、波形の開始/終了アドレスをチップ自身が外部メモリ先頭のボイステーブルから引く方式のため、`entries[]`の`start_offset`/`end_offset`はレジスタへ反映されません(エントリの存在確認と名前の解決にのみ使われます)。また再生ピッチを変えられず、`*.pcmbank.json`の`sample_rate`(4000/8000/16000/32000のいずれか)がそのままチップのサンプリング周波数指定になります。
 
 ---
 

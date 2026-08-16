@@ -1,6 +1,6 @@
 #include "fitom/SccWaveData.h"
 // fitom/PSG_new.cpp
-// CSSG / CDCSG / CSCC チップドライバ — ISoundDevice ベース移行版
+// CSSG / CSSGS / CDCSG / CSCC チップドライバ — ISoundDevice ベース移行版
 //
 // PSG 系の共通特性:
 //   - 周波数レジスタは「周期」(FnumTableType::SSG / TonePeriod)。音程が
@@ -315,24 +315,51 @@ protected:
 class CSSG : public CPSGBase {
 public:
     CSSG(IPort* port, int sampleRate, uint8_t devId = DEVICE_SSG)
-        : CPSGBase(devId, port, 0x20, 3, sampleRate) {}
+        : CSSG(port, sampleRate, devId, 3, 0x20) {}
 
     std::string getDescriptor() const override { return "SSG (YM2149) 3ch"; }
-    void init() override { setReg(0x07, 0x3F, true); } // 全チャンネル無効化
+
+    // 全チャンネル無効化。ユニット数ぶん繰り返す (CSSGS 参照)。
+    void init() override {
+        for (uint8_t ch = 0; ch < maxChs_; ch += kChsPerUnit)
+            setReg(static_cast<uint16_t>(unitBase(ch) + 0x07), 0x3F, true);
+    }
 
     void updateKey(uint8_t ch, bool keyOn) override {
         const HwPatch& p = chState_[ch].hwPatch;
         if (p.hwOp[0].EGT & 0x08) {
             // HW EG: キーオンはエンベロープ開始で代用
             if (keyOn) updateVoice(ch);
-            else       setReg(static_cast<uint16_t>(0x08 + ch),
-                              static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x08 + ch)) & 0xE0), true);
+            else       setReg(volReg(ch),
+                              static_cast<uint8_t>(getReg(volReg(ch)) & 0xE0), true);
         } else {
             CPSGBase::updateKey(ch, keyOn);
         }
     }
 
 protected:
+    // YM2149 相当の SSG ブロックを複数内蔵するチップ (YMZ705/SSGS) を、
+    // レジスタ空間を 0x20 ごとに繰り返す「ユニット」として同じドライバで
+    // 扱えるようにするための索引。単体の YM2149 (maxChs_=3) では
+    // unitBase() が常に 0・unitCh() が ch そのものになるため、レジスタ
+    // アドレスは従来と1バイトも変わらない。
+    static constexpr uint8_t  kChsPerUnit  = 3;
+    static constexpr uint16_t kUnitRegSize = 0x20;
+
+    static uint16_t unitBase(uint8_t ch) {
+        return static_cast<uint16_t>((ch / kChsPerUnit) * kUnitRegSize);
+    }
+    static uint8_t unitCh(uint8_t ch) {
+        return static_cast<uint8_t>(ch % kChsPerUnit);
+    }
+    // 音量レジスタ (ユニット内 0x08+ch)。HW EG 使用フラグ (bit4) も同居する。
+    static uint16_t volReg(uint8_t ch) {
+        return static_cast<uint16_t>(unitBase(ch) + 0x08 + unitCh(ch));
+    }
+
+    CSSG(IPort* port, int sampleRate, uint8_t devId, uint8_t maxChs, int regSize)
+        : CPSGBase(devId, port, regSize, maxChs, sampleRate) {}
+
     // AY-3-8910/YM2149 (SSG) 固有のレジスタ操作。
     // トーン/ノイズのミックス機能(0x07)・HW EG(0x08-0x0D)はSSG専用のハードウェア
     // 機能であり、CDCSG(SN76489)/CSCC(SCC)には存在しないため、CPSGBaseではなく
@@ -340,13 +367,16 @@ protected:
     void updateVoice(uint8_t ch) override {
         resetLfoBaseline(ch);
         const HwPatch& p = chState_[ch].hwPatch;
-        uint8_t mixBit = computeMixBit(ch, p);
-        uint8_t cur = getReg(0x07) & ~((0x09u) << ch);
-        setReg(0x07, static_cast<uint8_t>(cur | (mixBit << ch)), true);
+        const uint16_t base = unitBase(ch);
+        const uint8_t  sub  = unitCh(ch);
+        uint8_t mixBit = computeMixBit(p);
+        uint8_t cur = getReg(static_cast<uint16_t>(base + 0x07)) & ~((0x09u) << sub);
+        setReg(static_cast<uint16_t>(base + 0x07),
+               static_cast<uint8_t>(cur | (mixBit << sub)), true);
 
-        // ノイズ周波数
+        // ノイズ周波数 (ノイズ発生器はユニット内3chで共有)
         if ((p.hw.ALG & 3) == 1 || (p.hw.ALG & 3) == 2) {
-            setReg(0x06, p.hw.NFQ & 0x1F, true);
+            setReg(static_cast<uint16_t>(base + 0x06), p.hw.NFQ & 0x1F, true);
         }
 
         // HW エンベロープ (EGT bit3 = 使用フラグ)
@@ -358,19 +388,19 @@ protected:
         // 「Envelope Period」値であり、SL/RR/DR/SR のような4分割ADSR
         // パラメータではない。ext.HWEP に16bit値をそのまま指定する。
         if (p.hwOp[0].EGT & 0x08) {
-            setReg(static_cast<uint16_t>(0x08 + ch),
-                   static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x08 + ch)) & 0xE0)
+            setReg(volReg(ch),
+                   static_cast<uint8_t>((getReg(volReg(ch)) & 0xE0)
                    | 0x10 | (p.hwOp[0].EGT & 0xF)), true);
-            setReg(0x0B, static_cast<uint8_t>(p.ext.HWEP & 0xFF), true);        // Fine
-            setReg(0x0C, static_cast<uint8_t>((p.ext.HWEP >> 8) & 0xFF), true); // Coarse
-            setReg(0x0D, static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);      // Shape
+            setReg(static_cast<uint16_t>(base + 0x0B), static_cast<uint8_t>(p.ext.HWEP & 0xFF), true);        // Fine
+            setReg(static_cast<uint16_t>(base + 0x0C), static_cast<uint8_t>((p.ext.HWEP >> 8) & 0xFF), true); // Coarse
+            setReg(static_cast<uint16_t>(base + 0x0D), static_cast<uint8_t>(p.hwOp[0].EGT & 0xF), true);      // Shape
         }
     }
 
     // ノイズ/トーン ALG に基づくミックスビット計算
     // ミックスレジスタ bit: トーン=bit[ch], ノイズ=bit[ch+3]
     // 0=有効, 1=無効 (Active Low)
-    static uint8_t computeMixBit(uint8_t ch, const HwPatch& p) {
+    static uint8_t computeMixBit(const HwPatch& p) {
         switch (p.hw.ALG & 3) {
         case 0: return 0x08; // トーンのみ (ノイズ無効ビットを立てる)
         case 1: return 0x01; // ノイズのみ (トーン無効ビットを立てる)
@@ -387,15 +417,16 @@ protected:
         // AY-3-8910/YM2149 の Amplitude は 0=無音, 15=最大音量なので、
         // linear2dB() が返す減衰量を15から引いて音量値に直す。
         uint8_t vol = 15u - fitom::linear2dB(finalLoudness, RANGE48DB, STEP075DB, 4);
-        setReg(static_cast<uint16_t>(0x08 + ch), vol & 0x0F, false);
+        setReg(volReg(ch), vol & 0x0F, false);
     }
 
     // トーン周期は12bit (0x00-0x05: Fine 8bit + Coarse 4bit)。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         uint16_t etp = tonePeriod(fnum, 0x0FFF);
-        setReg(static_cast<uint16_t>(ch * 2),     static_cast<uint8_t>(etp & 0xFF), false);
-        setReg(static_cast<uint16_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8),   false);
+        const uint16_t reg = static_cast<uint16_t>(unitBase(ch) + unitCh(ch) * 2);
+        setReg(reg,                                  static_cast<uint8_t>(etp & 0xFF), false);
+        setReg(static_cast<uint16_t>(reg + 1),       static_cast<uint8_t>(etp >> 8),   false);
     }
 
     // 振幅LFOは CPSGBase::updateTL (汎用実装) に任せ、
@@ -408,19 +439,94 @@ protected:
                 int16_t frq = static_cast<int16_t>(lev) - 64
                             + static_cast<int16_t>(p.hw.NFQ);
                 frq = std::clamp<int16_t>(frq, 0, 31);
-                setReg(0x06, static_cast<uint8_t>(frq), false);
+                setReg(static_cast<uint16_t>(unitBase(ch) + 0x06),
+                       static_cast<uint8_t>(frq), false);
             }
         }
     }
 
-    // ノイズ有効時は ch2 を優先割り当て (SSGは3chのうちch2がノイズと共有)
+    // ノイズ有効時は各ユニットの最終ch (単体SSGならch2) を優先割り当て
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
         if (patch && (patch->hw.ALG & 3) != 0) {
-            const auto& s2 = chState_[2];
-            bool avail = mode ? s2.isEmpty() : s2.isEnabled();
-            return avail ? 2 : 0xFF;
+            for (uint8_t ch = kChsPerUnit - 1; ch < maxChs_; ch += kChsPerUnit) {
+                const auto& s = chState_[ch];
+                bool avail = mode ? s.isEmpty() : s.isEnabled();
+                if (avail) return ch;
+            }
+            return 0xFF;
         }
         return CSoundDevice::queryCh(owner, patch, mode);
+    }
+};
+
+// ================================================================
+//  CSSGS (YMZ705 SSGS) — SSG 互換部 (YM2149 相当 × 2 ユニット = 6ch)
+//
+//  YMZ732 (SSGS2) も同じクラスが担当する (DEVICE_SSGS2)。SSG部・ADPCM部とも
+//  レジスタマップは YMZ705 と完全に同一で、違いはマスタークロックの分周比
+//  (DeviceFactory 側で吸収) と、FITOM が使わないシンプルアクセスモード
+//  (/SEL ピンでデータバスのみからシーケンサを叩くハードウェアモード) の
+//  有無だけ。
+//
+//  データシート「SSG synthesis control register map」注記のとおり、
+//  $00-$0D が SSG-1、$20-$2D が SSG-2 で、いずれも YM2149 とレジスタ
+//  互換。加えて各チャンネルに 4bit のパンポットを持つ:
+//    $10-$12  CH 1A-1C パンポット
+//    $30-$32  CH 2A-2C パンポット
+//  【YMZ705 データシートの誤記】register map の $28-$2A は
+//  "Channel-2x Pan-pot"、$30-$32 は "Channel-2x Frequency" と書かれているが、
+//  ビットフィールド (M/L3-L0 と P3-P0) と「$20-$2D は YM2149 互換」という
+//  同ページの注記から明らかに逆。上位互換の YMZ732 データシートでは
+//  $28-$2A=音量 / $30-$32=パンポットと正しく記載されており、こちらが正しい。
+//
+//  音色データ形式・ソフトウェアADSR・ノイズ/HW EG の扱いはすべて単体の
+//  YM2149 (CSSG) と同一のため、VoicePatchType も VOICE_PATCH_SSG を共有し、
+//  CSSG をそのまま継承してユニット索引とパンポットだけを足す。
+//
+//  シーケンサ/ミックスレベルのレジスタ ($F0-$F8) には書き込まない。
+//  FITOM は内蔵シーケンサを使わず CPU から直接ドライブする構成であり、
+//  $F8 (SSG-ADPCM ミックスレベル) はデータシートに 4bit 値と L/R レベルの
+//  対応が記載されておらず、増減どちらの向きかを確定できないため、
+//  リセット既定値のままにしておく。
+// ================================================================
+class CSSGS : public CSSG {
+public:
+    // ssgBlockClock: SSG ブロックの動作クロック (実チップでは 2.048MHz 固定)。
+    // マスタークロックからの換算は DeviceFactory 側で行う
+    // (SSGS: 4.096MHz÷2 または 6.144MHz÷3 / SSGS2: 12.288MHz÷6)。
+    CSSGS(IPort* port, int ssgBlockClock, uint8_t devId = DEVICE_SSGS)
+        : CSSG(port, ssgBlockClock, devId, 6, 0x40) {}
+
+    std::string getDescriptor() const override {
+        return (deviceType_ == DEVICE_SSGS2) ? "SSGS2 (YMZ732) SSG 6ch"
+                                             : "SSGS (YMZ705) SSG 6ch";
+    }
+
+    // パンポットレジスタのリセット値0は「中央」ではなく左端 (panGain の
+    // 分配則参照) のため、基底の全ch無効化に加えて中央値を明示的に書く。
+    // CSoundDevice::noteOn() は panpot が既定値0のままだと panDirty が
+    // 立たず updatePanpot() を一度も呼ばないので、ここで書いておかないと
+    // パンCCを送らない限り全チャンネルが左に張り付く。
+    void init() override {
+        CSSG::init();
+        for (uint8_t ch = 0; ch < maxChs_; ++ch)
+            setReg(panReg(ch), kPanCenter, true);
+    }
+
+protected:
+    // パンポット: 0=左端 / 8=中央 / 15=右端 (EPSGemuEngine の panGain と対)。
+    static constexpr uint8_t kPanCenter = 8;
+
+    static uint16_t panReg(uint8_t ch) {
+        return static_cast<uint16_t>(unitBase(ch) + 0x10 + unitCh(ch));
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        // -64..+63 を 0..15 へ。中央 (0) がちょうど 8 になるよう四捨五入する
+        // (切り捨てだと7になり、わずかに左へ寄る)。
+        const int pan = static_cast<int>(chState_[ch].panpot) + 64;
+        const int pan4 = std::clamp(static_cast<int>(std::lround(pan * 15.0 / 127.0)), 0, 15);
+        setReg(panReg(ch), static_cast<uint8_t>(pan4), false);
     }
 };
 
@@ -1082,6 +1188,9 @@ protected:
 
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr)  { return std::make_unique<CSSG>(p, sr); }
+std::unique_ptr<ISoundDevice> createCSSGS(IPort* p, int sr, uint32_t deviceType) {
+    return std::make_unique<CSSGS>(p, sr, static_cast<uint8_t>(deviceType));
+}
 std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr) { return std::make_unique<CEPSG>(p, sr); }
 
 // ================================================================

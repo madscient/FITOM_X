@@ -33,6 +33,7 @@ std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCSSGS(IPort* p, int sr, uint32_t deviceType);
 std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCDCSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCDSG(IPort* p, int sr);
@@ -68,6 +69,24 @@ static int psgMasterClock(IPort* port, int sampleRate, int clockDivider)
     int clock = port ? port->getClock() : 0;
     if (clock <= 0) clock = sampleRate;
     return (clockDivider > 1) ? (clock / clockDivider) : clock;
+}
+
+// SSGS系 (YMZ705/YMZ732) の SSG ブロック動作クロック。プロファイルに
+// 書かれるのはチップのマスタークロックだが、実チップはどの構成でも
+// SSG ブロックを 2.048MHz で動かす:
+//   YMZ705 (SSGS) : 4.096MHz を1/2、または 6.144MHz を1/3 (S6Mピンで選択)
+//   YMZ732 (SSGS2): 12.288MHz を1/6 (クロックは1択。S6Mピンの役割自体が
+//                   CPUインターフェイスモード選択へ変わっている)
+// 分周比がクロック値そのものに依存するため、固定値の clockDivider
+// (kOpnSsgClockDivider のような定数) では表現できず、ここで判定する。
+// YMZ705の境界値は2つの規定値の中点。エミュレーションエンジン側
+// (EPSGemuEngine の ssgsInternalClock) と同じ規則にすること。
+static int ssgsSsgBlockClock(uint32_t deviceType, IPort* port, int sampleRate,
+                              int clockDivider)
+{
+    int clock = psgMasterClock(port, sampleRate, clockDivider);
+    if (deviceType == DEVICE_SSGS2) return clock / 6;
+    return clock / ((clock >= 5120000) ? 3 : 2);
 }
 
 std::unique_ptr<ISoundDevice> DeviceFactory::create(
@@ -133,8 +152,16 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_SSG:
     case DEVICE_PSG:
     case DEVICE_SSGL:
-    case DEVICE_SSGLP:
-    case DEVICE_SSGS:      return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_SSGLP:     return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    // SSGS (YMZ705) / SSGS2 (YMZ732) は YM2149 相当の SSG を2系統内蔵し、
+    // chごとのパンポットを持つ 6ch チップのため CSSG そのものではなく
+    // 派生の CSSGS を使う。両者はレジスタマップが完全に同一で、違いは
+    // マスタークロックの分周比だけ (ssgsSsgBlockClock 参照)。
+    case DEVICE_SSGS:
+    case DEVICE_SSGS2:     return createCSSGS(
+                                port,
+                                ssgsSsgBlockClock(deviceType, port, sampleRate, clockDivider),
+                                deviceType);
     case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider));
 
     case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider));
@@ -154,7 +181,8 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_ADPCMB_Y8950:
     case DEVICE_PCMD8:
     case DEVICE_MA1:
-    case DEVICE_MA2:       return createCAdPcm(port, sampleRate, deviceType);
+    case DEVICE_MA2:
+    case DEVICE_SSGS_ADPCM: return createCAdPcm(port, sampleRate, deviceType);
     case DEVICE_OPL4AWM:   return createCOPL4AWM(port, sampleRate);
 
     default:
@@ -182,6 +210,10 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_OPL3: case DEVICE_OPL3_2:                 return 6;
     case DEVICE_VRC7:                                     return 6;
     case DEVICE_SSG: case DEVICE_PSG:                    return 3;
+    // SSGS (YMZ705) / SSGS2 (YMZ732) は YM2149 相当を2系統内蔵 (3ch × 2)、
+    // ADPCM部は8ch (両チップ共通の DEVICE_SSGS_ADPCM)
+    case DEVICE_SSGS: case DEVICE_SSGS2:                 return 6;
+    case DEVICE_SSGS_ADPCM:                              return 8;
     case DEVICE_EPSG:                                    return 3;
     case DEVICE_DCSG:                                     return 4;
     case DEVICE_DSG:                                      return 4;
@@ -229,7 +261,7 @@ bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatc
         return copl2AcceptsFallback(sourceVoicePatchType, patch);
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL:
-    case DEVICE_SSGLP: case DEVICE_SSGS:
+    case DEVICE_SSGLP: case DEVICE_SSGS: case DEVICE_SSGS2:
         return cssgAcceptsFallback(sourceVoicePatchType, patch);
     // DEVICE_DSG はフォールバック非対応。ROM固定音色しか持たず、他チップの
     // 音色パラメータを受け取っても再現できないため (OPLLのプリセット音色を
