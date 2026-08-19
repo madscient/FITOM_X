@@ -54,9 +54,13 @@
 //   WS  (3bit)  |    ×    |  ○(OPZ)|  ○(2bit)|○(3bit)|○(1bit)
 //   FB  (3bit)  |    ○    |    ○   |    ○    |  ○  |  ○
 //   ALG (3bit)  |    ○    |    ○   |  ×(1bit)|×(4bit)|×(1bit)
-//   AMS (2bit)  |    ×    |    ○   |    ×    |  ×  |  ×
-//   PMS (3bit)  |    ×    |    ○   |    ×    |  ×  |  ×
+//   AMS (2bit)  |  △(*1)  |    ○   |    ×    |  ×  |  ×
+//   PMS (3bit)  |  △(*1)  |    ○   |    ×    |  ×  |  ×
 //   NFQ (5bit)  |    ×    |  ○(5bit)|   ×    |  ×  |  ×
+//
+//   (*1) OPNA/OPN2系のみ (YM2203はHW LFOを持たない)。HW LFO自体が未接続の
+//        ため現ドライバはレジスタへ書かないが、音色データとしては有効な
+//        値であり、値を持つ既存パッチがあるため保持する。
 
 #include <cstdint>
 #include <cstring>
@@ -184,8 +188,10 @@ struct FmHwVoice {
                   // Key-Onを送る必要があるのはConnectionSEL=0(独立2OP×2)
                   // の場合のみであり、1の場合ではない(2026年7月、この
                   // 条件が実機仕様と逆になっていたバグを発見・修正)。
-    uint8_t AMS;  // AM Sensitivity:  2bit (OPM のみ / 他: 0固定)
-    uint8_t PMS;  // PM Sensitivity:  3bit (OPM のみ / 他: 0固定)
+    // HW LFO感度。OPM/OPZに加えOPNA/OPN2系でも有効 (上記対応表の*1参照)。
+    // OPN(YM2203)およびOPL系では0固定。
+    uint8_t AMS;  // AM Sensitivity:  2bit
+    uint8_t PMS;  // PM Sensitivity:  3bit
     uint8_t NFQ;  // Noise Frequency: 5bit (OPM/OPZ: ノイズ周波数 / 他: 0固定)
     // OPL3(COPL3) 4OPモード専用: 後半ペア(M2/C2)独立のフィードバック値 (3bit)。
     // 実機OPL3は前半・後半ペアそれぞれ独立したFBレジスタを持つため、
