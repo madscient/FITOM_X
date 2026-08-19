@@ -13,7 +13,8 @@
     "condition": "そのパラメータが有効になる条件。param(+mask)とequals/not_equals/inで他フィールドの値を、channelsで発音チャンネル番号を制約する。条件を満たさない場合そのパラメータは参照されない。",
     "per_op": "オペレータ番号ごとの上書き定義。キーはops[]の添字。親の定義に分岐先の定義を重ねて解決し、分岐先に無いキーは親の値を使う。キーが無いオペレータではそのパラメータは参照されない。",
     "per_condition": "条件によって意味そのものが変わるパラメータの定義。各要素のconditionを評価し、成立した要素の定義を親の定義へ重ねて解決する。有効/無効だけが変わる場合はconditionを使う。",
-    "same_params_as": "params が空で、別のチップ定義をそのまま流用することを示す。エディタは参照先のparamsを解決して使う。"
+    "same_params_as": "params が空で、別のチップ定義をそのまま流用することを示す。エディタは参照先のparamsを解決して使う。",
+    "driver_support": "省略時(=通常)はドライバがレジスタへ書き込む。\"pending\" はチップの音色パラメータとしては有効だが現在のドライバがまだ書いていないもので、値は音色データとして保持する必要がある(エディタは編集可能にし、検証ツールは値を捨てたり警告にしたりしてはならない)。"
   },
 
   "patch_kinds": {
@@ -133,9 +134,13 @@
             {"value": 3, "label": "固定周波数"}
           ],
           "note": "6ch構成のうち前半サブチップのch2のみ対応。後半サブチップ(ch3-5)では無視される。"},
-        "PDT": {"range": [-32768, 32767], "condition": {"param": "FIX", "not_equals": 0, "channels": [2]}}
+        "PDT": {"range": [-32768, 32767], "condition": {"param": "FIX", "not_equals": 0, "channels": [2]}},
+        "AMS": {"range": [0, 3], "register_bits": 2, "driver_support": "pending",
+          "note": "実機のHW LFOに対するAM感度。HW LFOがまだ接続されていないため現在のドライバはレジスタへ書かないが、音色パラメータとしては有効であり、既に値を持つパッチが存在する。"},
+        "PMS": {"range": [0, 7], "register_bits": 3, "driver_support": "pending",
+          "note": "実機のHW LFOに対するPM感度。AMSと同じ扱い。"}
       },
-      "notes": ["HW LFO(AMS/PMS)はFITOM_Xではパフォーマンスパラメータ扱いのため、HwPatchでは指定しない。"]
+      "notes": ["HW LFOの波形・速度・深さはパフォーマンスパラメータ(SwPatch/MIDI)側で扱い、HwPatchにはチャンネルごとの感度(AMS/PMS)のみを持つ。"]
     },
     {
       "id": "OPM",

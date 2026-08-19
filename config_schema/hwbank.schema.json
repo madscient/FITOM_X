@@ -43,13 +43,13 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 3,
-            "description": "AM Sensitivity (OPM)"
+            "description": "AM Sensitivity。HW LFOに対するAM感度 (OPM/OPZ、およびOPN2/OPNA系)。OPN(YM2203)・OPL系では0固定。OPN2/OPNA系はHW LFO自体が未接続のため現在は発音に影響しないが、音色データとしては有効。"
           },
           "PMS": {
             "type": "integer",
             "minimum": 0,
             "maximum": 7,
-            "description": "PM Sensitivity (OPM)"
+            "description": "PM Sensitivity。HW LFOに対するPM感度 (AMSと同じ適用範囲)。"
           },
           "NFQ": {
             "type": "integer",
