@@ -11,8 +11,8 @@
     "register_bits": "対応する実機レジスタのビット幅。",
     "mapping": "direct=値がそのままレジスタへ / attenuation_db=減衰量(0=最大音量、パッチ値1あたりstep_dB。quantumがある場合、実機レジスタが1段動くのはquantum刻み=quantum×step_dB dBごと) / bitfield=ビットごとに別の意味 / enum=values[]の離散値 / index=テーブルへの索引 / raw=チップ固有の生値",
     "condition": "そのパラメータが有効になる条件。param(+mask)とequals/not_equals/inで他フィールドの値を、channelsで発音チャンネル番号を制約する。条件を満たさない場合そのパラメータは参照されない。",
-    "per_op": "オペレータ番号ごとの上書き定義。キーはops[]の添字。",
-    "per_condition": "条件によって意味そのものが変わるパラメータの定義。各要素のconditionを満たす定義を採用する。",
+    "per_op": "オペレータ番号ごとの上書き定義。キーはops[]の添字。親の定義に分岐先の定義を重ねて解決し、分岐先に無いキーは親の値を使う。キーが無いオペレータではそのパラメータは参照されない。",
+    "per_condition": "条件によって意味そのものが変わるパラメータの定義。各要素のconditionを評価し、成立した要素の定義を親の定義へ重ねて解決する。有効/無効だけが変わる場合はconditionを使う。",
     "same_params_as": "params が空で、別のチップ定義をそのまま流用することを示す。エディタは参照先のparamsを解決して使う。"
   },
 
