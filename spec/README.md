@@ -68,6 +68,65 @@ chips[]                   チップごとの定義
 - `mapping`が`attenuation_db`のパラメータは減衰量(0=最大音量)で、
   `step_db`が1段あたりのdB値。
 
+### 分岐する定義(`per_op` / `per_condition`)
+
+1つのフィールドでも、パッチ内の位置や他フィールドの値によって定義が
+変わることがある。どちらも**親の定義に分岐先の定義を重ねて**解決する
+(分岐先に無いキーは親の値をそのまま使う)。
+
+#### `per_op` — オペレータ番号で分岐
+
+キーは`ops[]`の添字。同じフィールド名でも、どのオペレータかによって
+値域・解像度・意味が変わる場合に使う。
+
+OPLLの`TL`は、モジュレータとキャリアで実機レジスタが別物になる:
+
+```json
+"TL": {
+  "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0},
+  "per_op": {
+    "0": {"range": [0,127], "register_bits": 6, "step_db": 0.75},
+    "1": {"range": [0,127], "register_bits": 4, "quantum": 4, "step_db": 3.0}
+  }
+}
+```
+
+`ops[1].TL`を解決すると、`condition`は親から、`quantum`/`register_bits`は
+`per_op["1"]`から取る。`per_op`にキーが無いオペレータ(OPL3の`PDT`に
+おける`ops[1]`/`ops[3]`)は、そのオペレータでは参照されないことを表す。
+
+#### `per_condition` — 他フィールドの値で分岐
+
+**有効なまま意味そのものが入れ替わる**場合に使う。各要素の`condition`を
+評価し、成立した要素の定義を採用する。
+
+AY8930(EPSG)はHWエンベロープの周期指定に`ext.HWEP`ではなくエンベロープ
+4フィールドを流用するため、`EGT`bit3の状態で意味が変わる:
+
+```json
+"DR": {
+  "range": [0, 31],
+  "per_condition": [
+    {"condition": {"param":"EGT","mask":8,"equals":0},
+     "note": "ソフトウェアエンベロープのディケイレート。"},
+    {"condition": {"param":"EGT","mask":8,"equals":8},
+     "effective_range": [0,15], "register_bits": 4,
+     "note": "HWエンベロープ周期(上位バイトの上位ニブル)として転用される。"}
+  ]
+}
+```
+
+`EGT`bit3=1のとき、`range`は親の`[0,31]`のまま、`effective_range`と
+`register_bits`は分岐先から取る。エディタはラベルと値域を丸ごと差し替える
+必要がある。
+
+`condition`との使い分けは以下のとおり:
+
+| | 変わるもの | 例 |
+|---|---|---|
+| `condition` | 有効/無効だけ | SSGの`HWEP`は`EGT`bit3=1のときのみ有効 |
+| `per_condition` | 有効なまま意味が変わる | EPSGの`DR`/`SL`/`SR`/`RR` |
+
 ---
 
 ## 更新のルール
