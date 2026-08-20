@@ -314,6 +314,43 @@ protected:
 //  扱いになる。リズム回路自体が存在しないため、rhythmMode は常に
 //  無効に固定する(呼び出し元から true が渡されても無視する)。
 // ================================================================
+// ================================================================
+//  COPLLEX — Y8960 拡張OPLL部 (ymfm::y8960opllex 相当)
+//
+//  標準OPLLレジスタ(0x00-0x3F)に加え、新設のBANKレジスタ(0x40+ch、
+//  ch0-8)でチャンネルごとにROMプリセットバンク(0=OPLL/1=OPLL-X/
+//  2=OPLL-P/3=VRC7)を選べる。プリセット音色番号自体(0x30 上位nibble)
+//  の意味・ユーザー音色レジスタ(0x00-0x07)・リズム音源(0x0E,0x36-0x38)
+//  は標準OPLLと完全に同一のレジスタ体系のため、COPLLをそのまま継承し
+//  BANKレジスタの書き込みだけを追加する(参照実装: ..\Y8960emu\src\
+//  opllex.h/.cpp のopllex_registers::write()。BANKレジスタは
+//  cache_operator_data()内でチャンネルごとの音色テーブル参照先を
+//  切り替えるだけで、リズムパート(ch>=6)のバンク選択も同じ仕組みを
+//  共有する — 既定のY8960プリセットデータはリズム3音色がバンク間で
+//  バイト単位まで同一のため、内蔵リズム(COPLLRhythmを共用)は
+//  BANKレジスタに触れなくても実用上問題ない設計になっている)。
+//
+//  ext.ALG_EXTのbit2-1にBANK値(0-3)を格納する(bit0は標準OPLLと同じ
+//  プリセット選択フラグ)。ユーザー音色(bit0=0)でもBANKレジスタは
+//  書くが、ユーザー音色レジスタ(0x00-0x07)はバンクに依存しないため
+//  再生結果には影響しない。
+// ================================================================
+class COPLLEX : public COPLL {
+public:
+    COPLLEX(IPort* port, int sampleRate, uint8_t mode = 0)
+        : COPLL(port, sampleRate, mode, DEVICE_OPLLEX, 9) {}
+
+protected:
+    std::string chipLabel() const override { return "OPLLEX (Y8960 ext-OPLL)"; }
+
+    void updateVoice(uint8_t ch) override {
+        COPLL::updateVoice(ch);
+        const HwPatch& p = chState_[ch].hwPatch;
+        uint8_t bank = (p.ext.ALG_EXT >> 1) & 0x3;
+        setReg(static_cast<uint16_t>(0x40 + ch), bank);
+    }
+};
+
 class CVRC7 : public COPLL {
 public:
     CVRC7(IPort* port, int sampleRate)
@@ -436,25 +473,44 @@ std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t m)  { return
 std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLL2>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLP>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLX>(p, sr, m); }
+std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLEX>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr)  { return std::make_unique<CVRC7>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr) { return std::make_unique<COPLLRhythm>(p, sr); }
 
 // ================================================================
 //  フォールバック受け入れ判定
 // ================================================================
-// OPLLファミリー (COPLL/COPLLP/COPLLX/CVRC7、VOICE_PATCH_OPLL/OPLLP/
-// OPLLX/VRC7) はユーザー音色 (ext.ALG_EXT&1==0) の場合のみ相互
-// フォールバック可能。プリセット音色 (ALG_EXT&1==1) はROMデータが
+// OPLLファミリー (COPLL/COPLLP/COPLLX/CVRC7/COPLLEX、VOICE_PATCH_OPLL/
+// OPLLP/OPLLX/VRC7/OPLLEX) はユーザー音色 (ext.ALG_EXT&1==0) の場合のみ
+// 相互フォールバック可能。プリセット音色 (ALG_EXT&1==1) はROMデータが
 // チップごとに全く異なる別音色のため不可。
 // (COPLL2はVOICE_PATCH_OPLLをCOPLLと共有しているため対象外)
+//
+// COPLLEX(OPLLEX)固有のBANK値(ext.ALG_EXTのbit2-1、0-3)について:
+// プリセット判定は常にbit0のみを見るため、BANK値がいくつであっても
+// (0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7のいずれでも)、プリセット音色は
+// ALG_EXTの値が1/3/5/7(必ず奇数=bit0=1)になり、`& 1`で漏れなく検出
+// できる — BANK拡張バンク(2=OPLL-P/3=VRC7)のプリセットだからといって
+// bit0の判定をすり抜けてフォールバック対象になることはない
+// (2026年8月、拡張バンクのプリセットが&1判定を回避しないかという
+// 指摘を受けて検証・コメント追記。test_y8960.cppに全BANK値×
+// プリセット/ユーザーの回帰テストを追加済み)。
+// ユーザー音色(bit0=0)側は、BANK値(bit2-1)がユーザー音色レジスタ
+// (0x00-0x07)の再生結果に一切影響しない(opllex_registers::
+// cache_operator_data()がinstrument==0のときbank_tableを参照しない
+// ため)ことをCOPLLEX側の実装で確認済みのため、標準OPLL系のパッチ
+// (bit2-1=0)をそのまま受け入れてよい。
 bool opllFamilyAcceptsFallback(uint8_t sourceVoicePatchType, uint8_t selfVoicePatchType,
                                 const HwPatch& patch) {
     auto isOpllFamily = [](uint8_t v) {
         return v == VOICE_PATCH_OPLL || v == VOICE_PATCH_OPLLP
-            || v == VOICE_PATCH_OPLLX || v == VOICE_PATCH_VRC7;
+            || v == VOICE_PATCH_OPLLX || v == VOICE_PATCH_VRC7
+            || v == VOICE_PATCH_OPLLEX;
     };
     if (sourceVoicePatchType == selfVoicePatchType) return false; // 自分自身は対象外
     if (!isOpllFamily(sourceVoicePatchType)) return false;
+    // BANK値(bit2-1)に関わらずbit0だけでプリセット/ユーザーを判定する
+    // (上記コメント参照。BANK拡張バンクのプリセットも確実に奇数値になる)。
     bool isPreset = (patch.ext.ALG_EXT & 1) != 0;
     return !isPreset;
 }

@@ -97,6 +97,36 @@
 // VOICE_PATCH_SSG のため、SSGSと混在していてもCSpanDeviceで束ねられる。
 #define	DEVICE_SSGS2		63
 
+// Y8960(MSX用サウンドカートリッジ、統合音源チップ)の拡張ブロック。
+// エミュレーションエンジン側の参照実装は別リポジトリ ../Y8960emu
+// (ymfm::y8960opllex / ymfm::y8960opl2ex)。0-63は使い切っているため
+// 64以降を使う(BUILTIN_RHYTHMビット、下記参照、が128のため64-127は
+// 素のベースIDとして自由に使える。2026年8月、以前はBUILTIN_RHYTHM=64
+// だったため64-127を避けて128-130から採番していたが、BUILTIN_RHYTHMを
+// 128へ移動したのに合わせてこちらも64-66へ詰め直した)。
+//
+// 拡張OPLL部(OPLLEX): 標準OPLL(YM2413)レジスタ(0x00-0x3F)に加え、
+// ch0-ch8ごとの音色プリセットバンク選択レジスタ(0x40-0x48、
+// 0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7)を新設した拡張チップ。リズム音源
+// (0x0E, 0x36-0x38)は標準OPLLと完全に同一のレジスタ体系のため、
+// 内蔵リズムはDEVICE_OPLL_RHYを共用する(専用のRHYTHM deviceTypeは
+// 設けない、resolveCompositeSpec参照)。VoicePatchTypeは標準OPLL系との
+// 混同を避けるため専用のVOICE_PATCH_OPLLEXを持つ(BANK選択ビットが
+// ext.ALG_EXTに追加されているため)。
+#define DEVICE_OPLLEX	64	//Y8960 拡張OPLL部
+// 拡張OPL2部(OPL2EX): YM3812(OPL2)相当のFMコア + ADPCM-B(Y8950の
+// ADPCM部と同一レジスタ配置)を1回路にまとめた拡張チップ。FM部の
+// レジスタマップはOPL2と完全に同一(WS対応込み)のためVoicePatchTypeは
+// OPL2と共用する(専用deviceTypeのみ新設。deviceTypeToVoicePatchType
+// 参照)。リズム音源もOPL2と同一のためDEVICE_OPL_RHYを共用する。
+#define DEVICE_OPL2EX	65	//Y8960 拡張OPL2部 (FMコア)
+// OPL2EXの内蔵ADPCM-B。レジスタアドレス配置がY8950(DEVICE_ADPCMB_Y8950)
+// と完全に同一のため、CYmDeltaドライバはkY8950_DeltaTレジスタマップを
+// そのまま流用する(ADPCM_new.cpp参照)。deviceTypeを分けているのは
+// parentDevIdがDEVICE_OPL2EXになる点のみ。VoicePatchTypeはY8950の
+// ADPCM-Bと同じVOICE_PATCH_ADPCMBを共用する。
+#define DEVICE_ADPCMB_OPL2EX	66	//Y8960 拡張OPL2部 内蔵ADPCM-B
+
 #define DEVICE_RHYTHM	120	// Virtual device for rhythm channel
 
 #define GDEVID_YM2203	0x2203	//OPN
@@ -174,13 +204,17 @@
 #define GDEVID_YM2212	0x2212	//SCC
 #define GDEVID_YM2312	0x2312	//SCC+
 
-#define BUILTIN_RHYTHM	64
-#define DEVICE_OPNA_RHY	(DEVICE_OPNA | BUILTIN_RHYTHM)			//68
-#define DEVICE_OPN3L_RHY	(DEVICE_OPN3L | BUILTIN_RHYTHM)		//74
-#define DEVICE_OPL_RHY	(DEVICE_OPL | BUILTIN_RHYTHM)			//71
-#define DEVICE_OPLL_RHY	(DEVICE_OPLL | BUILTIN_RHYTHM)			//70
-#define DEVICE_OPK_RHY	(DEVICE_OPK | BUILTIN_RHYTHM)			//104
-#define DEVICE_DSG_RHY	(DEVICE_DSG | BUILTIN_RHYTHM)			//77
+// 128(2026年8月、以前は64だった)。ベースDEVICE_*とOR合成して「その
+// チップの内蔵リズム変種」を表す。ベースIDは0-127の範囲に収まっている
+// 限りこのビットと衝突しない(この上限までは自由にベースIDを採番できる、
+// FITOMdefine.h冒頭のY8960セクション参照)。
+#define BUILTIN_RHYTHM	128
+#define DEVICE_OPNA_RHY	(DEVICE_OPNA | BUILTIN_RHYTHM)			//132
+#define DEVICE_OPN3L_RHY	(DEVICE_OPN3L | BUILTIN_RHYTHM)		//138
+#define DEVICE_OPL_RHY	(DEVICE_OPL | BUILTIN_RHYTHM)			//135
+#define DEVICE_OPLL_RHY	(DEVICE_OPLL | BUILTIN_RHYTHM)			//134
+#define DEVICE_OPK_RHY	(DEVICE_OPK | BUILTIN_RHYTHM)			//168
+#define DEVICE_DSG_RHY	(DEVICE_DSG | BUILTIN_RHYTHM)			//141
 
 #define DEVICE_MULTI	1024	//Multiple module
 #define DEVICE_NBV		1025	//NBV3/NBV4
@@ -280,6 +314,14 @@
 #define VOICE_PATCH_OPLLP    0x29  // YMF281
 #define VOICE_PATCH_OPLLX    0x2a  // YM2423
 #define VOICE_PATCH_VRC7     0x2b  // FS1001
+// Y8960拡張OPLL部(DEVICE_OPLLEX)専用。標準OPLL系とパラメータ定義の
+// 大半(FB/AR/DR/SL/SR/RR/TL/KSR/KSL/MUL/AM/VIB/WS)を共有するが、
+// ext.ALG_EXTにチャンネル別プリセットバンク選択(bit2-1、0-3)が
+// 追加されているため、混同を避けて専用の値を持つ(ChipCapabilities/
+// hwpatch-reference.md参照)。VOICE_PATCH_OPLL等とは異なるHwBank名前空間
+// になる点に注意(voicePatchTypeToVoiceGroupではVOICE_GROUP_OPLLを
+// 共有するため、hw_banks[]のgroup文字列自体は別に用意すること)。
+#define VOICE_PATCH_OPLLEX   0x2c  // Y8960拡張OPLL部
 
 // 0x30: VoiceGroup=OPL3
 #define VOICE_PATCH_OPL3     0x30  // YMF264/289/278-4OP

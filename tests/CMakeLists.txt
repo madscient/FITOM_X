@@ -31,6 +31,7 @@ add_executable(fitom_tests
     test_dsg.cpp
     test_ssgs.cpp
     test_silence_bank.cpp
+    test_y8960.cpp
 )
 
 # 内部用MIDIパイプ(fitom_midi_pipe)の回帰テスト。DLL自体が

@@ -285,14 +285,36 @@ const uint8_t COPL::kMap[9] = {0, 1, 2, 8, 9, 10, 16, 17, 18};
 // ================================================================
 class COPL2 : public COPL {
 public:
-    COPL2(IPort* port, int sampleRate, bool rhythmMode = false)
-        : COPL(port, sampleRate, DEVICE_OPL2, rhythmMode) {}
+    // devId: COPL2をそのまま流用する派生チップ用 (例: DEVICE_OPL2EX、
+    // Y8960拡張OPL2部。レジスタマップはOPL2と完全に同一のためクラス自体は
+    // 共有し、devIdとchipLabel()だけを差し替える)。
+    COPL2(IPort* port, int sampleRate, bool rhythmMode = false, uint8_t devId = DEVICE_OPL2)
+        : COPL(port, sampleRate, devId, rhythmMode) {}
     void init() override {
         COPL::init();
         setReg(0x01, 0x20, true); // Wave Select Enable
     }
 protected:
     std::string chipLabel() const override { return "OPL2 (YM3812)"; }
+};
+
+// ================================================================
+//  COPL2EX — Y8960 拡張OPL2部のFMコア (ymfm::y8960opl2ex 相当)
+//
+//  参照実装 ..\Y8960emu\src\opl2ex.h によれば、ADPCM-B用に横取りされる
+//  レジスタ(0x07,0x09-0x12,0x15-0x17,0x08下位4bit,0x18-0x19)以外は
+//  すべてym3812(OPL2)本体へそのまま渡される。よってFM部の挙動は
+//  COPL2と完全に同一で、ADPCM-B部は既存のY8950(DEVICE_ADPCMB_Y8950)と
+//  同一レジスタ配置のためCYmDeltaをkY8950_DeltaTのまま流用できる
+//  (ADPCM_new.cpp、DEVICE_ADPCMB_OPL2EX参照)。本クラスはCOPL2を
+//  devId/chipLabelだけ差し替えて再利用する。
+// ================================================================
+class COPL2EX : public COPL2 {
+public:
+    COPL2EX(IPort* port, int sampleRate, bool rhythmMode = false)
+        : COPL2(port, sampleRate, rhythmMode, DEVICE_OPL2EX) {}
+protected:
+    std::string chipLabel() const override { return "OPL2EX (Y8960 ext-OPL2)"; }
 };
 
 // ================================================================
@@ -959,6 +981,8 @@ std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode)
     { return std::make_unique<COPL>(p, sr, DEVICE_OPL2, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode)
     { return std::make_unique<COPL2>(p, sr, rhythmMode); }
+std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode)
+    { return std::make_unique<COPL2EX>(p, sr, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_unique<COPL3>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode)
     { return std::make_unique<COPL3_2>(p, sr, rhythmMode); }

@@ -23,12 +23,14 @@ std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
@@ -141,6 +143,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPL:
     case DEVICE_Y8950:     return createCOPL(port, sampleRate, rhythmMode);
     case DEVICE_OPL2:      return createCOPL2(port, sampleRate, rhythmMode);
+    case DEVICE_OPL2EX:    return createCOPL2EX(port, sampleRate, rhythmMode);
     case DEVICE_OPL3:
     case DEVICE_OPN3_L3:   return createCOPL3(port, sampleRate);
     case DEVICE_OPL3_2:    return createCOPL3_2(port, sampleRate, rhythmMode);
@@ -150,6 +153,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPLL2:     return createCOPLL2(port, sampleRate, mode);
     case DEVICE_OPLLP:     return createCOPLLP(port, sampleRate, mode);
     case DEVICE_OPLLX:     return createCOPLLX(port, sampleRate, mode);
+    case DEVICE_OPLLEX:    return createCOPLLEX(port, sampleRate, mode);
     case DEVICE_VRC7:      return createCVRC7(port, sampleRate);
     case DEVICE_OPLL_RHY:  return createCOPLLRhythm(port, sampleRate);
 
@@ -185,6 +189,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_ADPCMB:
     case DEVICE_ADPCMB_OPNA:
     case DEVICE_ADPCMB_Y8950:
+    case DEVICE_ADPCMB_OPL2EX:
     case DEVICE_PCMD8:
     case DEVICE_MA1:
     case DEVICE_MA2:
@@ -209,8 +214,9 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_OPN2L: case DEVICE_OPN3: case DEVICE_2610B: return 6;
     case DEVICE_OPN: case DEVICE_OPNC:                   return 3;
     case DEVICE_OPNB:                                    return 4; // ch0/ch3無効化後の実効ch数(COPNB参照)
-    case DEVICE_OPL: case DEVICE_OPL2:
-    case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: case DEVICE_OPLLX: return 9;
+    case DEVICE_OPL: case DEVICE_OPL2: case DEVICE_OPL2EX:
+    case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: case DEVICE_OPLLX:
+    case DEVICE_OPLLEX:                                    return 9;
     case DEVICE_OPLL_RHY:                                  return 5;
     case DEVICE_OPL_RHY:                                   return 5;
     case DEVICE_OPL3: case DEVICE_OPL3_2:                 return 6;
@@ -233,6 +239,8 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     // 削除した(動いていなかったコードとの互換性維持は不要と判断、
     // 2026年7月)。
     case DEVICE_ADPCMB_Y8950:                              return 1;
+    // Y8960拡張OPL2部の内蔵ADPCM-Bも同様に1ch(Y8950と同一のDelta-T方式)。
+    case DEVICE_ADPCMB_OPL2EX:                             return 1;
     case DEVICE_ADPCMA:                                    return 6;
     case DEVICE_OPL4AWM:                                   return 24;
     case DEVICE_OPNA_RHY:                                  return 6;
@@ -264,7 +272,10 @@ bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatc
 
     case DEVICE_OPL: case DEVICE_Y8950:
         return coplAcceptsFallback(sourceVoicePatchType, patch);
-    case DEVICE_OPL2:
+    // OPL2EX(Y8960拡張OPL2部)のFMコアはOPL2(YM3812)とレジスタマップが
+    // 完全に同一のため、VoicePatchType共有(deviceTypeToVoicePatchType)
+    // だけでなくフォールバック判定もCOPL2と同じ関数を使う。
+    case DEVICE_OPL2: case DEVICE_OPL2EX:
         return copl2AcceptsFallback(sourceVoicePatchType, patch);
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL:
@@ -278,7 +289,7 @@ bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatc
         return cepsgAcceptsFallback(sourceVoicePatchType, patch);
 
     case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP:
-    case DEVICE_OPLLX: case DEVICE_VRC7: {
+    case DEVICE_OPLLX: case DEVICE_VRC7: case DEVICE_OPLLEX: {
         uint8_t selfVpt = FITOMConfig::deviceTypeToVoicePatchType(deviceType);
         return opllFamilyAcceptsFallback(sourceVoicePatchType, selfVpt, patch);
     }
