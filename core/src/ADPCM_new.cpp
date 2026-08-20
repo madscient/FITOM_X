@@ -940,6 +940,20 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
         return std::make_unique<CYmDelta>(
             deviceType, p, 0x20, clock, 72, 256 * 1024, DEVICE_Y8950,
             kY8950_DeltaT);
+    case DEVICE_ADPCMB_OPL2EX:
+        // Y8960拡張OPL2部の内蔵ADPCM-B。参照実装 ..\Y8960emu\src\opl2ex.cpp
+        // (write_data()のcase一覧)によれば、control1/control2/start/end/
+        // memory/deltaN/volumeの各レジスタアドレスはY8950(YM3801)と完全に
+        // 同一(0x07=control1、0x08下位4bit=control2、0x09-0x0c=start/end、
+        // 0x0f=memory、0x10-0x12=deltaN/volume)のため、kY8950_DeltaTを
+        // そのまま流用する。fnumDivide=72もOPL/OPL2系マスタークロックの
+        // 分周比に合わせてY8950と同じ値にしている。
+        // メモリ容量(256KB)・分周比は実機Y8960のデータシートが未入手の
+        // ため、レジスタ配置がY8950と同一である以上は同一だろうという
+        // 推定値。実機/エミュレータでの確認が取れ次第見直すこと。
+        return std::make_unique<CYmDelta>(
+            deviceType, p, 0x20, clock, 72, 256 * 1024, DEVICE_OPL2EX,
+            kY8950_DeltaT);
     case DEVICE_ADPCMB_OPNA:
         // OPNA(YM2608)内蔵ADPCM-B。fnumDivide=144はOPNA用マスタークロック分周比。
         return std::make_unique<CYmDelta>(

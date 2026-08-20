@@ -787,6 +787,10 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 
     case DEVICE_OPL:    case DEVICE_Y8950: return VOICE_PATCH_OPL;
     case DEVICE_OPL2:                      return VOICE_PATCH_OPL2;
+    // OPL2EX(Y8960拡張OPL2部)のFMコアはOPL2(YM3812)とレジスタマップが
+    // 完全に同一のため、VoicePatchTypeもOPL2をそのまま共有する
+    // (音色バンクもgroup:"OPL2"のものをそのまま使い回せる)。
+    case DEVICE_OPL2EX:                    return VOICE_PATCH_OPL2;
     // COPL3_2はOPL2よりWSが広い(3bit/8波形 vs 2bit/4波形)ため別分類。
     // OPL2へのフォールバックはWS<4の場合のみ許可 (DeviceFactory::acceptsFallback)。
     case DEVICE_OPL3_2:                    return VOICE_PATCH_OPL3_2;
@@ -795,6 +799,10 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPLLP:  return VOICE_PATCH_OPLLP;
     case DEVICE_OPLLX:  return VOICE_PATCH_OPLLX;
     case DEVICE_OPLL2:  return VOICE_PATCH_OPLL; // YM2420 は OPLL(0x28) に統合済み
+    // OPLLEX(Y8960拡張OPLL部)はチャンネル別ROMプリセットバンク選択
+    // (ext.ALG_EXT bit2-1)が標準OPLL系に無い拡張のため、専用の
+    // VoicePatchType(HwBank名前空間)を持つ。
+    case DEVICE_OPLLEX: return VOICE_PATCH_OPLLEX;
     case DEVICE_VRC7:   return VOICE_PATCH_VRC7;
 
     case DEVICE_OPL3: case DEVICE_OPN3_L3: return VOICE_PATCH_OPL3;
@@ -831,6 +839,8 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     // 音色データ形式・ハードウェア挙動に互換性があり、OPNA/OPNBの
     // ADPCM-Bとspanning対象になる(OPN2/OPNBのFM音源部と同じ考え方)。
     case DEVICE_ADPCMB_Y8950: return VOICE_PATCH_ADPCMB;
+    // OPL2EX(Y8960)内蔵ADPCM-BもY8950と同一レジスタ配置のためVOICE_PATCH_ADPCMBを共有。
+    case DEVICE_ADPCMB_OPL2EX: return VOICE_PATCH_ADPCMB;
     case DEVICE_ADPCMA: return VOICE_PATCH_ADPCMA;
     case DEVICE_PCMD8:  return VOICE_PATCH_PCMD8;
     case DEVICE_SSGS_ADPCM: return VOICE_PATCH_SSGS_ADPCM;
@@ -851,6 +861,7 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
         return VOICE_GROUP_OPL2;
     case VOICE_PATCH_OPLL: case VOICE_PATCH_OPLLP:
     case VOICE_PATCH_OPLLX: case VOICE_PATCH_VRC7:
+    case VOICE_PATCH_OPLLEX:
         return VOICE_GROUP_OPLL;
     case VOICE_PATCH_OPL3:
         return VOICE_GROUP_OPL3;
@@ -899,6 +910,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     if (s == "OPLLP")     return VOICE_PATCH_OPLLP;
     if (s == "OPLLX")     return VOICE_PATCH_OPLLX;
     if (s == "VRC7")      return VOICE_PATCH_VRC7;
+    if (s == "OPLLEX")    return VOICE_PATCH_OPLLEX;
     if (s == "OPL3")      return VOICE_PATCH_OPL3;
     if (s == "SD1" || s == "SD-1") return VOICE_PATCH_SD1;
     if (s == "MA3" || s == "MA-3") return VOICE_PATCH_MA3;
@@ -938,6 +950,7 @@ const char* FITOMConfig::voicePatchTypeToString(uint8_t vpt) noexcept
     case VOICE_PATCH_OPLLP:   return "OPLLP";
     case VOICE_PATCH_OPLLX:   return "OPLLX";
     case VOICE_PATCH_VRC7:    return "VRC7";
+    case VOICE_PATCH_OPLLEX:  return "OPLLEX";
     case VOICE_PATCH_OPL3:    return "OPL3";
     case VOICE_PATCH_SD1:     return "SD1";
     case VOICE_PATCH_MA3:     return "MA3";
@@ -1474,6 +1487,22 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         }
         return true;
 
+    case DEVICE_OPL2EX:
+        // OPL2EX(Y8960拡張OPL2部): OPL2コア(YM3812相当、FM本体9ch、
+        // rhythm_mode時はch6-8無効化) + 内蔵ADPCM-B(Y8950と同一レジスタ
+        // 配置、DEVICE_ADPCMB_OPL2EX) + (rhythm_mode時のみ)リズム
+        // (5パート)。参照実装(..\Y8960emu\src\opl2ex.h)のコメントの
+        // 通り、ADPCM-B用に横取りされるレジスタ以外は全てOPL2本体へ
+        // 素通しされるため、リズムモード(0xBD)もOPL2と全く同じ扱いで
+        // よく、DEVICE_OPL_RHYをそのまま共用する(専用のRHYTHM
+        // deviceTypeは設けない)。
+        outSpec.push_back({baseDeviceType,       "-FM",     false, true});
+        outSpec.push_back({DEVICE_ADPCMB_OPL2EX, "-ADPCMB", false, false});
+        if (rhythmModeFromProfile) {
+            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+        }
+        return true;
+
     case DEVICE_OPL3:
     case DEVICE_OPN3_L3:
         // OPL3: 4OPモード(6ch) + 2OP残余(6ch) + (rhythm_mode時のみ)リズム
@@ -1510,6 +1539,7 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
     case DEVICE_OPLL2:
     case DEVICE_OPLLP:
     case DEVICE_OPLLX:
+    case DEVICE_OPLLEX:
         // OPLL系: 本体(9ch、rhythm_mode時はch6-8無効化) + (rhythm_mode時
         // のみ)リズム(5パート)。同一の物理ポートを共有する。リズム
         // デバイスはOPLLファミリ共通のレジスタ体系のため、派生型に
@@ -1519,6 +1549,9 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // OPL系と同様rhythm_mode:trueのインスタンスに限りリズムサブ
         // デバイスを追加する(2026年7月修正。以前はrhythm_modeの値に
         // 関わらず常にDEVICE_OPLL_RHYを生成していた)。
+        // OPLLEX(Y8960拡張OPLL部)のリズム(0x0E,0x36-0x38)は標準OPLLと
+        // 完全に同一のレジスタ体系のため、専用のRHYTHM deviceTypeは
+        // 設けずDEVICE_OPLL_RHYをそのまま共用する(2026年8月)。
         outSpec.push_back({baseDeviceType, "-FM", false, true});
         if (rhythmModeFromProfile) {
             outSpec.push_back({DEVICE_OPLL_RHY, "-RHYTHM", false, false});
@@ -1618,6 +1651,9 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPLL",  DEVICE_OPLL},  {"OPLL2", DEVICE_OPLL2},
         {"OPLLP", DEVICE_OPLLP}, {"OPLLX", DEVICE_OPLLX},
         {"VRC7",  DEVICE_VRC7},
+        // Y8960(MSX用サウンドカートリッジ)の拡張ブロック。参照実装は
+        // 別リポジトリ ../Y8960emu (ymfm::y8960opllex / ymfm::y8960opl2ex)。
+        {"OPLLEX", DEVICE_OPLLEX}, {"OPL2EX", DEVICE_OPL2EX},
         {"SSG",   DEVICE_SSG},   {"PSG",   DEVICE_PSG},
         {"SSGS",  DEVICE_SSGS},  {"YMZ705", DEVICE_SSGS},
         {"SSGS2", DEVICE_SSGS2}, {"YMZ732", DEVICE_SSGS2},
@@ -1651,10 +1687,14 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
 static uint32_t resolvePcmBankChipDeviceType(const std::string& chipName)
 {
     static const std::pair<const char*, uint32_t> kPcmChipMap[] = {
-        {"Y8950", DEVICE_ADPCMB_Y8950},
-        {"OPNA",  DEVICE_ADPCMB_OPNA},
-        {"OPNB",  DEVICE_ADPCMB},
-        {"OPNBB", DEVICE_ADPCMB},
+        {"Y8950",  DEVICE_ADPCMB_Y8950},
+        {"OPNA",   DEVICE_ADPCMB_OPNA},
+        {"OPNB",   DEVICE_ADPCMB},
+        {"OPNBB",  DEVICE_ADPCMB},
+        // Y8960拡張OPL2部の内蔵ADPCM-B。レジスタ配置・境界整列(4byte)とも
+        // Y8950と同一だが、混在構成でプロファイルが明示的に区別したい
+        // 場合のためdeviceType自体は独立させてある(DEVICE_ADPCMB_OPL2EX)。
+        {"OPL2EX", DEVICE_ADPCMB_OPL2EX},
     };
     for (const auto& [name, id] : kPcmChipMap) {
         if (chipName == name) return id;

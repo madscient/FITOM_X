@@ -182,8 +182,8 @@
               "ALG_EXT": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 1,
-                "description": "ALG拡張ビット。OPM: noise有効化(ch7専用)。OPLL: preset音色選択。OPL3では使用しない(ConnectionSELはALGのbit2に統合済み、ALGフィールドの説明参照)。いずれも1bit。"
+                "maximum": 7,
+                "description": "ALG拡張ビット。OPM: noise有効化(ch7専用、bit0のみ)。OPLL/OPLLP/OPLLX/VRC7: preset音色選択(bit0のみ)。OPLLEX(Y8960拡張OPLL部): bit0はOPLLと同じpreset音色選択フラグ、bit2-1(0-3)はチャンネル別ROMプリセットバンク選択(0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7、実機レジスタ0x40-0x48へch毎に書かれる)。OPL3では使用しない(ConnectionSELはALGのbit2に統合済み、ALGフィールドの説明参照)。OPLLEX以外は全て1bit(0-1)。"
               },
               "HWEP": {
                 "type": "integer",

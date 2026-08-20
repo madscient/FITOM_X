@@ -41,6 +41,7 @@
                   "OPLL",
                   "OPLLP",
                   "OPLLX",
+                  "OPLLEX",
                   "VRC7",
                   "SSG",
                   "EPSG",
@@ -243,9 +244,10 @@
                   "Y8950",
                   "OPNA",
                   "OPNB",
-                  "OPNBB"
+                  "OPNBB",
+                  "OPL2EX"
                 ],
-                "description": "任意。このPCMバンクを限定する物理チップ。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一group(VoicePatchType)を共有するが、実際に配置された波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じオフセットテーブルを共有できない。同一group内で複数の物理チップ向けバンクを併用する場合は各エントリにchipを指定する(CFITOM::initDevices()がgroupより先にdeviceType完全一致で解決する、PcmBank::deviceType参照)。ADPCM-A/PCM-D8のようにVoicePatchTypeとdeviceTypeが1:1のグループでは通常不要。"
+                "description": "任意。このPCMバンクを限定する物理チップ。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一group(VoicePatchType)を共有するが、実際に配置された波形バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じオフセットテーブルを共有できない。同一group内で複数の物理チップ向けバンクを併用する場合は各エントリにchipを指定する(CFITOM::initDevices()がgroupより先にdeviceType完全一致で解決する、PcmBank::deviceType参照)。ADPCM-A/PCM-D8のようにVoicePatchTypeとdeviceTypeが1:1のグループでは通常不要。OPL2EX(Y8960拡張OPL2部の内蔵ADPCM-B)はY8950とバウンダリ整列(4byte)まで同一だが、混在構成での明示区別用にdeviceType自体は独立している(DEVICE_ADPCMB_OPL2EX)。"
               },
               "offsets_only": {
                 "type": "boolean",
@@ -376,7 +378,7 @@
           "rhythm_mode": {
             "type": "boolean",
             "default": false,
-            "description": "OPLL系(OPLL/OPLL2/OPLLP/OPLLX)・OPL系(OPL/Y8950/OPL2/OPL3/OPL4)チップ内蔵リズム音源の有効/無効(チップインスタンスごとに個別指定)。trueにした場合のみ、そのインスタンスに限りsub-device自動生成でリズム専用デバイス(DEVICE_OPL_RHY/DEVICE_OPLL_RHY)が追加生成され、FM本体側のch6-8がリズム専用として無効化される。falseのまま(既定)なら、ビルトインリズムと通常の楽音chをまたいだ動的ボイス割当は実装されていないため、リズム専用デバイス自体を生成せずch6-8を通常の楽音chとして使う。同一チップ種別を複数devices[]エントリで持つ場合、trueのインスタンスが1つも無ければビルトインリズムのドライバは一切生成されない。OPNA(DEVICE_OPNA_RHY)はFM本体と独立したレジスタ空間を持つためこのフラグの影響を受けず、常にリズム専用デバイスが生成される。"
+            "description": "OPLL系(OPLL/OPLL2/OPLLP/OPLLX/OPLLEX)・OPL系(OPL/Y8950/OPL2/OPL2EX/OPL3/OPL4)チップ内蔵リズム音源の有効/無効(チップインスタンスごとに個別指定)。trueにした場合のみ、そのインスタンスに限りsub-device自動生成でリズム専用デバイス(DEVICE_OPL_RHY/DEVICE_OPLL_RHY)が追加生成され、FM本体側のch6-8がリズム専用として無効化される。falseのまま(既定)なら、ビルトインリズムと通常の楽音chをまたいだ動的ボイス割当は実装されていないため、リズム専用デバイス自体を生成せずch6-8を通常の楽音chとして使う。同一チップ種別を複数devices[]エントリで持つ場合、trueのインスタンスが1つも無ければビルトインリズムのドライバは一切生成されない。OPNA(DEVICE_OPNA_RHY)はFM本体と独立したレジスタ空間を持つためこのフラグの影響を受けず、常にリズム専用デバイスが生成される。"
           },
           "stereo_pair": {
             "oneOf": [
@@ -586,7 +588,7 @@
             "items": {
               "type": "string"
             },
-            "description": "auto_devices:true時のみ有効。HWPlugin_Enumerate()自身はrhythm_mode(devices[]側の同名フィールドと同じ、チップ内蔵リズム音源[ch6-8]を有効化しFM本体側と切り離すFITOM_X固有の概念)を返さないため、列挙結果の\"chip\"名がここに列挙された文字列のいずれかと一致するエントリにだけ、自動生成後にrhythm_mode:trueを補って渡す(2026年7月新設)。OPL/Y8950/OPL2/OPL3/OPL4/OPLL系でビルトインリズムを使う場合に指定する。",
+            "description": "auto_devices:true時のみ有効。HWPlugin_Enumerate()自身はrhythm_mode(devices[]側の同名フィールドと同じ、チップ内蔵リズム音源[ch6-8]を有効化しFM本体側と切り離すFITOM_X固有の概念)を返さないため、列挙結果の\"chip\"名がここに列挙された文字列のいずれかと一致するエントリにだけ、自動生成後にrhythm_mode:trueを補って渡す(2026年7月新設)。OPL/Y8950/OPL2/OPL2EX/OPL3/OPL4/OPLL系(OPLLEX含む)でビルトインリズムを使う場合に指定する。",
             "examples": [
               [
                 "OPL",

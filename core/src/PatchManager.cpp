@@ -221,6 +221,19 @@ PatchManager::PatchManager()
 // OPLLドライバ(updateVoice)はプリセット音色の場合、ext.ALG_EXT(bit0)と
 // hw.ALG(下位4bit=INSTナンバー)以外のフィールドを一切参照しないため、
 // この2フィールドだけを設定すればよい(他はデフォルト値のまま)。
+//
+// ext.ALG_EXTのbit2-1には、variantSelをそのままBANK値として焼き込む
+// (2026年8月〜)。COPLL/COPLLX/COPLLP/CVRC7(標準OPLL系)のupdateVoice()は
+// bit0しか見ないためこれらのチップで再生する場合は無害だが、
+// COPLLEX(Y8960拡張OPLL部、DEVICE_OPLLEX)は独自にbit2-1をBANKレジスタへ
+// 書き込む。Y8960の拡張OPLL部はOPLL/OPLL-X/OPLL-P/VRC7の4バンクを
+// すべて内蔵しているため、要求された具体的な標準OPLLチップ
+// (variantSelに対応するチップ)が接続されていない場合、
+// resolveOpllRomVoice()がOPLLEXへフォールバックできるようにするための
+// 準備であり、このHwPatchオブジェクト自体を実際にどのチップが
+// 再生するかに関わらず常に「正しいBANK値」を持たせておく設計
+// (フォールバック時にHwPatchを書き換える方式ではなく、生成時点から
+// フォールバック先で正しく解釈できる値にしておく方式)。
 void PatchManager::initOpllRomPatches()
 {
     // ROM音色名。出典: https://github.com/plgDavid/misc/wiki/Copyright-free-OPLL(x)-ROM-patches
@@ -257,7 +270,8 @@ void PatchManager::initOpllRomPatches()
             // 正しくtrueを返すよう、デフォルトの0xFFFFFFFFuから変更する。
             p.id = (static_cast<uint32_t>(variantSel) << 4) | static_cast<uint32_t>(instIndex);
             std::strncpy(p.name, kNames[variantSel][instIndex], sizeof(p.name) - 1);
-            p.ext.ALG_EXT = 1;                          // プリセット選択フラグ
+            // bit0=プリセット選択フラグ、bit2-1=BANK(=variantSel、上記コメント参照)
+            p.ext.ALG_EXT = static_cast<uint8_t>((variantSel << 1) | 1);
             p.hw.ALG      = static_cast<uint8_t>(instIndex & 0xF); // INSTナンバー
         }
     }
@@ -371,15 +385,25 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
         return result;
     }
 
-    // ROM音色はチップごとに実データが全く異なるため、フォールバックは
-    // 行わない (opllFamilyAcceptsFallbackがプリセット音色のフォールバック
-    // を拒否するのと同じ方針)。要求された具体的なチップが接続されて
-    // いなければ、そのまま失敗として扱う。
+    // ROM音色はチップごとに実データが全く異なるため、標準OPLL系どうしの
+    // 相互フォールバックは行わない (opllFamilyAcceptsFallbackがプリセット
+    // 音色のフォールバックを拒否するのと同じ方針)。
+    //
+    // 例外: OPLLEX(Y8960拡張OPLL部)はOPLL/OPLL-X/OPLL-P/VRC7の4バンクを
+    // すべて内蔵しているため、要求された具体的なチップ(actualVpt)が
+    // 接続されていない場合に限り、OPLLEXへのフォールバックだけを試みる
+    // (2026年8月〜)。opllRomPatches_[variantSel][instIndex]は生成時点で
+    // 既にBANK値(variantSel)をext.ALG_EXTのbit2-1へ焼き込み済み
+    // (initOpllRomPatches参照)のため、ここでHwPatchを書き換える必要は
+    // なく、再生先デバイスを差し替えるだけでよい。
     int deviceIndex = config.findDeviceIndexByVoicePatchType(actualVpt);
+    if (deviceIndex < 0) {
+        deviceIndex = config.findDeviceIndexByVoicePatchType(VOICE_PATCH_OPLLEX);
+    }
     if (deviceIndex < 0) {
         FITOM_LOG_WARN((logContext.empty() ? "resolveDirect:" : ("resolve: " + logContext))
             << " OPLL ROM voice: voicePatchType=0x" << std::hex << (int)actualVpt
-            << " — no matching device (ROM音色はフォールバック非対応)");
+            << " — no matching device, and no OPLLEX to fall back to");
         return result;
     }
 
@@ -756,6 +780,7 @@ static int operatorCountForVoicePatchType(uint8_t vpt) {
     case VOICE_PATCH_OPL: case VOICE_PATCH_OPL2: case VOICE_PATCH_OPL3_2:
     case VOICE_PATCH_OPLL: case VOICE_PATCH_OPLLP:
     case VOICE_PATCH_OPLLX: case VOICE_PATCH_VRC7:
+    case VOICE_PATCH_OPLLEX:
         return 2;
     // OPL系内蔵リズムチャンネル: BD(バスドラム)は2オペレータの通常FM
     // ボイス、HH/SD/TOM/CYMは1オペレータのみ使う単発音のため、パッチ

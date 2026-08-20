@@ -224,6 +224,12 @@ struct FmChipExt {
                       // 統合済みのため、OPL3はこのフィールドを参照しない
                       // (2026年7月、一時的にここへ分離していたのをhw.ALG
                       // へ戻した。上記hw.ALGのコメント参照)。
+                      // OPLLEX(Y8960拡張OPLL部、DEVICE_OPLLEX)専用: bit0は
+                      // 標準OPLLと同じプリセット選択フラグ、bit2-1(値0-3)は
+                      // チャンネル別ROMプリセットバンク選択
+                      // (0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7、実機レジスタ
+                      // 0x40-0x48へch毎に書かれる)。標準OPLL/OPLLP/OPLLX/
+                      // VRC7ではbit2-1は常に0(参照されない)。
 
     // AY-3-8910 / YM2149 (PSG) 固有
     // HW Envelope Period: レジスタ 0x0B(Fine)+0x0C(Coarse) に対応する
