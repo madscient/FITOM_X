@@ -352,3 +352,50 @@ TEST_CASE("OPLL ROM preset patches bake their source chip's BANK value into ALG_
         }
     }
 }
+
+// ================================================================
+//  CC#0=OPLLEXでの暗黙バンク0(ROMプリセット)直接解決
+//
+//  2026年8月〜、他のOPLLファミリー(OPLL/OPLLX/OPLLP/VRC7)と同様、
+//  OPLLEXも「hwBank==0固定・progだけで暗黙バンク内の音色を一意に
+//  解決する」経路(resolveOpllRomVoice())に参加するようになった。
+//  resolveOpllRomVoice()自体はprivateで、かつ実際に接続された
+//  デバイス一覧(FITOMConfig::devices_)を必要とするが、このテスト
+//  スイートにはFITOMConfigへ実機/プラグイン無しでデバイスを注入する
+//  仕組みが無いため(test_y8960.cppの他の箇所と同じ既知の制約)、
+//  ここではデバイス0台のFITOMConfigを使い、以下2点だけを回帰確認する:
+//    1. 経路自体がクラッシュせずreachableであること
+//    2. instIndex==0(無音として予約)・BANK>=4(未定義)を正しく
+//       「解決失敗」として弾くこと(接続デバイスの有無とは独立した
+//       入力検証)
+//  実際にOPLLEXデバイスが接続された状態で正しい音色が選ばれることは
+//  未検証(実機・エミュレータでの確認が別途必要)。
+// ================================================================
+TEST_CASE("resolveDirect for OPLLEX's implicit ROM bank rejects invalid prog encodings",
+          "[y8960][opllex][patchmanager]")
+{
+    FITOMConfig cfg;   // デバイス0台
+    PatchManager pm;
+    Patch storage;
+
+    // instIndex==0(下位4bit)は無音として予約 (BANK=0)
+    {
+        auto r = pm.resolveDirect(VOICE_PATCH_OPLLEX, 0, 0x00, cfg, storage);
+        CHECK_FALSE(r.isValid());
+    }
+    // BANK(上位3bit)>=4は未定義
+    for (uint8_t bank : {uint8_t{4}, uint8_t{5}, uint8_t{6}, uint8_t{7}}) {
+        uint8_t prog = static_cast<uint8_t>((bank << 4) | 1);
+        INFO("bank=" << (int)bank);
+        auto r = pm.resolveDirect(VOICE_PATCH_OPLLEX, 0, prog, cfg, storage);
+        CHECK_FALSE(r.isValid());
+    }
+    // 有効なprog(BANK=0-3、inst=1-15)は、接続デバイスが無いため
+    // 「解決失敗」になる(クラッシュしないことを確認する)。
+    for (uint8_t bank = 0; bank < 4; ++bank) {
+        uint8_t prog = static_cast<uint8_t>((bank << 4) | 3);
+        INFO("bank=" << (int)bank);
+        auto r = pm.resolveDirect(VOICE_PATCH_OPLLEX, 0, prog, cfg, storage);
+        CHECK_FALSE(r.isValid());
+    }
+}

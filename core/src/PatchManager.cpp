@@ -358,8 +358,22 @@ PatchManager::ResolvedTriple PatchManager::resolveDsgBuiltinVoice(
 
 // OPLL系ROM音色専用の解決ロジック。voicePatchTypeがOPLLファミリーの
 // いずれかで、hwBank==0の場合にresolveTriple()から呼ばれる。
+//
+// requestedVoicePatchType(呼び出し元のCC#0値)は、標準4チップ
+// (OPLL/OPLLX/OPLLP/VRC7)の場合は実は無視され、hwProgの上位3bit
+// (variantSel)だけでターゲットチップ・音色テーブルの両方が決まる
+// (getOpllRomPatchByProg()のコメント参照。同じhwProgならどのCC#0
+// 経由でも同じ音になる設計)。
+//
+// 一方、requestedVoicePatchType==VOICE_PATCH_OPLLEXの場合だけは
+// 挙動が異なる: OPLLEXはOPLL/OPLL-X/OPLL-P/VRC7の4バンクを全て
+// 内蔵しているため、hwProgのvariantSelは「OPLLEX自身のどのBANKか」を
+// 選ぶだけで、ターゲットチップは常にOPLLEX自身になる(2026年8月〜。
+// 他のOPLLファミリーと同様、progだけで暗黙バンク内の音色を一意に
+// 解決できるようにする設計)。
 PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
-    uint8_t hwProg, const FITOMConfig& config, const std::string& logContext) const
+    uint8_t requestedVoicePatchType, uint8_t hwProg, const FITOMConfig& config,
+    const std::string& logContext) const
 {
     ResolvedTriple result;
 
@@ -370,19 +384,33 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     // このROM音色専用バンクでは意図的に予約し、何も鳴らさない)。
     if (instIndex == 0) return result;
 
-    static constexpr uint8_t kVariantMap[8] = {
-        VOICE_PATCH_OPLL,   // 0 (OPLL2もVOICE_PATCH_OPLLを共有するため区別不要)
-        VOICE_PATCH_OPLLX,  // 1
-        VOICE_PATCH_OPLLP,  // 2
-        VOICE_PATCH_VRC7,   // 3
-        0, 0, 0, 0          // 4-7: 未定義
-    };
-    uint8_t actualVpt = kVariantMap[variantSel];
-    if (actualVpt == 0) {
-        FITOM_LOG_WARN((logContext.empty() ? "resolveDirect:" : ("resolve: " + logContext))
-            << " OPLL ROM voice: undefined variant selector=" << (int)variantSel
-            << " (prog=0x" << std::hex << (int)hwProg << ")");
-        return result;
+    uint8_t actualVpt;
+    if (requestedVoicePatchType == VOICE_PATCH_OPLLEX) {
+        // OPLLEX自身を明示的に選んだ場合は、variantSelは常にOPLLEX内の
+        // BANK選択に使うだけで、他チップへ迂回させない(標準4チップが
+        // 未接続でもOPLLEXが接続されていればそのまま鳴る)。
+        if (variantSel >= 4) {
+            FITOM_LOG_WARN((logContext.empty() ? "resolveDirect:" : ("resolve: " + logContext))
+                << " OPLLEX ROM voice: undefined BANK selector=" << (int)variantSel
+                << " (prog=0x" << std::hex << (int)hwProg << ")");
+            return result;
+        }
+        actualVpt = VOICE_PATCH_OPLLEX;
+    } else {
+        static constexpr uint8_t kVariantMap[8] = {
+            VOICE_PATCH_OPLL,   // 0 (OPLL2もVOICE_PATCH_OPLLを共有するため区別不要)
+            VOICE_PATCH_OPLLX,  // 1
+            VOICE_PATCH_OPLLP,  // 2
+            VOICE_PATCH_VRC7,   // 3
+            0, 0, 0, 0          // 4-7: 未定義
+        };
+        actualVpt = kVariantMap[variantSel];
+        if (actualVpt == 0) {
+            FITOM_LOG_WARN((logContext.empty() ? "resolveDirect:" : ("resolve: " + logContext))
+                << " OPLL ROM voice: undefined variant selector=" << (int)variantSel
+                << " (prog=0x" << std::hex << (int)hwProg << ")");
+            return result;
+        }
     }
 
     // ROM音色はチップごとに実データが全く異なるため、標準OPLL系どうしの
@@ -390,14 +418,16 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     // 音色のフォールバックを拒否するのと同じ方針)。
     //
     // 例外: OPLLEX(Y8960拡張OPLL部)はOPLL/OPLL-X/OPLL-P/VRC7の4バンクを
-    // すべて内蔵しているため、要求された具体的なチップ(actualVpt)が
-    // 接続されていない場合に限り、OPLLEXへのフォールバックだけを試みる
-    // (2026年8月〜)。opllRomPatches_[variantSel][instIndex]は生成時点で
-    // 既にBANK値(variantSel)をext.ALG_EXTのbit2-1へ焼き込み済み
-    // (initOpllRomPatches参照)のため、ここでHwPatchを書き換える必要は
-    // なく、再生先デバイスを差し替えるだけでよい。
+    // すべて内蔵しているため、標準4チップのいずれかを要求していて
+    // (actualVptがそのいずれか)、かつそのチップ自体が接続されていない
+    // 場合に限り、OPLLEXへのフォールバックだけを試みる(2026年8月〜)。
+    // opllRomPatches_[variantSel][instIndex]は生成時点で既にBANK値
+    // (variantSel)をext.ALG_EXTのbit2-1へ焼き込み済み(initOpllRomPatches
+    // 参照)のため、ここでHwPatchを書き換える必要はなく、再生先デバイスを
+    // 差し替えるだけでよい。actualVptが既にOPLLEX自身の場合は、それ以上
+    // フォールバックする先が無い(重複検索を避ける)。
     int deviceIndex = config.findDeviceIndexByVoicePatchType(actualVpt);
-    if (deviceIndex < 0) {
+    if (deviceIndex < 0 && actualVpt != VOICE_PATCH_OPLLEX) {
         deviceIndex = config.findDeviceIndexByVoicePatchType(VOICE_PATCH_OPLLEX);
     }
     if (deviceIndex < 0) {
@@ -558,10 +588,15 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // OPLL系ROM音色専用バンク: バンク0はROM音色専用の予約領域であり、
     // 通常のHwBankRegistry検索(JSONプリセット)を経由しない。
     // (OPLL2はVOICE_PATCH_OPLLを共有するため、この判定に個別追加は不要)
+    // OPLLEX(Y8960拡張OPLL部)も同じ暗黙バンクを共有する(2026年8月〜)。
+    // OPLLEXは標準4チップ分のROMテーブルを全て内蔵しているため、
+    // 他の4値と全く同じhwProgエンコード(variantSel<<4|instIndex)で
+    // どのバンクの何番の音色かを直接指定できる。
     if (hwBank == 0 &&
         (voicePatchType == VOICE_PATCH_OPLL || voicePatchType == VOICE_PATCH_OPLLP ||
-         voicePatchType == VOICE_PATCH_OPLLX || voicePatchType == VOICE_PATCH_VRC7)) {
-        return resolveOpllRomVoice(hwProg, config, logContext);
+         voicePatchType == VOICE_PATCH_OPLLX || voicePatchType == VOICE_PATCH_VRC7 ||
+         voicePatchType == VOICE_PATCH_OPLLEX)) {
+        return resolveOpllRomVoice(voicePatchType, hwProg, config, logContext);
     }
 
     std::string ctx = logContext.empty()

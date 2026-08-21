@@ -485,8 +485,9 @@
         "EGTは参照されない(実機EG typeビットはSRの値から決まる)。",
         "サステインペダル(CC#64)はSR/RRとは独立に実機のSUSビットで制御される。",
         "内蔵リズム(0x0E,0x36-0x38)は標準OPLLと完全に同一のレジスタ体系のため、DEVICE_OPLL_RHY(VoicePatchType OPL_RHYではなくOPLLのビルトインリズム、findDeviceIndexByDeviceType経由)をそのまま共用する。専用のRHYTHM VoicePatchTypeは無い。",
-        "現状、標準OPLL/OPLLX/OPLLP/VRC7が持つROMプリセット音色8-15への簡易アクセス(builtin_swpatch_meta経由)はOPLLEX向けにはまだ配線されていない(BANK別のROMプリセット生成が必要なため)。0-7の範囲はALGフィールドから直接指定できる。",
+        "*.hwbank.jsonのALGフィールド(スキーマ上限7)から直接指定できるプリセットは0-7まで。8-15を含む音色をhwbank.jsonのbuiltinエントリ(patch_type=\"OPLLEX\")経由で名指し参照する機能はまだ配線されていない(BANK別のROMプリセット生成が必要なため)。",
         "OPLL/OPLLX/OPLLP/VRC7側の暗黙のROMプリセットバンク(bank0固定)は、要求されたチップが未接続の場合にOPLLEXへフォールバックする(2026年8月〜)。OPLLEXはOPLL/OPLL-X/OPLL-P/VRC7の4バンクを全て内蔵しているため、生成される暗黙のHwPatch自体に対応するBANK値(ext.ALG_EXTのbit2-1)が最初から焼き込まれている。標準OPLL系どうしの相互フォールバック(実機ROMデータが異なる)は引き続き行わない。",
+        "OPLLEX自身のCC#0(voice_patch_type=0x2c)・バンク0(CC#32=0)を直接選んだ場合も、標準4チップと同じ暗黙のROMプリセットバンクをそのまま使える(2026年8月〜)。hwProgの上位3bit(0-3)がOPLLEX自身のBANK選択、下位4bit(1-15)が音色番号となり、prog直接指定だけで各BANK15音色・計60音色すべてにアクセスできる(ALGフィールドの0-7上限の制約を受けない)。演奏特性(SwPatch)も標準4チップと同じビルトイン音色用メタバンクから(variantSel, instIndex)で解決される。",
         "エミュレーションエンジン側の参照実装: ymfm::y8960opllex (別リポジトリ ../Y8960emu)。"
       ]
     },

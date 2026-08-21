@@ -156,15 +156,23 @@ public:
     // OPLL系ROM音色(バンク0固定、resolveOpllRomVoice()参照)をvoicePatchType
     // 単位で列挙するための読み取り専用アクセサ(GUIのパッチピッカーの
     // カテゴリ別バンク0一覧向け、2026年7月新設)。voicePatchTypeが
-    // OPLL/OPLLP/OPLLX/VRC7以外ならnullptrを返す。添字0は無音(ユーザー
-    // 音色との衝突回避のため予約)のため、呼び出し側で除外すること。
-    // 【注意】実際の発音解決(resolveOpllRomVoice)は、このvoicePatchType
-    // (CC#0の値)ではなくhwProg自身の上位3bitでチップ種別を決定するため
-    // (下記getOpllRomPatchByProg()参照)、この関数はあくまで「ある
-    // カテゴリ配下に何を列挙するか」というピッカー表示専用の分類であり、
-    // 実際に送信されるProgram Change値(HwPatch::id)がその変種の上位
-    // ビットと一致するよう、呼び出し側はid値をそのままProgram Changeに
-    // 使うこと(生の配列添字を使ってはならない)。
+    // OPLL/OPLLP/OPLLX/VRC7以外ならnullptrを返す(OPLLEXは4バンク分
+    // [64音色]を持ち16音色の配列1つで表現できないため、現状このアクセサ
+    // では未対応。GUIのOPLLEXカテゴリ一覧表示が必要になった時点で別途
+    // 対応すること)。添字0は無音(ユーザー音色との衝突回避のため予約)
+    // のため、呼び出し側で除外すること。
+    // 【注意】実際の発音解決(resolveOpllRomVoice)は、標準4チップ
+    // (OPLL/OPLLP/OPLLX/VRC7)向けにはこのvoicePatchType(CC#0の値)では
+    // なくhwProg自身の上位3bitでチップ種別を決定するため(下記
+    // getOpllRomPatchByProg()参照)、この関数はあくまで「あるカテゴリ
+    // 配下に何を列挙するか」というピッカー表示専用の分類であり、実際に
+    // 送信されるProgram Change値(HwPatch::id)がその変種の上位ビットと
+    // 一致するよう、呼び出し側はid値をそのままProgram Changeに使うこと
+    // (生の配列添字を使ってはならない)。ただしvoicePatchType==
+    // VOICE_PATCH_OPLLEXでCC#0を選んだ場合は例外で、hwProgの上位3bitは
+    // 「OPLLEX自身のBANK選択」の意味になり常にOPLLEX自身で鳴る
+    // (resolveOpllRomVoice()のrequestedVoicePatchType引数参照、
+    // 2026年8月〜)。
     const std::array<HwPatch, 16>* getOpllRomPatches(uint8_t voicePatchType) const;
 
     // hwProg(Program Changeの値そのもの)から直接ROM音色を解決する
@@ -348,7 +356,14 @@ private:
     //   上位3bit(hwProg>>4): 0=OPLL, 1=OPLLX, 2=OPLLP, 3=VRC7 (4-7は無効)
     //   下位4bit(hwProg&0xF): 0=無音(ユーザー音色との衝突回避のため
     //                         意図的に予約)、1-15=ROM音色インデックス
-    ResolvedTriple resolveOpllRomVoice(uint8_t hwProg, const FITOMConfig& config,
+    // requestedVoicePatchType: 呼び出し元のCC#0値。標準4チップの場合は
+    //   実際の解決に影響しない(hwProgの上位3bitのみで決まる)が、
+    //   VOICE_PATCH_OPLLEXの場合だけは上位3bitが「OPLLEX自身のBANK
+    //   選択」の意味に変わり、常にOPLLEX自身をターゲットにする
+    //   (2026年8月〜、OPLLEXも他のOPLLファミリーと同様にprogだけで
+    //   暗黙バンク内の音色を一意に解決できるようにするための拡張)。
+    ResolvedTriple resolveOpllRomVoice(uint8_t requestedVoicePatchType, uint8_t hwProg,
+                                        const FITOMConfig& config,
                                         const std::string& logContext) const;
 
     // ─── 内蔵リズム音源専用の解決ロジック ──────────────────────────
