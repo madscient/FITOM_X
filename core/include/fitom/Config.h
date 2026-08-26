@@ -145,6 +145,24 @@ public:
     std::string getLogFile(const std::string& fallback)    const;
     bool        getLogConsole(bool fallback)                const;
 
+    // fitom.conf.json の profiles.root 設定を取り出す。loadSystemConf()
+    // 未実行、または該当フィールドが省略されている場合は fallback を返す。
+    // 相対パスの解決基点(カレントワーキングディレクトリ)はここでは決めない
+    // (呼び出し側=GUI起動処理の責務。listProfiles()にはあらかじめ解決した
+    // 絶対パスを渡すこと)。
+    std::string getProfileRoot(const std::string& fallback) const;
+
+    // ─── プロファイル選択 (GUI起動時、プロファイル未指定の場合の一覧表示用、
+    //     2026年8月新設) ──────────────────────────────────────────────────
+    struct ProfileEntry {
+        std::filesystem::path path;
+        std::string           displayName; // "profile_name"フィールド、
+                                            // 読み取れなければファイル名(拡張子除く)
+    };
+    // dir直下(非再帰)の "*.profile.json" を列挙する。ファイル名昇順。
+    // dirが存在しない/ディレクトリでない場合は空配列を返す。
+    static std::vector<ProfileEntry> listProfiles(const std::filesystem::path& dir);
+
     // HWプラグイン(実機/エミュレータ問わず、IHWPluginを実装するDLL)を
     // 複数登録できる。実機かエミュレータかはFITOM本体では区別しない。
     HWPluginRegistry& getHWPluginRegistry();

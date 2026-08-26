@@ -44,8 +44,30 @@
         }
       }
     },
+    "profiles": {
+      "type": "object",
+      "description": "プロファイル(*.profile.json)選択の設定。GUI(fitom_gui)がプロファイル未指定で起動した場合に、ここで指定したディレクトリ配下の*.profile.jsonを一覧し、選択画面から選んで起動できるようにする(fitom_cliは対象外、従来通り引数必須のまま)。",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "default": ".",
+          "description": "*.profile.jsonを探すディレクトリへの相対パス。相対パスの解決基点はカレントワーキングディレクトリ(実行ファイルのディレクトリではない)。省略時は\".\"(カレントワーキングディレクトリそのもの)。"
+        },
+        "_comment": {
+          "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "_comment": {
-      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。2026年7月: MIDIバックエンドDLLの指定はprofile.jsonのmidi_backend.dllに一本化されているため(こちらは重複かつ未実装だった)plugins.midi_pluginを廃止。timing.timer_ms/polling_interval_usも、前者はLFO/ポルタメントのレート換算テーブルが1msティック固定を前提にしており安全に可変化できないこと、後者はHWポーリングの責務がfitom_fmhwif.dll等のHWプラグイン側に移管済みでFITOM_X本体にポーリングスレッド自体が存在しないことから、実装のない設定項目として廃止した。",
+      "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。2026年7月: MIDIバックエンドDLLの指定はprofile.jsonのmidi_backend.dllに一本化されているため(こちらは重複かつ未実装だった)plugins.midi_pluginを廃止。timing.timer_ms/polling_interval_usも、前者はLFO/ポルタメントのレート換算テーブルが1msティック固定を前提にしており安全に可変化できないこと、後者はHWポーリングの責務がfitom_fmhwif.dll等のHWプラグイン側に移管済みでFITOM_X本体にポーリングスレッド自体が存在しないことから、実装のない設定項目として廃止した。2026年8月: profiles.rootを新設(GUI起動時のプロファイル選択画面用)。",
       "type": [
         "string",
         "array"
@@ -61,6 +83,9 @@
         "level": "info",
         "file": "fitom.log",
         "console": true
+      },
+      "profiles": {
+        "root": "profiles"
       }
     }
   ]

@@ -187,6 +187,26 @@ FITOMBridge& FITOMBridge::instance() {
 //  初期化
 // ================================================================
 
+std::vector<FITOMProfileInfo> FITOMBridge::listAvailableProfiles(const std::string& systemConfPath)
+{
+    // init()前(コア未初期化状態)から呼べるよう、独立した一時FITOMConfig
+    // でprofiles.rootだけを解決する。
+    fitom::FITOMConfig config;
+    if (!systemConfPath.empty()) {
+        config.loadSystemConf(fs::path(systemConfPath));
+    }
+    fs::path root = config.getProfileRoot(".");
+    if (root.is_relative()) {
+        root = fs::current_path() / root;
+    }
+
+    std::vector<FITOMProfileInfo> result;
+    for (const auto& entry : fitom::FITOMConfig::listProfiles(root)) {
+        result.push_back({ entry.path.string(), entry.displayName });
+    }
+    return result;
+}
+
 bool FITOMBridge::init(const std::string& systemConfPath,
                         const std::string& profilePath)
 {

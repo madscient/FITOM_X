@@ -52,6 +52,30 @@ profiles/
 loadSystemConf()`、値の取り出しは`getLogLevel()`/`getLogFile()`/
 `getLogConsole()`)。
 
+### プロファイル選択 (`profiles.root`、2026年8月新設)
+
+```json
+"profiles": {
+  "root": "profiles"
+}
+```
+
+| フィールド | デフォルト | 説明 |
+|---|---|---|
+| `root` | `"."` | `*.profile.json` を探すディレクトリへの相対パス。相対パスの解決基点は**カレントワーキングディレクトリ**(実行ファイルのディレクトリではない。`log.file`等、他のfitom.conf.json内フィールドとは基点が異なるので注意) |
+
+`fitom_gui`をプロファイル未指定(コマンドライン引数省略)で起動した場合、
+ここで指定したディレクトリ直下(非再帰)の`*.profile.json`を一覧する
+選択画面を表示し、クリックで選んだプロファイルを読み込んで起動する
+(`FITOMBridge::listAvailableProfiles()`→`FITOMConfig::listProfiles()`)。
+各エントリの表示名は、プロファイル側の`profile_name`フィールド(前述の
+ファイル例参照)があればそれを、無ければファイル名(`.profile.json`を
+除いた部分)を使う。見つかったプロファイルが0件の場合はその旨を表示する
+のみで、それ以上の自動選択は行わない。
+
+**`fitom_cli`はこの機能の対象外。** 引数省略時は従来通りエラー終了する
+(選択画面はGUI専用)。
+
 ### プラグイン設定・タイマー設定は廃止(2026年7月)
 
 以前はここに`plugins.midi_plugin.dll`(MIDIバックエンドDLL指定)と
@@ -478,13 +502,17 @@ Windows MIDI Services/WinMM/ALSAの3個別実装から統合）。
     "level": "debug",
     "file":  "fitom.log",
     "console": true
+  },
+  "profiles": {
+    "root": "profiles"
   }
 }
 ```
 
 (HWプラグインDLL・MIDIバックエンドDLL・音声出力設定は、いずれもプロファイル
 側(`hw_plugins[]`/`midi_backend.dll`)またはHWプラグイン自身の設定ファイルで
-指定する。`fitom.conf.json`はログ設定のみを扱う。)
+指定する。`fitom.conf.json`はログ設定と、GUI起動時のプロファイル選択画面が
+探すディレクトリ(`profiles.root`)のみを扱う。)
 
 ### profiles/emulator_only.profile.json
 
@@ -535,8 +563,12 @@ Windows MIDI Services/WinMM/ALSAの3個別実装から統合）。
 1. fitom.conf.json を読み込む (実行ファイルと同ディレクトリに無ければ
    スキップし、各アプリの既定ログ設定のまま続行する)
    └─ ログ初期化 (Boost.Log、log.level/file/console を反映)
+   └─ (fitom_guiでプロファイル未指定の場合のみ) profiles.root配下
+      (カレントワーキングディレクトリ基点、省略時はカレントディレクトリ
+      そのもの)の*.profile.jsonを一覧し、選択画面を表示する
 
-2. プロファイルを読み込む (--profile オプション or デフォルト)
+2. プロファイルを読み込む (fitom_cli: 起動引数必須。fitom_gui: 起動引数、
+   または上記の選択画面での選択)
    └─ hw_plugins[] の DLL を HWPluginRegistry に登録する
    └─ devices[] から IPort を生成する (HWPort)
    └─ midi_backend.dll (省略時はプラットフォーム既定) を解決する

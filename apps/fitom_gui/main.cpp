@@ -245,6 +245,66 @@ namespace
         }
     }
 
+    // ─── プロファイル選択画面 (起動時、プロファイル未指定の場合、2026年8月新設) ──
+    // fitom.conf.jsonのprofiles.root(省略時はカレントワーキングディレクトリ)
+    // 配下の*.profile.jsonを一覧し、クリックで選択・起動できるようにする。
+    struct ProfileSelectState
+    {
+        std::vector<FITOMProfileInfo> profiles;
+        bool                          scanned = false;
+    };
+
+    void rescanProfiles(ProfileSelectState &state, const std::string &systemConfArg)
+    {
+        state.profiles = FITOMBridge::listAvailableProfiles(systemConfArg);
+        state.scanned = true;
+    }
+
+    // 選択されたプロファイルのパスをoutSelectedPathへ書き込み、trueを返す。
+    // 何も選択されていなければfalseを返す(呼び出し側は毎フレーム呼んでよい)。
+    bool renderProfileSelectScreen(const std::string &systemConfArg, ProfileSelectState &state,
+                                   std::string &outSelectedPath)
+    {
+        if (!state.scanned)
+        {
+            rescanProfiles(state, systemConfArg);
+        }
+
+        ImGui::TextUnformatted("起動するプロファイルを選択してください:");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("再スキャン"))
+        {
+            rescanProfiles(state, systemConfArg);
+        }
+        ImGui::Separator();
+
+        if (state.profiles.empty())
+        {
+            ImGui::TextDisabled(
+                "プロファイル(*.profile.json)が見つかりません。");
+            ImGui::TextDisabled(
+                "fitom.conf.json の profiles.root で検索先を指定できます(省略時はカレントディレクトリ)。");
+            return false;
+        }
+
+        bool selected = false;
+        for (const auto &p : state.profiles)
+        {
+            ImGui::PushID(p.path.c_str());
+            if (ImGui::Selectable(p.displayName.c_str()))
+            {
+                outSelectedPath = p.path;
+                selected = true;
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("%s", p.path.c_str());
+            }
+            ImGui::PopID();
+        }
+        return selected;
+    }
+
     [[maybe_unused]] void renderMidiInputList(const FITOMBridge &bridge)
     {
         if (!ImGui::CollapsingHeader("MIDI入力一覧", ImGuiTreeNodeFlags_DefaultOpen))
@@ -937,19 +997,23 @@ int main(int argc, char **argv)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glslVersion);
 
-    // FITOMBridge初期化。プロファイルはコマンドライン第1引数で指定する
-    // (省略時はコア未初期化のまま、ウィンドウのみ表示する)。
+    // FITOMBridge初期化。プロファイルはコマンドライン第1引数で指定する。
+    // 省略時は、fitom.conf.jsonのprofiles.root(省略時はカレントワーキング
+    // ディレクトリ)配下の*.profile.jsonから選択する画面を表示する
+    // (renderProfileSelectScreen()、2026年8月新設。以前はコア未初期化のまま
+    // 「引数で指定してください」という案内のみを表示していた)。
     // fitom.conf.json は実行ファイルと同じディレクトリにあれば読み込む
     // (省略可能なシステム設定)。
     FITOMBridge &bridge = FITOMBridge::instance();
-    const std::string profilePath = (argc >= 2) ? argv[1] : std::string();
+    const std::string argvProfilePath = (argc >= 2) ? argv[1] : std::string();
     const fs::path sysConfPath = exeDir() / "fitom.conf.json";
     const std::string systemConfArg = fs::exists(sysConfPath) ? sysConfPath.string() : std::string();
     bool coreReady = false;
-    if (!profilePath.empty())
+    if (!argvProfilePath.empty())
     {
-        coreReady = bridge.init(systemConfArg, profilePath);
+        coreReady = bridge.init(systemConfArg, argvProfilePath);
     }
+    ProfileSelectState profileSelectState;
     // コアのタイマーコールバック(releaseTimer減算・ソフトウェアLFO tick等、
     // 全チップドライバが「1回の呼び出し=1ms経過」を前提にしている)は、
     // 専用の1msスレッド(apps/fitom_cliと同じCFITOM::startTimerThread())
@@ -990,16 +1054,28 @@ int main(int argc, char **argv)
         ImGui::Begin("FITOM_X_Root", nullptr, rootFlags);
         if (!coreReady)
         {
-            if (profilePath.empty())
+            if (!argvProfilePath.empty())
             {
-                ImGui::TextUnformatted(
-                    "プロファイル未指定です。コマンドライン引数で指定してください:");
-                ImGui::TextUnformatted("  fitom_gui <profile.json>");
+                // コマンドライン引数で明示指定されたのに失敗した場合は、
+                // 選択画面へは回さず固定のエラー表示のみ行う。
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+                                   "初期化に失敗しました: %s", argvProfilePath.c_str());
             }
             else
             {
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
-                                   "初期化に失敗しました: %s", profilePath.c_str());
+                std::string selectedPath;
+                if (renderProfileSelectScreen(systemConfArg, profileSelectState, selectedPath))
+                {
+                    coreReady = bridge.init(systemConfArg, selectedPath);
+                    if (coreReady)
+                    {
+                        bridge.startTimerThread();
+                    }
+                    else
+                    {
+                        showErrorPopup("プロファイルの読み込みに失敗しました:\n" + selectedPath);
+                    }
+                }
             }
         }
         else
