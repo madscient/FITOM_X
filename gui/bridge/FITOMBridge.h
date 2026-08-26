@@ -211,6 +211,11 @@ public:
     // 選択画面用、2026年8月新設)。
     static std::vector<FITOMProfileInfo> listAvailableProfiles(const std::string& systemConfPath);
 
+    // 指定したプロファイルファイル1件の表示名("profile_name"フィールド、
+    // 無ければファイル名)。ウィンドウタイトル表示用(2026年8月新設)。
+    // init()前後どちらでも呼べるよう静的関数にする。
+    static std::string profileDisplayName(const std::string& profilePath);
+
     // ─── プロファイル切り替え ────────────────────────────────────────────
     bool loadProfile(const std::string& path);
     std::string currentProfilePath() const;

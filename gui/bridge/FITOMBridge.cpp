@@ -207,6 +207,11 @@ std::vector<FITOMProfileInfo> FITOMBridge::listAvailableProfiles(const std::stri
     return result;
 }
 
+std::string FITOMBridge::profileDisplayName(const std::string& profilePath)
+{
+    return fitom::FITOMConfig::peekProfileDisplayName(fs::path(profilePath));
+}
+
 bool FITOMBridge::init(const std::string& systemConfPath,
                         const std::string& profilePath)
 {
@@ -226,7 +231,17 @@ bool FITOMBridge::init(const std::string& systemConfPath,
 
     FITOM_LOG_INFO("FITOMBridge initializing...");
     if (!profilePath.empty()) {
-        config->loadProfile(fs::path(profilePath), patchMgr.get());
+        // loadProfile()の戻り値を確認せず先へ進んでいたため、不正な
+        // プロファイル(JSON構文エラー・ファイル無し等)を渡してもinit()が
+        // 常にtrueを返してしまっていた(CFITOM::init()自体は常に0を返す
+        // 実装のため、下のret!=0チェックはこのケースを検知できない)。
+        // apps/fitom_cliのmain.cppと同様、ここで明示的に失敗させる
+        // (2026年8月、GUIプロファイル切替の「起動失敗時に元のプロファイル
+        // へフォールバックする」機能が正しく動作するために必要な修正)。
+        if (!config->loadProfile(fs::path(profilePath), patchMgr.get())) {
+            FITOM_LOG_ERR("FITOMBridge: プロファイル読み込み失敗: " << profilePath);
+            return false;
+        }
         currentProfile_ = profilePath;
     }
 

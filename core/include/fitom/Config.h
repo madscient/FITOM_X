@@ -163,6 +163,13 @@ public:
     // dirが存在しない/ディレクトリでない場合は空配列を返す。
     static std::vector<ProfileEntry> listProfiles(const std::filesystem::path& dir);
 
+    // 指定したプロファイルファイル1件の表示名を返す。"profile_name"
+    // フィールドが読み取れればそれを、無い/開けない/パース失敗時は
+    // ファイル名(".profile.json"サフィックスがあれば除いたもの、
+    // 無ければ拡張子のみ除いたもの)を返す。GUIのウィンドウタイトル表示・
+    // listProfiles()の表示名解決の両方から共用する(2026年8月新設)。
+    static std::string peekProfileDisplayName(const std::filesystem::path& path);
+
     // HWプラグイン(実機/エミュレータ問わず、IHWPluginを実装するDLL)を
     // 複数登録できる。実機かエミュレータかはFITOM本体では区別しない。
     HWPluginRegistry& getHWPluginRegistry();

@@ -303,6 +303,30 @@ std::string FITOMConfig::getProfileRoot(const std::string& fallback) const
 
 // --- プロファイル選択 (GUI起動時、プロファイル未指定の場合の一覧表示用) ----
 
+std::string FITOMConfig::peekProfileDisplayName(const fs::path& path)
+{
+    static const std::string kSuffix = ".profile.json";
+    const std::string filename = path.filename().string();
+    std::string fallback = (filename.size() > kSuffix.size() &&
+                             filename.compare(filename.size() - kSuffix.size(), kSuffix.size(), kSuffix) == 0)
+        ? filename.substr(0, filename.size() - kSuffix.size())
+        : path.stem().string();
+
+    // "profile_name"フィールドが読み取れれば表示名として使う。開けない/
+    // パース失敗時はファイル名ベースのfallbackをそのまま返す。
+    std::ifstream f(path);
+    if (f) {
+        try {
+            json j = json::parse(f, nullptr, true, true);
+            if (j.contains("profile_name") && j["profile_name"].is_string()) {
+                return j["profile_name"].get<std::string>();
+            }
+        } catch (const json::exception&) {
+        }
+    }
+    return fallback;
+}
+
 std::vector<FITOMConfig::ProfileEntry> FITOMConfig::listProfiles(const fs::path& dir)
 {
     std::vector<ProfileEntry> result;
@@ -321,22 +345,7 @@ std::vector<FITOMConfig::ProfileEntry> FITOMConfig::listProfiles(const fs::path&
 
             ProfileEntry pe;
             pe.path = p;
-            pe.displayName = filename.substr(0, filename.size() - kSuffix.size());
-
-            // "profile_name"フィールドが読み取れれば表示名として使う。
-            // パース失敗時はファイル名ベースの表示名のまま一覧に含める
-            // (選択画面上は表示するが、実際に選ばれればloadProfile()側で
-            // 改めてエラーになる)。
-            std::ifstream f(p);
-            if (f) {
-                try {
-                    json j = json::parse(f, nullptr, true, true);
-                    if (j.contains("profile_name") && j["profile_name"].is_string()) {
-                        pe.displayName = j["profile_name"].get<std::string>();
-                    }
-                } catch (const json::exception&) {
-                }
-            }
+            pe.displayName = peekProfileDisplayName(p);
             result.push_back(std::move(pe));
         }
     } catch (const fs::filesystem_error& e) {
