@@ -28,6 +28,14 @@ struct FITOMMidiInfo {
     std::string name;
 };
 
+// ─── プロファイル情報 (起動時のプロファイル選択画面用、2026年8月新設) ──────
+// FITOMConfig::listProfiles() が返す内容をUIフレームワーク非依存の型に
+// 写したもの。pathはそのままFITOMBridge::init()/loadProfile()に渡せる。
+struct FITOMProfileInfo {
+    std::string path;
+    std::string displayName; // "profile_name"フィールド、無ければファイル名
+};
+
 // ─── パッチ情報 (GUI の音色一覧用) ────────────────────────────────────────
 struct FITOMPatchInfo {
     int         bank;
@@ -195,6 +203,18 @@ public:
     bool init(const std::string& systemConfPath,
               const std::string& profilePath);
     void exit();
+
+    // fitom.conf.json (systemConfPath、空文字列も可)のprofiles.root配下
+    // (相対パスはカレントワーキングディレクトリ基点、省略時はカレント
+    // ディレクトリそのもの)にある*.profile.jsonを列挙する。init()より前
+    // (プロファイル選択前)にも呼べるよう静的関数にする(GUIのプロファイル
+    // 選択画面用、2026年8月新設)。
+    static std::vector<FITOMProfileInfo> listAvailableProfiles(const std::string& systemConfPath);
+
+    // 指定したプロファイルファイル1件の表示名("profile_name"フィールド、
+    // 無ければファイル名)。ウィンドウタイトル表示用(2026年8月新設)。
+    // init()前後どちらでも呼べるよう静的関数にする。
+    static std::string profileDisplayName(const std::string& profilePath);
 
     // ─── プロファイル切り替え ────────────────────────────────────────────
     bool loadProfile(const std::string& path);

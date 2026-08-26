@@ -5,9 +5,13 @@
 // fitom_core には直接触れず、gui/bridge (FITOMBridge) 経由でのみ
 // コアにアクセスする。
 //
-// 使い方: fitom_gui [profile.json]
+// 使い方: fitom_gui [profile.json] [fallback_profile.json]
 // プロファイルを省略した場合、コアは未初期化のまま画面のみ表示する
 // (デバイス一覧・MIDI入力一覧は空)。
+// fallback_profile.json は、profile.jsonの読み込みに失敗した場合に
+// 代わりに読み込むプロファイル。実行中のプロファイル切替(2026年8月新設、
+// renderProfileSwitchDialog参照)が、切替前のプロファイルを渡すために
+// 自動的に付与する引数で、通常ユーザーが手動指定するものではない。
 
 #include "FITOMBridge.h"
 #include "ChSettingsDialog.h"
@@ -75,6 +79,42 @@ namespace
             return fs::path(buf).parent_path();
 #endif
         return fs::current_path();
+    }
+
+    // 実行ファイル自身のフルパスを取得する(プロファイル切替時、自分自身を
+    // 新しい引数で再起動するために使う。exeDir()はディレクトリのみを返す
+    // ため、ファイル名込みで欲しい場合はこちらを使う)。取得できなければ
+    // exeDir() 配下の既定ファイル名を返す(通常は到達しない)。
+    fs::path exePath()
+    {
+#if defined(_WIN32)
+        char buf[MAX_PATH] = {};
+        DWORD n = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+        if (n > 0 && n < MAX_PATH)
+            return fs::path(buf);
+#elif defined(__linux__)
+        char buf[PATH_MAX] = {};
+        ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (n > 0)
+        {
+            buf[n] = '\0';
+            return fs::path(buf);
+        }
+#elif defined(__APPLE__)
+        char buf[PATH_MAX] = {};
+        uint32_t size = sizeof(buf);
+        if (_NSGetExecutablePath(buf, &size) == 0)
+            return fs::path(buf);
+#endif
+        return exeDir() / "fitom_gui";
+    }
+
+    // ウィンドウタイトルへ現在のプロファイル名を反映する
+    // ("FITOM_X [<profile_nameまたはファイル名>]"、2026年8月新設)。
+    void updateWindowTitle(GLFWwindow *window, const std::string &profilePath)
+    {
+        const std::string title = "FITOM_X [" + FITOMBridge::profileDisplayName(profilePath) + "]";
+        glfwSetWindowTitle(window, title.c_str());
     }
 
     // ─── エラーポップアップ ─────────────────────────────────────────────────
@@ -242,6 +282,212 @@ namespace
                 ImGui::Text("%d", dev.chCount);
             }
             ImGui::EndTable();
+        }
+    }
+
+    // ─── プロファイル選択画面 (起動時、プロファイル未指定の場合、2026年8月新設) ──
+    // fitom.conf.jsonのprofiles.root(省略時はカレントワーキングディレクトリ)
+    // 配下の*.profile.jsonを一覧し、クリックで選択・起動できるようにする。
+    struct ProfileSelectState
+    {
+        std::vector<FITOMProfileInfo> profiles;
+        bool                          scanned = false;
+    };
+
+    void rescanProfiles(ProfileSelectState &state, const std::string &systemConfArg)
+    {
+        state.profiles = FITOMBridge::listAvailableProfiles(systemConfArg);
+        state.scanned = true;
+    }
+
+    // 選択されたプロファイルのパスをoutSelectedPathへ書き込み、trueを返す。
+    // 何も選択されていなければfalseを返す(呼び出し側は毎フレーム呼んでよい)。
+    bool renderProfileSelectScreen(const std::string &systemConfArg, ProfileSelectState &state,
+                                   std::string &outSelectedPath)
+    {
+        if (!state.scanned)
+        {
+            rescanProfiles(state, systemConfArg);
+        }
+
+        ImGui::TextUnformatted("起動するプロファイルを選択してください:");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("再スキャン"))
+        {
+            rescanProfiles(state, systemConfArg);
+        }
+        ImGui::Separator();
+
+        if (state.profiles.empty())
+        {
+            ImGui::TextDisabled(
+                "プロファイル(*.profile.json)が見つかりません。");
+            ImGui::TextDisabled(
+                "fitom.conf.json の profiles.root で検索先を指定できます(省略時はカレントディレクトリ)。");
+            return false;
+        }
+
+        bool selected = false;
+        for (const auto &p : state.profiles)
+        {
+            ImGui::PushID(p.path.c_str());
+            if (ImGui::Selectable(p.displayName.c_str()))
+            {
+                outSelectedPath = p.path;
+                selected = true;
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("%s", p.path.c_str());
+            }
+            ImGui::PopID();
+        }
+        return selected;
+    }
+
+    // ─── プロファイル切替(実行中、2026年8月新設) ────────────────────────────
+    // コア(CFITOM)は「一度exit()した後にinit()し直す」という使い方を
+    // 想定した設計になっていない(CFITOM::exit()には二重呼び出し防止の
+    // 冪等ガードがあり、一度exit()すると以後のexit()は何もしなくなる。
+    // アプリ終了時の一度きりの呼び出しを前提にした設計であり、実行中の
+    // 再初期化を繰り返す用途では、次に本当に終了するときにHWプラグインの
+    // シャットダウン等が行われなくなる)。そのため、実行中のプロファイル
+    // 切替は「新しいプロファイルを引数に自分自身を再起動する」方式で実現
+    // する(ユーザー了承済み、外部パッチエディタと同じlaunchProcess()を
+    // 流用する fire-and-forget 起動)。選択直後に新プロセスを起動し、
+    // 現在のウィンドウを閉じて通常の終了処理(main()末尾のbridge.exit()等)
+    // へ流す。
+    struct ProfileSwitchState
+    {
+        bool              openPending = false;
+        ProfileSelectState select;
+    };
+
+    void openProfileSwitchDialog(ProfileSwitchState &state, const std::string &systemConfArg)
+    {
+        rescanProfiles(state.select, systemConfArg);
+        state.openPending = true;
+    }
+
+    // window: 新プロセス起動に成功した時点でこのウィンドウを閉じ、
+    // 通常のシャットダウン処理へ流すために使う。
+    // coreReady: プロファイルが選択された時点で(新プロセスの起動が
+    // 成功するかどうかに関わらず)falseへ落とし、呼び出し元(main())に
+    // このプロセスではもうMIDIモニターを描画できないことを伝える
+    // (コアは選択直後にシャットダウン済みのため)。
+    void renderProfileSwitchDialog(FITOMBridge &bridge, GLFWwindow *window,
+                                   const std::string &systemConfArg, ProfileSwitchState &state,
+                                   bool &coreReady)
+    {
+        if (state.openPending)
+        {
+            ImGui::OpenPopup("プロファイル切替");
+            state.openPending = false;
+        }
+
+        ImGui::SetNextWindowSize(ImVec2(480.0f, 320.0f), ImGuiCond_Appearing);
+        if (ImGui::BeginPopupModal("プロファイル切替"))
+        {
+            ImGui::TextUnformatted("切り替え先のプロファイルを選択してください:");
+            ImGui::TextDisabled(
+                "(選択すると新しいウィンドウを起動し、このウィンドウは終了します)");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("再スキャン"))
+            {
+                rescanProfiles(state.select, systemConfArg);
+            }
+            ImGui::Separator();
+
+            if (state.select.profiles.empty())
+            {
+                ImGui::TextDisabled("プロファイル(*.profile.json)が見つかりません。");
+            }
+            else
+            {
+                ImGui::BeginChild("##profileSwitchList", ImVec2(0.0f, 200.0f), true);
+                for (const auto &p : state.select.profiles)
+                {
+                    ImGui::PushID(p.path.c_str());
+                    if (ImGui::Selectable(p.displayName.c_str()))
+                    {
+                        // launchProcess()の子プロセス作業ディレクトリは
+                        // 実行ファイル自身のディレクトリに固定されるため、
+                        // 起動元(現在のプロセス)のCWDを基準にした相対パス
+                        // のままだと解決できなくなる。絶対パスへ変換してから
+                        // 渡す(launchPatchEditorForChannel()と同じ理由)。
+                        std::error_code ec;
+                        const fs::path absProfilePath = fs::absolute(p.path, ec);
+
+                        // 切替前(=現在)のプロファイルを新プロセスへ第2引数
+                        // (フォールバック用)として渡す。新プロセス側で選択
+                        // したプロファイルの読み込みに失敗した場合、新プロセス
+                        // 自身がこちらへ読み直す(main()のargvFallbackProfilePath
+                        // 参照)。こちらのプロセス内でexit()→init()を繰り返して
+                        // 復帰を試みるわけではない(上記コメント参照の通り、
+                        // exited_ガードのため安全に繰り返せない)。
+                        const std::string previousProfilePath = bridge.currentProfilePath();
+                        std::error_code ec2;
+                        const fs::path absPreviousProfilePath = previousProfilePath.empty()
+                            ? fs::path()
+                            : fs::absolute(previousProfilePath, ec2);
+
+                        // 新プロセスを起動する前に、必ず現在のコアを
+                        // シャットダウンしてMIDI入力ポート・HWプラグイン
+                        // (実機ならCOMポート/USB、エミュレータならオーディオ
+                        // ストリーム等、通常プロセス間で共有できない資源)・
+                        // 内部用MIDIパイプを解放する。先に新プロセスを
+                        // 起動してからこのプロセスを閉じる順序だと、新旧
+                        // 両プロセスが同じMIDIポート/HWデバイスを同時に
+                        // 掴もうとする競合状態になりうるため(2026年8月、
+                        // レビュー指摘により順序を修正)。
+                        // CFITOM::exit()は二重呼び出し防止の冪等ガード
+                        // (exited_、一度trueになったら以後リセットされない)
+                        // を持つため、ここでexit()した以上、このプロセス内で
+                        // 再度init()し直す(=起動失敗時に元のプロファイルへ
+                        // 復帰する)ことはしない。復帰を試みると、その後の
+                        // 本当の終了時にHWPluginRegistry::closeAll()等の
+                        // 後始末がexited_の再チェックで無条件にスキップされて
+                        // しまう(exit()→init()の繰り返しはそもそも想定外の
+                        // 使い方であるため)。起動に失敗した場合はこのまま
+                        // コア無しの状態にとどめ、ユーザーに手動再起動を促す。
+                        bridge.stopTimerThread();
+                        bridge.exit();
+                        coreReady = false;
+
+                        std::vector<std::string> launchArgs = { absProfilePath.string() };
+                        if (!absPreviousProfilePath.empty())
+                        {
+                            launchArgs.push_back(absPreviousProfilePath.string());
+                        }
+
+                        std::string launchError;
+                        if (launchProcess(exePath(), launchArgs, launchError))
+                        {
+                            glfwSetWindowShouldClose(window, GLFW_TRUE);
+                            ImGui::CloseCurrentPopup();
+                        }
+                        else
+                        {
+                            showErrorPopup(
+                                "プロファイル切替(再起動)に失敗しました。コアは終了済みのため、"
+                                "fitom_guiを手動で再起動してください:\n" + launchError);
+                        }
+                    }
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("%s", p.path.c_str());
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndChild();
+            }
+
+            ImGui::Separator();
+            if (ImGui::Button("閉じる", ImVec2(120.0f, 0.0f)))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
     }
 
@@ -747,7 +993,8 @@ namespace
 
     // MIDIモニター バンド。ルート画面に常時表示する主要コンテンツ。
     // MPU(16chの処理単位、現状最大4面)を`<`/`>`ボタンで切り替えられる。
-    void renderMidiMonitorBand(FITOMBridge &bridge)
+    void renderMidiMonitorBand(FITOMBridge &bridge, GLFWwindow *window,
+                               const std::string &systemConfArg, bool &coreReady)
     {
         using C = MonitorColumns;
 
@@ -758,6 +1005,7 @@ namespace
         static SystemSettingsDialog systemDialog;
         static RegisterDumpWindow regDumpWindow;
         static LevelMeterPanel levelMeterPanel;
+        static ProfileSwitchState profileSwitchState;
         // MIDIモニター本体とレジスタダンプモニターは、ルート画面上で
         // オルタネート表示(排他的に切り替え)する(2026年7月変更。以前は
         // レジスタダンプモニターを別ウィンドウとして重ねて表示していた)。
@@ -791,6 +1039,13 @@ namespace
         if (ImGui::SmallButton(showRegisterDump ? "MIDI" : "REG"))
         {
             showRegisterDump = !showRegisterDump;
+        }
+        ImGui::SameLine();
+
+        // プロファイル切替ダイアログの入り口(2026年8月新設)。
+        if (ImGui::SmallButton("プロファイル切替"))
+        {
+            openProfileSwitchDialog(profileSwitchState, systemConfArg);
         }
         ImGui::SameLine();
 
@@ -892,6 +1147,9 @@ namespace
         // システム設定ダイアログ本体(モーダル、マスターボリューム/
         // マスターピッチ)。
         systemDialog.render(bridge);
+
+        // プロファイル切替ダイアログ本体(モーダル)。
+        renderProfileSwitchDialog(bridge, window, systemConfArg, profileSwitchState, coreReady);
     }
 
 } // namespace
@@ -937,19 +1195,43 @@ int main(int argc, char **argv)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glslVersion);
 
-    // FITOMBridge初期化。プロファイルはコマンドライン第1引数で指定する
-    // (省略時はコア未初期化のまま、ウィンドウのみ表示する)。
+    // FITOMBridge初期化。プロファイルはコマンドライン第1引数で指定する。
+    // 省略時は、fitom.conf.jsonのprofiles.root(省略時はカレントワーキング
+    // ディレクトリ)配下の*.profile.jsonから選択する画面を表示する
+    // (renderProfileSelectScreen()、2026年8月新設。以前はコア未初期化のまま
+    // 「引数で指定してください」という案内のみを表示していた)。
     // fitom.conf.json は実行ファイルと同じディレクトリにあれば読み込む
     // (省略可能なシステム設定)。
     FITOMBridge &bridge = FITOMBridge::instance();
-    const std::string profilePath = (argc >= 2) ? argv[1] : std::string();
+    const std::string argvProfilePath = (argc >= 2) ? argv[1] : std::string();
+    // プロファイル切替(renderProfileSwitchDialog)が、切替前のプロファイルを
+    // 引き継ぐために自動的に付与する第2引数(2026年8月新設)。第1引数の
+    // プロファイルが不正(JSON構文エラー・存在しない等)で読み込みに
+    // 失敗した場合、こちらへフォールバックする。
+    const std::string argvFallbackProfilePath = (argc >= 3) ? argv[2] : std::string();
     const fs::path sysConfPath = exeDir() / "fitom.conf.json";
     const std::string systemConfArg = fs::exists(sysConfPath) ? sysConfPath.string() : std::string();
     bool coreReady = false;
-    if (!profilePath.empty())
+    if (!argvProfilePath.empty())
     {
-        coreReady = bridge.init(systemConfArg, profilePath);
+        coreReady = bridge.init(systemConfArg, argvProfilePath);
+        if (coreReady)
+        {
+            updateWindowTitle(window, argvProfilePath);
+        }
+        else if (!argvFallbackProfilePath.empty())
+        {
+            coreReady = bridge.init(systemConfArg, argvFallbackProfilePath);
+            if (coreReady)
+            {
+                updateWindowTitle(window, argvFallbackProfilePath);
+                showErrorPopup(
+                    "プロファイルの読み込みに失敗したため、切替前のプロファイルへ復帰しました:\n"
+                    + argvProfilePath);
+            }
+        }
     }
+    ProfileSelectState profileSelectState;
     // コアのタイマーコールバック(releaseTimer減算・ソフトウェアLFO tick等、
     // 全チップドライバが「1回の呼び出し=1ms経過」を前提にしている)は、
     // 専用の1msスレッド(apps/fitom_cliと同じCFITOM::startTimerThread())
@@ -990,16 +1272,29 @@ int main(int argc, char **argv)
         ImGui::Begin("FITOM_X_Root", nullptr, rootFlags);
         if (!coreReady)
         {
-            if (profilePath.empty())
+            if (!argvProfilePath.empty())
             {
-                ImGui::TextUnformatted(
-                    "プロファイル未指定です。コマンドライン引数で指定してください:");
-                ImGui::TextUnformatted("  fitom_gui <profile.json>");
+                // コマンドライン引数で明示指定されたのに失敗した場合は、
+                // 選択画面へは回さず固定のエラー表示のみ行う。
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+                                   "初期化に失敗しました: %s", argvProfilePath.c_str());
             }
             else
             {
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
-                                   "初期化に失敗しました: %s", profilePath.c_str());
+                std::string selectedPath;
+                if (renderProfileSelectScreen(systemConfArg, profileSelectState, selectedPath))
+                {
+                    coreReady = bridge.init(systemConfArg, selectedPath);
+                    if (coreReady)
+                    {
+                        bridge.startTimerThread();
+                        updateWindowTitle(window, selectedPath);
+                    }
+                    else
+                    {
+                        showErrorPopup("プロファイルの読み込みに失敗しました:\n" + selectedPath);
+                    }
+                }
             }
         }
         else
@@ -1009,7 +1304,7 @@ int main(int argc, char **argv)
             // ビューへの導線は今後実装する(renderDeviceList/
             // renderMidiInputList/renderMasterControlsは[[maybe_unused]]
             // として温存済み)。
-            renderMidiMonitorBand(bridge);
+            renderMidiMonitorBand(bridge, window, systemConfArg, coreReady);
         }
         ImGui::End();
 

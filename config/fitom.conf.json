@@ -3,5 +3,8 @@
     "level":   "info",
     "file":    "fitom.log",
     "console": true
+  },
+  "profiles": {
+    "root": "profiles"
   }
 }

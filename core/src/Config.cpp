@@ -294,6 +294,70 @@ bool FITOMConfig::getLogConsole(bool fallback) const
     return fallback;
 }
 
+std::string FITOMConfig::getProfileRoot(const std::string& fallback) const
+{
+    if (systemConf_.contains("profiles") && systemConf_["profiles"].contains("root"))
+        return systemConf_["profiles"]["root"].get<std::string>();
+    return fallback;
+}
+
+// --- プロファイル選択 (GUI起動時、プロファイル未指定の場合の一覧表示用) ----
+
+std::string FITOMConfig::peekProfileDisplayName(const fs::path& path)
+{
+    static const std::string kSuffix = ".profile.json";
+    const std::string filename = path.filename().string();
+    std::string fallback = (filename.size() > kSuffix.size() &&
+                             filename.compare(filename.size() - kSuffix.size(), kSuffix.size(), kSuffix) == 0)
+        ? filename.substr(0, filename.size() - kSuffix.size())
+        : path.stem().string();
+
+    // "profile_name"フィールドが読み取れれば表示名として使う。開けない/
+    // パース失敗時はファイル名ベースのfallbackをそのまま返す。
+    std::ifstream f(path);
+    if (f) {
+        try {
+            json j = json::parse(f, nullptr, true, true);
+            if (j.contains("profile_name") && j["profile_name"].is_string()) {
+                return j["profile_name"].get<std::string>();
+            }
+        } catch (const json::exception&) {
+        }
+    }
+    return fallback;
+}
+
+std::vector<FITOMConfig::ProfileEntry> FITOMConfig::listProfiles(const fs::path& dir)
+{
+    std::vector<ProfileEntry> result;
+    if (!fs::exists(dir) || !fs::is_directory(dir)) return result;
+
+    static const std::string kSuffix = ".profile.json";
+    try {
+        for (const auto& entry : fs::directory_iterator(dir)) {
+            if (!entry.is_regular_file()) continue;
+            const fs::path& p = entry.path();
+            const std::string filename = p.filename().string();
+            if (filename.size() <= kSuffix.size() ||
+                filename.compare(filename.size() - kSuffix.size(), kSuffix.size(), kSuffix) != 0) {
+                continue;
+            }
+
+            ProfileEntry pe;
+            pe.path = p;
+            pe.displayName = peekProfileDisplayName(p);
+            result.push_back(std::move(pe));
+        }
+    } catch (const fs::filesystem_error& e) {
+        FITOM_LOG_WARN("FITOMConfig::listProfiles: ディレクトリ走査に失敗: " << e.what());
+    }
+
+    std::sort(result.begin(), result.end(), [](const ProfileEntry& a, const ProfileEntry& b) {
+        return a.path.filename().string() < b.path.filename().string();
+    });
+    return result;
+}
+
 // --- レガシー INI のロード（移行期互換） ----------------------
 
 bool FITOMConfig::loadLegacyIni(const fs::path& path)
