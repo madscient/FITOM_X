@@ -9,8 +9,11 @@
 #include "fitom/FITOMdefine.h"
 #include "fitom/Sf2BankRegistry.h"
 
+#include <array>
 #include <cstdint>
+#include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <memory>
 #include <filesystem>
@@ -132,7 +135,7 @@ public:
     // 現在のプロファイル状態をpathへ書き戻す(GUIのMIDIポート設定/
     // システム設定ダイアログのOK確定用、2026年7月新設)。loadProfile()で
     // 読み込んだJSON(profileJson_)をベースに、GUIから変更されうる
-    // フィールド(midi_inputs/master_volume/master_pitch)のみ現在値で
+    // フィールド(midi_inputs/master_volume/master_pitch/part_gains)のみ現在値で
     // 上書きする。devices/hw_plugins/banks等、他のフィールドはロード時の
     // 内容がそのまま維持される。loadProfile()を一度も呼んでいない場合
     // (profileJson_が空)は空のオブジェクトをベースに書き出す。
@@ -173,6 +176,17 @@ public:
     // HWプラグイン(実機/エミュレータ問わず、IHWPluginを実装するDLL)を
     // 複数登録できる。実機かエミュレータかはFITOM本体では区別しない。
     HWPluginRegistry& getHWPluginRegistry();
+
+    // ─── 部位ごとのゲイン (プロファイルの part_gains) ─────────────────────
+    // portの部位ゲインをプラグインへ設定し、saveProfile()の保存対象として
+    // 記録する。プラグインの既定値と同じ値を設定した部位は記録から外れる
+    // (保存するのは既定値から変えた部位だけ。既定値はプラグインが決める
+    // ものなので、変えていない部位まで書き残すと、プラグイン側の既定値が
+    // 変わったときに古い値で上書きし続けることになる)。
+    // portがこのConfigが開いたHWデバイスのポートでない場合は
+    // HW_ERR_INVALID_ARG。プラグインが失敗を返した場合は何も記録せず、
+    // その戻り値を返す。
+    HWResult setPartGain(HWPort* port, const std::string& part, float gainL, float gainR);
 
     int              getDeviceCount()              const;
     IPort*           getDevicePort(int index)      const;
@@ -445,6 +459,30 @@ protected:
 
     uint8_t     masterVolume_    = 100;
     double      masterPitch_     = 440.0;
+
+    // ─── 部位ごとのゲイン (part_gains) ────────────────────────────────────
+    // デバイスはラベルではなく「プラグイン名 + HWPlugin_Openに渡すparams」で
+    // 識別する。devices[].labelは省略でき、重複も許されているため、ラベルでは
+    // 1台に決まらない。
+    struct PartGainEntry {
+        std::string    plugin;
+        nlohmann::json params;
+        std::map<std::string, std::array<float, 2>> gains;   // 部位名 → {L, R}
+        bool           matched = false;   // 今回のロードで該当デバイスがあったか
+    };
+    // 今回開けなかったデバイスのエントリも捨てずに持ち続け、そのまま書き戻す。
+    std::vector<PartGainEntry> partGains_;
+    struct PartGainTarget {
+        std::string    plugin;
+        nlohmann::json params;
+    };
+    std::unordered_map<const HWPort*, PartGainTarget> partGainTargets_;
+
+    // buildFromProfile()の先頭で呼ぶ。auto_devicesのデバイスはhw_plugins[]の
+    // 処理中に開かれるので、それより前に読んでおく必要がある。
+    void loadPartGains(const nlohmann::json& j);
+    void applyPartGains(const std::string& plugin, const nlohmann::json& params, HWPort& port);
+    PartGainEntry* findPartGainEntry(const std::string& plugin, const nlohmann::json& params);
 
     // ─── SF2直行パス (2026年7月新設) ──────────────────────────────────────
     Sf2BankRegistry               sf2Banks_;

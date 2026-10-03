@@ -225,6 +225,63 @@ void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
 これにより「物理チップ + FMエンジン内蔵hwif」混在構成でも
 ノート ON/OFF のタイミングが一致する。
 
+### 部位ごとのゲイン（オプション）
+
+チップによっては、音を複数の端子から別々に出す（OPNA の FM と SSG など）。
+この出力のひとつひとつを**部位**と呼ぶ。実機ではボード上の回路でミックスするので、
+音量のバランスは機種で違う。FM エンジン内蔵 hwif が、そのバランスを FITOM から
+調整できるようにするための関数。物理チップの hwif は実装しなくてよい。
+
+| 関数 | シグネチャ | 説明 |
+|---|---|---|
+| `HWPlugin_GetPartCount` | `uint32_t (HWHandle)` | デバイスが持つ部位の数を返す。部位を持たないデバイスは 0 |
+| `HWPlugin_GetPartName` | `const char* (HWHandle, uint32_t index)` | index 番目の部位の名前を返す。範囲外は `nullptr` |
+| `HWPlugin_SetPartGain` | `HWResult (HWHandle, const char* part, float gain_l, float gain_r)` | 部位のゲインを設定する |
+| `HWPlugin_GetPartGain` | `HWResult (HWHandle, const char* part, float* out_gain_l, float* out_gain_r)` | 部位のゲインを取得する |
+
+**4 関数は組でエクスポートする。** FITOM は `HWPlugin_GetPartCount` の有無だけで
+組の有無を判定する。
+
+| エクスポートの状態 | FITOM の扱い |
+|---|---|
+| 4 関数とも無い | どの関数も呼ばず、どのデバイスも部位を持たないものとして扱う |
+| 4 関数ともある | 部位ごとのゲインに対応するプラグインとして扱う |
+| `HWPlugin_GetPartCount` があり、残りのどれかが欠ける | プラグインのロードに失敗させる（必須関数の欠落と同じ扱い） |
+
+**実装要件**
+
+- **部位の名前**：プラグインが決める文字列で、大文字小文字を区別する（`"FM"`、`"SSG"` 等）。
+  並ぶ順序は定めない。FITOM は部位を index ではなく名前で識別する。
+- **文字列の寿命**：`HWPlugin_GetPartName` が返す文字列は `HWPlugin_Close(handle)` まで
+  有効であること。FITOM は解放しない。
+- **ゲインの値**：L/R 独立で、1.0 = 0 dB。`pan` による L/R の振り分けとは別に掛かる
+  （実際に掛かるのは両者の積）。
+- **既定値と寿命**：設定したゲインは `HWPlugin_Close(handle)` で既定値に戻すこと。
+  既定値はプラグインが決める値で、1.0 とは限らない。`HWPlugin_Open` の直後に
+  `HWPlugin_GetPartGain` で取得できること。
+- **部位を持たないデバイス**：`HWPlugin_GetPartCount` は 0 を返す。
+- **音声出力の動作中に呼び出せること。**
+
+| 戻り値 | 条件 |
+|---|---|
+| `HW_OK` | 成功 |
+| `HW_ERR_INVALID_ARG` | `handle` / `part` / 出力先が `nullptr`、またはデバイスが持たない部位の名前 |
+| `HW_ERR_IO` | それ以外の理由による失敗 |
+
+**FITOM コア側の使い方:**
+
+```
+1. HWPlugin_Open の直後に GetPartCount / GetPartName / GetPartGain を呼び、
+   部位の一覧と既定値を控える（既定値を読めなかった部位は調整対象にしない）
+2. 続けて、プロファイルの part_gains に保存されている値を SetPartGain で適用する
+3. 演奏中は、GUI のシステム設定ダイアログの操作に応じて SetPartGain を呼ぶ
+```
+
+- FITOM が保存するのは、既定値から変えた部位の値だけ。変えていない部位には
+  `HWPlugin_SetPartGain` を呼ばず、プラグインの既定値のまま鳴らす
+  （プロファイル側の書式は `config-design.md`「部位ごとのゲイン」参照）。
+- 組をエクスポートしないプラグインのデバイスには、4 関数のどれも呼ばない。
+
 ---
 
 ## アドレス変換規則
@@ -286,6 +343,8 @@ FITOM が渡す `addr` は**実チップのレジスタ配置**である。エ�
 | `HWPlugin_Open`, `HWPlugin_Close`, `HWPlugin_Reset` | 初期化・終了フェーズのみ。スレッドセーフ不要 |
 | `HWPlugin_GetLatencySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
 | `HWPlugin_SetDelaySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
+| `HWPlugin_GetPartCount`, `HWPlugin_GetPartName` | `HWPlugin_Open` の直後に、同じスレッドから呼ばれる。スレッドセーフ不要 |
+| `HWPlugin_SetPartGain`, `HWPlugin_GetPartGain` | **音声出力（オーディオコールバック）と並行して呼び出せること**。`HWPlugin_Open` の直後（初期化フェーズ）と、演奏中の GUI 操作から呼ばれる。演奏中の呼び出しは、MIDI 処理・タイマーと同じロックで直列化されるので、それらが行う `HWPlugin_Write` / `HWPlugin_WriteBlock` とは並行しない。`HWPlugin_Open` / `HWPlugin_Close` とも並行しない |
 | `HWPlugin_Shutdown` | 終了フェーズに一度だけ、メインスレッドから呼ばれる。**呼び出しから戻るまでに、内部のバックグラウンドスレッド(オーディオコールバック等)を完全に停止・joinし終えていること**(詳細は「プラグイン全体のシャットダウン」節参照) |
 
 ---
@@ -317,6 +376,8 @@ target_link_libraries(fitom_hw PRIVATE
 - `HWPlugin_GetLatencySamples` — `return 0;`（物理チップは即時）
 - `HWPlugin_SetDelaySamples` — キューイング遅延の実装
 
+部位ごとのゲインの 4 関数は実装しない（ミックスはボード上の回路が行う）。
+
 ---
 
 ## fitom_fmhwif.dll のビルド（将来実装）
@@ -337,6 +398,8 @@ target_link_libraries(fitom_fmhwif PRIVATE
 - `HWPlugin_GetLatencySamples` — `return buffer_frames;`
 - `HWPlugin_SetDelaySamples` — 通常 no-op（自身のバッファ=基準レイテンシ）
 - `HWPlugin_Write` — 内部の FM エンジンにレジスタ書き込みを転送
+- `HWPlugin_GetPartCount` / `GetPartName` / `SetPartGain` / `GetPartGain` — 内部の FM エンジンが
+  持つ部位ごとのゲインを中継する（「部位ごとのゲイン」節参照）
 
 ---
 

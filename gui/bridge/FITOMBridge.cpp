@@ -480,6 +480,30 @@ std::vector<FITOMChipInfo> FITOMBridge::getHwChips() const
     return result;
 }
 
+std::vector<FITOMPartGain> FITOMBridge::getHwChipPartGains(int chipIndex) const
+{
+    std::vector<FITOMPartGain> result;
+    if (!initialized_) return result;
+
+    for (const auto& src : fitom::CFITOM::instance().getPhysicalChipPartGains(chipIndex)) {
+        FITOMPartGain pg;
+        pg.name     = src.name;
+        pg.gainL    = src.gainL;
+        pg.gainR    = src.gainR;
+        pg.defaultL = src.defaultL;
+        pg.defaultR = src.defaultR;
+        result.push_back(std::move(pg));
+    }
+    return result;
+}
+
+bool FITOMBridge::setHwChipPartGain(int chipIndex, const std::string& part,
+                                    float gainL, float gainR)
+{
+    if (!initialized_) return false;
+    return fitom::CFITOM::instance().setPhysicalChipPartGain(chipIndex, part, gainL, gainR);
+}
+
 std::vector<uint8_t> FITOMBridge::getHwChipRegisterDump(int chipIndex) const
 {
     if (!initialized_) return {};

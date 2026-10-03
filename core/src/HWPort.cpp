@@ -39,6 +39,16 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
     // HWPlugin_Shutdown (2026年7月新設): 未エクスポートのプラグインとの
     // 後方互換のためoptional。詳細はIHWPlugin.hの宣言コメント参照。
     self->Shutdown_          = l.symOptional<PFN_Shutdown        >("HWPlugin_Shutdown");
+    // 部位ごとのゲインは4関数で1組。組の有無は先頭(GetPartCount)だけで
+    // 判定し、先頭があるのに残りが欠けるプラグインは必須シンボルの欠落と
+    // 同じくロード失敗にする(契約に合わないDLLを「部位なし」として
+    // 黙って通さないため)。
+    self->GetPartCount = l.symOptional<PFN_GetPartCount>("HWPlugin_GetPartCount");
+    if (self->GetPartCount) {
+        self->GetPartName = l.symRequired<PFN_GetPartName>("HWPlugin_GetPartName");
+        self->SetPartGain = l.symRequired<PFN_SetPartGain>("HWPlugin_SetPartGain");
+        self->GetPartGain = l.symRequired<PFN_GetPartGain>("HWPlugin_GetPartGain");
+    }
 
     FITOM_LOG_INFO("HWPlugin loaded: " << self->name()
         << " from " << dllPath.string());
@@ -140,6 +150,19 @@ HWPort::HWPort(std::shared_ptr<HWPluginInstance> plugin,
             + ") params=" + paramsJson);
     }
     FITOM_LOG_INFO("HWPort opened: " << paramsJson);
+
+    if (plugin_->GetPartCount) {
+        const uint32_t n = plugin_->GetPartCount(handle_);
+        for (uint32_t i = 0; i < n; ++i) {
+            const char* name = plugin_->GetPartName(handle_, i);
+            Part part;
+            if (!name || plugin_->GetPartGain(handle_, name,
+                                              &part.defaultL, &part.defaultR) != HW_OK)
+                continue;
+            part.name = name;
+            parts_.push_back(std::move(part));
+        }
+    }
 }
 
 HWPort::~HWPort()
@@ -164,6 +187,22 @@ void HWPort::setDelaySamples(uint32_t delay_samples)
     if (!handle_ || !plugin_ || !plugin_->SetDelaySamples)
         return;     // 実装なし → 何もしない (旧 DLL との互換)
     plugin_->SetDelaySamples(handle_, delay_samples);
+}
+
+// ── 部位ごとのゲイン ─────────────────────────────────────────────────────────
+
+HWResult HWPort::setPartGain(const std::string& part, float gainL, float gainR)
+{
+    if (!handle_ || !plugin_ || !plugin_->GetPartCount)
+        return HW_ERR_INVALID_ARG;   // 部位を持たないデバイス → どの名前も該当しない
+    return plugin_->SetPartGain(handle_, part.c_str(), gainL, gainR);
+}
+
+HWResult HWPort::getPartGain(const std::string& part, float& gainL, float& gainR) const
+{
+    if (!handle_ || !plugin_ || !plugin_->GetPartCount)
+        return HW_ERR_INVALID_ARG;
+    return plugin_->GetPartGain(handle_, part.c_str(), &gainL, &gainR);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

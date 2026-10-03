@@ -20,6 +20,8 @@
 #include <nlohmann/json.hpp>
 #include <boost/format.hpp>
 
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -376,6 +378,8 @@ bool FITOMConfig::loadLegacyIni(const fs::path& path)
 bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                                     const std::filesystem::path& baseDir)
 {
+    loadPartGains(j);
+
     // --- HW プラグイン登録 (実機/エミュレータ問わず、IHWPluginを実装する
     //     DLLを複数登録できる。devices[]側で名前を指定して使い分ける) ---
     if (j.contains("hw_plugins") && j["hw_plugins"].is_array()) {
@@ -477,6 +481,13 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
     if (j.contains("devices") && j["devices"].is_array()) {
         for (const auto& dev : j["devices"]) {
             buildDevice(dev);
+        }
+    }
+
+    for (const auto& pg : partGains_) {
+        if (!pg.matched) {
+            FITOM_LOG_WARN("part_gains: 該当するデバイスがありません (plugin='" << pg.plugin
+                << "', params=" << pg.params.dump() << ")。設定は保持します");
         }
     }
 
@@ -616,6 +627,7 @@ void FITOMConfig::buildDevice(const json& dev)
 
         try {
             auto port = std::make_shared<HWPort>(plugin, params.dump());
+            applyPartGains(pluginName, params, *port);
             std::shared_ptr<IPort> port2;
             if (extraSlot >= 0) {
                 json params2 = params;
@@ -757,6 +769,119 @@ void FITOMConfig::setMidiInputNames(const std::vector<std::string>& names) {
     midiInputNames_ = names;
 }
 
+// floatをそのままJSONへ入れるとdoubleへ拡張され、0.37fが0.3700000047683716と
+// 書き出される。読み戻してfloatにすると元の値に一致する、最短の10進表記を選ぶ。
+static double shortestDecimal(float v)
+{
+    for (int precision = 1; precision <= 9; ++precision) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%.*g", precision, static_cast<double>(v));
+        const double d = std::strtod(buf, nullptr);
+        if (static_cast<float>(d) == v) return d;
+    }
+    return static_cast<double>(v);
+}
+
+// ================================================================
+//  部位ごとのゲイン (part_gains)
+// ================================================================
+
+void FITOMConfig::loadPartGains(const json& j)
+{
+    partGains_.clear();
+    partGainTargets_.clear();
+
+    if (!j.contains("part_gains")) return;
+    const json& arr = j["part_gains"];
+    if (!arr.is_array()) {
+        FITOM_LOG_WARN("part_gains: 配列ではありません。無視します");
+        return;
+    }
+    for (const auto& e : arr) {
+        if (!e.is_object()
+            || !e.contains("plugin") || !e["plugin"].is_string()
+            || !e.contains("params") || !e["params"].is_object()
+            || !e.contains("gains")  || !e["gains"].is_object()) {
+            FITOM_LOG_WARN("part_gains: エントリの形式が不正です。無視します: " << e.dump());
+            continue;
+        }
+        PartGainEntry pg;
+        pg.plugin = e["plugin"].get<std::string>();
+        pg.params = e["params"];
+        for (auto it = e["gains"].begin(); it != e["gains"].end(); ++it) {
+            const json& v = it.value();
+            if (!v.is_array() || v.size() != 2 || !v[0].is_number() || !v[1].is_number()) {
+                FITOM_LOG_WARN("part_gains: '" << it.key()
+                    << "' の値が [L, R] の形式ではありません。無視します");
+                continue;
+            }
+            pg.gains[it.key()] = { v[0].get<float>(), v[1].get<float>() };
+        }
+        partGains_.push_back(std::move(pg));
+    }
+}
+
+FITOMConfig::PartGainEntry* FITOMConfig::findPartGainEntry(const std::string& plugin,
+                                                            const json& params)
+{
+    for (auto& pg : partGains_) {
+        if (pg.plugin == plugin && pg.params == params) return &pg;
+    }
+    return nullptr;
+}
+
+void FITOMConfig::applyPartGains(const std::string& plugin, const json& params, HWPort& port)
+{
+    partGainTargets_[&port] = PartGainTarget{ plugin, params };
+
+    PartGainEntry* pg = findPartGainEntry(plugin, params);
+    if (!pg) return;
+    pg->matched = true;
+    for (const auto& [part, g] : pg->gains) {
+        HWResult r = port.setPartGain(part, g[0], g[1]);
+        if (r != HW_OK) {
+            FITOM_LOG_WARN("part_gains: 部位 '" << part << "' のゲインを設定できません (code="
+                << static_cast<int>(r) << ", plugin='" << plugin
+                << "', params=" << params.dump() << ")");
+            continue;
+        }
+        FITOM_LOG_INFO("part_gains: " << part << " = [" << g[0] << ", " << g[1]
+            << "] (plugin='" << plugin << "', params=" << params.dump() << ")");
+    }
+}
+
+HWResult FITOMConfig::setPartGain(HWPort* port, const std::string& part,
+                                  float gainL, float gainR)
+{
+    auto target = partGainTargets_.find(port);
+    if (!port || target == partGainTargets_.end()) return HW_ERR_INVALID_ARG;
+
+    HWResult r = port->setPartGain(part, gainL, gainR);
+    if (r != HW_OK) return r;
+
+    const auto& parts = port->getParts();
+    auto def = std::find_if(parts.begin(), parts.end(),
+        [&](const HWPort::Part& p) { return p.name == part; });
+    const bool isDefault = def != parts.end()
+                        && def->defaultL == gainL && def->defaultR == gainR;
+
+    PartGainEntry* pg = findPartGainEntry(target->second.plugin, target->second.params);
+    if (isDefault) {
+        if (pg) pg->gains.erase(part);
+        return HW_OK;
+    }
+    if (!pg) {
+        PartGainEntry created;
+        created.plugin  = target->second.plugin;
+        created.params  = target->second.params;
+        created.matched = true;
+        partGains_.push_back(std::move(created));
+        pg = &partGains_.back();
+    }
+    pg->gains[part] = { gainL, gainR };
+    return HW_OK;
+}
+
 bool FITOMConfig::saveProfile(const std::filesystem::path& path) const {
     json j = profileJson_.is_object() ? profileJson_ : json::object();
 
@@ -767,6 +892,18 @@ bool FITOMConfig::saveProfile(const std::filesystem::path& path) const {
     j["midi_inputs"]   = midiInputs;
     j["master_volume"] = static_cast<int>(masterVolume_);
     j["master_pitch"]  = masterPitch_;
+
+    json partGains = json::array();
+    for (const auto& pg : partGains_) {
+        if (pg.gains.empty()) continue;
+        json gains = json::object();
+        for (const auto& [part, g] : pg.gains) {
+            gains[part] = json::array({ shortestDecimal(g[0]), shortestDecimal(g[1]) });
+        }
+        partGains.push_back({ {"plugin", pg.plugin}, {"params", pg.params}, {"gains", gains} });
+    }
+    if (partGains.empty()) j.erase("part_gains");
+    else                   j["part_gains"] = std::move(partGains);
 
     std::ofstream ofs(path);
     if (!ofs) {

@@ -238,6 +238,19 @@ struct PhysicalChipChannelState {
 };
 
 // ================================================================
+//  PhysicalChipPartGain: 物理チップの部位1つ分のゲイン
+//  (部位 = チップが別々の端子から出す出力のひとつ。OPNAのFMとSSG等。
+//   plugin_sdk/include/fitom/IHWPlugin.h「部位ごとのゲイン」参照)
+// ================================================================
+struct PhysicalChipPartGain {
+    std::string name;
+    float gainL    = 1.0f;   // 現在値 (1.0 = 0 dB)
+    float gainR    = 1.0f;
+    float defaultL = 1.0f;   // プラグインの既定値 (1.0とは限らない)
+    float defaultR = 1.0f;
+};
+
+// ================================================================
 //  CFITOM: コアシングルトン
 // ================================================================
 class CFITOM {
@@ -303,6 +316,20 @@ public:
     // getDeviceCount()と同じ添字(既存のgetDevices()の列挙と一致)。
     // 範囲外・デバイス無しの場合は空配列を返す。
     std::vector<PhysicalChipChannelState> getLogicalDeviceChannelStates(int deviceIndex) const;
+
+    // ─── 部位ごとのゲイン ─────────────────────────────────────────────────
+    // indexはgetPhysicalChipInfo()と同じ添字。部位を持たないチップと範囲外の
+    // indexでは、getは空配列、setはfalseを返す。
+    // setで変えた値はFITOMConfigが保存対象として記録する
+    // (FITOMConfig::setPartGain()参照)。
+    //
+    // どちらもprocessMutex_を取る。HWPlugin_SetPartGain/GetPartGainを
+    // HWPlugin_Writeと並行して呼んでよいかを契約が定めていないため、
+    // レジスタ書き込みを行うMIDI処理・タイマーと同じロックで直列化する。
+    // したがってMIDI処理の中(processMutex_を保持した状態)からは呼べない。
+    std::vector<PhysicalChipPartGain> getPhysicalChipPartGains(int index) const;
+    bool setPhysicalChipPartGain(int index, const std::string& part,
+                                 float gainL, float gainR);
 
     FITOMConfig& getConfig() const { return *config_; }
     PatchManager& getPatchManager() { return *patchMgr_; }

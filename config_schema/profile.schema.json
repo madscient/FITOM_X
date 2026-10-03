@@ -646,6 +646,57 @@
       "maximum": 450.0,
       "default": 440.0,
       "description": "マスターピッチ(基準A音のHz)。GUIのシステム設定ダイアログから変更可能。省略時は440.0。"
+    },
+    "part_gains": {
+      "type": "array",
+      "description": "部位ごとのゲイン。部位とは、チップが別々の端子から出す出力のひとつ(OPNAのFMとSSG等)で、対応するHWプラグインのデバイスだけが持つ。GUIのシステム設定ダイアログから変更でき、OK確定時に書き戻される。書かれるのはプラグインの既定値から変えた部位だけで、ここに無い部位は既定値のまま鳴る。省略時はすべて既定値。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plugin",
+          "params",
+          "gains"
+        ],
+        "properties": {
+          "plugin": {
+            "type": "string",
+            "description": "対象デバイスのHWプラグイン名(hw_plugins[].name)。"
+          },
+          "params": {
+            "type": "object",
+            "description": "対象デバイスを特定する値。そのデバイスを開くときにHWプラグインへ渡すパラメータ一式と同じ内容(devices[]のエントリからif/label/plugin/extra_slot/rhythm_mode/stereo_pairを除いた残り。auto_devicesのデバイスは、プラグインが列挙したエントリそのもの)。キーの並び順は問わないが、値は完全に一致している必要がある。labelは省略も重複もできるため、デバイスの特定には使わない。",
+            "examples": [
+              {
+                "type": "FMHWIF",
+                "engine": "YMEngine",
+                "chip": "OPNA",
+                "index": 0
+              }
+            ]
+          },
+          "gains": {
+            "type": "object",
+            "description": "部位名 → [L, R]。線形の倍率で、1.0 = 0 dB。部位名はHWプラグインが決める文字列で、大文字小文字を区別する。",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "examples": [
+              {
+                "SSG": [
+                  0.5,
+                  0.5
+                ]
+              }
+            ]
+          }
+        }
+      }
     }
   },
   "examples": [

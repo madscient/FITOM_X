@@ -65,6 +65,18 @@ struct FITOMChipInfo {
     std::string physicalName;
 };
 
+// ─── 部位ごとのゲイン ───────────────────────────────────────────────────────
+// 部位 = チップが別々の端子から出す出力のひとつ(OPNAのFMとSSG等)。
+// ゲインはL/R独立の線形値で、1.0 = 0 dB。既定値はhwifプラグインが決める
+// 値で、1.0とは限らない。
+struct FITOMPartGain {
+    std::string name;
+    float gainL    = 1.0f;
+    float gainR    = 1.0f;
+    float defaultL = 1.0f;
+    float defaultR = 1.0f;
+};
+
 // ─── チャンネルレベルメーター情報 (2026年7月新設) ──────────────────────────
 // FITOM_Xは音声合成を行わないため実際の音量信号は存在しない。soundingと
 // velocityによる疑似メーター表示である点に注意(CFITOM::PhysicalChipChannelState
@@ -220,7 +232,7 @@ public:
     bool loadProfile(const std::string& path);
     std::string currentProfilePath() const;
     // 現在のプロファイル状態(MIDIポート設定/マスターボリューム・
-    // マスターピッチ)を、現在ロード中のプロファイルファイルへ書き戻す
+    // マスターピッチ/部位ごとのゲイン)を、現在ロード中のプロファイルファイルへ書き戻す
     // (MIDIポート設定ダイアログ/システム設定ダイアログのOK確定用、
     // 2026年7月新設)。currentProfilePath()が空(プロファイル未指定で起動)
     // の場合は何もせずfalseを返す。
@@ -238,6 +250,14 @@ public:
     // 以降にpack)。実チップからの読み出しAPIは存在しないため、FITOM_Xが
     // 最後に書き込んだ値をそのまま返す。chipIndexが範囲外の場合は空配列。
     std::vector<uint8_t> getHwChipRegisterDump(int chipIndex) const;
+
+    // ─── 部位ごとのゲイン ────────────────────────────────────────────────
+    // chipIndexはgetHwChips()のindex。部位を持たないチップでは空配列/false。
+    // setHwChipPartGain()は即座に音へ反映する。変えた値はsaveCurrentProfile()で
+    // プロファイルへ書き戻される(既定値と同じ値に戻した部位は保存されない)。
+    std::vector<FITOMPartGain> getHwChipPartGains(int chipIndex) const;
+    bool setHwChipPartGain(int chipIndex, const std::string& part,
+                           float gainL, float gainR);
 
     // チャンネルレベルメーター用のバンド一覧(2026年7月新設)。表示単位の
     // 粒度が異なる2種類を用意し、GUI側で切り替えられるようにする。

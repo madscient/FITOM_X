@@ -15,6 +15,7 @@
 #include <string>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 #include <filesystem>
 
 namespace fitom {
@@ -39,6 +40,10 @@ public:
     using PFN_IsOpen            = bool     (FITOM_HWP_CALL*)(HWHandle);
     using PFN_GetLatencySamples = uint32_t (FITOM_HWP_CALL*)(HWHandle);
     using PFN_SetDelaySamples   = void     (FITOM_HWP_CALL*)(HWHandle, uint32_t);
+    using PFN_GetPartCount      = uint32_t    (FITOM_HWP_CALL*)(HWHandle);
+    using PFN_GetPartName       = const char* (FITOM_HWP_CALL*)(HWHandle, uint32_t);
+    using PFN_SetPartGain       = HWResult    (FITOM_HWP_CALL*)(HWHandle, const char*, float, float);
+    using PFN_GetPartGain       = HWResult    (FITOM_HWP_CALL*)(HWHandle, const char*, float*, float*);
 
     static std::shared_ptr<HWPluginInstance> load(const std::filesystem::path& dllPath);
 
@@ -70,6 +75,12 @@ public:
     PFN_IsOpen            IsOpen            = nullptr;
     PFN_GetLatencySamples GetLatencySamples = nullptr;   // optional: 0 if absent
     PFN_SetDelaySamples   SetDelaySamples   = nullptr;   // optional: no-op if absent
+    // 部位ごとのゲインは4関数で1組。GetPartCountがnullptrなら残りも
+    // nullptrで、非nullptrなら残りも必ず非nullptr(load()が保証する)。
+    PFN_GetPartCount      GetPartCount      = nullptr;
+    PFN_GetPartName       GetPartName       = nullptr;
+    PFN_SetPartGain       SetPartGain       = nullptr;
+    PFN_GetPartGain       GetPartGain       = nullptr;
 
 private:
     HWPluginInstance() = default;
@@ -150,6 +161,23 @@ public:
     uint32_t getLatencySamples() const;
     void     setDelaySamples(uint32_t delay_samples);
 
+    // 部位ごとのゲイン (IHWPlugin.h の任意関数の組)。DLL が組を実装しない
+    // 場合、このポートは部位を持たないデバイスとして振る舞う
+    // (getParts()は空、set/getはHW_ERR_INVALID_ARG)。
+    struct Part {
+        std::string name;
+        float       defaultL = 1.0f;
+        float       defaultR = 1.0f;
+    };
+    // 部位の一覧と既定値。既定値はプラグインが決め、設定したゲインは
+    // Close まで残るので、読めるのは HWPlugin_Open の直後だけ。コンストラクタで
+    // 一度だけ読んで控える。既定値を読めなかった部位は載らない。
+    // 並び順はプラグイン側で定まっていないため、保存・照合には添字ではなく
+    // 名前を使うこと。
+    const std::vector<Part>& getParts() const { return parts_; }
+    HWResult setPartGain(const std::string& part, float gainL, float gainR);
+    HWResult getPartGain(const std::string& part, float& gainL, float& gainR) const;
+
     // ─── レジスタダンプモニター用シャドウレジスタ (2026年7月新設) ────────
     // write()/writeBurst()で実際にHWPlugin_Write/WriteBlockへ渡した値を
     // そのままミラーする「最後に書き込んだ値」のキャッシュ。IHWPluginには
@@ -176,6 +204,7 @@ private:
     std::shared_ptr<HWPluginInstance> plugin_;
     HWHandle handle_ = nullptr;
     std::string paramsJson_;   // HWPlugin_Open()に渡した生JSON(物理チップ名の組み立て用)
+    std::vector<Part> parts_;
 
     mutable std::mutex          shadowMutex_;
     std::array<uint8_t, 0x10000> shadowRegs_{};

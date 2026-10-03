@@ -32,7 +32,32 @@ add_executable(fitom_tests
     test_ssgs.cpp
     test_silence_bank.cpp
     test_y8960.cpp
+    test_hwport.cpp
+    test_part_gain.cpp
 )
+
+# -------------------------------------------------------
+#  HWPort テスト用の検証用 HW プラグイン
+# -------------------------------------------------------
+# 同じソースを、部位ゲインの組のエクスポート状態だけ変えて3通りにビルドする
+# (stub_hwplugin/StubHWPlugin.cpp 冒頭参照)。DLL のパスはコンパイル定義で
+# テストへ渡す(テストのソースにビルドディレクトリの構成を持ち込まない)。
+function(fitom_add_stub_hwplugin target macro)
+    add_library(${target} SHARED stub_hwplugin/StubHWPlugin.cpp)
+    target_compile_definitions(${target} PRIVATE FITOM_HW_PLUGIN_EXPORTS ${ARGN})
+    target_link_libraries(${target} PRIVATE
+        fitom_plugin_sdk
+        nlohmann_json::nlohmann_json)
+    add_dependencies(fitom_tests ${target})
+    target_compile_definitions(fitom_tests PRIVATE
+        "${macro}=\"$<TARGET_FILE:${target}>\"")
+endfunction()
+
+fitom_add_stub_hwplugin(fitom_test_hwplugin_parts     FITOM_TEST_HWPLUGIN_PARTS)
+fitom_add_stub_hwplugin(fitom_test_hwplugin_no_parts  FITOM_TEST_HWPLUGIN_NO_PARTS
+    STUB_HWPLUGIN_NO_PARTS)
+fitom_add_stub_hwplugin(fitom_test_hwplugin_head_only FITOM_TEST_HWPLUGIN_HEAD_ONLY
+    STUB_HWPLUGIN_HEAD_ONLY)
 
 # 内部用MIDIパイプ(fitom_midi_pipe)の回帰テスト。DLL自体が
 # FITOM_BUILD_BACKEND_MIDI_PIPE=OFF(既定)ではビルドされないため、

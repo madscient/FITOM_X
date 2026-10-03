@@ -930,6 +930,36 @@ std::vector<uint8_t> CFITOM::getPhysicalChipRegisterDump(int index) const
     return result;
 }
 
+std::vector<PhysicalChipPartGain> CFITOM::getPhysicalChipPartGains(int index) const
+{
+    std::vector<PhysicalChipPartGain> result;
+    if (index < 0 || index >= static_cast<int>(physicalChips_.size())) return result;
+    const HWPort* port = physicalChips_[index].port;
+    if (!port) return result;
+
+    std::lock_guard<std::mutex> lk(processMutex_);
+    for (const auto& part : port->getParts()) {
+        PhysicalChipPartGain pg;
+        pg.name     = part.name;
+        pg.defaultL = part.defaultL;
+        pg.defaultR = part.defaultR;
+        if (port->getPartGain(part.name, pg.gainL, pg.gainR) != HW_OK) continue;
+        result.push_back(std::move(pg));
+    }
+    return result;
+}
+
+bool CFITOM::setPhysicalChipPartGain(int index, const std::string& part,
+                                     float gainL, float gainR)
+{
+    if (!config_ || index < 0 || index >= static_cast<int>(physicalChips_.size())) return false;
+    HWPort* port = physicalChips_[index].port;
+    if (!port) return false;
+
+    std::lock_guard<std::mutex> lk(processMutex_);
+    return config_->setPartGain(port, part, gainL, gainR) == HW_OK;
+}
+
 // panpot(-64..+63)とチップのパン方式から、定位を表すL/Rゲイン係数を求める。
 // 大きい側が必ず1.0になるよう正規化する(PhysicalChipChannelState参照)。
 static void computePanGains(FITOMConfig::ChipPanType panType, int8_t panpot,

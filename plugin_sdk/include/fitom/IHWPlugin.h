@@ -135,6 +135,40 @@ FITOM_HWP_API uint32_t FITOM_HWP_CALL HWPlugin_GetLatencySamples(HWHandle handle
 FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_SetDelaySamples(
     HWHandle handle, uint32_t delay_samples);
 
+// ─── 部位ごとのゲイン（任意実装）─────────────────────────────────────────────
+// チップによっては、音を複数の端子から別々に出す（OPNA の FM と SSG 等）。
+// この出力のひとつひとつを部位と呼び、名前の文字列で指定する
+// （"FM"、"SSG" 等。大文字小文字を区別する）。実機ではボード上の回路で
+// ミックスするので、音量のバランスは機種で違う。FM エンジン内蔵 hwif が、
+// そのバランスを FITOM から調整できるようにするための関数。
+//
+// 4 関数は組でエクスポートする。FITOM は HWPlugin_GetPartCount の有無で判定し、
+// 無ければどれも呼ばず、どのデバイスも部位を持たないものとして扱う
+// （物理チップの hwif は実装しなくてよい）。
+// HWPlugin_GetPartCount があるのに残りが欠けているプラグインは、FITOM が
+// ロードに失敗させる。
+//
+// HWPlugin_GetPartCount:
+//   デバイスが持つ部位の数を返す。部位を持たないデバイスは 0。
+// HWPlugin_GetPartName:
+//   index 番目の部位の名前を返す。範囲外は nullptr。
+//   文字列は HWPlugin_Close(handle) まで有効（呼び出し元は解放しない）。
+//   並ぶ順序は定めない。設定ファイル等に書き残すときは名前を使うこと。
+// HWPlugin_SetPartGain / HWPlugin_GetPartGain:
+//   gain は L/R 独立で、1.0 = 0 dB。pan による L/R の振り分けとは別に掛かる
+//   （実際に掛かるのは両者の積）。
+//   デバイスが持たない部位の名前と nullptr は HW_ERR_INVALID_ARG。
+//   設定したゲインは HWPlugin_Close(handle) で既定値に戻る。
+//   既定値は、HWPlugin_Open の直後に HWPlugin_GetPartGain で取得できる。
+//   音声出力の動作中に呼び出せること。
+FITOM_HWP_API uint32_t    FITOM_HWP_CALL HWPlugin_GetPartCount(HWHandle handle);
+FITOM_HWP_API const char* FITOM_HWP_CALL HWPlugin_GetPartName(
+    HWHandle handle, uint32_t index);
+FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_SetPartGain(
+    HWHandle handle, const char* part, float gain_l, float gain_r);
+FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_GetPartGain(
+    HWHandle handle, const char* part, float* out_gain_l, float* out_gain_r);
+
 #ifdef __cplusplus
 }
 #endif
