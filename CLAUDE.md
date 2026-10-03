@@ -75,6 +75,7 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 - 新しいgetter/setterを追加する前に、既存のインターフェース(`IMidiCh`・`ISoundDevice`等)に既に同等のものが無いか確認する
 - JSONスキーマ(`config_schema/`)を変更したら、対応するリファレンスドキュメント(下記)も更新する
 - チップドライバがHwPatchのどのフィールドを参照するか(または値の変換方法)を変えたら、`spec/chip-capabilities.json`も同じセッション内で更新する
+- **コミットのauthor/committerは、このリポジトリの履歴で使われている単一のIDに揃える。** マシンのグローバル設定とは別なので、クローンごとに`git log -1 --format='%an <%ae>' origin/main`の値を`git config --local user.name`/`user.email`へ設定してからコミットする
 
 ## 主要ドキュメント
 
