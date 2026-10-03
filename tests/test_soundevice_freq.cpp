@@ -532,7 +532,7 @@ TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasRele
 }
 
 // 実機報告: CC#1(ソフトウェアLFO)を使った後、まったく別のMIDIチャンネルで
-// 発音した音にそのLFOが漏れて掛かることがある(2026年7月、[7c3d276]で
+// 発音した音にそのLFOが漏れて掛かることがある(2026年7月、[fb21e46]で
 // CInstCh::noteOn()がdev->setCC1Modulation(devCh, pmDepth_, ...)を毎ノート
 // オン強制pushするよう修正したはずだったが、後日同じ症状が再現すると
 // 報告された)。

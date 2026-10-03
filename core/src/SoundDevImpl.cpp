@@ -295,7 +295,7 @@ void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
     // CInstCh::noteOn()はassignCh()(→status=Assigned)の直後、まだ
     // dev->noteOn()(→status=Running)を呼ぶ前にこの関数を呼んで直前の
     // 別MIDIチャンネルのCC#1残留値を上書きする(devChの使い回し対策、
-    // 2026年7月修正[7c3d276]参照)。isActive()のみで判定すると、この
+    // 2026年7月修正[fb21e46]参照)。isActive()のみで判定すると、この
     // 呼び出し時点ではまだstatus==Assignedのため常に早期returnし、
     // 当の修正が実質無効化されていた(2026年7月再修正)。
     if (!s.isActive() && !s.isAssigned()) return;
