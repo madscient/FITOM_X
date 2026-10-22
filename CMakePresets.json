@@ -26,12 +26,11 @@
     },
     {
       "name": "windows-vs2022-x64-vcpkg",
-      "displayName": "Windows (VS2022 / x64 / vcpkg で boost・json を取得)",
+      "displayName": "Windows (VS2022 / x64 / vcpkg で boost を取得)",
       "inherits": "windows-vs2022-x64",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "FITOM_USE_VCPKG_JSON": "ON"
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
     },
     {
@@ -50,12 +49,11 @@
     },
     {
       "name": "windows-vs2026-x64-vcpkg",
-      "displayName": "Windows (VS2026 / x64 / vcpkg で boost・json を取得)",
+      "displayName": "Windows (VS2026 / x64 / vcpkg で boost を取得)",
       "inherits": "windows-vs2026-x64",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "FITOM_USE_VCPKG_JSON": "ON"
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
     },
     {
