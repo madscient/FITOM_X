@@ -1104,7 +1104,7 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
   bankNoではなく各サブチップ自身のdeviceTypeでバンクを解決する**：OPNA/
   OPNB/OPNBBのADPCM-Bは同一VoicePatchType(`VOICE_PATCH_ADPCMB`)のため
   `mergeSpannableDevices()`により1つの`CSpanDevice`へ自動的に束ねられる
-  (`docs/STATUS.md`参照、実機ログで確認済み)。しかし`CMultiDevice::
+  (`docs/worklog/2026-07.md`参照、実機ログで確認済み)。しかし`CMultiDevice::
   setPcmRegistry()`(`MultiDevice.h`)は当初、代表デバイス(束ねの先頭、
   例えばOPNA)のdeviceTypeから解決した1つの`bankNo`を全サブチップへ
   ブロードキャストしていたため、OPNB/OPNBBのサブチップにもOPNA用バンクが

@@ -71,6 +71,7 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 - **変更のたびに必ずビルド・既存テスト(`tests/fitom_tests`)を実行して確認する。** 警告が増えていないかも確認すること
 - **最小限の原則的な変更を優先する。** その場しのぎの回避策より、既存のアーキテクチャに沿った一貫性のある実装を選ぶ
 - **チップファミリー間の一貫性は必須要件。** ある制約を1つのチップに適用したら、類似する他のチップにも同じ設計を適用する
+- **`docs/STATUS.md`には現在の状態だけを書く。** 修正の経緯や調査の記録は`docs/worklog/YYYY-MM.md`(その月のファイル)の末尾に足す
 - **ドキュメントと実装の設計意図を一致させ続ける。** 挙動を変えたら、対応する`docs/`配下の記述も同じコミット/セッション内で更新する
 - 新しいgetter/setterを追加する前に、既存のインターフェース(`IMidiCh`・`ISoundDevice`等)に既に同等のものが無いか確認する
 - JSONスキーマ(`config_schema/`)を変更したら、対応するリファレンスドキュメント(下記)も更新する
@@ -82,6 +83,7 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 | ドキュメント | 内容 |
 |---|---|
 | `docs/STATUS.md` | 完成状況の一覧(**作業開始前に必読**) |
+| `docs/worklog/` | 変更・修正・調査の経緯(月ごとに1ファイル。約束事は`docs/worklog/README.md`) |
 | `docs/manuals/midi-message-reference.md` | エンドユーザー向けMIDIメッセージ仕様(CC/RPN/NRPN/SysEx全般) |
 | `docs/manuals/midi-implementation-chart.md` | 上記の対応状況一覧表 |
 | `docs/midi-implementation-status.md` | 開発者向けMIDI実装状況(内部実装詳細つき) |

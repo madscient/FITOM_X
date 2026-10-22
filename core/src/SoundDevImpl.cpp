@@ -444,10 +444,8 @@ void CSoundDevice::setVolume(uint8_t ch, uint8_t vol, bool update)
     if (s.volume != vol) {
         s.volume = vol;
         s.volDirty = true;
-        // effectiveTL()をvol変更後の値に再計算する(2026年7月修正。
-        // 以前はonVolumeChange()自体が一度も呼ばれておらず、発音中の
-        // CC7変更がupdateVolExp()経由の音量書き込みに反映されなかった。
-        // STATUS.md参照)。
+        // effectiveTL()は計算済みの値を返すだけでvol変更では再計算されない。
+        // チップドライバのupdateVolExp()が読む前に再計算しておく。
         s.proc.onVolumeChange(s.volume, s.expression, buildVoiceForCh(ch), computeCarrierMask(ch));
     }
     if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }
@@ -468,8 +466,7 @@ void CSoundDevice::setExpression(uint8_t ch, uint8_t exp, bool update)
     if (s.expression != exp) {
         s.expression = exp;
         s.volDirty = true;
-        // setVolume()と同様、effectiveTL()をexp変更後の値に再計算する
-        // (2026年7月修正。STATUS.md参照)。
+        // setVolume()と同様、effectiveTL()をexp変更後の値に再計算する。
         s.proc.onVolumeChange(s.volume, s.expression, buildVoiceForCh(ch), computeCarrierMask(ch));
     }
     if (update && s.volDirty) { updateVolExp(ch); s.volDirty = false; }

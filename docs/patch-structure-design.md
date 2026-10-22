@@ -431,7 +431,7 @@ SampleZone::swBank/swProg → SwPatch への参照(HwPatch::swBank/swProgと同�
 音量計算へ即座に反映されない、本機能とは独立した既存の全チップ共通の課題が
 あることが判明していた。この課題は後続セッション(2026年7月)で修正済み
 (`CSoundDevice::setVolume()`/`setExpression()`が値変更時に
-`onVolumeChange()`を呼ぶよう変更、`STATUS.md`参照)。
+`onVolumeChange()`を呼ぶよう変更、`docs/worklog/2026-07.md`参照)。
 
 ### サンプルベース音源系（ADPCM-B/ADPCM-A/PCMD8/AWM）の解決
 
