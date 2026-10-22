@@ -33,16 +33,19 @@ banks/
       { "group": "OPZ", "bank": 0, "file": "banks/OPZ/tx81z/tx81z_1.hwbank.json" },
       { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" },
       { "group": "OPL2","bank": 0, "file": "banks/OPL2/alsa/std_opl2.hwbank.json" },
-      { "group": "OPL3","bank": 0, "file": "banks/OPL3/alsa/std_opl3.hwbank.json" }
-    ],
-    "drum_banks": [
-      { "group": "OPL2","bank": 0, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
+      { "group": "OPL3","bank": 0, "file": "banks/OPL3/alsa/std_opl3.hwbank.json" },
+      { "group": "OPL2","bank": 1, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
     ]
   }
 }
 ```
 
-### banksセクションの外部ファイル分離(2026年7月〜)
+`alsa_drums.hwbank.json` はドラム音色を集めた通常の HwBank で、`hw_banks` に登録して使います。
+ドラムチャンネルで鳴らす音色の割り当ては、`drum_banks` に1プログラム1ファイルで
+ドラムキット(`*.drumkit.json`)を並べて行います(書式の例は
+`config/profiles/opnAdpcm.drumkit.json`)。
+
+### banksセクションの外部ファイル分離
 
 `banks` に文字列を指定すると、外部ファイルへのパスとして扱われます。
 参照先JSONオブジェクト(`hw_banks`/`sw_banks`/`patch_banks`/`drum_banks`/
@@ -60,15 +63,13 @@ banks/
 // bank.profile.json (上記から参照される側。中身は banks オブジェクトと同一形式)
 {
   "hw_banks": [
-    { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" }
-  ],
-  "drum_banks": [
-    { "group": "OPL2","bank": 0, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
+    { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" },
+    { "group": "OPL2","bank": 1, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
   ]
 }
 ```
 
-### bank_overrides による部分上書き・追加(2026年7月〜)
+### bank_overrides による部分上書き・追加
 
 `banks`(共通プリセットバンクセット、外部参照でもインライン直書きでも可)
 に対し、プロファイルごとに一部のバンクだけを差し替えたり追加したりしたい
@@ -81,7 +82,7 @@ banks/
 
 | 配列 | 識別キー |
 |---|---|
-| `hw_banks` | `group` + `bank` (バンク番号はチップ族ごとに独立した名前空間のため) |
+| `hw_banks` | `group` + `bank` (バンク番号はチップ種別ごとに独立した名前空間のため) |
 | `drum_banks` | `prog` (ドラムバンクは`bank`を持たず常に固定バンク0) |
 | `pcm_banks` | `bank` + `chip` (同一bank番号を複数の物理チップ向けに使い分けられるため) |
 | `sf2_banks` / `sw_banks` / `patch_banks` / `scc_wave_banks` | `bank` |
@@ -119,4 +120,4 @@ banks/
 | OPZ  | `OPZ/tx81z/tx81z_1.hwbank.json`      | 32  | TX81Z (波形拡張付き) |
 | OPL2 | `OPL2/alsa/std_opl2.hwbank.json`     | 128 | ALSA sbiload std.sb |
 | OPL3 | `OPL3/alsa/std_opl3.hwbank.json`     | 128 | ALSA sbiload std.o3 |
-| drums| `drums/OPL2/alsa_drums.hwbank.json`  | -   | ALSA std drums |
+| drums| `drums/OPL2/alsa_drums.hwbank.json`  | 128 | ALSA std drums |

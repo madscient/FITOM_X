@@ -1,5 +1,6 @@
 {
-  "_comment": "OPL系音色(OPL2/OPL3)を使用するプロファイルのフォーマット例示。実際の演奏用バンクはこのリポジトリでは管理しない(banks/README.md参照)ため、hw_banks/drum_banksには例示用に残した代表バンクのみを並べてある。",
+  "profile_name": "OPL系(OPL2/OPL3)のフォーマット例示",
+  "_comment": "OPL系音色(OPL2/OPL3)を使用するプロファイルのフォーマット例示。実際の演奏用バンクはこのリポジトリでは管理しない(banks/README.md参照)ため、hw_banksには例示用に残した代表バンクのみを並べてある。ドラム用のHwBank(alsa_drums)はOPL2のバンク1として登録し、直接デバイス選択で選べるようにしてある。",
   "hw_plugins": [
     { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
   ],
@@ -15,21 +16,16 @@
       "pan": 0
     }
   ],
-  "midi_input": { "port": 0 },
-  "channel_map": [
-    { "midi_ch": 1,  "device_index": 0, "poly": 14 },
-    { "midi_ch": 10, "device_index": 0, "poly": 1, "is_drum": true }
-  ],
+  "midi_inputs": [ "MIDI キーボード" ],
   "banks": {
     "hw_banks": [
       { "group": "OPL3", "bank": 0, "file": "../../banks/OPL3/alsa/std_opl3.hwbank.json" },
-      { "group": "OPL2", "bank": 0, "file": "../../banks/OPL2/alsa/std_opl2.hwbank.json" }
+      { "group": "OPL2", "bank": 0, "file": "../../banks/OPL2/alsa/std_opl2.hwbank.json" },
+      { "group": "OPL2", "bank": 1, "file": "../../banks/drums/OPL2/alsa_drums.hwbank.json" }
     ],
     "patch_banks": [
       { "bank": 0, "file": "" }
     ],
-    "drum_banks": [
-      { "group": "OPL2", "bank": 0, "file": "../../banks/drums/OPL2/alsa_drums.hwbank.json" }
-    ]
+    "drum_banks": []
   }
 }

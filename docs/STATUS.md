@@ -238,9 +238,8 @@
 **記録・出力**
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/vgm-recording.md`
 
-**例示ファイル・利用者向けマニュアル**
-- `config/profiles/`のFITOM用プロファイル6本のうち5本(`emulator_only`/`preset_opl`/`preset_opm`/`preset_opn`/`studio`)が`profile.schema.json`に通らない。廃止済みの`channel_map`・`midi_input`を持ち、必須の`profile_name`が無いものがある(**確認済み**: jsonschemaで検証)。通るのは`emulator_opn_family.profile.json`だけ。`*_profile.example.json`の2本はHWプラグイン側の設定ファイルでこのスキーマの対象外
-- `docs/manuals/midi-message-reference.md`の2.6節(SF2直行パス)に、FitomSf2IFが未実装という古い注記と日付が残っている
+**利用者向けマニュアル**
+- `docs/manuals/`の`.docx`版2本(MIDIメッセージ リファレンス、MIDIインプリメンテーション・チャート)は7月15日に追加されたきりで、md版と同期していない
 
 **プラグイン SDK**
 - `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す

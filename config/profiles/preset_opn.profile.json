@@ -1,4 +1,5 @@
 {
+  "profile_name": "OPN系(OPNA/OPN2)のフォーマット例示",
   "_comment": "OPN系音色(OPNA/OPN2)とGMバンクを使用するプロファイルサンプル",
   "hw_plugins": [
     { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll" }
@@ -15,12 +16,7 @@
       "pan": 0
     }
   ],
-  "midi_input": { "port": 0 },
-  "channel_map": [
-    { "midi_ch": 1, "device_index": 0, "poly": 6 },
-    { "midi_ch": 2, "device_index": 0, "poly": 6 },
-    { "midi_ch": 3, "device_index": 0, "poly": 3 }
-  ],
+  "midi_inputs": [ "MIDI キーボード" ],
   "banks": {
     "hw_banks": [
       { "group": "OPN", "bank": 0, "file": "../../banks/OPN/gm/necopn_gm.hwbank.json" }
