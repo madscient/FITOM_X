@@ -109,12 +109,16 @@ static const RegSizeEntry kRegSizeMap[] = {
     // OPL系 (COPL/COPL2/C3801): 0x01-0xF5
     {DEVICE_OPL,   0x100}, {DEVICE_OPL2,  0x100}, {DEVICE_Y8950, 0x100},
     {DEVICE_OPL_RHY, 0x100},
+    // OPL2EX (Y8960): 0xF6-0xFE がFMの定位、0xFF がADPCMの定位
+    {DEVICE_OPL2EX, 0x100}, {DEVICE_OPL2EX_RHY, 0x100}, {DEVICE_ADPCMB_OPL2EX, 0x100},
     // OPL3 (COPL3/COPL3_2): 上記を2バンク (0x000-0x0F5 / 0x100-0x1F5)
     {DEVICE_OPL3,  0x200}, {DEVICE_OPL3_2, 0x200}, {DEVICE_OPN3_L3, 0x200},
 
     // OPLL系 (COPLL/COPLL2/COPLLP/COPLLX/CVRC7): 0x00-0x38
     {DEVICE_OPLL,  0x040}, {DEVICE_OPLL2, 0x040}, {DEVICE_OPLLP, 0x040},
     {DEVICE_OPLLX, 0x040}, {DEVICE_VRC7,  0x040}, {DEVICE_OPLL_RHY, 0x040},
+    // OPLLEX (Y8960): 0x40-0x48 がBANK、0x50-0x58 が定位
+    {DEVICE_OPLLEX, 0x060}, {DEVICE_OPLLEX_RHY, 0x060},
 
     // PSG系 (CSSG/CEPSG/CDCSG): 0x00-0x0D。CDCSGはラッチ方式でアドレス0のみ
     {DEVICE_SSG,   0x010}, {DEVICE_PSG,   0x010}, {DEVICE_SSGL,  0x010},
@@ -124,6 +128,8 @@ static const RegSizeEntry kRegSizeMap[] = {
     {DEVICE_SSGS,  0x040}, {DEVICE_SSGS2, 0x040},
     // SSGS3 (CSSGS3): 2ユニットを機能ごとにまとめ直した0x10-0x32
     {DEVICE_SSGS3, 0x040},
+    // SSGEX (CSSGEX、Y8960): SSG-1が0x00-0x0D、SSG-2が0x10-0x1D、音量/定位が0x20-0x2E
+    {DEVICE_SSGEX, 0x030},
     // SSGS ADPCM (CSSGSAdPcm): 0x40-0xB3 (8ch × 4レジスタ、16byteおき)
     {DEVICE_SSGS_ADPCM, 0x0C0},
     // DSG (CDSG/CDSGRhythm): 実効レジスタは0x80-0x9F だが、regBak_ は
@@ -136,6 +142,8 @@ static const RegSizeEntry kRegSizeMap[] = {
     // SCC (CSCC): 波形テーブル(無印は4ch分・SCC+は5ch分、各0x20) + 制御
     // レジスタ + deform(0xC0)。無印とSCC+を1つの範囲で覆う
     {DEVICE_SCC,   0x0D0}, {DEVICE_SCCP,  0x0D0},
+    // SCCEX (Y8960): 無印SCCの配置 + 定位 0x100-0x104
+    {DEVICE_SCCEX, 0x110},
     {DEVICE_SAA,   0x020},  // 0x00-0x1C
 
     // ADPCM/PCM系 (CYmDelta/CAdPcm2610A/CAdPcmZ280、ADPCM_new.cppのRegMap参照)
@@ -173,23 +181,26 @@ static const ChannelPrefixEntry kChannelPrefixMap[] = {
     {DEVICE_OPL,     "FM"}, {DEVICE_OPL2,   "FM"},
     {DEVICE_OPLL,    "FM"}, {DEVICE_OPLL2,  "FM"}, {DEVICE_OPLLP,  "FM"},
     {DEVICE_OPLLX,   "FM"}, {DEVICE_VRC7,   "FM"},
+    {DEVICE_OPLLEX,  "FM"}, {DEVICE_OPL2EX, "FM"},
     // OPL3は4OP/2OPの2つのサブデバイスに分かれる。OPL3系はch数が多く
     // バーの幅が狭いため、"4OP"/"2OP"ではなく1文字(Quad/Dual)にする。
     {DEVICE_OPL3,    "Q"},
     {DEVICE_OPL3_2,  "D"},
     // 内蔵リズム音源
     {DEVICE_OPNA_RHY, "RHY"}, {DEVICE_OPL_RHY, "RHY"}, {DEVICE_OPLL_RHY, "RHY"},
-    {DEVICE_DSG_RHY, "RHY"},
+    {DEVICE_DSG_RHY, "RHY"}, {DEVICE_OPLLEX_RHY, "RHY"}, {DEVICE_OPL2EX_RHY, "RHY"},
     // PSG系
     {DEVICE_SSG,   "SSG"}, {DEVICE_DCSG, "DCSG"}, {DEVICE_DSG, "DSG"},
     {DEVICE_SSGS,  "SSG"}, {DEVICE_SSGS2, "SSG"}, {DEVICE_SSGS3, "SSG"},
-    {DEVICE_SCC,   "SCC"}, {DEVICE_SCCP, "SCC"},
+    {DEVICE_SSGEX, "SSG"},
+    {DEVICE_SCC,   "SCC"}, {DEVICE_SCCP, "SCC"}, {DEVICE_SCCEX, "SCC"},
     {DEVICE_SAA,   "SAA"},
     // ADPCM/PCM系
     {DEVICE_ADPCMA,       "PA"},
     {DEVICE_ADPCMB,       "PB"},
     {DEVICE_ADPCMB_OPNA,  "PB"},
     {DEVICE_ADPCMB_Y8950, "PB"},
+    {DEVICE_ADPCMB_OPL2EX, "PB"},
     {DEVICE_ADPCM,        "PCM"},
     {DEVICE_PCMD8,        "PCM"},
     {DEVICE_SSGS_ADPCM,   "PCM"},
@@ -215,6 +226,8 @@ static const RhythmChannelNameEntry kRhythmChannelNameMap[] = {
     {DEVICE_OPNA_RHY, {"BD", "SD", "CY", "HH", "Tom", "Rim"}},
     {DEVICE_OPL_RHY,  {"HH", "CY", "Tom", "SD", "BD", nullptr}},
     {DEVICE_OPLL_RHY, {"HH", "CY", "Tom", "SD", "BD", nullptr}},
+    {DEVICE_OPLLEX_RHY, {"HH", "CY", "Tom", "SD", "BD", nullptr}},
+    {DEVICE_OPL2EX_RHY, {"HH", "CY", "Tom", "SD", "BD", nullptr}},
     {DEVICE_DSG_RHY,  {"BD", "HC", "SD", "HHo", "HHc", nullptr}},
     {DEVICE_NONE,     {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},
 };
@@ -708,7 +721,7 @@ void CFITOM::initDevices()
         }
 
         // SCC デバイスには SccWaveRegistry を注入する (非対応チップは空実装で無視される)
-        if (deviceType == DEVICE_SCC || deviceType == DEVICE_SCCP) {
+        if (deviceType == DEVICE_SCC || deviceType == DEVICE_SCCP || deviceType == DEVICE_SCCEX) {
             dev->setWaveRegistry(&patchMgr_->sccWaveRegistry());
             FITOM_LOG_DEBUG("Device[" << i << "]: SccWaveRegistry injected");
         }

@@ -628,6 +628,74 @@ protected:
 };
 
 // ================================================================
+//  CSSGEX (Y8960 SSG部) — YM2149 相当 × 2 ユニット = 6ch
+//
+//  YMZ705 (CSSGS) と同じく「ユニットごと」の配置だが、ユニットの間隔と
+//  定位の扱いが違う:
+//    $00-$0D  SSG-1 (YM2149 と同一配置)
+//    $10-$1D  SSG-2 (YM2149 と同一配置)
+//    $20-$22 / $24-$26  CH 1A-1C / 2A-2C の音量 (0-128、128 で等倍)
+//    $28-$2A / $2C-$2E  CH 1A-1C / 2A-2C の定位 (8bit、1=左端/128=中央/255=右端)
+//  クロックは SSG ブロックの動作クロックそのもの (単体の YM2149 と同じ意味)。
+//  FITOM は音量を YM2149 互換の4bit音量レジスタで作るため、chごとの音量は
+//  常に 128 (等倍) で固定する。
+// ================================================================
+class CSSGEX : public CSSGS {
+public:
+    CSSGEX(IPort* port, int ssgClock)
+        : CSSGS(port, ssgClock, DEVICE_SSGEX) {}
+
+    std::string getDescriptor() const override { return "SSGEX (Y8960 SSG) 6ch"; }
+
+    void init() override {
+        CSSGS::init();
+        for (uint8_t ch = 0; ch < maxChs_; ++ch)
+            setReg(chVolReg(ch), kChVolFull, true);
+    }
+
+protected:
+    static constexpr uint16_t kUnitStride = 0x10;
+    static constexpr uint8_t  kChVolFull  = 128;
+
+    uint8_t panMax() const override { return 255; }
+
+    static uint16_t exUnitBase(uint8_t ch) {
+        return static_cast<uint16_t>(unitOf(ch) * kUnitStride);
+    }
+    static uint16_t chVolReg(uint8_t ch) {
+        return static_cast<uint16_t>(0x20 + unitOf(ch) * 4 + unitCh(ch));
+    }
+
+    uint16_t toneReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(exUnitBase(ch) + unitCh(ch) * 2);
+    }
+    uint16_t noiseReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(exUnitBase(ch) + 0x06);
+    }
+    uint16_t mixReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(exUnitBase(ch) + 0x07);
+    }
+    uint16_t volReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(exUnitBase(ch) + 0x08 + unitCh(ch));
+    }
+    uint16_t envPeriodReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(exUnitBase(ch) + 0x0B);
+    }
+    uint16_t envShapeReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(exUnitBase(ch) + 0x0D);
+    }
+    uint16_t panReg(uint8_t ch) const override {
+        return static_cast<uint16_t>(0x28 + unitOf(ch) * 4 + unitCh(ch));
+    }
+
+    // 定位は端と中央だけが仕様で決まっている8bit値のため、CSSGS の線形
+    // 割り付け (0..panMax) ではなく Y8960 共通の変換を使う。
+    void updatePanpot(uint8_t ch) override {
+        setReg(panReg(ch), fitom::y8960PanValue(chState_[ch].panpot), false);
+    }
+};
+
+// ================================================================
 //  CDCSG (SN76489 DCSG)
 //  レジスタアクセスは writeRaw (アドレスなし、常にポート0)
 //  周波数はトーン期間 (TonePeriod)、4ch (tone*3 + noise)
@@ -718,8 +786,12 @@ protected:
 };
 
 // ================================================================
-//  CSCC (SCC / SCC+)
+//  CSCC (SCC / SCC+ / Y8960 SCC部)
 //  SCC は 5ch、各チャンネルに 32 バイトの波形テーブルがある
+//
+//  Y8960 の SCC部 (DEVICE_SCCEX) は無印SCCと同じ配置 (ch3/ch4 の波形共有も
+//  同じ) に、chごとの定位レジスタ (実機の 0x9900-0x9904、チップ基準の
+//  相対番地で 0x100-0x104。8bit、1=左端/128=中央/255=右端) を足したもの。
 //
 //  B-1 対応:
 //    FmHwOp::WS = 波形番号 (0〜127) → SccWaveRegistry から波形を引く
@@ -746,17 +818,21 @@ public:
     // (emu2212)固有のレジスタであり実機には存在しないため書き込まない。
     static constexpr RegMap kRegSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
     static constexpr RegMap kRegSCCP = {0x00, 0xA0, 0xAA, 0xAF, 0xC0};
+    static constexpr uint16_t kPanRegEX = 0x100;  // DEVICE_SCCEX のみ
 
     CSCC(IPort* port, int sampleRate, uint8_t devId = DEVICE_SCC)
-        : CPSGBase(devId, port, 0xD0, 5, sampleRate,
+        : CPSGBase(devId, port, devId == DEVICE_SCCEX ? 0x110 : 0xD0, 5, sampleRate,
                    2, FNUM_OFFSET, FnumTableType::TonePeriod)
         , reg_(devId == DEVICE_SCCP ? kRegSCCP : kRegSCC)
         , waveReg_(nullptr)
     {}
 
     std::string getDescriptor() const override {
-        return (deviceType_ == DEVICE_SCCP) ? "SCC+ (K052539) 5ch"
-                                            : "SCC (K051649) 5ch";
+        switch (deviceType_) {
+        case DEVICE_SCCP:  return "SCC+ (K052539) 5ch";
+        case DEVICE_SCCEX: return "SCCEX (Y8960 SCC) 5ch";
+        default:           return "SCC (K051649) 5ch";
+        }
     }
 
     // PatchManager から SccWaveRegistry を注入する
@@ -774,11 +850,13 @@ public:
             setReg(static_cast<uint16_t>(reg_.amplitude + ch),     0x00, true);
             setReg(static_cast<uint16_t>(reg_.frequency + ch * 2), 0x00, true);
             setReg(static_cast<uint16_t>(reg_.frequency + ch * 2 + 1), 0x00, true);
+            if (deviceType_ == DEVICE_SCCEX)
+                setReg(static_cast<uint16_t>(kPanRegEX + ch), fitom::y8960PanValue(0), true);
         }
         // WS=0 の矩形波を全チャンネルに書き込む
         // (無印SCCのch4はch3と波形メモリを共有するため書かない。updateVoice参照)
         for (uint8_t ch = 0; ch < 5; ++ch) {
-            if (deviceType_ == DEVICE_SCC && ch == 4) continue;
+            if (sharesCh34Wave() && ch == 4) continue;
             const int8_t* data = waveReg_
                 ? waveReg_->getWaveData(waveBankNo_, 0)
                 : SccWaveBank{}.getWaveData(0);
@@ -787,6 +865,9 @@ public:
     }
 
 protected:
+    // 無印SCCの配置 (ch3/ch4 が波形メモリを共有) を持つか。SCC+ だけが共有しない。
+    bool sharesCh34Wave() const { return deviceType_ != DEVICE_SCCP; }
+
     const RegMap           reg_;
     const SccWaveRegistry* waveReg_     = nullptr;
     int                    waveBankNo_  = 0;
@@ -815,7 +896,7 @@ protected:
         // ため、queryCh()がch3と同一波形の場合のみch4を割り当てる前提で、
         // ch4への実際のレジスタ書き込みはスキップする(ch3が既に正しい波形を
         // 書き込み済みのため、ch4は何もしなくてもch3のデータをそのまま使う)。
-        if (deviceType_ == DEVICE_SCC && ch == 4) {
+        if (sharesCh34Wave() && ch == 4) {
             prevWS_[4] = ws;
             return;
         }
@@ -833,7 +914,7 @@ protected:
     // ch3が既に確保している波形と完全に一致する場合のみch4を割り当てる。
     // SCC+ (DEVICE_SCCP) はこの制約が解消されているため通常の空きch検索を使う。
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
-        if (deviceType_ != DEVICE_SCC) {
+        if (!sharesCh34Wave()) {
             return CSoundDevice::queryCh(owner, patch, mode);
         }
         // ch0-2は制約なし、通常通り空きを探す
@@ -889,6 +970,11 @@ protected:
         if (keyOn) {
             setReg(reg_.enable, static_cast<uint8_t>(getReg(reg_.enable) | (1u << ch)), true);
         }
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        if (deviceType_ != DEVICE_SCCEX) return;
+        setReg(static_cast<uint16_t>(kPanRegEX + ch), fitom::y8960PanValue(chState_[ch].panpot));
     }
 };
 
@@ -1287,6 +1373,7 @@ namespace fitom {
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr)  { return std::make_unique<CSSG>(p, sr); }
 std::unique_ptr<ISoundDevice> createCSSGS(IPort* p, int sr, uint32_t deviceType) {
     if (deviceType == DEVICE_SSGS3) return std::make_unique<CSSGS3>(p, sr);
+    if (deviceType == DEVICE_SSGEX) return std::make_unique<CSSGEX>(p, sr);
     return std::make_unique<CSSGS>(p, sr, static_cast<uint8_t>(deviceType));
 }
 std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr) { return std::make_unique<CEPSG>(p, sr); }

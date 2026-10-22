@@ -299,22 +299,32 @@ protected:
 };
 
 // ================================================================
-//  COPL2EX — Y8960 拡張OPL2部のFMコア (ymfm::y8960opl2ex 相当)
+//  COPL2EX — Y8960 拡張OPL2部のFMコア
 //
-//  参照実装 ..\Y8960emu\src\opl2ex.h によれば、ADPCM-B用に横取りされる
-//  レジスタ(0x07,0x09-0x12,0x15-0x17,0x08下位4bit,0x18-0x19)以外は
-//  すべてym3812(OPL2)本体へそのまま渡される。よってFM部の挙動は
-//  COPL2と完全に同一で、ADPCM-B部は既存のY8950(DEVICE_ADPCMB_Y8950)と
-//  同一レジスタ配置のためCYmDeltaをkY8950_DeltaTのまま流用できる
-//  (ADPCM_new.cpp、DEVICE_ADPCMB_OPL2EX参照)。本クラスはCOPL2を
-//  devId/chipLabelだけ差し替えて再利用する。
+//  FM部のレジスタはOPL2(YM3812)と同一で、ch0-8の定位レジスタ(0xF6-0xFE、
+//  8bit、1=左端/128=中央/255=右端)だけが追加されている。ADPCM-B部はY8950と
+//  同一レジスタ配置(+定位0xFF)で、別サブデバイスが担当する(ADPCM_new.cpp、
+//  DEVICE_ADPCMB_OPL2EX参照)。本クラスはCOPL2に定位の書き込みだけを足す。
+//  0xC0+chのbit5-4(OPL3のL/R出力ビットの位置)はこのチップでは意味を
+//  持たないため、COPL::updatePanpot()の書き込みは使わない。
 // ================================================================
 class COPL2EX : public COPL2 {
 public:
     COPL2EX(IPort* port, int sampleRate, bool rhythmMode = false)
         : COPL2(port, sampleRate, rhythmMode, DEVICE_OPL2EX) {}
+
+    // 仕様上のリセット値(中央=128)をシャドウへ載せる。リズム用のch6-8もここで揃う。
+    void init() override {
+        COPL2::init();
+        for (uint8_t ch = 0; ch < 9; ++ch)
+            setReg(static_cast<uint16_t>(0xF6 + ch), fitom::y8960PanValue(0), true);
+    }
 protected:
     std::string chipLabel() const override { return "OPL2EX (Y8960 ext-OPL2)"; }
+
+    void updatePanpot(uint8_t ch) override {
+        setReg(static_cast<uint16_t>(0xF6 + ch), fitom::y8960PanValue(chState_[ch].panpot));
+    }
 };
 
 // ================================================================
@@ -781,8 +791,8 @@ private:
 // ================================================================
 class COPLRhythm : public CSoundDevice {
 public:
-    COPLRhythm(IPort* port, int /*sampleRate*/)
-        : CSoundDevice(DEVICE_OPL_RHY, 5, port,
+    COPLRhythm(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL_RHY)
+        : CSoundDevice(devId, 5, port,
                        COPL::kMasterClock, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
@@ -974,6 +984,33 @@ protected:
     void updateTL(uint8_t, uint8_t, uint8_t) override {}
 };
 
+// ================================================================
+//  COPL2EXRhythm: Y8960 拡張OPL2部の内蔵リズム
+//
+//  リズムの音は、使う物理chの定位レジスタ(0xF6+ch)に従う。ch7(HH/SD)・
+//  ch8(CYM/TOM)は2パートで1つの定位を共有するため、Fnumと同じくSD/TOM側
+//  だけが書き、HH/CYMは書かない(COPLLEXRhythmと同じ規則)。
+// ================================================================
+class COPL2EXRhythm : public COPLRhythm {
+public:
+    COPL2EXRhythm(IPort* port, int sampleRate)
+        : COPLRhythm(port, sampleRate, DEVICE_OPL2EX_RHY) {}
+
+    std::string getDescriptor() const override { return "OPL2EX Rhythm 5ch"; }
+
+protected:
+    void updateVoice(uint8_t ch) override {
+        COPLRhythm::updateVoice(ch);
+        updatePanpot(ch);
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        if (ch == 0 || ch == 1) return; // HH/CYM: 共有chの定位はSD/TOMが持つ
+        setReg(static_cast<uint16_t>(0xF6 + kRhythmMapCh[ch]),
+               fitom::y8960PanValue(chState_[ch].panpot));
+    }
+};
+
 } // namespace fitom
 
 namespace fitom {
@@ -987,6 +1024,7 @@ std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_u
 std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode)
     { return std::make_unique<COPL3_2>(p, sr, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr) { return std::make_unique<COPLRhythm>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int sr) { return std::make_unique<COPL2EXRhythm>(p, sr); }
 
 // ================================================================
 //  フォールバック受け入れ判定

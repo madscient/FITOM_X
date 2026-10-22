@@ -32,7 +32,9 @@ std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSGS(IPort* p, int sr, uint32_t deviceType);
@@ -148,6 +150,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPN3_L3:   return createCOPL3(port, sampleRate);
     case DEVICE_OPL3_2:    return createCOPL3_2(port, sampleRate, rhythmMode);
     case DEVICE_OPL_RHY:   return createCOPLRhythm(port, sampleRate);
+    case DEVICE_OPL2EX_RHY: return createCOPL2EXRhythm(port, sampleRate);
 
     case DEVICE_OPLL:      return createCOPLL(port, sampleRate, mode);
     case DEVICE_OPLL2:     return createCOPLL2(port, sampleRate, mode);
@@ -156,6 +159,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPLLEX:    return createCOPLLEX(port, sampleRate, mode);
     case DEVICE_VRC7:      return createCVRC7(port, sampleRate);
     case DEVICE_OPLL_RHY:  return createCOPLLRhythm(port, sampleRate);
+    case DEVICE_OPLLEX_RHY: return createCOPLLEXRhythm(port, sampleRate);
 
     case DEVICE_SSG:
     case DEVICE_PSG:
@@ -172,6 +176,10 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
                                 port,
                                 ssgsSsgBlockClock(deviceType, port, sampleRate, clockDivider),
                                 deviceType);
+    // Y8960 の SSG部は SSGS と同じ CSSGS 系だが、プロファイルに書くクロックは
+    // SSG ブロックの動作クロックそのもの (単体の SSG と同じ意味) のため換算しない。
+    case DEVICE_SSGEX:     return createCSSGS(port, psgMasterClock(port, sampleRate, clockDivider),
+                                              deviceType);
     case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider));
 
     case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider));
@@ -180,7 +188,8 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_DSG:       return createCDSG(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_DSG_RHY:   return createCDSGRhythm(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_SCC:
-    case DEVICE_SCCP:      return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider),
+    case DEVICE_SCCP:
+    case DEVICE_SCCEX:     return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider),
                                               deviceType);
     // CSAA1099はマスタークロックをドライバ側の定数として持つため対象外。
     case DEVICE_SAA:       return createCSAA1099(port, sampleRate);
@@ -217,8 +226,8 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_OPL: case DEVICE_OPL2: case DEVICE_OPL2EX:
     case DEVICE_OPLL: case DEVICE_OPLL2: case DEVICE_OPLLP: case DEVICE_OPLLX:
     case DEVICE_OPLLEX:                                    return 9;
-    case DEVICE_OPLL_RHY:                                  return 5;
-    case DEVICE_OPL_RHY:                                   return 5;
+    case DEVICE_OPLL_RHY: case DEVICE_OPLLEX_RHY:          return 5;
+    case DEVICE_OPL_RHY:  case DEVICE_OPL2EX_RHY:          return 5;
     case DEVICE_OPL3: case DEVICE_OPL3_2:                 return 6;
     case DEVICE_VRC7:                                     return 6;
     case DEVICE_SSG: case DEVICE_PSG:                    return 3;
@@ -226,12 +235,13 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     // 2系統内蔵 (3ch × 2)、ADPCM部は8ch (SSGS/SSGS2共通の DEVICE_SSGS_ADPCM。
     // SSGS3はADPCMではなくAMM部を持つが当面非対応)
     case DEVICE_SSGS: case DEVICE_SSGS2: case DEVICE_SSGS3: return 6;
+    case DEVICE_SSGEX:                                   return 6;
     case DEVICE_SSGS_ADPCM:                              return 8;
     case DEVICE_EPSG:                                    return 3;
     case DEVICE_DCSG:                                     return 4;
     case DEVICE_DSG:                                      return 4;
     case DEVICE_DSG_RHY:                                  return 5; // BD/HC/SDN/HHO/HHD
-    case DEVICE_SCC: case DEVICE_SCCP:                   return 5;
+    case DEVICE_SCC: case DEVICE_SCCP: case DEVICE_SCCEX: return 5;
     case DEVICE_SAA:                                     return 6;
     case DEVICE_PCMD8: case DEVICE_MA2: return 8;
     // Y8950内蔵ADPCM-Bは1チャンネル(DEVICE_ADPCMB/DEVICE_ADPCMB_OPNAと
@@ -280,7 +290,7 @@ bool DeviceFactory::acceptsFallback(uint32_t deviceType, uint8_t sourceVoicePatc
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL:
     case DEVICE_SSGLP: case DEVICE_SSGS: case DEVICE_SSGS2:
-    case DEVICE_SSGS3:
+    case DEVICE_SSGS3: case DEVICE_SSGEX:
         return cssgAcceptsFallback(sourceVoicePatchType, patch);
     // DEVICE_DSG はフォールバック非対応。ROM固定音色しか持たず、他チップの
     // 音色パラメータを受け取っても再現できないため (OPLLのプリセット音色を

@@ -265,7 +265,7 @@
       "patch_kind": "fm",
       "operator_count": 2,
       "notes": [
-        "Y8960(MSXカートリッジ、別リポジトリ ../Y8960emu)の拡張OPL2部(DEVICE_OPL2EX)はFMコアがYM3812(OPL2)と完全に同一レジスタマップのため、専用のVoicePatchTypeを持たずこのOPL2定義をそのまま共有する。拡張分(内蔵ADPCM-B)はY8950と同一レジスタ配置のためADPCMB定義(voice_patch_type 0x51)側を参照。"
+        "Y8960(MSXカートリッジ)の拡張OPL2部(DEVICE_OPL2EX)はFMコアがYM3812(OPL2)にチャンネルごとの定位(MIDIのCC#10で制御され、HwPatchには現れない)を足したものであり音色データ形式は同一のため、専用のVoicePatchTypeを持たずこのOPL2定義をそのまま共有する。拡張分(内蔵ADPCM-B)はY8950と同一レジスタ配置のためADPCMB定義(voice_patch_type 0x51)側を参照。"
       ],
       "params": {
         "FB": {"range": [0, 7], "register_bits": 3},
@@ -318,7 +318,7 @@
       "voice_patch_type": 35,
       "voice_patch_type_hex": "0x23",
       "display_name": "OPL系内蔵リズムチャンネル",
-      "devices": ["YM3526", "YM3812", "YMF262"],
+      "devices": ["YM3526", "YM3812", "YMF262", "Y8960(OPL2EX)"],
       "voice_group": "RHYTHM",
       "patch_kind": "fm",
       "operator_count": {"variable": true, "range": [1, 2], "by_rhythm_ch": [1, 1, 1, 1, 2]},
@@ -484,11 +484,11 @@
       "notes": [
         "EGTは参照されない(実機EG typeビットはSRの値から決まる)。",
         "サステインペダル(CC#64)はSR/RRとは独立に実機のSUSビットで制御される。",
-        "内蔵リズム(0x0E,0x36-0x38)は標準OPLLと完全に同一のレジスタ体系のため、DEVICE_OPLL_RHY(VoicePatchType OPL_RHYではなくOPLLのビルトインリズム、findDeviceIndexByDeviceType経由)をそのまま共用する。専用のRHYTHM VoicePatchTypeは無い。",
+        "内蔵リズムはOPLLのビルトインリズム(BUILTIN_RHYTHM 0x70でOPLLを選択、findDeviceIndexByDeviceType経由)として鳴る。レジスタ体系は標準OPLLと同一だが、使う物理chの定位を書くためdeviceTypeはDEVICE_OPLLEX_RHY。標準OPLLのリズムが無い構成ではこちらで鳴る。専用のRHYTHM VoicePatchTypeは無い。",
         "*.hwbank.jsonのALGフィールド(スキーマ上限7)から直接指定できるプリセットは0-7まで。8-15を含む音色をhwbank.jsonのbuiltinエントリ(patch_type=\"OPLLEX\")経由で名指し参照する機能はまだ配線されていない(BANK別のROMプリセット生成が必要なため)。",
         "OPLL/OPLLX/OPLLP/VRC7側の暗黙のROMプリセットバンク(bank0固定)は、要求されたチップが未接続の場合にOPLLEXへフォールバックする(2026年8月〜)。OPLLEXはOPLL/OPLL-X/OPLL-P/VRC7の4バンクを全て内蔵しているため、生成される暗黙のHwPatch自体に対応するBANK値(ext.ALG_EXTのbit2-1)が最初から焼き込まれている。標準OPLL系どうしの相互フォールバック(実機ROMデータが異なる)は引き続き行わない。",
         "OPLLEX自身のCC#0(voice_patch_type=0x2c)・バンク0(CC#32=0)を直接選んだ場合も、標準4チップと同じ暗黙のROMプリセットバンクをそのまま使える(2026年8月〜)。hwProgの上位3bit(0-3)がOPLLEX自身のBANK選択、下位4bit(1-15)が音色番号となり、prog直接指定だけで各BANK15音色・計60音色すべてにアクセスできる(ALGフィールドの0-7上限の制約を受けない)。演奏特性(SwPatch)も標準4チップと同じビルトイン音色用メタバンクから(variantSel, instIndex)で解決される。",
-        "エミュレーションエンジン側の参照実装: ymfm::y8960opllex (別リポジトリ ../Y8960emu)。"
+        "chごとの定位(0x50-0x58)はMIDIのCC#10で制御され、HwPatchには現れない。"
       ]
     },
     {
@@ -580,7 +580,7 @@
       "voice_patch_type": 64,
       "voice_patch_type_hex": "0x40",
       "display_name": "SSG (YM2149 / AY-3-8910)",
-      "devices": ["YM2149", "AY-3-8910", "YMZ705", "YMZ732", "YMZ771"],
+      "devices": ["YM2149", "AY-3-8910", "YMZ705", "YMZ732", "YMZ771", "Y8960(SSGEX)"],
       "voice_group": "PSG",
       "bank_voice_patch_type": 64,
       "patch_kind": "fm",
@@ -622,7 +622,7 @@
           "note": "PSG系は全チップが共通のバンク名前空間(直接デバイス選択値0x40固定)を共有する。このフィールドで、パッチが実際に対象とするチップを選ぶ。"}
       },
       "notes": [
-        "YMZ705(SSGS)/YMZ732(SSGS2)/YMZ771(SSGS3)のSSG互換部も同じパラメータで扱う(パンポットの分解能とトータルボリュームの有無のみ実機差があるが、HwPatchには現れない)。"
+        "YMZ705(SSGS)/YMZ732(SSGS2)/YMZ771(SSGS3)のSSG互換部とY8960のSSG部(SSGEX)も同じパラメータで扱う(パンポットの分解能・位置とトータル/チャンネル音量の有無のみ実機差があるが、HwPatchには現れない)。"
       ]
     },
     {
@@ -782,7 +782,7 @@
       "voice_patch_type": 72,
       "voice_patch_type_hex": "0x48",
       "display_name": "SCC / SCC+ (K051649 / K052539)",
-      "devices": ["K051649", "K052539"],
+      "devices": ["K051649", "K052539", "Y8960(SCCEX)"],
       "voice_group": "PSG",
       "bank_voice_patch_type": 64,
       "patch_kind": "fm",
@@ -797,7 +797,7 @@
         "RR": {"range": [0, 15]},
         "target_voice_patch_type": {"range": [0, 255], "note": "SSGの定義と同じ。"}
       },
-      "notes": ["無印SCCはチャンネル3・4が波形メモリを物理的に共有するが、パッチデータ側での対応は不要(自動的に扱われる)。"]
+      "notes": ["無印SCCと、同じ配置を持つY8960のSCC部(SCCEX)はチャンネル3・4が波形メモリを物理的に共有するが、パッチデータ側での対応は不要(自動的に扱われる)。SCCEXのchごとの定位はMIDIのCC#10で制御され、HwPatchには現れない。"]
     },
     {
       "id": "ADPCMB",
@@ -810,7 +810,7 @@
       "params": {},
       "sample_zone": {"schema": "config_schema/samplezonebank.schema.json", "pitch_variable": true, "pcm_bank_group": "ADPCMB"},
       "notes": [
-        "Y8960(別リポジトリ ../Y8960emu)の拡張OPL2部(DEVICE_OPL2EX)が内蔵するADPCM-Bは、レジスタアドレス配置がY8950と完全に同一(参照実装opl2ex.cppのwrite_data() case一覧より)なため、専用のVoicePatchTypeを持たずこのADPCMB定義を共有する(deviceType自体はDEVICE_ADPCMB_OPL2EXとして分離)。"
+        "Y8960の拡張OPL2部(DEVICE_OPL2EX)が内蔵するADPCM-Bは、レジスタアドレス配置がY8950と同一(定位レジスタ0xFFのみ追加、MIDIのCC#10で制御)なため、専用のVoicePatchTypeを持たずこのADPCMB定義を共有する(deviceType自体はDEVICE_ADPCMB_OPL2EXとして分離)。"
       ]
     },
     {

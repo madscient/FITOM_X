@@ -98,8 +98,10 @@
 #define	DEVICE_SSGS2		63
 
 // Y8960(MSX用サウンドカートリッジ、統合音源チップ)の拡張ブロック。
-// エミュレーションエンジン側の参照実装は別リポジトリ ../Y8960emu
-// (ymfm::y8960opllex / ymfm::y8960opl2ex)。0-63は使い切っているため
+// 仕様の正本はY8960_Cartridgeリポジトリの doc/spec/Y8960_Specifications.xlsx
+// (エミュレーションエンジン側の対応はDSAemuEngine)。拡張4ブロック
+// (OPLLEX/OPL2EX/SSGEX/SCCEX)はいずれもチャンネルごとの8bit定位
+// (1=左端/128=中央/255=右端、リセット値128)を持つ。0-63は使い切っているため
 // 64以降を使う(BUILTIN_RHYTHMビット、下記参照、が128のため64-127は
 // 素のベースIDとして自由に使える。2026年8月、以前はBUILTIN_RHYTHM=64
 // だったため64-127を避けて128-130から採番していたが、BUILTIN_RHYTHMを
@@ -107,18 +109,15 @@
 //
 // 拡張OPLL部(OPLLEX): 標準OPLL(YM2413)レジスタ(0x00-0x3F)に加え、
 // ch0-ch8ごとの音色プリセットバンク選択レジスタ(0x40-0x48、
-// 0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7)を新設した拡張チップ。リズム音源
-// (0x0E, 0x36-0x38)は標準OPLLと完全に同一のレジスタ体系のため、
-// 内蔵リズムはDEVICE_OPLL_RHYを共用する(専用のRHYTHM deviceTypeは
-// 設けない、resolveCompositeSpec参照)。VoicePatchTypeは標準OPLL系との
-// 混同を避けるため専用のVOICE_PATCH_OPLLEXを持つ(BANK選択ビットが
-// ext.ALG_EXTに追加されているため)。
+// 0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7)と定位レジスタ(0x50-0x58)を新設した
+// 拡張チップ。VoicePatchTypeは標準OPLL系との混同を避けるため専用の
+// VOICE_PATCH_OPLLEXを持つ(BANK選択ビットがext.ALG_EXTに追加されているため)。
 #define DEVICE_OPLLEX	64	//Y8960 拡張OPLL部
 // 拡張OPL2部(OPL2EX): YM3812(OPL2)相当のFMコア + ADPCM-B(Y8950の
 // ADPCM部と同一レジスタ配置)を1回路にまとめた拡張チップ。FM部の
-// レジスタマップはOPL2と完全に同一(WS対応込み)のためVoicePatchTypeは
-// OPL2と共用する(専用deviceTypeのみ新設。deviceTypeToVoicePatchType
-// 参照)。リズム音源もOPL2と同一のためDEVICE_OPL_RHYを共用する。
+// レジスタマップはOPL2に定位レジスタ(0xF6-0xFE、ADPCMは0xFF)を足したもので、
+// 音色データ形式は同一のためVoicePatchTypeはOPL2と共用する(専用deviceType
+// のみ新設。deviceTypeToVoicePatchType参照)。
 #define DEVICE_OPL2EX	65	//Y8960 拡張OPL2部 (FMコア)
 // OPL2EXの内蔵ADPCM-B。レジスタアドレス配置がY8950(DEVICE_ADPCMB_Y8950)
 // と完全に同一のため、CYmDeltaドライバはkY8950_DeltaTレジスタマップを
@@ -126,6 +125,15 @@
 // parentDevIdがDEVICE_OPL2EXになる点のみ。VoicePatchTypeはY8950の
 // ADPCM-Bと同じVOICE_PATCH_ADPCMBを共用する。
 #define DEVICE_ADPCMB_OPL2EX	66	//Y8960 拡張OPL2部 内蔵ADPCM-B
+// Y8960のSSG部(SSGEX): YM2149相当を2系統(6ch)。SSG-2が0x10から並び、
+// chごとの音量(0x20-0x26、0-128)と定位(0x28-0x2E)を持つ。YMZ705(DEVICE_SSGS)
+// とはユニットの間隔・定位の分解能・位置が違うため別のdeviceTypeにする。
+// 音色データ形式はYM2149と同一のためVoicePatchTypeはVOICE_PATCH_SSGを共用する。
+#define DEVICE_SSGEX	67	//Y8960 SSG部 (YM2149 × 2)
+// Y8960のSCC部(SCCEX): 無印SCC(K051649)と同じ配置に、chごとの定位
+// (0x9900-0x9904、チップ基準の相対番地で0x100-0x104)を足したもの。
+// VoicePatchTypeはVOICE_PATCH_SCCを共用する。
+#define DEVICE_SCCEX	68	//Y8960 SCC部
 
 #define DEVICE_RHYTHM	120	// Virtual device for rhythm channel
 
@@ -215,6 +223,12 @@
 #define DEVICE_OPLL_RHY	(DEVICE_OPLL | BUILTIN_RHYTHM)			//134
 #define DEVICE_OPK_RHY	(DEVICE_OPK | BUILTIN_RHYTHM)			//168
 #define DEVICE_DSG_RHY	(DEVICE_DSG | BUILTIN_RHYTHM)			//141
+// Y8960の拡張ブロックの内蔵リズム。レジスタ体系は標準のOPLL/OPL2と同一で、
+// 違いは使う物理chの定位レジスタ(BD=ch6、HH/SD=ch7、TOM/CYM=ch8)を書く点だけ。
+// 定位の有無をdeviceType側の索引(FITOMConfig::getChipPanType)で引けるよう、
+// 標準のリズムとは別のdeviceTypeにする。
+#define DEVICE_OPLLEX_RHY	(DEVICE_OPLLEX | BUILTIN_RHYTHM)	//192
+#define DEVICE_OPL2EX_RHY	(DEVICE_OPL2EX | BUILTIN_RHYTHM)	//193
 
 #define DEVICE_MULTI	1024	//Multiple module
 #define DEVICE_NBV		1025	//NBV3/NBV4

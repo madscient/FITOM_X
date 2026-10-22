@@ -988,9 +988,9 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 
     case DEVICE_OPL:    case DEVICE_Y8950: return VOICE_PATCH_OPL;
     case DEVICE_OPL2:                      return VOICE_PATCH_OPL2;
-    // OPL2EX(Y8960拡張OPL2部)のFMコアはOPL2(YM3812)とレジスタマップが
-    // 完全に同一のため、VoicePatchTypeもOPL2をそのまま共有する
-    // (音色バンクもgroup:"OPL2"のものをそのまま使い回せる)。
+    // OPL2EX(Y8960拡張OPL2部)のFMコアはOPL2(YM3812)に定位レジスタを
+    // 足しただけで音色データ形式は同一のため、VoicePatchTypeもOPL2をそのまま
+    // 共有する(音色バンクもgroup:"OPL2"のものをそのまま使い回せる)。
     case DEVICE_OPL2EX:                    return VOICE_PATCH_OPL2;
     // COPL3_2はOPL2よりWSが広い(3bit/8波形 vs 2bit/4波形)ため別分類。
     // OPL2へのフォールバックはWS<4の場合のみ許可 (DeviceFactory::acceptsFallback)。
@@ -1013,7 +1013,10 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     // のまま、findDeviceIndexByDeviceType()で個別に検索する設計)とは異なり、
     // リズム音が実際のFMオペレータパラメータを要求するため、専用の
     // VoicePatchType(VOICE_PATCH_OPL_RHY)を持たせる(2026年7月)。
-    case DEVICE_OPL_RHY: return VOICE_PATCH_OPL_RHY;
+    // OPL2EX(Y8960)の内蔵リズムは定位レジスタを書く点だけが違い、音色データ
+    // 形式は同一のため、同じVoicePatchTypeを返す(標準のOPLリズムと混在して
+    // いてもCSpanDeviceの束ね対象になる)。
+    case DEVICE_OPL_RHY: case DEVICE_OPL2EX_RHY: return VOICE_PATCH_OPL_RHY;
 
     case DEVICE_SSG: case DEVICE_PSG: case DEVICE_SSGL: case DEVICE_SSGLP:
     // SSGS(YMZ705)/SSGS2(YMZ732)/SSGS3(YMZ771)のSSG部はYM2149と機能が同一で
@@ -1022,7 +1025,8 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     // それはチップドライバ(CSSGS3)が吸収する差であって音色データには現れない。
     // 同じVoicePatchTypeを返すことで、3品種が混在する構成でもCSpanDeviceの
     // 束ね対象になる(束ねのキーはVoicePatchType、mergeSpannableDevices参照)。
-    case DEVICE_SSGS: case DEVICE_SSGS2: case DEVICE_SSGS3:
+    // Y8960のSSG部(SSGEX)も同じ理由で同じVoicePatchTypeを返す。
+    case DEVICE_SSGS: case DEVICE_SSGS2: case DEVICE_SSGS3: case DEVICE_SSGEX:
         return VOICE_PATCH_SSG;
     case DEVICE_EPSG:  return VOICE_PATCH_EPSG;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
@@ -1031,7 +1035,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_DSG:   return VOICE_PATCH_DSG;
     case DEVICE_SAA:   return VOICE_PATCH_SAA;    // CSAA1099 実装済み
 
-    case DEVICE_SCC: case DEVICE_SCCP: return VOICE_PATCH_SCC;
+    case DEVICE_SCC: case DEVICE_SCCP: case DEVICE_SCCEX: return VOICE_PATCH_SCC;
 
     case DEVICE_ADPCMB: return VOICE_PATCH_ADPCMB;
     case DEVICE_ADPCMB_OPNA: return VOICE_PATCH_ADPCMB; // 音色パラメータ形式はOPNBと共通
@@ -1246,12 +1250,17 @@ bool FITOMConfig::subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept
     // ステレオ化する用法が成立する(両者ともFM部のサブデバイス構成が
     // DEVICE_OPL3/DEVICE_OPL3_2で一致するため)。
     // SSGS(YMZ705)/SSGS2(YMZ732)/SSGS3(YMZ771)はSSG部・ADPCM部ともchごとの
-    // パンポットレジスタを持つため同じ理由で対象外。
-    return deviceType != DEVICE_OPL4AWM
-        && deviceType != DEVICE_SSGS
-        && deviceType != DEVICE_SSGS2
-        && deviceType != DEVICE_SSGS3
-        && deviceType != DEVICE_SSGS_ADPCM;
+    // パンポットレジスタを持つため同じ理由で対象外。Y8960のOPL2EX/OPLLEXも
+    // FM部・ADPCM部・内蔵リズムとも8bitの定位レジスタを持つため対象外。
+    switch (deviceType) {
+    case DEVICE_OPL4AWM:
+    case DEVICE_SSGS: case DEVICE_SSGS2: case DEVICE_SSGS3: case DEVICE_SSGS_ADPCM:
+    case DEVICE_OPL2EX: case DEVICE_ADPCMB_OPL2EX: case DEVICE_OPL2EX_RHY:
+    case DEVICE_OPLLEX: case DEVICE_OPLLEX_RHY:
+        return false;
+    default:
+        return true;
+    }
 }
 
 FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexcept
@@ -1289,9 +1298,15 @@ FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexce
     // パンニングで算出)。SSGS(YMZ705)/SSGS2(YMZ732): SSG部は$10-$12/$30-$32、
     // ADPCM部は$42+ch*$10 の4bit(0-15、8=中央)。SSGS3(YMZ771): SSG部は
     // $2C-$31 の5bit(0-31、16=中央)。
+    // Y8960の拡張ブロック: chごとの8bit(1=左端/128=中央/255=右端)。OPLLEX は
+    // 0x50+ch、OPL2EX は 0xF6+ch(ADPCMは0xFF)、SSGEX は $28-$2A/$2C-$2E、
+    // SCCEX は 0x100+ch。内蔵リズムは使う物理chの定位レジスタを書く。
     case DEVICE_OPL4AWM: case DEVICE_PCMD8: case DEVICE_SAA:
     case DEVICE_SSGS:    case DEVICE_SSGS2: case DEVICE_SSGS3:
     case DEVICE_SSGS_ADPCM:
+    case DEVICE_OPLLEX:  case DEVICE_OPLLEX_RHY:
+    case DEVICE_OPL2EX:  case DEVICE_OPL2EX_RHY: case DEVICE_ADPCMB_OPL2EX:
+    case DEVICE_SSGEX:   case DEVICE_SCCEX:
         return ChipPanType::Continuous;
 
     default:
@@ -1692,15 +1707,12 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // OPL2EX(Y8960拡張OPL2部): OPL2コア(YM3812相当、FM本体9ch、
         // rhythm_mode時はch6-8無効化) + 内蔵ADPCM-B(Y8950と同一レジスタ
         // 配置、DEVICE_ADPCMB_OPL2EX) + (rhythm_mode時のみ)リズム
-        // (5パート)。参照実装(..\Y8960emu\src\opl2ex.h)のコメントの
-        // 通り、ADPCM-B用に横取りされるレジスタ以外は全てOPL2本体へ
-        // 素通しされるため、リズムモード(0xBD)もOPL2と全く同じ扱いで
-        // よく、DEVICE_OPL_RHYをそのまま共用する(専用のRHYTHM
-        // deviceTypeは設けない)。
+        // (5パート)。リズムのレジスタ体系(0xBD)はOPL2と同一だが、使う物理chの
+        // 定位レジスタも書くため専用のDEVICE_OPL2EX_RHYを使う。
         outSpec.push_back({baseDeviceType,       "-FM",     false, true});
         outSpec.push_back({DEVICE_ADPCMB_OPL2EX, "-ADPCMB", false, false});
         if (rhythmModeFromProfile) {
-            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+            outSpec.push_back({DEVICE_OPL2EX_RHY, "-RHYTHM", false, false});
         }
         return true;
 
@@ -1750,12 +1762,14 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // OPL系と同様rhythm_mode:trueのインスタンスに限りリズムサブ
         // デバイスを追加する(2026年7月修正。以前はrhythm_modeの値に
         // 関わらず常にDEVICE_OPLL_RHYを生成していた)。
-        // OPLLEX(Y8960拡張OPLL部)のリズム(0x0E,0x36-0x38)は標準OPLLと
-        // 完全に同一のレジスタ体系のため、専用のRHYTHM deviceTypeは
-        // 設けずDEVICE_OPLL_RHYをそのまま共用する(2026年8月)。
+        // OPLLEX(Y8960拡張OPLL部)のリズムはレジスタ体系(0x0E,0x36-0x38)が
+        // 標準OPLLと同一だが、使う物理chの定位レジスタも書くため専用の
+        // DEVICE_OPLLEX_RHYを使う。
         outSpec.push_back({baseDeviceType, "-FM", false, true});
         if (rhythmModeFromProfile) {
-            outSpec.push_back({DEVICE_OPLL_RHY, "-RHYTHM", false, false});
+            const uint32_t rhythmType =
+                (baseDeviceType == DEVICE_OPLLEX) ? DEVICE_OPLLEX_RHY : DEVICE_OPLL_RHY;
+            outSpec.push_back({rhythmType, "-RHYTHM", false, false});
         }
         return true;
 
@@ -1852,9 +1866,10 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"OPLL",  DEVICE_OPLL},  {"OPLL2", DEVICE_OPLL2},
         {"OPLLP", DEVICE_OPLLP}, {"OPLLX", DEVICE_OPLLX},
         {"VRC7",  DEVICE_VRC7},
-        // Y8960(MSX用サウンドカートリッジ)の拡張ブロック。参照実装は
-        // 別リポジトリ ../Y8960emu (ymfm::y8960opllex / ymfm::y8960opl2ex)。
+        // Y8960(MSX用サウンドカートリッジ)の拡張ブロック(FITOMdefine.h冒頭の
+        // Y8960セクション参照)。
         {"OPLLEX", DEVICE_OPLLEX}, {"OPL2EX", DEVICE_OPL2EX},
+        {"SSGEX",  DEVICE_SSGEX},  {"SCCEX",  DEVICE_SCCEX},
         {"SSG",   DEVICE_SSG},   {"PSG",   DEVICE_PSG},
         {"SSGS",  DEVICE_SSGS},  {"YMZ705", DEVICE_SSGS},
         {"SSGS2", DEVICE_SSGS2}, {"YMZ732", DEVICE_SSGS2},

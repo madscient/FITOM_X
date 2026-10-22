@@ -228,6 +228,8 @@ struct SubDeviceSpec {
 | `DEVICE_OPL3` / `DEVICE_OPN3_L3` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ。COPL3_2側port1サブチップのch6-8を専有) |
 | `DEVICE_OPL4` | `DEVICE_OPL3`(4OPモード,6ch) + `DEVICE_OPL3_2`(2OP残余,6ch) + `DEVICE_OPL4AWM`(PCM部,24ch、高位バンク[アドレス0x200以降]側) + `DEVICE_OPL_RHY`(5パート、`rhythm_mode:true`時のみ) |
 | `DEVICE_OPLL` / `OPLL2` / `OPLLP` / `OPLLX` | FM本体(9ch) + `DEVICE_OPLL_RHY`(5パート、`rhythm_mode:true`時のみ) |
+| `DEVICE_OPLLEX` (Y8960) | FM本体(9ch) + `DEVICE_OPLLEX_RHY`(5パート、`rhythm_mode:true`時のみ。4.5.3節) |
+| `DEVICE_OPL2EX` (Y8960) | FM本体(9ch) + `DEVICE_ADPCMB_OPL2EX`(1ch、常に生成) + `DEVICE_OPL2EX_RHY`(5パート、`rhythm_mode:true`時のみ。4.5.3節) |
 | `DEVICE_DSG` (YM2163) | 楽音部(`CDSG`、4ch) + `DEVICE_DSG_RHY`(5パート、**常に生成**。レジスタ空間が楽音部と独立しているため`rhythm_mode`による出し分けが不要) |
 | `DEVICE_SSGS` (YMZ705) / `DEVICE_SSGS2` (YMZ732) | SSG互換部(`CSSGS`、YM2149相当×2 = 6ch) + `DEVICE_SSGS_ADPCM`(8ch)。両者は同一の8bitレジスタ空間($00-$3F / $40-$B3)を共有するためport2・オフセットとも不要。**ADPCM部のdeviceTypeはSSGS/SSGS2で共有する**(制御が完全に同一のため。混在構成でも自動的に同一グループとして束ねられ、PCMバンク/メモリイメージも1つで足りる)。**`DEVICE_SSGS3`(YMZ771)は展開対象外** — AMM部が当面非対応で生成すべきサブデバイスがSSG部しかないため、単一デバイスのままにする |
 
@@ -427,8 +429,9 @@ R側だけが孤立して残ってしまう)。
 
 **ハードウェアパンポットを持つサブデバイスは対象外**:
 `FITOMConfig::subDeviceAcceptsStereoPair()`が`false`を返すサブデバイスには
-`stereo_pair`を伝播しない。現状の対象は**OPL4のAWM/PCM部
-(`DEVICE_OPL4AWM`、YMF278B)**のみ。AWM部はチャンネルごとのパンポットを
+`stereo_pair`を伝播しない。対象は**OPL4のAWM/PCM部
+(`DEVICE_OPL4AWM`、YMF278B)**、SSGS系(YMZ705/YMZ732/YMZ771)のSSG部・ADPCM部、
+Y8960のOPL2EX/OPLLEX(FM部・ADPCM部・内蔵リズム)。AWM部はチャンネルごとのパンポットを
 ハードウェアで持っており、`CLinearPanDevice`の束ね(モノラル出力しか持たない
 音源に対する代替手段)を適用すると、本来のハードウェアパンポットを潰した上で
 2倍のチップを消費することになるため(2026年8月、ユーザー指摘)。
@@ -476,7 +479,7 @@ OPL3は`DEVICE_OPL3`+`DEVICE_OPL3_2`であり、AWM部を除いた部分集合�
 返すチップ)は、物理・論理どちらのビューでも左右分割表示になる。こちらの定位
 係数は`ChState::panpot`から求め、`ThreeWay`(L/Rイネーブルビットのみ)は各
 ドライバの`updatePanpot()`と同じ閾値で、`Continuous`(OPL4 AWM・YMZ280B・
-SAA1099)は等パワーパンニングの式で算出する。
+SAA1099・SSGS系・Y8960の拡張ブロック)は等パワーパンニングの式で算出する。
 
 なお`stereo_pair:"L"/"R"`(チップ内L/R分離方式)では、各物理チップのパンポットが
 左右端に固定されるため、物理ビューではL側チップの全バーが左半分だけ、R側
@@ -731,9 +734,10 @@ COPLLRhythm : CSoundDevice             (OPLL内蔵リズム、5パート、独�
 CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアLFO制御の共通化のみ)
   ├── CSSG : CPSGBase                  (AY-3-8910/YM2149, 3ch)
   │     └── CSSGS : CSSG               (YMZ705/YMZ732 SSG互換部, 3ch×2ユニット = 6ch)
-  │           └── CSSGS3 : CSSGS       (YMZ771 SSG互換部, 6ch。レジスタ配置のみ差し替え)
+  │           ├── CSSGS3 : CSSGS       (YMZ771 SSG互換部, 6ch。レジスタ配置のみ差し替え)
+  │           └── CSSGEX : CSSGS       (Y8960 SSG部, 6ch。レジスタ配置と定位を差し替え)
   ├── CDCSG : CPSGBase                 (SN76489, 4ch)
-  └── CSCC : CPSGBase                  (SCC/SCCP, 5ch, 波形ROM)
+  └── CSCC : CPSGBase                  (SCC/SCCP/SCCEX, 5ch, 波形ROM)
 ```
 
 - **`CPSGBase`の設計原則（重要）**：ハードウェア固有の機能は一切持たず、
@@ -983,6 +987,50 @@ D7=0でデータ」の2回書き込みで駆動する実チップだが、この
   ここも更新すること(コア側の`resolveBuiltinRhythm()`だけ直しても
   GUIからは選べないままになる)。
 
+### 4.5.3 Y8960 の拡張ブロック (OPLLEX / OPL2EX / SSGEX / SCCEX)
+
+Y8960(MSX用サウンドカートリッジ)は、既存チップの互換ブロックにチャンネル
+ごとの拡張レジスタを足した構成をとる。仕様の正本は Y8960_Cartridge
+リポジトリの `doc/spec/Y8960_Specifications.xlsx`。4ブロックとも
+**チャンネルごとの8bit定位**(1=左端 / 128=中央 / 255=右端、リセット値128)を
+持ち、MIDIのパンポット(-64..+63)からの変換は共通の`fitom::y8960PanValue()`
+(`VolumeUtils.h`)が行う。値からL/Rレベルへの定パワー則は実機がハードウェアで
+実装している(仕様書には記載が無く、利用者からの情報)ため、FITOM側は線形に
+写すだけでよい。
+
+| deviceType | ドライバ | 互換元 | 追加レジスタ |
+|---|---|---|---|
+| `DEVICE_OPLLEX` | `COPLLEX : COPLL` | YM2413 | BANK `0x40`-`0x48`(ROMプリセットバンク)、定位 `0x50`-`0x58` |
+| `DEVICE_OPLLEX_RHY` | `COPLLEXRhythm : COPLLRhythm` | YM2413 内蔵リズム | 使う物理chの定位 `0x56`-`0x58` |
+| `DEVICE_OPL2EX` | `COPL2EX : COPL2` | YM3812 | 定位 `0xF6`-`0xFE` |
+| `DEVICE_OPL2EX_RHY` | `COPL2EXRhythm : COPLRhythm` | YM3812 内蔵リズム | 使う物理chの定位 `0xFC`-`0xFE` |
+| `DEVICE_ADPCMB_OPL2EX` | `CY8960Delta : CYmDelta` | Y8950 ADPCM-B | 定位 `0xFF` |
+| `DEVICE_SSGEX` | `CSSGEX : CSSGS` | YM2149 × 2 | SSG-2 が `0x10` から。chごとの音量 `0x20`-`0x22`/`0x24`-`0x26`、定位 `0x28`-`0x2A`/`0x2C`-`0x2E` |
+| `DEVICE_SCCEX` | `CSCC` | K051649 (無印SCC) | 定位 `0x100`-`0x104`(実機の `0x9900`-`0x9904`) |
+
+- **内蔵リズムを標準のOPLL/OPL2と別の`deviceType`にしている理由**: レジスタ体系
+  (`0x0E`/`0x36`-`0x38`、`0xBD`)は標準と同一だが、定位レジスタを書くかどうかを
+  `deviceType`側の索引(`FITOMConfig::getChipPanType()`)で引けるようにするため。
+  OPL2EXのリズムは音色データ形式が同一なので`VOICE_PATCH_OPL_RHY`を共有し、
+  OPLLEXのリズムは`VOICE_PATCH_BUILTIN_RHYTHM`(CC#0=0x70)の「OPLL」選択で、
+  標準OPLLのリズムが無い構成ならこちらで鳴る(リズム音色は全バンク共通で標準OPLLと同じ)。
+- **共有chの定位はSD/TOMが持つ**: ch7(HH/SD)・ch8(CYM/TOM)は2パートで1つの
+  定位レジスタを共有する。F-numberと同じ規則で、SD/TOMだけが書き、HH/CYMは
+  書かない(共有chの定位はSD/TOMの定位で決まる)。BDはch6を単独で使う。
+- **`init()`で拡張レジスタをチップとシャドウの両方へ揃える**: OPLLEXのBANKの
+  リセット値は仕様に記載が無く、シャドウの初期値(0)と同じ値の書き込みは
+  `setReg()`が省くため。定位も仕様上のリセット値128をシャドウへ載せておく。
+- **SSGEXのクロック**: プロファイルに書くのはSSGブロックの動作クロックそのもの
+  (単体のSSGと同じ意味)で、SSGS系のような分周比の換算はしない。FITOMは音量を
+  YM2149互換の4bit音量レジスタで作るため、chごとの音量(0-128)は常に128で固定する。
+- **SCCEX**は無印SCCと同じ配置のため、ch3/ch4の波形メモリ共有の制約もそのまま
+  引き継ぐ(`CSCC::sharesCh34Wave()`)。
+- 定位を持つため、OPL2EX/OPLLEXの各サブデバイスは`CLinearPanDevice`の束ね
+  (`stereo_pair`)の対象外。
+- Y8960のOPM(YM2151)は拡張レジスタを持たない標準のYM2151で、クロックはMSXスロットの
+  システムクロック3.579545MHz(仕様書には記載が無く、利用者からの情報)。`chip:"OPM"`として
+  既存の`COPM`をそのまま使う(`COPM`は3.579545MHz基準のKC表で音程を出す)。
+
 ### 4.6 ADPCM系
 
 ```
@@ -1112,24 +1160,25 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 | `VOICE_PATCH_OPZ`(0x1a) | OPZ | `COPZ` | 4 |
 | `VOICE_PATCH_OPZ2`(0x1b) | OPZ2 | `COPZ`（共用） | 4 |
 | `VOICE_PATCH_OPL`(0x20) | OPL, Y8950 | `COPL` | 2 |
-| `VOICE_PATCH_OPL2`(0x21) | OPL2 | `COPL2` | 2 |
+| `VOICE_PATCH_OPL2`(0x21) | OPL2, OPL2EX | `COPL2` / `COPL2EX` | 2 |
 | `VOICE_PATCH_OPL3_2`(0x22) | OPL3_2（OPL3の2opモード） | `COPL3_2` | 2 |
-| `VOICE_PATCH_OPL_RHY`(0x23) | OPL_RHY（OPL系内蔵リズムチャンネル） | `COPLRhythm` | 1または2(楽器により異なる、混在可) |
+| `VOICE_PATCH_OPL_RHY`(0x23) | OPL_RHY（OPL系内蔵リズムチャンネル）, OPL2EX_RHY | `COPLRhythm` / `COPL2EXRhythm` | 1または2(楽器により異なる、混在可) |
 | `VOICE_PATCH_OPLL`(0x28) | OPLL, OPLL2 | `COPLL` / `COPLL2` | 2 |
 | `VOICE_PATCH_OPLLP`(0x29) | OPLLP | `COPLLP` | 2 |
 | `VOICE_PATCH_OPLLX`(0x2a) | OPLLX | `COPLLX` | 2 |
 | `VOICE_PATCH_VRC7`(0x2b) | VRC7 | `CVRC7` | 2 |
+| `VOICE_PATCH_OPLLEX`(0x2c) | OPLLEX | `COPLLEX` | 2 |
 | `VOICE_PATCH_OPL3`(0x30) | OPL3, OPN3_L3 | `COPL3`（4OPモード専用） | 4 |
 | `VOICE_PATCH_SD1`(0x38) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA3`(0x39) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA5`(0x3a) | (未実装) | - | 不明(将来実装時に確定) |
 | `VOICE_PATCH_MA7`(0x3b) | (未実装) | - | 不明(将来実装時に確定) |
-| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, **SSGS**, **SSGS2**, **SSGS3** | `CSSG` / `CSSGS` / `CSSGS3` | 1 |
+| `VOICE_PATCH_SSG`(0x40) | SSG, PSG, SSGL, SSGLP, **SSGS**, **SSGS2**, **SSGS3**, **SSGEX** | `CSSG` / `CSSGS` / `CSSGS3` / `CSSGEX` | 1 |
 | `VOICE_PATCH_EPSG`(0x41) | EPSG | `CSSG`（共用） | 1 |
 | `VOICE_PATCH_DCSG`(0x42) | DCSG | `CDCSG` | 1 |
 | `VOICE_PATCH_SAA`(0x43) | SAA | `CSAA1099` | 1 |
 | `VOICE_PATCH_DSG`(0x44) | DSG | `CDSG` | HwPatch対象外(ROM固定音色、暗黙のバンク) |
-| `VOICE_PATCH_SCC`(0x48) | SCC, SCCP | `CSCC` | 1 |
+| `VOICE_PATCH_SCC`(0x48) | SCC, SCCP, SCCEX | `CSCC` | 1 |
 | `VOICE_PATCH_ADPCMB_Y8950`(0x50) | Y8950(ADPCM部) | `CYmDelta` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_ADPCMB`(0x51) | ADPCMB, **ADPCMB_OPNA** | `CYmDelta` | HwPatch対象外(SampleZonePatch使用) |
 | `VOICE_PATCH_ADPCMA`(0x52) | ADPCMA | `CAdPcm2610A` | HwPatch対象外(SampleZonePatch使用) |

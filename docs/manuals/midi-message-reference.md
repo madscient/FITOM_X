@@ -96,20 +96,21 @@ CC#0 に 127(0x7F)を送ると、そのチャンネルは**必ず無音**にな�
 | 26 (0x1A) | OPZ | YM2414 |
 | 27 (0x1B) | OPZ2 | YM2424 |
 | 32 (0x20) | OPL | YM3526 等 |
-| 33 (0x21) | OPL2 | YM3812 |
+| 33 (0x21) | OPL2 | YM3812 / Y8960の拡張OPL2部(OPL2EX) |
 | 34 (0x22) | OPL3(2オペレータモード) | YMF262 等の2opモード |
 | 35 (0x23) | OPL内蔵リズム | OPL系チップの内蔵リズムチャンネル専用 |
 | 40 (0x28) | OPLL | YM2413 等 |
 | 41 (0x29) | OPLLP | YMF281 |
 | 42 (0x2A) | OPLLX | YM2423 |
 | 43 (0x2B) | VRC7 | FS1001 |
+| 44 (0x2C) | OPLLEX | Y8960の拡張OPLL部。チャンネルごとにROMプリセットのバンクを選べます |
 | 48 (0x30) | OPL3(4オペレータモード) | YMF262 等の4opモード |
-| 64 (0x40) | SSG | YM2149 / AY-3-8910 / YMZ705(SSGS) / YMZ732(SSGS2) / YMZ771(SSGS3) 等。これらのSSG部は音色データを共有します |
+| 64 (0x40) | SSG | YM2149 / AY-3-8910 / YMZ705(SSGS) / YMZ732(SSGS2) / YMZ771(SSGS3) / Y8960のSSG部(SSGEX) 等。これらのSSG部は音色データを共有します |
 | 65 (0x41) | EPSG | AY8930 |
 | 66 (0x42) | DCSG | SN76489 |
 | 67 (0x43) | SAA | SAA1099 |
 | 68 (0x44) | DSG | YM2163。ROM固定音色のみで、CC#32(バンク番号)の値は使われません |
-| 72 (0x48) | SCC | SCC / SCCP |
+| 72 (0x48) | SCC | SCC / SCCP / Y8960のSCC部(SCCEX) |
 | 81 (0x51) | ADPCM-B | YM2608 内蔵、その他ADPCM-B系 |
 | 82 (0x52) | ADPCM-A | YM2610 内蔵 |
 | 83 (0x53) | PCM-D8 | YMZ280 |

@@ -34,12 +34,12 @@ public:
     //         呼ばれるため実際には到達しないが、範囲外アクセス防止の
     //         防御的チェックとして残す)。
     COPLL(IPort* port, int /*sampleRate*/, uint8_t mode = 0,
-          uint8_t devId = DEVICE_OPLL, uint8_t maxChs = 9)
+          uint8_t devId = DEVICE_OPLL, uint8_t maxChs = 9, int regSize = 0x40)
         : CSoundDevice(devId, maxChs, port,
                        kOpllMasterClock, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
-                       0x40)
+                       regSize)
         , rhythmMode_(mode)
     {
         opCount_ = 2;
@@ -315,20 +315,15 @@ protected:
 //  無効に固定する(呼び出し元から true が渡されても無視する)。
 // ================================================================
 // ================================================================
-//  COPLLEX — Y8960 拡張OPLL部 (ymfm::y8960opllex 相当)
+//  COPLLEX — Y8960 拡張OPLL部
 //
-//  標準OPLLレジスタ(0x00-0x3F)に加え、新設のBANKレジスタ(0x40+ch、
-//  ch0-8)でチャンネルごとにROMプリセットバンク(0=OPLL/1=OPLL-X/
-//  2=OPLL-P/3=VRC7)を選べる。プリセット音色番号自体(0x30 上位nibble)
-//  の意味・ユーザー音色レジスタ(0x00-0x07)・リズム音源(0x0E,0x36-0x38)
-//  は標準OPLLと完全に同一のレジスタ体系のため、COPLLをそのまま継承し
-//  BANKレジスタの書き込みだけを追加する(参照実装: ..\Y8960emu\src\
-//  opllex.h/.cpp のopllex_registers::write()。BANKレジスタは
-//  cache_operator_data()内でチャンネルごとの音色テーブル参照先を
-//  切り替えるだけで、リズムパート(ch>=6)のバンク選択も同じ仕組みを
-//  共有する — 既定のY8960プリセットデータはリズム3音色がバンク間で
-//  バイト単位まで同一のため、内蔵リズム(COPLLRhythmを共用)は
-//  BANKレジスタに触れなくても実用上問題ない設計になっている)。
+//  標準OPLLレジスタ(0x00-0x3F)に加え、2種類のチャンネル別レジスタを持つ:
+//    0x40-0x48  ROMプリセットバンク (bit1-0: 0=OPLL/1=OPLL-X/2=OPLL-P/3=VRC7)
+//    0x50-0x58  定位 (8bit、1=左端/128=中央/255=右端)
+//  プリセット音色番号自体(0x30 上位nibble)の意味・ユーザー音色レジスタ
+//  (0x00-0x07)・リズム音源(0x0E,0x36-0x38)は標準OPLLと同一のため、COPLLを
+//  継承してこの2種類の書き込みだけを足す。ユーザー音色とリズム音色はバンクに
+//  属さず全バンク共通のため、リズム(COPLLEXRhythm)はBANKレジスタに触れない。
 //
 //  ext.ALG_EXTのbit2-1にBANK値(0-3)を格納する(bit0は標準OPLLと同じ
 //  プリセット選択フラグ)。ユーザー音色(bit0=0)でもBANKレジスタは
@@ -338,7 +333,18 @@ protected:
 class COPLLEX : public COPLL {
 public:
     COPLLEX(IPort* port, int sampleRate, uint8_t mode = 0)
-        : COPLL(port, sampleRate, mode, DEVICE_OPLLEX, 9) {}
+        : COPLL(port, sampleRate, mode, DEVICE_OPLLEX, 9, 0x60) {}
+
+    // BANKの初期値は仕様に記載が無く、シャドウの初期値(0)と同じ値の書き込みは
+    // setReg()が省くため、チップとシャドウを明示的に揃えておく。定位も同様
+    // (仕様上のリセット値128をシャドウへ載せる)。リズム用のch6-8もここで揃う。
+    void init() override {
+        COPLL::init();
+        for (uint8_t ch = 0; ch < 9; ++ch) {
+            setReg(static_cast<uint16_t>(0x40 + ch), 0, true);
+            setReg(static_cast<uint16_t>(0x50 + ch), fitom::y8960PanValue(0), true);
+        }
+    }
 
 protected:
     std::string chipLabel() const override { return "OPLLEX (Y8960 ext-OPLL)"; }
@@ -348,6 +354,11 @@ protected:
         const HwPatch& p = chState_[ch].hwPatch;
         uint8_t bank = (p.ext.ALG_EXT >> 1) & 0x3;
         setReg(static_cast<uint16_t>(0x40 + ch), bank);
+        updatePanpot(ch);
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        setReg(static_cast<uint16_t>(0x50 + ch), fitom::y8960PanValue(chState_[ch].panpot));
     }
 };
 
@@ -372,12 +383,13 @@ protected:
 // ================================================================
 class COPLLRhythm : public CSoundDevice {
 public:
-    COPLLRhythm(IPort* port, int /*sampleRate*/)
-        : CSoundDevice(DEVICE_OPLL_RHY, 5, port,
+    COPLLRhythm(IPort* port, int /*sampleRate*/,
+                uint8_t devId = DEVICE_OPLL_RHY, int regSize = 0x40)
+        : CSoundDevice(devId, 5, port,
                        kOpllMasterClock, 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
-                       0x40)
+                       regSize)
     {}
 
     std::string getDescriptor() const override { return "OPLL Rhythm 5ch"; }
@@ -466,6 +478,33 @@ protected:
     }
 };
 
+// ================================================================
+//  COPLLEXRhythm: Y8960 拡張OPLL部の内蔵リズム
+//
+//  リズムの音は、使う物理chの定位レジスタ(0x50+ch)に従う。ch7(HH/SD)・
+//  ch8(CYM/TOM)は2パートで1つの定位を共有するため、Fnumと同じくSD/TOM側
+//  だけが書き、HH/CYMは書かない(共有chの定位はSD/TOMの定位で決まる)。
+// ================================================================
+class COPLLEXRhythm : public COPLLRhythm {
+public:
+    COPLLEXRhythm(IPort* port, int sampleRate)
+        : COPLLRhythm(port, sampleRate, DEVICE_OPLLEX_RHY, 0x60) {}
+
+    std::string getDescriptor() const override { return "OPLLEX Rhythm 5ch"; }
+
+protected:
+    void updateVoice(uint8_t ch) override {
+        COPLLRhythm::updateVoice(ch);
+        updatePanpot(ch);
+    }
+
+    void updatePanpot(uint8_t ch) override {
+        if (ch == 0 || ch == 1) return; // HH/CYM: 共有chの定位はSD/TOMが持つ
+        setReg(static_cast<uint16_t>(0x50 + kRhythmMapCh[ch]),
+               fitom::y8960PanValue(chState_[ch].panpot));
+    }
+};
+
 } // namespace fitom
 
 namespace fitom {
@@ -476,6 +515,7 @@ std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t m) { return
 std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLEX>(p, sr, m); }
 std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr)  { return std::make_unique<CVRC7>(p, sr); }
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr) { return std::make_unique<COPLLRhythm>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int sr) { return std::make_unique<COPLLEXRhythm>(p, sr); }
 
 // ================================================================
 //  フォールバック受け入れ判定

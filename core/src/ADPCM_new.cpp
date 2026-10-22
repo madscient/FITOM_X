@@ -429,6 +429,39 @@ private:
 };
 
 // ================================================================
+//  CY8960Delta: Y8960 拡張OPL2部の内蔵ADPCM-B
+//
+//  レジスタ配置はY8950と同一で、定位レジスタ(0xFF、8bit、1=左端/128=中央/
+//  255=右端)だけが追加されている。0xFFは同じポートを共有するFM部の空間の
+//  末尾にあるため、レジスタ空間を0x100まで取る(Y8950の0x20では足りない)。
+//  定位の番地0xFFはRegMapの「レジスタ無し」の印(0xFF)と重なるため、RegMapの
+//  欄には足さずupdatePanpot()で直接書く。
+// ================================================================
+class CY8960Delta : public CYmDelta {
+public:
+    CY8960Delta(IPort* port, int sampleRate)
+        : CYmDelta(DEVICE_ADPCMB_OPL2EX, port, 0x100, sampleRate, 72, 256 * 1024,
+                   DEVICE_OPL2EX, kY8950_DeltaT)
+    {}
+
+    std::string getDescriptor() const override { return "OPL2EX ADPCM-B 1ch"; }
+
+    // 仕様上のリセット値(中央=128)をシャドウへ載せる。
+    void init() override {
+        CYmDelta::init();
+        setReg(kPanReg, fitom::y8960PanValue(0), true);
+    }
+
+protected:
+    static constexpr uint16_t kPanReg = 0xFF;
+
+    void updatePanpot(uint8_t ch) override {
+        CYmDelta::updatePanpot(ch);
+        setReg(kPanReg, fitom::y8960PanValue(chState_[ch].panpot));
+    }
+};
+
+// ================================================================
 //  CAdPcm2610A: YM2610 ADPCM-A (6ch, Delta-Tとは異なる多チャンネルPCM方式)
 //
 //  ADPCM-B(CYmDelta)とは全く異なるレジスタ体系:
@@ -941,19 +974,13 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
             deviceType, p, 0x20, clock, 72, 256 * 1024, DEVICE_Y8950,
             kY8950_DeltaT);
     case DEVICE_ADPCMB_OPL2EX:
-        // Y8960拡張OPL2部の内蔵ADPCM-B。参照実装 ..\Y8960emu\src\opl2ex.cpp
-        // (write_data()のcase一覧)によれば、control1/control2/start/end/
-        // memory/deltaN/volumeの各レジスタアドレスはY8950(YM3801)と完全に
-        // 同一(0x07=control1、0x08下位4bit=control2、0x09-0x0c=start/end、
-        // 0x0f=memory、0x10-0x12=deltaN/volume)のため、kY8950_DeltaTを
-        // そのまま流用する。fnumDivide=72もOPL/OPL2系マスタークロックの
-        // 分周比に合わせてY8950と同じ値にしている。
-        // メモリ容量(256KB)・分周比は実機Y8960のデータシートが未入手の
-        // ため、レジスタ配置がY8950と同一である以上は同一だろうという
-        // 推定値。実機/エミュレータでの確認が取れ次第見直すこと。
-        return std::make_unique<CYmDelta>(
-            deviceType, p, 0x20, clock, 72, 256 * 1024, DEVICE_OPL2EX,
-            kY8950_DeltaT);
+        // Y8960拡張OPL2部の内蔵ADPCM-B。control1/control2/start/end/memory/
+        // deltaN/volumeの各レジスタアドレスはY8950(YM3801)と同一(仕様書の
+        // OPL2+ADPCMシート)。メモリ容量256KBは仕様書のSerialSRAMの割り当て
+        // (ADPCM RAMはBANK#32-#63 = 8KB×32)による。fnumDivide=72はOPL系の
+        // マスタークロック分周比に合わせたY8950と同じ値で、こちらは仕様書に
+        // 記載が無い(推測: レジスタ配置がY8950と同一であることによる)。
+        return std::make_unique<CY8960Delta>(p, clock);
     case DEVICE_ADPCMB_OPNA:
         // OPNA(YM2608)内蔵ADPCM-B。fnumDivide=144はOPNA用マスタークロック分周比。
         return std::make_unique<CYmDelta>(

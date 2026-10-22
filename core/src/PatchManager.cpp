@@ -510,6 +510,12 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
     }
 
     int deviceIndex = config.findDeviceIndexByDeviceType(targetDeviceType);
+    // Y8960拡張OPLL部のリズムは標準OPLLと同じROM音色(全バンク共通)で、違うのは
+    // 定位レジスタを書く点だけのため、標準OPLLのリズムが無ければこちらで鳴らす。
+    if (deviceIndex < 0 && targetDeviceType == DEVICE_OPLL_RHY) {
+        deviceIndex = config.findDeviceIndexByDeviceType(DEVICE_OPLLEX_RHY);
+        if (deviceIndex >= 0) targetDeviceType = DEVICE_OPLLEX_RHY;
+    }
     if (deviceIndex < 0) {
         FITOM_LOG_WARN(ctx << " builtin-rhythm: deviceType=0x" << std::hex << targetDeviceType
             << " — no matching device connected");

@@ -93,6 +93,21 @@ inline uint8_t linear2dB(uint8_t evol, int range, int step, int bw) noexcept
     return ret;
 }
 
+// ================================================================
+//  y8960PanValue: MIDIパンポット(-64..+63) → Y8960の8bit定位レジスタ値
+//  Y8960は定位の値からL/Rレベルへの定パワー則をハードウェア側で実装している
+//  (仕様書には記載が無く、利用者からの情報)ため、ソフト側は 1=左端 / 128=中央 /
+//  255=右端 へ線形に写すだけでよい。左右で幅が違う(左64段・右63段)ため片側ずつ
+//  割り付け、0が必ず128になるようにしている。0(仕様に無い値)は書かない。
+// ================================================================
+inline uint8_t y8960PanValue(int8_t panpot) noexcept
+{
+    const int p = std::clamp(static_cast<int>(panpot), -64, 63);
+    const int v = (p < 0) ? 128 + static_cast<int>(std::lround(p * 127.0 / 64.0))
+                          : 128 + static_cast<int>(std::lround(p * 127.0 / 63.0));
+    return static_cast<uint8_t>(std::clamp(v, 1, 255));
+}
+
 } // namespace fitom
 
 // ================================================================

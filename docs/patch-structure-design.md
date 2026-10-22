@@ -73,19 +73,20 @@ SwBank (*.swbank.json)  ← チップ族共通・1セット
 | 0x1a | OPZ | YM2414 | OPM |
 | 0x1b | OPZ2 | YM2424 | OPM |
 | 0x20 | OPL | YM3526, YM3801 | OPL2 |
-| 0x21 | OPL2 | YM3812, YMF264/289/278-2OP | OPL2 |
+| 0x21 | OPL2 | YM3812, YMF264/289/278-2OP, Y8960(OPL2EX) | OPL2 |
 | 0x22 | OPL3_2 | YMF262(2OPモード)、YMF264/289/278-2OP | OPL3 |
 | 0x28 | OPLL | YM2413, YM2420 | OPLL |
 | 0x29 | OPLLP | YMF281 | OPLL |
 | 0x2a | OPLLX | YM2423 | OPLL |
 | 0x2b | VRC7 | FS1001 (OPLLからリズムCH削除、楽音6chのみ) | OPLL |
+| 0x2c | OPLLEX | Y8960 拡張OPLL部 (chごとのROMプリセットバンク選択) | OPLL |
 | 0x30 | OPL3 | YMF264/289/278-4OP | OPL3 |
 | 0x38-3b | SD-1/MA-3/MA-5/MA-7 | YMF825 等 | MA3（未実装、値のみ予約） |
-| 0x40 | SSG | YM2149, AY-3-8910 | PSG(無波形) |
+| 0x40 | SSG | YM2149, AY-3-8910, YMZ705/732/771, Y8960(SSGEX) | PSG(無波形) |
 | 0x41 | EPSG | AY8930 | PSG(無波形) |
 | 0x42 | DCSG | SN76489 | PSG(無波形) |
 | 0x43 | SAA | SAA1099 | PSG(無波形) |
-| 0x48 | SCC | SCC, SCCP | PSG(波形ROM) |
+| 0x48 | SCC | SCC, SCCP, Y8960(SCCEX) | PSG(波形ROM) |
 
 サンプルベース音源系(0x50-0x54)は、`VOICE_PATCH_*`をBankSel.MSB
 (CC#0)による直接モードのチップ選択IDとしてそのまま使うため、
