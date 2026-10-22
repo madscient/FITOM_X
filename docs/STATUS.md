@@ -238,9 +238,6 @@
 **記録・出力**
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/vgm-recording.md`
 
-**利用者向けマニュアル**
-- `docs/manuals/`の`.docx`版2本(MIDIメッセージ リファレンス、MIDIインプリメンテーション・チャート)は7月15日に追加されたきりで、md版と同期していない
-
 **プラグイン SDK**
 - `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す
 
