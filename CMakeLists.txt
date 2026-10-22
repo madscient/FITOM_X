@@ -121,7 +121,7 @@ if(FITOM_BUILD_BACKEND_HWIF)
         message(WARNING
             "FITOM_BUILD_BACKEND_HWIF=ON ですが backends/hw_if/ が存在しません。"
             " HW I/F バックエンド DLL のビルドをスキップします。"
-            " FitomIFTest の共有ライブラリを別途ビルドして配置してください。")
+            " FitomHwIF の共有ライブラリを別途ビルドして配置してください。")
     endif()
 endif()
 if(FITOM_BUILD_BACKEND_MIDI_RTMIDI)

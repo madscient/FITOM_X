@@ -1,7 +1,7 @@
 # HW I/F プラグイン要件定義
 
 **対象ヘッダ**: `plugin_sdk/include/fitom/IHWPlugin.h`  
-**実装リポジトリ**: FitomIFTest (物理HW) / fitom_fmhwif (FMエンジン内蔵)  
+**実装リポジトリ**: FitomHwIF (物理HW) / fitom_fmhwif (FMエンジン内蔵)  
 **プラグイン種別**: ハードウェアインターフェース
 
 ---
@@ -16,7 +16,7 @@ FITOM コアは `IHWPlugin` C API を通じてすべてのオーディオデバ�
 FITOM core
   └── HWPort (IPort アダプター)
         └── IHWPlugin C API
-              ├── fitom_hw.dll       ← 物理チップ (FitomIFTest)
+              ├── fitom_hw.dll       ← 物理チップ (FitomHwIF)
               └── fitom_fmhwif.dll   ← FMエンジン内蔵 + RtAudio (実装: FitomEmuIF)
 ```
 
@@ -39,7 +39,7 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
-| `HWPlugin_GetName` | `const char* ()` | プラグイン名を返す（例: `"FitomIFTest"`, `"fitom_fmhwif"`） |
+| `HWPlugin_GetName` | `const char* ()` | プラグイン名を返す（例: `"FitomHwIF"`, `"fitom_fmhwif"`） |
 
 ### デバイス列挙
 
@@ -371,12 +371,12 @@ Y8960 カートリッジの拡張ブロックが FITOM から書かれる番地�
 
 ---
 
-## fitom_hw.dll のビルド（FitomIFTest）
+## fitom_hw.dll のビルド（FitomHwIF）
 
 既存のヘッダオンリーターゲット（RE1Controller 等）はそのまま残し、
 `IHWPlugin.h` を実装した共有ライブラリターゲットを追加する。
 
-**追加ファイル:** `FitomIFTest/src/HWPluginImpl.cpp`
+**追加ファイル:** `FitomHwIF/src/HWPluginImpl.cpp`
 
 ```cmake
 add_library(fitom_hw SHARED src/HWPluginImpl.cpp)

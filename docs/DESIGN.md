@@ -55,7 +55,7 @@ std で置き換える:
   │  (実機/エミュレータ共通、│   │  fitom_midi_rtmidi.dll/.so/.dylib│
   │   FITOM本体は区別しない)│   │  (RtMidi、Win/Linux/macOS共通)   │
   │  (IHWPlugin)          │   │  (IMidiPlugin)                  │
-  │  FitomIFTest を DLL化  │   └─────────────────────────────────┘
+  │  FitomHwIF             │   └─────────────────────────────────┘
   │  (実機)                │
   │  FitomEmuIF            │
   │  (FmEngine統合エミュレータ、│
@@ -68,8 +68,8 @@ std で置き換える:
 ## プラグイン SDK (plugin_sdk/include/fitom/)
 
 ### IHWPlugin.h
-FitomIFTest の `hw::HWControllerBase` を C 関数にフラット化した API。
-FitomIFTest 側でこの API を実装した共有ライブラリを追加でビルドする。
+FitomHwIF の `hw::HWControllerBase` を C 関数にフラット化した API。
+FitomHwIF がこの API を実装した共有ライブラリ (`fitom_hw`) をビルドする。
 FmEngineベースのエミュレーター統合プラグイン (FitomEmuIF) もこの同じ
 API を実装しており、FITOM本体は実機かエミュレータかを一切区別しない。
 複数のHWプラグインを同時にロードでき、`HWPluginRegistry`で名前管理する。
@@ -133,13 +133,13 @@ MIDI メッセージは MIDI 1.0 バイト列で統一する。
 
 ---
 
-## FitomIFTest 側の追加作業
+## FitomHwIF の実装パターン
 
-既存のヘッダオンリーライブラリに加えて、`IHWPlugin.h` の C API を実装した
-共有ライブラリ (`fitom_hw`) をビルドするターゲットを追加する。
+FitomHwIF は、ヘッダオンリーライブラリに加えて、`IHWPlugin.h` の C API を実装した
+共有ライブラリ (`fitom_hw`) をビルドする。実装の正本は FitomHwIF の `src/HWPluginImpl.cpp`。
 
 ```cpp
-// FitomIFTest/src/HWPluginImpl.cpp に追加する実装パターン
+// FitomHwIF/src/HWPluginImpl.cpp の実装パターン
 
 #define FITOM_HW_PLUGIN_EXPORTS
 #include <fitom/IHWPlugin.h>
@@ -159,7 +159,7 @@ struct HWDeviceOpaque {
 extern "C" {
 
 FITOM_HWP_API const char* FITOM_HWP_CALL HWPlugin_GetName() {
-    return "FitomIFTest";
+    return "FitomHwIF";
 }
 
 FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Open(
@@ -232,7 +232,7 @@ FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Write(
 | 1 | CMake 化・Boost 削減 (std 置き換え可能な部分のみ) |
 | 2 | `plugin_sdk/` 確立・`PluginLoader.h` 実装 |
 | 3 | `HWPort` (IHWPlugin 経由、実機/エミュレータ問わず複数DLL対応) |
-| 4 | FitomIFTest 側に `fitom_hw.dll` ビルドターゲット追加 |
+| 4 | FitomHwIF に `fitom_hw.dll` ビルドターゲット追加 |
 | 5 | MIDI バックエンド DLL (ALSA → WMS の順) |
 | 6 | `fitom_core` 確立・既存チップドライバの型名移行 |
 | 7 | GUI 分離 |

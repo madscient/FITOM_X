@@ -7,7 +7,7 @@ Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャ
 - バックエンド（FM エンジン / HW I/F / MIDI）を DLL プラグインに分離
 - GUI(`apps/fitom_gui`, Dear ImGui)は `gui/bridge`(FITOMBridge)経由で同一プロセス内から fitom_core を利用
 - Windows / Linux / macOS のクロスプラットフォームビルド対応
-- C++17 / CMake 3.24+ / vcpkg
+- C++17 / CMake 3.24+
 
 ---
 
@@ -154,15 +154,11 @@ FITOM_X/
 | 項目 | 要件 |
 |---|---|
 | C++ 標準 | C++17 |
-| CMake | 3.24 以上 (RtMidi MIDIバックエンドの要求バージョン) |
-| パッケージマネージャ | vcpkg (manifest モード) |
-| Boost | 1.71 以上 (asio / thread / log / format / interprocess) |
-| nlohmann/json | vcpkg 経由 |
-| RtAudio | `extern/rtaudio/` に submodule として配置（任意）|
-| libftdi1 | HW I/F バックエンド使用時（vcpkg 経由）|
-
-MIDIバックエンド(`backends/midi_rtmidi/`)は[RtMidi](https://github.com/thestk/rtmidi)を
-`third_party/rtmidi` に git submodule として使用します(`git submodule update --init --recursive`)。
+| CMake | 3.24 以上 |
+| Boost | 1.71 以上 (thread / log / log_setup。format と interprocess はヘッダーのみ使用) |
+| nlohmann/json | git submodule (`third_party/nlohmann-json`) |
+| RtMidi | git submodule (`third_party/rtmidi`) |
+| Dear ImGui / GLFW | git submodule (`third_party/imgui` / `third_party/glfw`)。GUI をビルドするときのみ |
 
 ---
 
@@ -171,28 +167,37 @@ MIDIバックエンド(`backends/midi_rtmidi/`)は[RtMidi](https://github.com/th
 ### 共通（初回）
 
 ```bash
-# 依存ライブラリのインストール
-vcpkg install
-
-# または CMake が vcpkg toolchain を認識している場合は不要
-# (CMakePresets.json が VCPKG_ROOT 環境変数を参照)
+git submodule update --init --recursive
 ```
+
+Boost は各プラットフォームの手段で用意します。
+
+- Ubuntu/Debian: `apt install libboost-dev libboost-log-dev libboost-thread-dev`
+- Windows: 公式バイナリ配布、MSYS2、または vcpkg。vcpkg を使う場合は、configure 時に
+  vcpkg のツールチェーン(`-DCMAKE_TOOLCHAIN_FILE=<vcpkg のルート>/scripts/buildsystems/vcpkg.cmake`)を
+  指定すると、`vcpkg.json` に従って Boost が取得されます
 
 ### Linux
 
 ```bash
 cmake --preset linux-ninja
 cmake --build --preset linux-release
-
-# テスト
 ctest --preset linux-test
 ```
 
-### Windows (Visual Studio 2022)
+### Windows (Visual Studio 2022 / 2026)
 
 ```bash
-cmake --preset windows-vs2022-x64
-cmake --build --preset windows-release
+cmake --preset windows-vs2022-x64        # VS2026 は windows-vs2026-x64
+cmake --build --preset windows-release   # VS2026 は windows-vs2026-release
+ctest --preset windows-test              # VS2026 は windows-vs2026-test
+```
+
+GUI (`apps/fitom_gui`) も含めてビルドする場合:
+
+```bash
+cmake --preset windows-vs2026-x64-gui-imgui
+cmake --build build/windows-vs2026-x64-gui-imgui --config Release
 ```
 
 ### macOS
@@ -202,19 +207,18 @@ cmake --preset macos-ninja
 cmake --build --preset macos-release
 ```
 
-`VCPKG_ROOT` 環境変数に vcpkg のルートディレクトリを設定しておく必要があります。
-
 ---
 
 ## ビルドオプション
 
 | オプション | デフォルト | 説明 |
 |---|---|---|
-| `FITOM_BUILD_BACKEND_FMENGINE` | ON | FM エンジンバックエンド DLL |
-| `FITOM_BUILD_BACKEND_HWIF` | ON | HW I/F バックエンド DLL |
+| `FITOM_BUILD_CLI` | ON | `fitom_cli`(テキストコンソールモニター) |
+| `FITOM_BUILD_BACKEND_HWIF` | ON | HW I/F バックエンド。`HWIF_SOURCE_DIR` に外部ソース(FitomHwIF)を指定したときだけビルドされる |
 | `FITOM_BUILD_BACKEND_MIDI_RTMIDI` | ON | RtMidi MIDI バックエンド DLL（Windows/Linux/macOS共通）|
+| `FITOM_BUILD_BACKEND_MIDI_PIPE` | OFF | 内部用MIDIパイプ DLL(パッチエディタ連携)。各プリセットでは ON |
 | `FITOM_GUI_IMGUI` | OFF | Dear ImGui GUI（`gui/bridge` + `apps/fitom_gui`）|
-| `FITOM_GUI_QT` | OFF | Qt6 GUI（実装予定）|
+| `FITOM_GUI_QT` | OFF | Qt6 GUI（未実装）|
 | `FITOM_BUILD_TESTS` | ON | Catch2 テスト |
 
 ---

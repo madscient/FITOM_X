@@ -182,7 +182,7 @@ COPN2::COPN2(IPort* port)
 
 `HWPort` が `fitom::IPort` を実装しており、
 チップドライバ側は型を変えるだけで動く。
-実機ハードウェア (FitomIFTest等) もエミュレーター統合プラグイン
+実機ハードウェア (FitomHwIF等) もエミュレーター統合プラグイン
 (FitomEmuIF等) も、どちらも `IHWPlugin` C API経由の同じ `HWPort` を
 使うため、チップドライバ側は両者を区別する必要がない。
 
@@ -190,7 +190,7 @@ COPN2::COPN2(IPort* port)
 // 旧
 COPNA opna(new CFT825Port(), DEVICE_OPNA);
 
-// 新 (実機HWバックエンド: FitomIFTest等)
+// 新 (実機HWバックエンド: FitomHwIF等)
 auto hwPort = std::make_unique<fitom::HWPort>(hwPlugin, paramsJson);
 COPNA opna(hwPort.get(), DEVICE_OPNA);
 

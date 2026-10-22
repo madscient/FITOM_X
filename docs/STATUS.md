@@ -238,6 +238,12 @@
 **記録・出力**
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/vgm-recording.md`
 
+**プラグイン SDK**
+- `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す
+
+**ビルド**
+- `windows-vs2022-x64-vcpkg`/`windows-vs2026-x64-vcpkg`プリセットはconfigureが通らない。`FITOM_USE_VCPKG_JSON=ON`でnlohmann-jsonを`find_package`で探すが、`vcpkg.json`にnlohmann-jsonが無い(**確認済み**: 7月27日のビルドのCMakeCacheが`nlohmann_json_DIR-NOTFOUND`で、その後`vcpkg.json`と該当プリセットは変わっていないことをgit logで確認)。vcpkgで依存を取る場合は、プリセットを使わず通常のプリセットにvcpkgのツールチェーンを指定する(`FITOM_USE_VCPKG_JSON=OFF`のまま、Boostだけをvcpkgから取る)
+
 ---
 
 ## 5. 周辺リポジトリの追従状況
@@ -254,39 +260,3 @@
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 
----
-
-## ビルド手順
-
-**依存関係の取得（既定: vcpkg不要）**
-
-```bash
-# nlohmann-json は git submodule (初回のみ)
-git submodule update --init --recursive
-
-# boost (thread/log/log_setup/format/interprocess) はシステムパッケージマネージャで取得
-# Ubuntu/Debian の例:
-apt install libboost-dev libboost-log-dev libboost-thread-dev
-# Windows は公式バイナリ配布や MSYS2 等で入手するか、
-# 後述の vcpkg プリセットを使う
-```
-
-**CMake 設定・ビルド**
-
-```bash
-cmake --preset linux-ninja .          # Linux (vcpkg不要)
-cmake --preset windows-vs2022-x64 .   # Windows (vcpkg不要、boostは別途用意)
-
-cmake --build build/linux-ninja
-ctest --preset linux-test
-```
-
-**vcpkg を使いたい場合（任意）**
-
-boost をシステムに用意しづらい場合など、vcpkg 経由でも取得できる。
-
-```bash
-cmake --preset windows-vs2022-x64-vcpkg .
-```
-
-このプリセットは `FITOM_USE_VCPKG_JSON=ON` を指定し、`vcpkg.json`（`boost-thread`/`boost-format`/`boost-log`/`boost-interprocess`のみ、`nlohmann-json`/`boost-asio`/`libftdi1`は含まない）経由でboostとnlohmann-jsonの両方を取得する。
