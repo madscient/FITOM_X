@@ -20,13 +20,16 @@ endif()
 
 # ─── RtMidi 本体を静的リンクでビルドする ─────────────────────────────────────
 # RTMIDI_BUILD_SHARED_LIBS/RTMIDI_BUILD_STATIC_LIBS はRtMidi自身が
-# サブプロジェクトとして組み込まれる際の上書き用に用意している専用変数
-# (汎用の BUILD_SHARED_LIBS を弄ると他のadd_subdirectory<glfw/imgui等>に
-#  影響しかねないため、専用変数の方を使う)。
-# add_subdirectory() は新しいディレクトリ変数スコープを作るため、ここで
-# 通常変数として設定しても呼び出し元や他のadd_subdirectory呼び出しには
-# 影響が漏れない。
+# サブプロジェクトとして組み込まれる際の上書き用に用意している専用変数。
+# ただしRtMidiのCMakeLists.txtは別に option(BUILD_SHARED_LIBS ... ON) を
+# 宣言しており、BUILD_SHARED_LIBS が未定義だとONのキャッシュ変数を作る。
+# キャッシュはディレクトリスコープを越えるため、後から取り込むCatch2等まで
+# 共有ライブラリになる。通常変数としてOFFを定義しておけば、option()は
+# キャッシュを作らずこの値を使う(CMP0077。RtMidiはcmake_minimum_required
+# 3.24)。通常変数はこのディレクトリのスコープに閉じ、呼び出し元や他の
+# add_subdirectory呼び出しには漏れない。
 set(RTMIDI_BUILD_SHARED_LIBS OFF)
+set(BUILD_SHARED_LIBS OFF)
 
 # 静的ライブラリを共有ライブラリ(fitom_midi_rtmidi.dll/.so)に組み込むため、
 # Linux/macOSではPIC必須(Windowsでは無関係・無害)。

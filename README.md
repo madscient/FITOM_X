@@ -175,7 +175,8 @@ Boost は各プラットフォームの手段で用意します。
 - Ubuntu/Debian: `apt install libboost-dev libboost-log-dev libboost-thread-dev`
 - Windows: 公式バイナリ配布、MSYS2、または vcpkg。vcpkg を使う場合は、configure 時に
   vcpkg のツールチェーン(`-DCMAKE_TOOLCHAIN_FILE=<vcpkg のルート>/scripts/buildsystems/vcpkg.cmake`)を
-  指定すると、`vcpkg.json` に従って Boost が取得されます
+  指定すると、`vcpkg.json` に従って Boost が取得されます(`windows-vs2022-x64-vcpkg` /
+  `windows-vs2026-x64-vcpkg` プリセットはこれを指定済み)
 
 ### Linux
 

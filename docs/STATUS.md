@@ -241,8 +241,6 @@
 **プラグイン SDK**
 - `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す
 
-**ビルド**
-- GUIを含まない構成(`FITOM_GUI_IMGUI=OFF`)を新しくconfigureすると`BUILD_SHARED_LIBS`が`ON`でキャッシュされ、FetchContentで取るCatch2がDLLになる。exeの隣にCatch2のDLLが置かれないため、`fitom_tests`のビルド後のテスト列挙(`catch_discover_tests`)が`0xc0000135`で失敗し、ctestも通らない。`third_party/rtmidi`の`option(BUILD_SHARED_LIBS ... ON)`がキャッシュ変数を作るのが原因の候補(`backends/midi_rtmidi/CMakeLists.txt`は`RTMIDI_BUILD_SHARED_LIBS`だけを設定している)。**確認済み**: `windows-vs2026-x64-vcpkg`を新しいディレクトリでconfigure・ビルドして再現し、Catch2のDLLの場所をPATHに足すと201件すべて通った。既存のビルドディレクトリのCMakeCacheも、GUIを含まない2つが`ON`、含む2つが`OFF`。GUIを含む構成でなぜ`OFF`になるかは未確認
 
 ---
 
