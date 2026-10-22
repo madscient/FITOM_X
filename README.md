@@ -2,11 +2,12 @@
 
 **Flexible Interface for Traditional Oscillator Modules X**
 
-Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャしたプロジェクト。
+複数の FM / PSG / PCM 音源チップを横断的に扱う、マルチチップ音源エンジンと MIDI アプリケーションです。
 
-- バックエンド（FM エンジン / HW I/F / MIDI）を DLL プラグインに分離
-- GUI(`apps/fitom_gui`, Dear ImGui)は `gui/bridge`(FITOMBridge)経由で同一プロセス内から fitom_core を利用
-- Windows / Linux / macOS のクロスプラットフォームビルド対応
+- 実機のチップもエミュレータも、同じ HW I/F プラグイン(DLL)の C API を通して鳴らす
+- 1 つの音色(レイヤードパッチ)で、種類の違う複数のチップを重ねて発音できる
+- GUI(`apps/fitom_gui`, Dear ImGui)と CLI(`apps/fitom_cli`)は、同一プロセス内で `fitom_core` を利用する
+- Windows / Linux / macOS のクロスプラットフォームビルド
 - C++17 / CMake 3.24+
 
 ---
@@ -14,93 +15,98 @@ Windows 専用 MFC アプリだった旧 FITOM をフルリアーキテクチャ
 ## アーキテクチャ概要
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│              GUI / アプリケーション層 (同一プロセス)               │
-│         apps/fitom_gui (Dear ImGui) / apps/fitom_cli            │
-└────────────────────────────┬───────────────────────────────────┘
-                             │ gui/bridge (FITOMBridge)
-┌────────────────────────────▼───────────────────────────────────┐
-│                   fitom_core  (static lib)                     │
-│  CFITOM / CInstCh / CRhythmCh / PatchManager / Config ...     │
-│                                                                │
-│  IPort ─── FmEnginePort ─── FM エンジン DLL (IFmEnginePlugin) │
-│        └── HWPort       ─── HW I/F DLL     (IHWPlugin)        │
-│  MidiManager            ─── MIDI DLL        (IMidiPlugin)     │
-└────────────────────────────────────────────────────────────────┘
-         │                         │
-  ┌──────▼──────┐         ┌──────────────────┐
-  │ FM Engine   │         │  MIDI Backend     │
-  │ YMEngine.dll│         │  fitom_midi_rtmidi│
-  │ AYEngine.dll│         │  (Win/Linux/macOS)│
-  └─────────────┘         └──────────────────┘
+apps/fitom_gui (Dear ImGui) / apps/fitom_cli
+  │  gui/bridge (FITOMBridge)
+  ▼
+fitom_core (static lib)
+  CFITOM / CInstCh / CRhythmCh / PatchManager / FITOMConfig
+  ├─ チップドライバ (ISoundDevice: COPN / COPM / COPL3 / CSSG / CSCC ...)
+  │    └─ HWPort (IPort) ─── HW I/F DLL (IHWPlugin)
+  │                            ├─ FitomHwIF  … 実機 (RE1 / RE4 / SPFM 等)
+  │                            ├─ FitomEmuIF … エミュレータ (FM エンジン DLL を内部でロード)
+  │                            └─ FitomSf2IF … SoundFont (fluidsynth)
+  └─ MidiManager ─── MIDI DLL (IMidiPlugin)
+                       ├─ fitom_midi_rtmidi … MIDI 入力 (WinMM / ALSA / CoreMIDI)
+                       └─ fitom_midi_pipe   … 内部用 MIDI パイプ (パッチエディタ連携)
 ```
+
+HW I/F DLL は別リポジトリで開発しています。`fitom_core` は、接続先が実機かエミュレータかを区別しません。
 
 ### 音声データフロー
 
 ```
 MIDI入力
   → CInstCh / CRhythmCh
-      → PatchResolver (Patch → ToneLayer[] → HwPatch)
-          → ISoundDevice (COPN / COPM / COPL3 / CSCC ...)
-              → IPort → FmEnginePort / HWPort → チップ
+      → PatchResolver (Patch → ToneLayer[] → HwPatch + SwPatch)
+          → ISoundDevice (チップドライバ)
+              → HWPort → HW I/F DLL → チップ (実機 / エミュレータ)
 ```
 
 ---
 
 ## 対応チップ
 
-| カテゴリ | チップ / 型番 | ドライバクラス |
-|---|---|---|
-| **OPN 系 FM** | YM2203 (OPN) / YM2608 (OPNA) / YM2612 (OPN2) / YM3438 (OPN2C) / YMF288 (OPN3L) | `COPN` / `COPNA` / `COPN2` |
-| **OPM 系 FM** | YM2151 (OPM) / YM2164 (OPP) / YM2414 (OPZ) | `COPM` / `COPP` / `COPZ` |
-| **OPL 系 FM** | YM3526 (OPL) / YM3812 (OPL2) / Y8950 / YMF262 (OPL3) | `COPL` / `COPL2` / `COPL3` |
-| **OPLL 系 FM** | YM2413 (OPLL) / VRC7 (OPLLP) | `COPLL` / `COPLLP` |
-| **PSG / SSG** | YM2149 / AY-3-8910 (SSG/PSG) / SN76489 (DCSG) | `CSSG` / `CDCSG` |
-| **SCC** | K051649 (SCC) / SCC+ | `CSCC` |
-| **ADPCM** | YM2608内蔵 ADPCM-B (YMDeltaT) / YMZ280B (PCMD8) | `CYmDelta` / `CAdPcmZ280` |
+プロファイルの `chip` に書く名前と、対応するチップです。
 
-複数デバイスを 1 MIDI チャンネルに束ねるマルチレイヤー発音と、`SplitPort` による 2 ポートチップ（OPNA / OPN2 / OPL3）の透過的なアドレス振り分けをサポートします。
+| カテゴリ | `chip` の値 | チップ |
+|---|---|---|
+| **OPN 系 FM** | `OPN` / `OPNA` / `OPN2` / `OPN2C` / `OPN2L` / `OPN3` / `OPNB` / `OPNBB` | YM2203 / YM2608 / YM2612 / YM3438 / YMF276 / YMF297 / YM2610 / YM2610B |
+| **OPM 系 FM** | `OPM` / `OPP` / `OPZ` | YM2151 / YM2164 / YM2414 |
+| **OPL 系 FM** | `OPL` / `OPL2` / `Y8950` / `OPL3` / `OPL3_2` / `OPL4` | YM3526 / YM3812 / Y8950 / YMF262 (`OPL3_2` は 2 オペレータで使う構成) / YMF278 (FM 部 + AWM 部) |
+| **OPLL 系 FM** | `OPLL` / `OPLL2` / `OPLLP` / `OPLLX` / `VRC7` | YM2413 / YM2420 / YMF281 / YM2423 / VRC7 |
+| **PSG 系** | `SSG` / `PSG` / `EPSG` / `DCSG` / `SAA` | YM2149 / AY-3-891x / AY8930 / SN76489 / SAA1099 |
+| **SSG 互換部を持つチップ** | `SSGS` / `SSGS2` / `SSGS3` (`YMZ705` / `YMZ732` / `YMZ771` とも書ける) | YMZ705 / YMZ732 / YMZ771 ※ |
+| **SCC** | `SCC` / `SCCP` | K051649 / SCC+ |
+| **DSG** | `DSG` (`YM2163` とも書ける) | YM2163 ※ |
+| **PCM** | `PCMD8` | YMZ280B |
+| **Y8960 (MSX 用サウンドカートリッジ)** | `OPLLEX` / `OPL2EX` / `SSGEX` / `SCCEX` / `OPM` | 拡張 OPLL 部 / 拡張 OPL2 部 / SSG 部 / SCC 部 / OPM ※ |
+| **SoundFont** | `SF2` | FitomSf2IF 経由の SoundFont 音源 |
+
+ADPCM-A / ADPCM-B・OPNA の内蔵リズム音源・AWM 部など、チップに内蔵された部位は、親のチップを指定すると自動的に使えるようになります。OPL 系・OPLL 系の内蔵リズム音源は、ch6-8 をリズム専用にするため、デバイスに `rhythm_mode: true` を指定したときだけ使えます。
+
+※ 実機・エミュレータでの音の確認がまだ済んでいないチップです。
 
 ---
 
 ## パッチ構造
 
 ```
-PatchBank (*.patchbank.json)
+PatchBank (*.patchbank.json)     ← 通常モード (CC#0 = 0) で選ぶ音色
   └── Patch [prog 0..127]
-        ├── ToneLayer [0..3]        ← 最大4チップ同時発音
-        │   ├── device_index        → profile の devices[] を指す
-        │   ├── hw_bank / hw_prog   → HwPatch への参照
-        │   └── note_range / transpose / volume_offset / pan_offset
-        └── sw_bank / sw_prog       → SwPatch (ベロシティ感度 / ソフト LFO)
+        └── ToneLayer [最大 4]
+              ├── voice_patch_type    → 鳴らすチップの種別
+              ├── hw_bank / hw_prog   → HwPatch への参照
+              └── note_range_lo / note_range_hi / transpose / volume_offset / pan_offset
 
-HwBank (*.hwbank.json)    ← チップ族ごとに独立
-  └── HwPatch [prog 0..127]
-        ├── FmHwVoice  (FB / ALG / AMS / PMS)
-        ├── FmHwOp [4] (AR/DR/TL/KSR/MUL/DT1/WS ...)
-        └── FmChipExt  (OPZ 拡張: REV / EGS / DT3)
+HwBank (*.hwbank.json)           ← チップ種別ごとに独立したバンク番号
+  └── HwPatch [prog 0..127]      (FB / ALG / AMS / PMS / ops[] / ext)
+        └── sw_bank / sw_prog    → SwPatch への参照
 
-SwBank (*.swbank.json)    ← チップ族共通
-  └── SwPatch [prog 0..127]
-        ├── FmSwVoice  (ソフト LFO / ビブラート)
-        └── FmSwOp [4] (ベロシティ感度 / トレモロ)
+SwBank (*.swbank.json)
+  └── SwPatch [prog 0..127]      (ソフトウェア LFO / ベロシティ感度)
 ```
 
-ドラムチャンネルは `DrumPatch` (`.drumbank.json`) でノート番号ごとに通常パッチを参照します。ドラムノートも `ToneLayer` のマルチレイヤーが有効で、キックを OPN と SSG で同時発音するといった構成が可能です。
+- ドラムは `*.drumkit.json` でノート番号ごとに音色を割り当てます
+- SCC の波形は `*.sccwave.json` で管理し、HwPatch の `ops[0].WS` で波形番号を選びます
+- ADPCM・PCM 系は、波形イメージを `*.pcmbank.json` に、鍵盤・ベロシティの範囲ごとの割り当てを `*.samplezonebank.json` に書きます
 
-SCC 波形テーブルは `*.sccwave.json` で管理し、`FmHwOp::WS` フィールドで波形番号を選択します。ADPCM / PCM は `*.pcmbank.json` で adpcm_packer の出力を参照し、同様に `WS` フィールドでサンプルを選択します。
+各ファイルの書式は、利用者向けマニュアル(下記「ドキュメント」)を参照してください。
 
 ---
 
 ## MIDI バンクセレクト
 
-| MIDI CC | 意味 |
-|---|---|
-| CC#0 (MSB) | HwBank 番号（チップ族に対応する HwPatch バンク）|
-| CC#32 (LSB) | SwBank 番号（ソフトパラメータバンク）|
-| Program Change | Patch 番号 |
+CC#0 の値で、音色の選び方が変わります。
 
-ドラムチャンネルでは CC#0 がドラムバンク番号になります。
+| CC#0 | モード | CC#32 / プログラムチェンジ |
+|---|---|---|
+| 0 | 通常モード | パッチバンク番号 / パッチ番号 |
+| 1–111 | 直接デバイス選択(CC#0 がチップの種別) | そのチップの HwBank 番号 / 音色番号 |
+| 112 | 内蔵リズム音源 | 対象チップ / 内蔵楽器の番号 |
+| 120 / 121 | リズムチャンネル / メロディチャンネルへ切り替え | — |
+| 127 | 無音バンク | 参照しない |
+
+詳細は [MIDI メッセージ リファレンスマニュアル](docs/manuals/midi-message-reference.md) の 2.2 節を参照してください。
 
 ---
 
@@ -112,36 +118,29 @@ FITOM_X/
 │   ├── fitom_cli/          # CLI アプリケーション
 │   └── fitom_gui/          # Dear ImGui GUI アプリケーション
 ├── backends/
+│   ├── hw_if/              # HW I/F バックエンドを外部ソースから取り込む口
+│   ├── midi_pipe/          # 内部用 MIDI パイプ DLL (パッチエディタ連携)
 │   └── midi_rtmidi/        # RtMidi MIDI バックエンド DLL (Windows/Linux/macOS共通)
+├── banks/                  # バンクファイルの書式例
 ├── config/
-│   ├── fitom.conf.json     # システム設定（ログ・プラグインパス・バッファサイズ）
-│   └── profiles/           # ユーザープロファイルサンプル
-│       ├── emulator_only.profile.json
-│       └── studio.profile.json
-├── config_schema/          # JSON Schema ファイル群
-│   ├── fitom.conf.schema.json
-│   ├── profile.schema.json
-│   ├── hwbank.schema.json
-│   ├── swbank.schema.json
-│   ├── patchbank.schema.json
-│   ├── drumbank.schema.json
-│   ├── sccwave.schema.json
-│   └── pcmbank.schema.json
+│   ├── fitom.conf.json     # システム設定の例
+│   └── profiles/           # プロファイルの例
+├── config_schema/          # 設定ファイル・バンクファイルの JSON Schema
 ├── core/
 │   ├── include/fitom/      # 公開ヘッダ
-│   └── src/                # 実装（新設計: *_new.cpp）
-├── docs/                   # 設計ドキュメント
+│   └── src/                # 実装
+├── docs/
+│   └── manuals/            # 利用者向けマニュアル
 ├── gui/
-│   └── bridge/             # GUI ブリッジ（UIフレームワーク非依存、apps/fitom_gui 等から利用）
+│   └── bridge/             # GUI ブリッジ（UIフレームワーク非依存）
 ├── legacy/                 # 旧実装（ビルド対象外、参照用に保管）
-│   ├── include/fitom/
-│   └── src/
 ├── plugin_sdk/
 │   └── include/fitom/      # DLL プラグイン C API
-│       ├── IFmEnginePlugin.h
 │       ├── IHWPlugin.h
 │       └── IMidiPlugin.h
+├── spec/                   # 外部ツール向けの機械可読仕様 (chip-capabilities.json)
 ├── tests/                  # Catch2 テスト
+├── third_party/            # git submodule (nlohmann-json / rtmidi / imgui / glfw)
 ├── CMakeLists.txt
 ├── CMakePresets.json
 └── vcpkg.json
@@ -226,67 +225,81 @@ cmake --build --preset macos-release
 
 ## 設定ファイル
 
-### `fitom.conf.json` — システム設定（管理者向け）
+### `fitom.conf.json` — システム設定
 
-ログレベル等、環境依存の設定を記述します(省略可能)。
+ログの設定と、プロファイルを探すディレクトリを記述します(省略可能)。
 
 ```json
 {
-  "log": { "level": "info", "file": "fitom.log", "console": true }
+  "log": { "level": "info", "file": "fitom.log", "console": true },
+  "profiles": { "root": "profiles" }
 }
 ```
 
+`fitom_gui` を引数なしで起動すると、`profiles.root` 配下の `*.profile.json` が一覧され、選んで起動できます。
+
 ### `*.profile.json` — ユーザープロファイル
 
-使用デバイス、MIDI 入力、チャンネルマップ、バンクファイルのパスを記述します。`fitom.conf.json` とは独立して切り替え可能です。
+使う HW I/F プラグインとチップ、MIDI 入力、バンクファイルを記述します。`fitom.conf.json` とは独立して切り替えられます。
 
 ```json
 {
-  "devices": [
-    { "if": "FMENGINE", "label": "OPM", "engine": "YMEngine", "chip": "OPM" },
-    { "if": "HW", "label": "OPNA", "type": "SPFM_TOWER", "port": "COM3",
-      "slot": 0, "extra_slot": 1 }
+  "profile_name": "エミュレーター OPN",
+  "hw_plugins": [
+    { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+      "profile": "fmhwif_profile.json", "auto_devices": true }
   ],
-  "channel_map": [
-    { "midi_ch": 1, "device_index": 0, "poly": 8 },
-    { "midi_ch": 10, "device_index": 1, "poly": 1 }
-  ],
+  "midi_inputs": [ "MIDI キーボード" ],
   "banks": {
-    "hw_banks":    [{ "group": "OPM", "bank": 0, "file": "banks/hw/opm/default.hwbank.json" }],
-    "patch_banks": [{ "bank": 0, "file": "banks/patches/general.patchbank.json" }],
-    "drum_banks":  [{ "bank": 0, "file": "banks/drums/gm_drums.drumbank.json" }]
+    "hw_banks":    [{ "group": "OPN", "bank": 0, "file": "banks/opn.hwbank.json" }],
+    "sw_banks":    [{ "bank": 0, "file": "banks/default.swbank.json" }],
+    "patch_banks": [{ "bank": 0, "file": "banks/general.patchbank.json" }],
+    "drum_banks":  []
   }
 }
 ```
 
-`banks.*[].file` の相対パスは、プロファイルファイル自身が置かれている
-ディレクトリを起点に解決されます(起動時のカレントディレクトリは無関係)。
+- `hw_plugins[].auto_devices` を `true` にすると、プラグインが持つチップがそのまま使えます。チップを個別に指定する場合は `devices[]` に書きます
+- `midi_inputs` の並びが MPU 番号(最大 4)に対応します
+- `banks` には、外部のバンク定義ファイルへのパスを文字列で書くこともできます
+- `banks.*[].file` の相対パスは、プロファイルファイル自身が置かれているディレクトリを起点に解決されます(起動時のカレントディレクトリは無関係)
+
+すべての項目は `config_schema/profile.schema.json` と [config-design.md](docs/config-design.md) を参照してください。
 
 ---
 
 ## プラグイン SDK
 
-`plugin_sdk/include/fitom/` の3つのヘッダが DLL プラグインの C API を定義します。
+`plugin_sdk/include/fitom/` の2つのヘッダが DLL プラグインの C API を定義します。
 
-**`IFmEnginePlugin.h`** — FM エンジン（エミュレーター）DLL。既存の `FmEngineApi.h` との互換を保ちつつ `FmEngine_GetEngineName()` を1関数追加するだけで対応できます。
+**`IHWPlugin.h`** — HW I/F DLL。チップへのレジスタ書き込みを `HWPlugin_Write` / `HWPlugin_WriteBlock` としてフラット化した C API です。渡すレジスタアドレスは常に実チップのものです。実機用もエミュレータ用もこの同じ API を実装します。チップの出力ごとの音量(部位ごとのゲイン)を調整する関数は任意の実装です。詳細は [plugin-hwif.md](docs/plugin-hwif.md)。
 
-**`IHWPlugin.h`** — HW I/F DLL。SPFM 等の物理デバイスへのアクセスを `HWPlugin_Write` / `HWPlugin_Read` としてフラット化した C API です。アドレスの上位8bit が a_high（ポート番号）として扱われ、`SplitPort` 経由で 2 ポートチップのアドレス振り分けを自動的に行います。
-
-**`IMidiPlugin.h`** — MIDI バックエンド DLL。RtMidi(WinMM / ALSA / CoreMIDI)を共通インターフェースで抽象化し、MIDI 1.0 バイト列で統一します。
+**`IMidiPlugin.h`** — MIDI バックエンド DLL。MIDI 1.0 のバイト列で統一したインターフェースです。詳細は [plugin-midi.md](docs/plugin-midi.md)、内部用 MIDI パイプは [plugin-midi-pipe.md](docs/plugin-midi-pipe.md)。
 
 ---
 
 ## ドキュメント
 
-`docs/` ディレクトリに設計ドキュメントが揃っています。
+### 利用者向け (`docs/manuals/`)
+
+- [midi-message-reference.md](docs/manuals/midi-message-reference.md) — MIDI メッセージ仕様(CC / RPN / NRPN / SysEx)
+- [midi-implementation-chart.md](docs/manuals/midi-implementation-chart.md) — MIDI インプリメンテーション・チャート
+- [hwpatch-reference.md](docs/manuals/hwpatch-reference.md) — HwPatch(音色合成パラメータ)
+- [swpatch-reference.md](docs/manuals/swpatch-reference.md) — SwPatch(演奏特性パラメータ)
+- [layered-patch-reference.md](docs/manuals/layered-patch-reference.md) — レイヤードパッチ
+
+### 開発者向け (`docs/`)
 
 - `DESIGN.md` — アーキテクチャ全体像と設計方針
+- `chip-driver-architecture.md` — チップドライバの設計
 - `voice-data-design.md` — HwPatch / SwPatch / FmHwOp の設計
 - `patch-structure-design.md` — パッチ・バンク構造
 - `config-design.md` — 設定ファイル (`fitom.conf.json` / `*.profile.json`) の設計
-- `chip-driver-migration.md` — 旧チップドライバから新設計への移行ガイド
-- `plugin-fmengine.md` / `plugin-hwif.md` / `plugin-midi.md` — 各プラグイン SDK の詳細
-- `STATUS.md` — 実装完了状況と残タスク
+- `plugin-hwif.md` / `plugin-midi.md` / `plugin-midi-pipe.md` — 各プラグイン SDK の詳細
+- `sf2-fluidsynth-integration.md` — SoundFont 音源との連携
+- `terminology.md` — 用語
+- `STATUS.md` — 実装状況と未確認事項
+- `spec/README.md` — 外部ツール向けの機械可読仕様
 
 ---
 
