@@ -34,6 +34,7 @@ add_executable(fitom_tests
     test_y8960.cpp
     test_hwport.cpp
     test_part_gain.cpp
+    test_test_names.cpp
 )
 
 # -------------------------------------------------------

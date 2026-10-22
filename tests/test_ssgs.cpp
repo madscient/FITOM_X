@@ -146,7 +146,7 @@ SampleZonePatch makeSamplePatch(uint16_t waveIndex)
 //  CSSGS — SSG 互換部 (2ユニット × 3ch)
 // ================================================================
 
-TEST_CASE("CSSGS: 6ch構成で、SSG-1/SSG-2のレジスタが0x20ずつ離れて配置される", "[ssgs]")
+TEST_CASE("CSSGS: 6 channels, with SSG-1 and SSG-2 registers 0x20 apart", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -176,7 +176,7 @@ TEST_CASE("CSSGS: 6ch構成で、SSG-1/SSG-2のレジスタが0x20ずつ離れ�
     CHECK(port.wrote(0x27));
 }
 
-TEST_CASE("CSSGS: 同じ音程なら全chが同じトーン周期になる (ユニット間で計算が揃う)", "[ssgs]")
+TEST_CASE("CSSGS: the same pitch gives the same tone period on every channel (units compute alike)", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -194,7 +194,7 @@ TEST_CASE("CSSGS: 同じ音程なら全chが同じトーン周期になる (ユ�
     }
 }
 
-TEST_CASE("CSSGS: マスタークロックからSSGブロックの2.048MHzを導く", "[ssgs]")
+TEST_CASE("CSSGS: derives the 2.048MHz SSG block clock from the master clock", "[ssgs]")
 {
     // 実機の SSG ブロックはマスタークロックが 4.096MHz でも 6.144MHz でも
     // 2.048MHz で動く。周期は master/(16*f) なので、どちらでも同じ値になる。
@@ -213,7 +213,7 @@ TEST_CASE("CSSGS: マスタークロックからSSGブロックの2.048MHzを導
     }
 }
 
-TEST_CASE("CSSGS2: YMZ732は12.288MHzを1/6してSSGブロックの2.048MHzを得る", "[ssgs]")
+TEST_CASE("CSSGS2: YMZ732 divides 12.288MHz by 6 to get the 2.048MHz SSG block clock", "[ssgs]")
 {
     // YMZ705 と違いマスタークロックは1択で、S6Mピンの役割自体が
     // CPUインターフェイスモード選択へ変わっている。
@@ -230,7 +230,7 @@ TEST_CASE("CSSGS2: YMZ732は12.288MHzを1/6してSSGブロックの2.048MHzを�
     CHECK(dev->getDescriptor() == "SSGS2 (YMZ732) SSG 6ch");
 }
 
-TEST_CASE("CSSGS2: レジスタ配置はSSGSと完全に同一", "[ssgs]")
+TEST_CASE("CSSGS2: register layout is identical to SSGS", "[ssgs]")
 {
     // YMZ732 データシート注記「YMZ705(SSGS)とレジスタコンパチブルです」。
     // 同じ音程・同じパンで両チップを駆動し、書き込まれたレジスタが
@@ -261,7 +261,7 @@ TEST_CASE("CSSGS2: レジスタ配置はSSGSと完全に同一", "[ssgs]")
 //  CSSGS3 — YMZ771 (レジスタ配置が機能ごとにまとめ直されている)
 // ================================================================
 
-TEST_CASE("CSSGS3: レジスタが機能ごとに $10-$32 へまとめて配置される", "[ssgs]")
+TEST_CASE("CSSGS3: registers are grouped by function into $10-$32", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
@@ -292,7 +292,7 @@ TEST_CASE("CSSGS3: レジスタが機能ごとに $10-$32 へまとめて配置�
     for (uint16_t r = 0x00; r < 0x10; ++r) CHECK_FALSE(port.wrote(r));
 }
 
-TEST_CASE("CSSGS3: 16.384MHzを1/8してSSGブロックの2.048MHzを得る", "[ssgs]")
+TEST_CASE("CSSGS3: divides 16.384MHz by 8 to get the 2.048MHz SSG block clock", "[ssgs]")
 {
     const int expected = static_cast<int>(std::lround(kSsgBlock / (16.0 * noteHz(69))));
 
@@ -306,7 +306,7 @@ TEST_CASE("CSSGS3: 16.384MHzを1/8してSSGブロックの2.048MHzを得る", "[
     CHECK(std::abs(decodePeriodSsgs3(port, 0) - expected) <= 1);
 }
 
-TEST_CASE("CSSGS3: init() が両ユニットを消音し、パンポット中央とトータル音量を書く", "[ssgs]")
+TEST_CASE("CSSGS3: init() mutes both units and writes the center panpot and total volume", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
@@ -323,7 +323,7 @@ TEST_CASE("CSSGS3: init() が両ユニットを消音し、パンポット中央
     CHECK(port.at(0x32) == 128);
 }
 
-TEST_CASE("CSSGS3: パンポットは5bit (0=左端 / 16=中央 / 31=右端)", "[ssgs]")
+TEST_CASE("CSSGS3: panpot is 5 bits (0=left / 16=center / 31=right)", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
@@ -339,7 +339,7 @@ TEST_CASE("CSSGS3: パンポットは5bit (0=左端 / 16=中央 / 31=右端)", "
     CHECK(port.at(0x2E) == 31);
 }
 
-TEST_CASE("CSSGS3: ノイズ周波数・HWエンベロープもユニットごとに分かれる", "[ssgs]")
+TEST_CASE("CSSGS3: noise frequency and HW envelope are also per unit", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster16384, DEVICE_SSGS3);
@@ -369,7 +369,7 @@ TEST_CASE("CSSGS3: ノイズ周波数・HWエンベロープもユニットご�
     CHECK((port.at(0x24) & 0x10) != 0); // 音量レジスタ(ch4=$24)のHW EG使用ビット
 }
 
-TEST_CASE("CSSGS3: 音程・音量はSSGSと同じ値になる (配置だけが違う)", "[ssgs]")
+TEST_CASE("CSSGS3: pitch and volume values match SSGS (only the layout differs)", "[ssgs]")
 {
     // 機能はSSGS/SSGS2と同一。同じ音程・同じベロシティで駆動したとき、
     // 書かれる「値」はアドレスが違うだけで一致するはず
@@ -397,7 +397,7 @@ TEST_CASE("CSSGS3: 音程・音量はSSGSと同じ値になる (配置だけが�
     }
 }
 
-TEST_CASE("CSSGS: init() が両ユニットを消音し、パンポットを中央にする", "[ssgs]")
+TEST_CASE("CSSGS: init() mutes both units and centers the panpot", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -414,7 +414,7 @@ TEST_CASE("CSSGS: init() が両ユニットを消音し、パンポットを中�
     }
 }
 
-TEST_CASE("CSSGS: パンポットが $10-$12 / $30-$32 へ4bitで書かれる", "[ssgs]")
+TEST_CASE("CSSGS: panpot is written as 4 bits to $10-$12 / $30-$32", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -437,7 +437,7 @@ TEST_CASE("CSSGS: パンポットが $10-$12 / $30-$32 へ4bitで書かれる", 
     CHECK(port.at(0x32) == 15);
 }
 
-TEST_CASE("CSSGS: ノイズ周波数がそのchのユニットのレジスタへ書かれる", "[ssgs]")
+TEST_CASE("CSSGS: noise frequency goes to the register of the channel's own unit", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -454,7 +454,7 @@ TEST_CASE("CSSGS: ノイズ周波数がそのchのユニットのレジスタへ
     CHECK(port.at(0x06) == 0x15);   // SSG-1側は影響を受けない
 }
 
-TEST_CASE("CSSGS: ノイズ音色は各ユニットの最終chへ割り当てられる", "[ssgs]")
+TEST_CASE("CSSGS: noise voices are assigned to the last channel of each unit", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -474,7 +474,7 @@ TEST_CASE("CSSGS: ノイズ音色は各ユニットの最終chへ割り当てら
     CHECK(dev->queryCh(nullptr, &p, 1) == 0xFF);
 }
 
-TEST_CASE("CSSGS: ミキサービットがユニット内chだけに作用する", "[ssgs]")
+TEST_CASE("CSSGS: mixer bits affect only channels within the unit", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -488,7 +488,7 @@ TEST_CASE("CSSGS: ミキサービットがユニット内chだけに作用する
     CHECK(port.at(0x07) == 0x3F);
 }
 
-TEST_CASE("CSSGS: HWエンベロープのレジスタもユニットごとに分かれる", "[ssgs]")
+TEST_CASE("CSSGS: HW envelope registers are per unit", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgs(port, kMaster4096);
@@ -509,7 +509,7 @@ TEST_CASE("CSSGS: HWエンベロープのレジスタもユニットごとに分
     CHECK((port.at(0x29) & 0x10) != 0);
 }
 
-TEST_CASE("CSSGS: 単体SSG(CSSG)のレジスタ配置は従来どおり変わらない", "[ssgs]")
+TEST_CASE("CSSGS: standalone SSG (CSSG) keeps its own register layout", "[ssgs]")
 {
     // ユニット索引の導入で CSSG (maxChs=3) のアドレスが1バイトも
     // ずれていないことを確認する回帰テスト。
@@ -540,7 +540,7 @@ TEST_CASE("CSSGS: 単体SSG(CSSG)のレジスタ配置は従来どおり変わ�
 //  CSSGSAdPcm — ADPCM 部 (8ch)
 // ================================================================
 
-TEST_CASE("CSSGSAdPcm: 8ch構成でレジスタが $40 から16byteおきに並ぶ", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: 8 channels with registers every 16 bytes from $40", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgsAdpcm(port);
@@ -555,7 +555,7 @@ TEST_CASE("CSSGSAdPcm: 8ch構成でレジスタが $40 から16byteおきに並�
     }
 }
 
-TEST_CASE("CSSGSAdPcm: ボイス番号とサンプリング周波数コードを1つのレジスタへ書く", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: voice number and sampling rate code share one register", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgsAdpcm(port);
@@ -581,7 +581,7 @@ TEST_CASE("CSSGSAdPcm: ボイス番号とサンプリング周波数コードを
     for (uint16_t r = 0x64; r <= 0x6F; ++r) CHECK_FALSE(port.wrote(r));
 }
 
-TEST_CASE("CSSGSAdPcm: サンプリング周波数コードは 4k/8k/16k/32k に対応する", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: sampling rate codes map to 4k/8k/16k/32k", "[ssgs]")
 {
     const std::pair<uint32_t, uint8_t> cases[] = {
         {4000, 0}, {8000, 1}, {16000, 2}, {32000, 3},
@@ -606,7 +606,7 @@ TEST_CASE("CSSGSAdPcm: サンプリング周波数コードは 4k/8k/16k/32k に
     }
 }
 
-TEST_CASE("CSSGSAdPcm: sample_rate未指定・非対応値は最高レート(32kHz)へ丸める", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: missing or unsupported sample_rate falls back to the highest rate (32kHz)", "[ssgs]")
 {
     for (uint32_t rate : {uint32_t{0}, uint32_t{24000}}) {
         RecordingPort port;
@@ -628,7 +628,7 @@ TEST_CASE("CSSGSAdPcm: sample_rate未指定・非対応値は最高レート(32k
     }
 }
 
-TEST_CASE("CSSGSAdPcm: ボイス番号は6bit、範囲外なら発音しない", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: voice number is 6 bits, out of range does not sound", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgsAdpcm(port);
@@ -647,7 +647,7 @@ TEST_CASE("CSSGSAdPcm: ボイス番号は6bit、範囲外なら発音しない",
     CHECK(port.at(0x40) == before);
 }
 
-TEST_CASE("CSSGSAdPcm: KONはbit1、LOOPは常に0", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: KON is bit 1 and LOOP is always 0", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgsAdpcm(port);
@@ -671,7 +671,7 @@ TEST_CASE("CSSGSAdPcm: KONはbit1、LOOPは常に0", "[ssgs]")
     CHECK(port.at(0x73) == 0x00);
 }
 
-TEST_CASE("CSSGSAdPcm: パンポットが $42+ch*$10 へ4bitで書かれる", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: panpot is written as 4 bits to $42+ch*$10", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgsAdpcm(port);
@@ -698,7 +698,7 @@ TEST_CASE("CSSGSAdPcm: パンポットが $42+ch*$10 へ4bitで書かれる", "[
     CHECK(port.at(0x62) == 15);
 }
 
-TEST_CASE("CSSGSAdPcm: 音量は4bit(0=無音/15=最大)で、CC#7に単調に追従する", "[ssgs]")
+TEST_CASE("CSSGSAdPcm: volume is 4 bits (0=mute / 15=max) and follows CC#7 monotonically", "[ssgs]")
 {
     RecordingPort port;
     auto dev = makeSsgsAdpcm(port);
@@ -735,7 +735,7 @@ TEST_CASE("CSSGSAdPcm: 音量は4bit(0=無音/15=最大)で、CC#7に単調に�
 //  構成 (composite) と分類
 // ================================================================
 
-TEST_CASE("SSGS/SSGS2: SSG部とADPCM部の2サブデバイスへcomposite展開される", "[ssgs]")
+TEST_CASE("SSGS/SSGS2: composite-expands into SSG and ADPCM sub-devices", "[ssgs]")
 {
     for (uint32_t base : {uint32_t{DEVICE_SSGS}, uint32_t{DEVICE_SSGS2}}) {
         std::vector<FITOMConfig::SubDeviceSpec> spec;
@@ -751,7 +751,7 @@ TEST_CASE("SSGS/SSGS2: SSG部とADPCM部の2サブデバイスへcomposite展開
     }
 }
 
-TEST_CASE("SSGS3: AMM部が非対応のためcomposite展開されない", "[ssgs]")
+TEST_CASE("SSGS3: no composite expansion since the AMM part is unsupported", "[ssgs]")
 {
     // ADPCMの代わりに搭載されたAMM(MPEG Audio系コーデック)部は当面非対応で、
     // 生成すべきサブデバイスがSSG部しかないため単一デバイスのままにする。
@@ -759,7 +759,7 @@ TEST_CASE("SSGS3: AMM部が非対応のためcomposite展開されない", "[ssg
     CHECK_FALSE(FITOMConfig::resolveCompositeSpec(DEVICE_SSGS3, false, spec));
 }
 
-TEST_CASE("SSGS/SSGS2/SSGS3: 混在構成でもSSG部・ADPCM部がそれぞれ束ねの対象になる", "[ssgs]")
+TEST_CASE("SSGS/SSGS2/SSGS3: in mixed setups the SSG and ADPCM parts are each spanned", "[ssgs]")
 {
     // CSpanDeviceの束ねのグループ化キーはVoicePatchType
     // (mergeSpannableDevices、docs/chip-driver-architecture.md 3節)。
@@ -777,7 +777,7 @@ TEST_CASE("SSGS/SSGS2/SSGS3: 混在構成でもSSG部・ADPCM部がそれぞれ�
     CHECK(s1[1].deviceType == s2[1].deviceType);
 }
 
-TEST_CASE("SSGS: VoicePatchType と パンポット種別の分類", "[ssgs]")
+TEST_CASE("SSGS: VoicePatchType and panpot type classification", "[ssgs]")
 {
     // SSG部は YM2149 とレジスタ互換なので音色データも SSG と共有する
     CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS) == VOICE_PATCH_SSG);

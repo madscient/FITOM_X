@@ -677,8 +677,8 @@ TEST_CASE("CC#1 residual survives an intervening drum note unless the drum "
 // sw/swOpを埋め忘れていたため(buildVoiceForCh()と不整合)、tick毎に
 // recalcChLfo/recalcOpLfoが常にsw側デフォルト値(LFR=0/depthCents=0等)を
 // 参照し、音色固有のソフトウェアピッチLFO/トレモロが実質常にデプス0で
-// 無効化されていた(2026年7月修正、timerCallback()もbuildVoiceForCh()を
-// 使うよう統一)。このテストは、ノートオン中にソフトウェアピッチLFOを
+// 無効化されていた(timerCallback()もbuildVoiceForCh()を使うことで解消)。
+// このテストは、ノートオン中にソフトウェアピッチLFOを
 // 回した場合に (1) tick毎のFnum再書き込みでKONビットが落ちないこと、
 // (2) LFOが実際にFnumへ反映されること、の両方を検証する。
 TEST_CASE("OPL soft pitch LFO ticks keep the KON bit set in reg 0xB0 across Fnum updates",

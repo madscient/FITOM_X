@@ -236,8 +236,8 @@ TEST_CASE("FITOMConfig: bank_overrides replaces a matching hw_banks entry (same 
     CHECK(opnBank1->name == "added OPN bank1");
 }
 
-TEST_CASE("FITOMConfig: 同じ族の別チップへ同じバンク番号を登録できる "
-          "(バンク番号の名前空間はチップごとに独立)", "[config]")
+TEST_CASE("FITOMConfig: the same bank number can be registered for different chips "
+          "of one family (bank numbers are namespaced per chip type)", "[config]")
 {
     // OPM/OPZ/OPZ2のように1つのVoiceGroupを共有するチップ同士でも、
     // hw_banks[].groupが違えば別のバンクとして登録される。同じバンクデータを
@@ -724,7 +724,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM+RHYTHM "
 
     // rhythm_mode:false (既定値) では COPLRhythm はFM本体側のch6-8と
     // レジスタを奪い合うだけでDVA上の調整が無いため、リズムサブデバイス
-    // 自体を生成しない(2026年7月修正)。
+    // 自体を生成しない。
     spec.clear();
     REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_OPL4, false, spec));
     REQUIRE(spec.size() == 3);
@@ -735,7 +735,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM+RHYTHM "
 
 TEST_CASE("FITOMConfig: DEVICE_OPL/DEVICE_OPL2/DEVICE_OPL3 composite specs "
           "add a DEVICE_OPL_RHY sub-device sharing the primary port only when "
-          "rhythm_mode is enabled for that instance (2026年7月修正)", "[config]")
+          "rhythm_mode is enabled for that instance", "[config]")
 {
     std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
 
@@ -798,7 +798,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPL/DEVICE_OPL2/DEVICE_OPL3 composite specs "
 }
 
 TEST_CASE("FITOMConfig: DEVICE_OPLL composite spec adds DEVICE_OPLL_RHY only "
-          "when rhythm_mode is enabled for that instance (2026年7月修正)", "[config]")
+          "when rhythm_mode is enabled for that instance", "[config]")
 {
     std::vector<fitom::FITOMConfig::SubDeviceSpec> spec;
 

@@ -73,7 +73,7 @@ bool isCarrierByObservation(uint8_t al, int op) {
 }
 } // namespace
 
-TEST_CASE("COPL3 carmsk: ConnectionSEL有効時(AL 4-7)は実機と一致", "[sounddevice][opl3]")
+TEST_CASE("COPL3 carmsk: matches the real chip with ConnectionSEL enabled (AL 4-7)", "[sounddevice][opl3]")
 {
     // AL=4: 全直列(op0->op1->op2->op3)、キャリアはop3のみ
     CHECK_FALSE(isCarrierByObservation(4, 0));
@@ -100,7 +100,7 @@ TEST_CASE("COPL3 carmsk: ConnectionSEL有効時(AL 4-7)は実機と一致", "[so
     CHECK(isCarrierByObservation(7, 3));
 }
 
-TEST_CASE("COPL3 carmsk: ConnectionSEL無効時(AL 0-3、独立2OPペア×2)は両ペアのキャリアが効く",
+TEST_CASE("COPL3 carmsk: with ConnectionSEL disabled (AL 0-3, two independent 2-op pairs) both pairs' carriers take effect",
           "[sounddevice][opl3]")
 {
     // AL=0: 前半CON=0(直列、キャリア=op1) + 後半CON=0(直列、キャリア=op3)
