@@ -31,13 +31,15 @@ core/
 legacy/          旧実装(ビルド対象外、参照用に保管。core/には含めない)
 backends/        差し替え可能なプラグインDLL(HW I/F、MIDIバックエンド各種)
 plugin_sdk/      DLLプラグインのC API契約(IHWPlugin.h、IMidiPlugin.h)
-docs/            設計ドキュメント(下記参照)
+config_schema/   設定ファイル・バンクファイルのJSONスキーマ
+docs/            ドキュメント(下記「ドキュメントの地図」参照)
 spec/            外部ツール(パッチエディタ等)向けの機械可読仕様データ。
                  コアは読まない(spec/README.md参照)
 tests/           Catch2テスト
 banks/           バンクファイルのフォーマット例示のみ(下記「バンク・
                  プロファイルの扱い」参照)
 config/          プロファイル・fitom.confのフォーマット例示のみ(同上)
+third_party/     git submodule(nlohmann-json / rtmidi / imgui / glfw)。編集しない
 ```
 
 ## バンク・プロファイルの扱い
@@ -55,15 +57,20 @@ config/          プロファイル・fitom.confのフォーマット例示の�
 
 ## ビルド
 
+configureとbuildでプリセットの名前が違う(`CMakePresets.json`参照)。
+
 ```bash
-cmake --preset <preset名>   # CMakePresets.json参照。windows-vs2022-x64 /
-                             # windows-vs2026-x64 / linux-ninja 等
-cmake --build --preset <preset名>
+cmake --preset windows-vs2026-x64            # configure。他に windows-vs2022-x64 / linux-ninja / macos-ninja 等
+cmake --build --preset windows-vs2026-release
+ctest --preset windows-vs2026-test
 ```
 
-GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です。
-`third_party/imgui`・`third_party/glfw`はgit submoduleとして別途取得して
-ください(`git submodule update --init --recursive`)。
+GUI(Dear ImGui)も含める場合は、configureプリセット
+`windows-vs2026-x64-gui-imgui`(`FITOM_GUI_IMGUI=ON`)を使う。対応する
+buildプリセットは無いので、`cmake --build build/windows-vs2026-x64-gui-imgui --config Release`
+でビルドし、`ctest --test-dir build/windows-vs2026-x64-gui-imgui -C Release`
+でテストする。`third_party/imgui`・`third_party/glfw`はgit submoduleとして
+別途取得する(`git submodule update --init --recursive`)。
 
 ## 作業時の必須ルール
 
@@ -74,43 +81,43 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 - **`docs/STATUS.md`には現在の状態だけを書く。** 修正の経緯や調査の記録は`docs/worklog/YYYY-MM.md`(その月のファイル)の末尾に足す
 - **ドキュメントと実装の設計意図を一致させ続ける。** 挙動を変えたら、対応する`docs/`配下の記述も同じコミット/セッション内で更新する
 - 新しいgetter/setterを追加する前に、既存のインターフェース(`IMidiCh`・`ISoundDevice`等)に既に同等のものが無いか確認する
-- JSONスキーマ(`config_schema/`)を変更したら、対応するリファレンスドキュメント(下記)も更新する
+- JSONスキーマ(`config_schema/`)を変更したら、対応する利用者向けマニュアル(`docs/manuals/`の`profile-reference.md`・`bank-reference.md`・`hwpatch-reference.md`等)も更新する
+- **テストケース名(`TEST_CASE`の第1引数)はASCIIに限る。** Windowsのctestが非ASCIIの名前を見つけられず失敗するため(`tests/test_test_names.cpp`が検査する)。日本語の説明はSECTION名やコメントに書く
 - チップドライバがHwPatchのどのフィールドを参照するか(または値の変換方法)を変えたら、`spec/chip-capabilities.json`も同じセッション内で更新する
 - **コミットのauthor/committerは、このリポジトリの履歴で使われている単一のIDに揃える。** マシンのグローバル設定とは別なので、クローンごとに`git log -1 --format='%an <%ae>' origin/main`の値を`git config --local user.name`/`user.email`へ設定してからコミットする
 
-## 主要ドキュメント
+## ドキュメントの地図
 
-| ドキュメント | 内容 |
-|---|---|
-| `docs/STATUS.md` | 完成状況の一覧(**作業開始前に必読**) |
-| `docs/worklog/` | 変更・修正・調査の経緯(月ごとに1ファイル。約束事は`docs/worklog/README.md`) |
-| `docs/manuals/midi-message-reference.md` | エンドユーザー向けMIDIメッセージ仕様(CC/RPN/NRPN/SysEx全般) |
-| `docs/manuals/midi-implementation-chart.md` | 上記の対応状況一覧表 |
-| `docs/design/midi-processing.md` | 開発者向けMIDI実装状況(内部実装詳細つき) |
-| `docs/manuals/hwpatch-reference.md` | HwPatch(音色合成パラメータ)リファレンス |
-| `spec/chip-capabilities.json` | 上記の機械可読版(チップ種別ごとの有効パラメータ・値域・実効解像度・排他条件)。パッチエディタ等の外部ツール向け |
-| `docs/manuals/swpatch-reference.md` | SwPatch(演奏特性パラメータ)リファレンス |
-| `docs/manuals/layered-patch-reference.md` | レイヤードパッチ(ToneLayer)リファレンス |
-| `docs/interfaces/plugin-hwif.md` | HW I/Fプラグイン要件定義(実装リポジトリ: FitomEmuIF) |
-| `docs/interfaces/plugin-midi.md` | MIDIバックエンドプラグイン要件定義 |
-| `docs/interfaces/plugin-midi-pipe.md` | 内部用MIDIパイプ(名前付きパイプ)インターフェース仕様。**別プロジェクトのパッチエディタ向け**。このリポジトリ側はインターフェース(`backends/midi_pipe/`)とドキュメントの整備のみがスコープで、パッチエディタ本体は実装しない |
+`docs/`は読者ごとにディレクトリを分けている。文書の一覧は`README.md`の
+「ドキュメント」にある。
+
+| 場所 | 読者 | 書くもの |
+|---|---|---|
+| `docs/STATUS.md` | AI・開発者 | 現在の実装状況・未確認事項・既知の未対応(**作業開始前に必読**)。GUIの実装済み画面もここ |
+| `docs/worklog/` | AI・開発者 | 変更・修正・調査の経緯。経緯を書く唯一の場所(月ごとに1ファイル。書式は`docs/worklog/README.md`) |
+| `docs/manuals/` | エンドユーザー | MIDIメッセージ・設定ファイル・バンクファイル・音色パラメータの仕様 |
+| `docs/design/` | 本体の開発者・AI | 内部の設計と、その理由 |
+| `docs/interfaces/` | 別リポジトリの開発者 | プラグイン・外部ツールとの契約 |
+| `docs/proposals/` | 開発者・AI | 未実装の設計検討 |
+| `docs/plans/` | AI・開発者 | 進行中の作業計画 |
+| `spec/chip-capabilities.json` | 外部ツール | `docs/manuals/hwpatch-reference.md`の機械可読版(チップ種別ごとの有効パラメータ・値域・実効解像度・排他条件) |
+
+文書を書くときの規則:
+
+- **`docs/manuals/`には、コード内のシンボル(クラス名・関数名・ソースファイル名)と経緯を書かない。** 現在の挙動を、利用者が書く値・送るメッセージの言葉で書く。開発用の文書への参照も貼らない
+- **`docs/design/`・`docs/interfaces/`にも経緯を書かない。** 「なぜこうなっているか」は現在形の理由として書き、「以前は〜だった」「〜を修正した」は`docs/worklog/`に書く。見送った案は、文書の「見送った案と理由」の節に理由と一緒に残してよい
+- `docs/proposals/`の文書を実装したら、`docs/design/`へ移し、現行の設計の説明に書き直す(検討の経緯は`docs/worklog/`へ)
+- 他の文書・コードコメント・スキーマから文書の節を指すときは、節番号ではなく見出しの文言で指す(`docs/manuals/`のように見出しに番号を振っている文書の番号は可)。見出しの文言を変えるときは、その見出しを指す参照をgrepして一緒に直す
+- コードと食い違う記述を見つけたら、文書を現在の挙動に合わせる。挙動の方を直すべきなら、`docs/STATUS.md`の4節に載せて利用者の判断を仰ぐ
 
 ## 別プロジェクトとの境界
 
 - **パッチエディタ**:別プロジェクトとして実装される。このリポジトリの
   スコープは`backends/midi_pipe/`(インターフェース)と
   `docs/interfaces/plugin-midi-pipe.md`(仕様書)の整備のみ
-- **FitomEmuIF / YMEngine**:HW I/Fの実装は別リポジトリ。このリポジトリは
+- **FitomHwIF / FitomEmuIF / FitomSf2IF**:HW I/Fプラグインの実装は別リポジトリ。このリポジトリは
   `plugin_sdk/include/fitom/IHWPlugin.h`(契約)と
   `docs/interfaces/plugin-hwif.md`(要件定義)を整備する側
-
-## GUI(apps/fitom_gui)の現状
-
-Dear ImGui + GLFW + OpenGL3。ルート画面はMIDIモニターのバンド(CH毎の
-Bank/Program/Volume/Note/Device/Fnumber表示 + 128ノートのキーボードビュー
-+ ベロシティ連動の発光エフェクト)のみを表示する設計。他のビュー
-(デバイス一覧・パッチエディタ等)への導線は未実装(該当する描画関数は
-`[[maybe_unused]]`で温存済み)。詳細な現状は`docs/STATUS.md`を参照。
 
 ## デバッグ・検証の作法
 

@@ -29,7 +29,8 @@
 | `include/fitom/Log.h` / `Log.cpp` | ✅ | Boost.Log ラッパー |
 | `include/fitom/VolumeUtils.h` / `.cpp` | ✅ | CalcLinearLevel / Linear2dB / ROM テーブル |
 | `include/fitom/FnumUtils.h` | ✅ | F-number テーブルキャッシュ |
-| `include/fitom/AudioEngine.h` / `.cpp` | 🗑️ 廃止 | HW I/F プラグイン側へ移管 |
+| `include/fitom/Fnum.h`、`src/Fnum.h` / `Fnum.cpp` | ✅ | F-number テーブルの種別(`FnumTableType`)と、テーブルの実体(`CFnumTable`) |
+| `include/fitom/FITOMdefine.h` | ✅ | デバイス種別の定数(`DEVICE_*`) |
 
 #### ボイスデータ
 | ファイル | 状態 | 内容 |
@@ -37,6 +38,9 @@
 | `include/fitom/VoiceData.h` | ✅ | HwPatch / SwPatch / FmHwOp / FmSwOp |
 | `include/fitom/VoiceProcessor.h` / `.cpp` | ✅ | ベロシティ感度・ソフト LFO 処理 |
 | `include/fitom/PatchData.h` | ✅ | Patch / ToneLayer / HwBank / SwBank |
+| `include/fitom/DrumData.h` | ✅ | DrumPatch / DrumNote(ドラムキット) |
+| `include/fitom/PcmBankData.h` | ✅ | PCMバンク・サンプルゾーンバンク |
+| `include/fitom/SccWaveData.h` | ✅ | SCCの波形バンク |
 | `include/fitom/PatchManager.h` / `.cpp` | ✅ | バンク管理・JSON I/O |
 
 #### 音源デバイス
@@ -68,7 +72,7 @@
 |---|---|---|
 | `include/fitom/Config.h` / `Config.cpp` | ✅ | FITOMConfig (ISoundDevice 対応版)。プロファイルの読み込みと、GUIで変えた値の書き戻し |
 | `include/fitom/CFITOM.h` / `CFITOM.cpp` | ✅ | コアシングルトン / MidiProcessor。物理チップの列挙(レジスタダンプ・レベルメーター・部位ゲイン用) |
-| `Sf2BankRegistry.cpp` | ✅ | SF2直行パスのバンク解決とプリセット名(`phdr`)の読み出し |
+| `include/fitom/Sf2BankRegistry.h` / `Sf2BankRegistry.cpp` | ✅ | SF2直行パスのバンク解決とプリセット名(`phdr`)の読み出し |
 
 ### バックエンド DLL
 
@@ -97,33 +101,7 @@
 - **プロファイル**: 引数省略時の起動時選択画面(`fitom.conf.json`の`profiles.root`配下)、実行中の切替、読み込み失敗時のフォールバック(第2引数)、ウィンドウタイトルへのプロファイル名表示。実行中の切替は、自分自身を新しいプロセスとして起動し直す方式で、理由は`apps/fitom_gui/main.cpp`のコメントにある
 - **未着手**: デバイス一覧・パッチ一覧(フラット表示)・音色エディタ等、他画面への導線(該当する描画関数は`[[maybe_unused]]`で温存)
 
-### 設定スキーマ・ドキュメント
-
-| ファイル | 状態 |
-|---|---|
-| `fitom.conf.schema.json` | ✅ |
-| `profile.schema.json` | ✅ |
-| `hwbank.schema.json` | ✅ |
-| `swbank.schema.json` | ✅ |
-| `patchbank.schema.json` | ✅ |
-| `docs/design/chip-drivers.md` | ✅ |
-| `docs/design/chip-notes.md` | ✅ |
-| `docs/design/patch-resolution.md` | ✅ |
-| `docs/design/voice-processor.md` | ✅ |
-| `docs/design/config-loading.md` | ✅ |
-| `docs/interfaces/plugin-hwif.md` | ✅ |
-| `docs/interfaces/plugin-midi.md` | ✅ |
-| `docs/interfaces/plugin-midi-pipe.md` | ✅ |
-| `docs/design/midi-processing.md` | ✅ |
-| `docs/design/terminology.md` | ✅ |
-| `docs/design/sf2-direct-path.md` | ✅ |
-| `docs/proposals/vgm-recording.md` | ✅ (設計検討のみ) |
-| `docs/proposals/opm-opz-hw-lfo.md` | ✅ (設計検討のみ) |
-| `docs/manuals/midi-message-reference.md` | ✅ |
-| `docs/manuals/midi-implementation-chart.md` | ✅ |
-| `docs/manuals/hwpatch-reference.md` | ✅ |
-| `docs/manuals/swpatch-reference.md` | ✅ |
-| `docs/manuals/layered-patch-reference.md` | ✅ |
+設定ファイルとバンクファイルのスキーマは`config_schema/`にある。文書の一覧は`README.md`の「ドキュメント」。
 
 ---
 
@@ -160,16 +138,15 @@
 | 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-notes.md` |
 | リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `docs/design/chip-drivers.md` |
 | ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-notes.md` |
-| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-notes.md`, `manuals/hwpatch-reference.md` |
+| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-notes.md`, `docs/manuals/hwpatch-reference.md` |
 | ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
-| PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
-| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
+| PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/hwpatch-reference.md` |
+| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/hwpatch-reference.md` |
 | プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `docs/manuals/profile-reference.md` |
-| SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `manuals/midi-message-reference.md` |
+| SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `docs/manuals/midi-message-reference.md` |
 | 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |
 | MIDIバックエンドのRtMidi単一実装 | ✅ | `docs/interfaces/plugin-midi.md` |
 | Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書10月20日版に追従) | 🚧 | `docs/design/chip-notes.md`「Y8960 の拡張ブロック」 |
-| テストケース名はASCIIに限定 (`tests/test_test_names.cpp`が検査する) | ✅ | — |
 
 ---
 
@@ -243,6 +220,9 @@
 
 **記録・出力**
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`
+
+**ビルド**
+- `vcpkg.json`の依存に`boost-interprocess`が残っているが、コードはBoost.Interprocessを使っていない(**確認済み**: `core`/`apps`/`gui`/`backends`で`boost/interprocess`のインクルードが無いことをgrepで確認)。依存を外すかは未決
 
 **プラグイン SDK**
 - `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す

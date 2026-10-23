@@ -130,7 +130,12 @@ FITOM_X/
 │   ├── include/fitom/      # 公開ヘッダ
 │   └── src/                # 実装
 ├── docs/
-│   └── manuals/            # 利用者向けマニュアル
+│   ├── manuals/            # 利用者向けマニュアル
+│   ├── design/             # 本体の内部設計
+│   ├── interfaces/         # プラグイン・外部ツールとの契約
+│   ├── proposals/          # 未実装の設計検討
+│   ├── worklog/            # 変更・修正・調査の経緯
+│   └── STATUS.md           # 実装状況
 ├── gui/
 │   └── bridge/             # GUI ブリッジ（UIフレームワーク非依存）
 ├── legacy/                 # 旧実装（ビルド対象外、参照用に保管）
@@ -154,7 +159,7 @@ FITOM_X/
 |---|---|
 | C++ 標準 | C++17 |
 | CMake | 3.24 以上 |
-| Boost | 1.71 以上 (thread / log / log_setup。format と interprocess はヘッダーのみ使用) |
+| Boost | 1.71 以上 (log / log_setup / thread。format はヘッダーのみ使用) |
 | nlohmann/json | git submodule (`third_party/nlohmann-json`) |
 | RtMidi | git submodule (`third_party/rtmidi`) |
 | Dear ImGui / GLFW | git submodule (`third_party/imgui` / `third_party/glfw`)。GUI をビルドするときのみ |
@@ -284,21 +289,32 @@ cmake --build --preset macos-release
 
 - [midi-message-reference.md](docs/manuals/midi-message-reference.md) — MIDI メッセージ仕様(CC / RPN / NRPN / SysEx)
 - [midi-implementation-chart.md](docs/manuals/midi-implementation-chart.md) — MIDI インプリメンテーション・チャート
+- [profile-reference.md](docs/manuals/profile-reference.md) — プロファイル(`*.profile.json`)と `fitom.conf.json` の書き方
+- [bank-reference.md](docs/manuals/bank-reference.md) — バンクファイル(音色・ドラムキット・PCM など)の書き方
 - [hwpatch-reference.md](docs/manuals/hwpatch-reference.md) — HwPatch(音色合成パラメータ)
 - [swpatch-reference.md](docs/manuals/swpatch-reference.md) — SwPatch(演奏特性パラメータ)
 - [layered-patch-reference.md](docs/manuals/layered-patch-reference.md) — レイヤードパッチ
 
-### 開発者向け (`docs/`)
+### プラグイン・外部ツールの開発者向け (`docs/interfaces/`)
 
-- `docs/design/chip-drivers.md` — チップドライバの設計
-- `docs/design/voice-processor.md` — HwPatch / SwPatch / FmHwOp の設計
-- `docs/design/patch-resolution.md` — パッチ・バンク構造
-- `docs/design/config-loading.md` — 設定ファイル (`fitom.conf.json` / `*.profile.json`) の設計
-- `docs/interfaces/plugin-hwif.md` / `docs/interfaces/plugin-midi.md` / `docs/interfaces/plugin-midi-pipe.md` — 各プラグイン SDK の詳細
-- `docs/design/sf2-direct-path.md` — SoundFont 音源との連携
-- `docs/design/terminology.md` — 用語
-- `STATUS.md` — 実装状況と未確認事項
-- `spec/README.md` — 外部ツール向けの機械可読仕様
+- [plugin-hwif.md](docs/interfaces/plugin-hwif.md) — HW I/F プラグインの契約
+- [plugin-midi.md](docs/interfaces/plugin-midi.md) — MIDI バックエンドプラグインの契約
+- [plugin-midi-pipe.md](docs/interfaces/plugin-midi-pipe.md) — 内部用 MIDI パイプ(パッチエディタ連携)
+- [spec/README.md](spec/README.md) — 外部ツール向けの機械可読仕様
+
+### FITOM_X 本体の開発者向け
+
+- [docs/STATUS.md](docs/STATUS.md) — 実装状況・未確認事項・既知の未対応
+- [docs/design/chip-drivers.md](docs/design/chip-drivers.md) — チップドライバの共通の仕組み
+- [docs/design/chip-notes.md](docs/design/chip-notes.md) — チップごとの実装の注意
+- [docs/design/patch-resolution.md](docs/design/patch-resolution.md) — パッチ・バンクの解決
+- [docs/design/voice-processor.md](docs/design/voice-processor.md) — 音色データと VoiceProcessor
+- [docs/design/midi-processing.md](docs/design/midi-processing.md) — MIDI 処理の内部設計
+- [docs/design/config-loading.md](docs/design/config-loading.md) — 設定の読み込みと書き戻し
+- [docs/design/sf2-direct-path.md](docs/design/sf2-direct-path.md) — SoundFont 音源への直行パス
+- [docs/design/terminology.md](docs/design/terminology.md) — 用語
+- [docs/proposals/](docs/proposals/) — 未実装の設計検討(VGM 記録、OPM/OPZ のハードウェア LFO)
+- [docs/worklog/](docs/worklog/) — 変更・修正・調査の経緯(月ごと)
 
 ---
 
