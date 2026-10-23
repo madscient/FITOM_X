@@ -1,253 +1,110 @@
-# FluidSynth (SF2) 統合 技術検討
+# SF2直行パス(SoundFont音源との連携)
 
-**ステータス**: 設計は確定し、**FITOM_X本体側(このリポジトリのスコープ)のコード実装は完了**(2026年7月)。決定事項は下記の通り: `fluid_synth_t`は専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込め、FITOM_X本体は他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_WriteBlock`で生MIDIバイト列を渡すだけ)で扱う。`IHWPlugin.h`への新規追加は無い(既存プラグインへの埋め込み案・FITOM_Xコア本体への直接リンク案とも不採用。音声出力はこのプラグインが他のhwifと同じく自己完結し、ソフトウェアミックスは行わない)/ SF2直行パスへの切替方式(MPU×ch単位の「窓」をプロファイル+SysExで割り当て、CC#0は不使用)/ CC#32からSF2ファイル/内部バンクへの対応方式(`sf2_banks`による間接参照)/ MPU×chの窓割り当て方式(トップレベルプロパティ`sf2_channel_windows`)/ (**両スキーマとも`config_schema/profile.schema.json`に実装済み**)/ FITOM_Xを「CH変換付きMIDIパッチベイ」に徹させる方針(状態管理・クリーンアップ・ポリフォニー調整・`sf2_banks`未一致時のフォールバックを一切行わない)/ GUIスコープ(デバイス一覧・PatchPickerDialog対応は見送り、`sf2_channel_windows`編集用の専用ダイアログは新設)/ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録方式(`chip:"SF2"`→既存の`DEVICE_NONE`スキップ経路を流用、`soundfonts`一覧は`sf2_banks`から自動導出、複数`devices[]`が`chip=="SF2"`を使った場合は起動時エラー)/ マスターボリューム/ピッチは新規プロトコルを設計せず、既存のGM2 Universal Realtime SysEx(8節、マスターボリューム`04 01`・マスターファインチューニング`04 03`)をそのまま`HWPlugin_WriteBlock`で転送するだけで済ませる/ `Sf2BankRegistry`はCC#32解決用マップと`soundfonts`一覧・`soundfont_index`解決用マップの両方を1回のパースから導出する単一クラスとし、`devices[]`ビルドより前に構築するだけで初期化順序の問題も解消する。ドキュメント面は`docs/manuals/midi-message-reference.md`(2.6節・8.2節・3.1/3.2/3.3節)・`docs/interfaces/plugin-hwif.md`(`fitom_sf2if.dll`将来実装節)・`docs/design/patch-resolution.md`(相対パス解決基点の一覧)へ反映済み(2026年7月)。
-
-**実装済み(このリポジトリのスコープ、2026年7月)**: `core/include(src)/fitom/Sf2BankRegistry.{h,cpp}`(CC#32解決・`soundfonts`一覧の導出)/ `FITOMConfig`(`banks.sf2_banks`・トップレベル`sf2_channel_windows`の読み込みとバリデーション、`chip:"SF2"`の`devices[]`エントリへの`soundfonts`自動注入、`resolveChipDeviceId("SF2")`→`DEVICE_NONE`、複数`chip=="SF2"`宣言や設定と対応デバイスの不一致を起動時エラーにする検証)/ `CFITOM::initDevices()`(SF2ラッパーデバイスの`IPort`特定、意図したスキップの警告抑制。レジスタダンプモニター用の物理チップ一覧`buildPhysicalChipList()`からもSF2ラッパーを除外済み)/ `MidiProcessor`(`mpuIndex_`を持たせ、`processMessage()`が窓に含まれる(mpu,ch)を`CInstCh`/`CRhythmCh`へのディスパッチより前に`CFITOM::routeSf2ChannelMessage()`へ振り分け。CC#0破棄・CC#32のsf2_banks解決・プログラムチェンジとの組み合わせによるsub-cmd 0x05送出・それ以外の生MIDIメッセージのchan付け替え転送を実装)/ プライベートSysEx sub-cmd 0x04(窓の動的割り当て・解除、`CFITOM::setSf2ChannelWindow()`、fluidsynth_chan重複は要求ごと拒否)/ マスターボリューム・マスターピッチ変更時のGM2 Universal Realtime SysEx(マスターボリューム`04 01`・マスターファインチューニング`04 03`)のSF2デバイスへの転送(`CFITOM::setMasterVolume()`/`setMasterPitch()`)/ **⑧節: SF2プリセット名解決のための`phdr`パース**(`fitom::parseSf2PresetHeaders()`、RIFF/sfbkの`LIST/pdta/phdr`サブチャンクのみを読み、音声サンプル本体[`LIST/sdta`]はチャンクサイズでシークして読み飛ばす軽量パーサー。`Sf2BankRegistry`が新規`file`の初出時に一度だけ呼び、`(sf2_bank, program) → プリセット名`のルックアップテーブルを`soundfont_index`のキャッシュと同じタイミングで構築し、`Sf2BankRegistry::resolvePresetName(cc32Bank, prog, outName)`で解決できる)。ユニットテストは`tests/test_config.cpp`に追加済み(`Sf2BankRegistry`の解決・重複除去、`sf2_banks`/`sf2_channel_windows`のバリデーション各種、最小限の合成SF2バイナリを使った`phdr`パース・プリセット名解決のend-to-end確認)。
-
-**追加実装(2026年8月)**: MIDIモニターバンドへの配線。`CFITOM::getSf2ChannelWindowInfo()`(窓状態の読み取り専用スナップショット、`lastProg`/`hasLastNoteOn`等の表示専用キャッシュを含む)を新設し、`FITOMBridge::getChannelMonitors()`・`apps/fitom_gui/main.cpp`のMIDIモニター行描画を、SF2直行パスの窓に含まれる(mpu,ch)ではBank/Program列にファイル名+`resolvePresetNameByIndex()`で解決したプリセット名、Device列にfluidsynth chan番号、Fnumber列に実際に送出したNote Onの生バイト列(16進、例"90 3C 64")を表示するよう配線した(詳細は5節参照)。
-
-**追加実装(2026年8月、CH設定ダイアログへのSF2切替インターフェース)**: 既存の「リズムチャンネル切替」(CC#0=120/121)と同じ操作感で、CH設定ダイアログにSF2直行パスの窓を割り当て/解除するチェックボックスを追加した。`isRhythm_`と相互排他(ONにするとリズム側を強制falseにしチェックボックスごと無効化する。窓に含まれる限りメロディ/リズムの区別と無関係という設計のため)。初めて有効化した際は、他の(mpu,ch)が使用していない`fluidsynth_chan`(0-15)を`CFITOM::listAssignedSf2Windows()`から自動算出して提案する(スライダーで手動変更も可能)。リズム切替と同じくOK確定(`applyAndClose()`)まで実際の窓の割り当て・解除は送信しない(ライブプレビューなし)。パッチ選択は新設の`Sf2PatchPickerDialog`(Bank→Programの2階層、`FITOMBridge::getSf2BankList()`/`getSf2BankPatches()`経由)で行う。PatchPickerDialogと異なり試聴(押している間だけ再生)は実装していない: ピッカーを開いた時点ではまだ窓が実際には割り当てられていない(OK確定まで送信しないため)ため、試聴メッセージを送っても音を出す先が無く、既存のドラムキット選択ピッカー(試聴なし、Selectableで選ぶだけ)と同じ簡素な方式に揃えた。この変更に伴い、`MidiProcessor::sendControlChange/sendProgramChange/sendNoteOn/sendNoteOff`(GUIからの構造化送出用、CC#0/CC#32/Prog.chg/Note On/Offを`receiveByte()`を経由せず直接送る経路)も、窓に含まれる(mpu,ch)では`routeSf2ChannelMessage()`へ振り分けるよう修正した(実MIDI入力[`processMessage()`]と同じ挙動に揃えるため。以前はGUI発の送出だけがこのSF2振り分けを素通りしていた)。`Sf2BankRegistry`にGUI列挙用の`listBanks()`/`listPresetsInBank()`/`listPresetsByIndex()`を、`CFITOM`に`Sf2WindowState::lastCc32Bank`(表示・ダイアログ初期値用)と`listAssignedSf2Windows()`を追加。`tests/test_config.cpp`に`listBanks()`/`listPresetsInBank()`/`listPresetsByIndex()`の単体テストを追加。
-
-**追加実装(2026年8月、SysEx sub-cmd 0x04の`mpu`特殊値)**: プライベートSysEx sub-cmd 0x04(⑤節)の`mpu`フィールドに、個別のMPU番号(0–3)に加えて`0x7E`(このSysExを受信したMPU自身)・`0x7F`(すべてのMPU、ブロードキャスト)の2つの特殊値を追加した。「自身」は受信側の`MidiProcessor`が既に保持している`mpuIndex_`をそのまま使うだけで済み、追加の状態管理は不要。「すべて」は0–3の各MPUへ個別に`CFITOM::setSf2ChannelWindow()`を発行するだけの実装とし(既存の重複禁止バリデーションをMPUごとに独立して適用させる)、ブロードキャスト専用の新しい検証ロジックは追加していない。この結果、割り当て(fluidsynth_chan指定)のブロードキャストは重複制約により実質的に最初の1MPUのみ成功する(既存バリデーションの自然な帰結として許容)一方、解除(0x7F)のブロードキャストは全MPUで一様に成功する、という非対称な挙動になる。
-
-**追加実装(2026年8月、SysEx sub-cmd 0x04の`ch`特殊値・全窓一括解除)**: 上記`mpu`特殊値に続き、`ch`フィールドにも解除時(`fluidsynth_chan=0x7F`)限定の特殊値`0x7F`(すべてのチャンネル)を追加した。`mpu=0x7F`(すべてのMPU)と組み合わせた`F0 00 48 01 04 7F 7F 7F F7`を送ると、全MPU・全チャンネルのSF2直行パスの窓を1メッセージで一括解除できる。割り当て時に`ch=0x7F`を指定した場合は特別扱いせず、既存の`ch>=16`バリデーションにそのまま委ねて無視させる(1メッセージで16chへ同一のfluidsynth_chanを割り当てるのはそもそも意味を成さないため)。実装は`mpu`解決ロジックとは独立させ(`allChannels`フラグで判定)、`mpu`側の3分岐(自身/すべて/個別)いずれからも同じ「1つのMPUへ単一ch or 全16chを適用する」ヘルパーを呼ぶ構成にして、`mpu`×`ch`の特殊値の組み合わせ(4通り)を重複コードなく処理できるようにした。
-
-**未着手(このリポジトリのスコープ外、または別途対応が必要)**: `FitomSf2IF`プラグイン本体(fluidsynthへの実際のリンク、別リポジトリ)/ `sf2_channel_windows`(複数チャンネル分)を一覧編集する専用ダイアログ(CH設定ダイアログでのチャンネル単位の切替は実装済みなので、実用上はこちらで足りる可能性が高い)。`FitomSf2IF`が存在しない現状、`sf2Port_`は常に`nullptr`のままであり、窓に含まれるメッセージはSF2エンジンへの実際の転送先が無いため単純に読み捨てられる(通常運用に影響はない。MIDIモニター表示も、Note Onが一度も送出されていないためFnumber列は空欄のままになる)。
-
-**検討日**: 2026年7月
-**検討の目的**: FITOM_Xに`fluidsynth`を組み込み、SF2サウンドフォントをシームレスに扱えるようにする(例: 特定のMIDIチャンネルをSF2音源へ振り分け、FITOM_X固有バンクと動的に共存させる)ことが、現在の構造のまま可能かどうかを検証する。
+**対象読者**: FITOM_X本体の開発者・AI  
+**関連文書**:
+- 利用者向けの仕様: `docs/manuals/midi-message-reference.md`の「2.6 SF2直行パス」「8.2 SF2直行パス チャンネル窓の動的割り当て」
+- SoundFontプラグインとの約束: `docs/interfaces/plugin-hwif.md`の「SoundFont プラグインへの追加の約束」
 
 ---
 
-## 1. 前提となる問い
+## 概要
 
-現在のFITOM_Xは、音声出力を完全に`IHWPlugin`(HW I/Fプラグイン、実装は別リポジトリのFitomEmuIF等)へ移譲している。一方、MIDIメッセージの解析(CC/RPN/NRPN/プログラムチェンジ等の意味づけ)はFITOM_X本体(`CInstCh`/`CRhythmCh`/`MidiProcessor`)の責務である。
+SF2直行パスは、MIDIチャンネルの一部を、FITOM_XのFM/PSG向けの処理を通さずにSoundFont音源(fluidsynth)へ送る経路である。
 
-`fluidsynth`はMIDI解析・音声合成・音声出力を一体で行うライブラリだが、この責務分担とどう整合させられるか、またFluidSynth自体の改造を避けたい(可能な限り無改造でリンクしたい)、というのが検討の出発点。
+- fluidsynth(`fluid_synth_t`)は、専用のHW I/Fプラグイン FitomSf2IF(別リポジトリ)の中だけにある。FITOM_X本体はfluidsynthにリンクしない
+- FITOM_Xは、このプラグインを他のHW I/Fプラグインと同じ`IHWPlugin`契約で扱う。MIDIバイト列を`HWPlugin_WriteBlock`で渡すだけで、`IHWPlugin.h`に関数を足していない
+- どのMIDIチャンネルをSF2へ送るかは、MPU×chの単位で「窓」として割り当てる。CC#0の値では切り替えない
+- 窓の中でのFITOM_Xの仕事は、チャンネル番号の付け替えとバンク選択の解決だけで、発音状態を持たない(「パッチベイに徹する」節)
 
----
+## なぜ`ISoundDevice`の1実装にしないか
 
-## 2. FluidSynthの内部構造
+`ISoundDevice`は、少数の物理チャンネルをFITOM_XのDVA(`allocCh`/`queryCh`)が奪い合って割り当て、1物理チャンネルで1音を鳴らす、というFMチップの制約を前提にした抽象化である。`noteOn(ch, vel)`は、どの物理chを使うかをFITOM_X側が決め切っている前提のシグネチャになっている。
 
-FluidSynthは公開APIレベルで既に3層に分離されている。
+fluidsynthは逆に、16chそれぞれが内部でポリフォニーを管理し、1chに何音重ねるかをfluidsynth自身が決める。インターフェースの意味のレベルで噛み合わないため、`ISoundDevice`とは別の、メロディ・リズムに並ぶ第三の経路として設けている。
 
-| 層 | 実体 | 役割 |
-|---|---|---|
-| 合成エンジン | `fluid_synth_t` | `fluid_synth_noteon()`/`fluid_synth_cc()`/`fluid_synth_program_change()`/`fluid_synth_pitch_bend()`/`fluid_synth_sfload()`等。**生MIDIバイト列ではなく、解析済みイベントを受け取るAPI** |
-| MIDI受信・SMF再生 | `fluid_midi_driver_t` / `fluid_player_t` | 生MIDIバイト列やSMFファイルをパースして合成エンジン層のAPIへ変換する、完全に独立したオプション層 |
-| 音声デバイス | `fluid_audio_driver_t` | PortAudio/ALSA/WASAPI等で自前のオーディオストリームを持つ、これもオプション層 |
+## プラグインへの閉じ込め
 
-音声デバイス層を使わず、`fluid_synth_process()`/`fluid_synth_write_float()`を呼べば、任意のタイミングでPCMサンプルを引き出すだけの「プル型」レンダリングとして使える。
+`fluid_synth_t`はFitomSf2IFだけが持ち、プロファイルの`devices[]`に`chip: "SF2"`のエントリを1つ置くことで、FITOM_Xからの送り先が1つに決まる。
 
-**結論**: FITOM_X本体(このリポジトリ)が要求するのは、「生MIDIバイト列を受け取り、独立して音を出す」という外部から見た振る舞いだけである。4節で確定するとおり、fluidsynthは専用のhwif互換プラグインに完全にカプセル化される(fluid_synth_tを持つのはそのプラグインのみで、FITOM_X本体は一切リンクしない)ため、上記3層のうちどれを実際に使うか(受け取った生MIDIバイト列をMIDI受信層でパースするか自前の最小限パースで済ませるか、音声出力に音声デバイス層をそのまま使うか自前のオーディオコールバックで`fluid_synth_process()`をプルするか)は、**そのプラグインを実装する側の内部判断であり、FITOM_X本体の設計がここに関与する必要は無い**。いずれの構成を選んでも、FluidSynthのソースに一切手を入れる必要は無い(組み込み用途を想定したライブラリ構成に沿った使い方であるため)。
+- 重い外部ライブラリへの依存はHW I/FプラグインDLLの側に閉じ込める、というFITOM_X全体の方針に沿う
+- 実機かエミュレータかを区別しない`IHWPlugin`契約のまま扱える。SF2を使えるかどうかが、特定のFMエミュレータプラグインを使うかどうかに左右されない
+- 音声出力はプラグインの中で完結する。FITOM_Xは複数のHW I/Fプラグインの音声をミックスしないので、SF2の音とFM系エミュレータの音を1つのストリームにまとめることはできない。これはSF2に限らず、複数のプラグインを併用するときに共通の制約である
 
-**整理の変遷**:当初はここで「fluidsynth自身の`fluid_audio_driver_t`で独立に音声出力させる案」を、①クロックずれ、②OSレベルミキシングの要否、③マスターボリューム/ピッチの一括制御、を理由に不採用としていた。これはfluid_synth_tをFITOM_X本体側(コアまたは既存hwifプラグイン)に直接組み込む前提での判断だった。しかし4節で確定したとおり、fluidsynthは専用プラグインへ完全に分離され、そのプラグインは他のhwifプラグインと同じく音声出力について自己完結し、他プラグインとのソフトウェアミックスも行わない(4節②のトレードオフ参照)。この結果、上記①〜③はいずれも「そのプラグインが音声デバイス層を使うかどうか」というプラグイン内部の実装判断の話になり、FITOM_X本体の設計判断としては意味を持たなくなった。
+## 窓
 
----
+窓は、MPU×ch から fluidsynth のチャンネル(`fluidsynth_chan`、0–15)への対応表である。窓に含まれるMPU×chのメッセージは、`MidiProcessor`が`CInstCh`/`CRhythmCh`へ振り分けるより前に`CFITOM::routeSf2ChannelMessage()`へ渡り、`PatchManager`による音色の解決もDVAも通らない。
 
-## 3. 核心的な設計上の緊張関係
+- **窓が要る理由**: `fluid_synth_t`はチャンネル番号そのものにバンク・プログラム・ピッチベンド・発音中のノートといった状態を持つ。FMチップの物理チャンネルのような、奪い合うだけの発音資源ではない。複数のMPU(最大4面×16ch)をそのままfluidsynthのチャンネルへ対応させると、別のMPUの同じチャンネル番号どうしが状態を取り合う。そこで対応を明示的な表として持ち、`fluidsynth_chan`の重複を許さない
+- **メロディとリズムの区別は関係ない**: 窓はMIDIチャンネルの単位で、役割の区別(CC#0=0x78/0x79)より手前で決まる。SF2側で打楽器を鳴らすには、パーカッション用のバンク(SF2のbank 128等)を指す`sf2_banks`のエントリを選ぶ
+- **窓に含まれないMPU×ch**は、これまでどおりCC#0の値によるネイティブの経路を通る。2つの経路は、CC#0の値ではなく窓に含まれるかどうかだけで分かれる
+- **GUIからの送出も同じ経路を通る**: `MidiProcessor::sendControlChange()`/`sendProgramChange()`/`sendNoteOn()`/`sendNoteOff()`(GUIからの構造化送出)も、実MIDI入力と同じく窓を確かめてから振り分ける
 
-現状の`ISoundDevice`(core/include/fitom/ISoundDevice.h)は、**FMチップのハードウェア制約(少数の物理チャンネルを、FITOM_X本体のDVA = `allocCh`/`queryCh`が奪い合って割り当てる、1物理チャンネル1発音)**を前提にした抽象化になっている。
+窓の設定は2通りある。中身は同じ表である。
 
-一方FluidSynthは、**GM準拠の16chそれぞれが内部で独自にポリフォニーを管理する**、逆方向のモデルである。1chに何音重ねるかはFITOM_X側ではなくFluidSynth自身が決める。
+- **プロファイルのトップレベル`sf2_channel_windows`**: 起動時の初期値。`banks`の下ではなくトップレベルに置くのは、`banks`がバンクの中身への参照であるのに対し、これはMIDIチャンネルの経路の設定で、性質が違うため。読み込み時に、16件を超える・`fluidsynth_chan`が重複する・値が範囲外、のいずれかがあればプロファイルの読み込みを中止する(`FITOMConfig::loadSf2ChannelWindows()`)
+- **プライベートSysEx sub-cmd 0x04**: 演奏中の割り当てと解除。`CFITOM::setSf2ChannelWindow()`が処理し、既に別のMPU×chに割り当てられている`fluidsynth_chan`への割り当て要求は、既存の割り当てを外さずに要求ごと無視する
+  - `mpu`の特殊値: `0x7E`=このSysExを受信したMPU自身(内部用MIDIパイプで受信した場合はMPUが無いので無視)、`0x7F`=すべてのMPU。「すべて」は各MPUへ1件ずつ`setSf2ChannelWindow()`を呼ぶだけなので、割り当ては重複の検査によって最初の1つのMPUでしか成功せず、解除はすべてのMPUで成功する。この非対称は検査を特別扱いしないことの帰結として受け入れている
+  - `ch`の特殊値`0x7F`(すべてのチャンネル)は解除のときだけ有効。割り当てで指定しても範囲外のチャンネルとして無視される
+  - ペイロードは固定長のバイナリにしている。プライベートSysExのsub-cmd 0x01/0x02がJSONを使うのは、多数のフィールドの一部だけを上書きしたいからで、3つの小さな値しか持たない窓には当たらない
 
-このため、**FluidSynthを無理に`ISoundDevice`の1実装として組み込むのは筋が悪い**と考える。`noteOn(ch, vel)`のような、「どの物理chを使うか」を事前にFITOM_X側のDVAが決め切っている前提のシグネチャと、FluidSynthの「chとノート番号を渡せば内部で勝手にポリ管理する」モデルは、インターフェースの意味論のレベルで噛み合わない。
+## バンクとプログラムの選択
 
----
+SF2ファイルは1つの中に複数の(bank, preset)の組を持つ。CC#32の値をそのままSF2内のbank番号として渡すと、複数のSF2ファイルを使い分けられず、パーカッションの慣習であるbank 128もCC#32(0–127)では表せない。そこで`hw_banks`と同じく、プロファイルの`banks.sf2_banks`で間接参照する。
 
-## 4. 提案する分割方針
+- `sf2_banks[]`の各エントリは`bank`(CC#32の値)・`file`(SF2ファイル)・`sf2_bank`(ファイル内のbank番号、0–128)の3つを必須とする。`file`の相対パスは、他の`banks.*[].file`と同じくプロファイルのディレクトリを起点に解決する
+- 窓の中でCC#32を受けると、FITOM_Xが`sf2_banks`から`bank`の一致するエントリを引き、その窓の状態として覚える。一致するエントリが無ければ何もしない
+- プログラムチェンジを受けると、解決済みのファイルとbank番号を、プライベートSysEx sub-cmd 0x05としてプラグインへ送る(書式は`docs/interfaces/plugin-hwif.md`)。ファイルはパスではなく`soundfont_index`(後述)で指す。SysExのデータは7bitでなければならず、非ASCIIを含みうるファイルパスを演奏中のメッセージに載せられないため
+- CC#0はプラグインへ送らない。CC#32とプログラムチェンジによる明示的な選択と二重に状態を持ち、食い違うおそれがあるため
+- CC#32がまだ一度も解決されていない窓では、プログラムチェンジも捨てる。ネイティブ経路の「直前の音色を保つ」ような救済は、FITOM_Xが状態を持つ経路だからできることで、ここではしない。`sf2_banks`のエントリは引けたが、そのbankやプログラムにプリセットが無い場合は、sub-cmd 0x05をそのまま送り、あとはfluidsynthの挙動に任せる
 
-### ① 専用のhwif互換ラッパープラグインへ`fluid_synth_t`を閉じ込める
+## パッチベイに徹する
 
-以下の2案をまず検討したが、いずれも不採用とした。
+窓の中でFITOM_Xがメッセージを解釈するのは、CC#0を捨てること、CC#32を`sf2_banks`で解決すること、チャンネル番号を付け替えることだけである。ノートの所有権や発音状態は追跡しない。
 
-- **(a) 既存のFMプラグイン(FitomEmuIF等)へ埋め込む案**:⑤で「`fluid_synth_t`は全MPUで1つを共有する」と決めているが、埋め込み先が特定プラグインの実装内部だと、複数のhwifプラグインを併用する現実の構成(実機とエミュレータの混在、同じプラグインの複数インスタンス化等)で、**どのプラグインインスタンスが唯一の`fluid_synth_t`を所有するのか**が曖昧になる。また、SF2対応が特定プラグイン(例:FitomEmuIF)のソースコードに焼き込まれる形になり、そのプラグインを一切使わない構成(実機のみのプロファイル等)ではSF2が原理的に使えなくなる。FITOM_X本体は実機かエミュレータかを一切区別しないという既存のプラグイン非依存アーキテクチャ(`IHWPlugin`契約ベース)に反する。
-- **(b) FITOM_Xコア本体が直接リンク・保持する案**:所有権の曖昧さは解消するが、これまでFM/PSGエミュレーション等、重量級の外部ライブラリへの依存は一貫してhwifプラグインDLL側に閉じ込められており(`backends/`・`plugin_sdk/`によるプラグイン分離の趣旨)、FITOM_Xコア本体はそうした依存を持たない設計だった。fluidsynthをコア本体に直接リンクするのは、この原則からの例外になってしまう。
+- 窓を割り当て直したり解除したりしても、FITOM_XはAll Notes Off等の後始末も、バンク・プログラム・ボリューム等の再送もしない。古いチャンネルでノートが鳴り続けることがあるが、実物のMIDIパッチベイでケーブルを繋ぎ替えたときと同じ現象として受け入れる。後始末は演奏する側の責任とする
+- fluidsynthの同時発音数の上限と、上限に達したときの処理も、fluidsynthに任せる
+- 窓に含まれるがSF2のデバイスが開けていない(プラグインのロードに失敗した等)場合は、メッセージを捨てる。ネイティブ経路には戻さない
 
-最終的に、**専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)を新設し、そこに`fluid_synth_t`を閉じ込める**方式を採る。他のhwifプラグインと全く同じ`IHWPlugin`契約(`HWPlugin_Init`/`Open`/`Close`/`Write`/`WriteBlock`等)で扱われる、FITOM_X本体からは区別のつかない1つのhwifインスタンスとして振る舞う。
+## マスターボリュームとマスターピッチ
 
-- **所有権の曖昧さの解消**:このプラグイン専用の`devices[]`エントリを1つ用意すれば済み、(a)のような汎用FMプラグインへの相乗りに起因する曖昧さは生じない。
-- **コアの依存純度の維持**:fluidsynthへの依存はこの新規プラグインDLLの中だけに閉じ込められ、(b)で生じていた「コア本体が重量級外部ライブラリに直接依存する」という例外を持ち込まずに済む。
-- **③④⑤で述べるSF2直行パスの窓に含まれるMPU×chがどのハンドルへ送られるか**は、既存の`devices[]`/`hw_plugins[]`の仕組みでそのまま表現できる(このプラグインを使う`devices[]`エントリが1つあれば、そのHWHandleが送り先になる)。新規のプロファイルフィールドを追加する必要はない。複数の`devices[]`エントリが同じプラグインを使う場合の扱いは5節の残る検討事項とする。
+`CFITOM::setMasterVolume()`/`setMasterPitch()`は、値が変わるとGM2のUniversal Realtime SysEx(マスターボリューム、マスターファインチューニング)を組み立ててSF2のデバイスへ送る。マスターピッチの範囲(430–450Hz)は440Hzから±100セントに収まるので、ファインチューニングだけで足りる。FITOM_Xが外部から受信するのと同じ標準のメッセージなので、新しいプロトコルを作っていない。
 
-### ② MIDI入力・音声出力とも既存の`IHWPlugin`契約をそのまま流用する(新規API不要)
+## デバイスの登録と起動時の検査
 
-**MIDI入力**:既存の`HWPlugin_WriteBlock(handle, startAddr, data, len)`をそのまま使う。`startAddr`は無視し、`data`に生のMIDIバイト列(Note On/Off・CC・プログラムチェンジ・SysEx)をそのまま渡す。ラッパー内部でこれをパースし`fluid_synth_noteon()`/`fluid_synth_cc()`/`fluid_synth_program_change()`等へ変換するだけでよく、`IHWPlugin.h`への新規追加は不要になった(当初案にあった`HWPlugin_SoftSynthNoteOn`等のカスタムMIDIイベントAPIは不要)。
+- `chip: "SF2"`は`resolveChipDeviceId()`で`DEVICE_NONE`になり、`ISoundDevice`は作られない。`FITOMConfig::buildDevice()`は`ISoundDevice`の有無と無関係に`HWPlugin_Open`でポートを開くので、窓のメッセージはこのポート(`CFITOM::sf2Port_`)へ送る。`CFITOM::initDevices()`は、未知の`chip`のときに出す警告を、`SF2`には出さない
+- `soundfonts`(プラグインへ渡すSF2ファイルの一覧)は、利用者が`devices[]`に書くのではなく、`sf2_banks[].file`から重複を除いてFITOM_Xが作り、`params_json`に足す。二重管理を避けるため
+- `Sf2BankRegistry`は1回の`sf2_banks`の走査から、CC#32を解決する表と、`soundfonts`の一覧(と`file`→`soundfont_index`の表)の両方を作る。2つを別々に作ると食い違うおそれがあるため。`soundfont_index`は`sf2_banks`の中で各ファイルが初めて現れた順の連番。`Sf2BankRegistry`は`devices[]`を作る前に構築する
+- `soundfonts`は読み込み時に決まり、演奏中には変わらない(`sf2_banks`を変えるSysExは無い)
+- 次の構成は、プロファイルの読み込みを中止する
+  - `chip: "SF2"`のデバイスが2つ以上ある(送り先が1つに決まらない)
+  - `sf2_banks`か`sf2_channel_windows`に設定があるのに、`chip: "SF2"`のデバイスが無い(送り先が無い)
+- 逆に、`chip: "SF2"`のデバイスはあるが`sf2_banks`も`sf2_channel_windows`も空、という構成は許す
+- `type`・`serial`・`port`・`slot`・`clock`・`pan`等、FM/PSGチップ向けのフィールドはSF2のデバイスには書かない
 
-**音声出力**:このプラグインは他のhwifプラグイン(FitomEmuIF等)と同じく、音声出力について自己完結する。自前のオーディオコールバックを実装して`fluid_synth_process()`をプルするか、fluidsynth自身の`fluid_audio_driver_t`をそのまま使うかは、このプラグインを実装する側の内部判断であり、FITOM_X本体の設計はどちらかを指定しない。FITOM_X本体は現状、複数のhwifプラグインインスタンスの音声出力をソフトウェア的に1つへミックスする機能を持たない(実機とエミュレータの混在時、複数エミュレータインスタンス使用時のいずれも、組み合わせはユーザー側の外部ミキシングに委ねている)。SF2ラッパーもこの既存の制約をそのまま引き継ぐ。したがって、こちらも`IHWPlugin.h`への新規追加は一切不要になった。
+## プリセット名
 
-**トレードオフ**:SF2の音声を他のFM系エミュレーションと同一ストリームにソフトウェアミックスすることはできない(組み合わせたい場合は外部ミキシングが必要)。ただしこれはSF2固有の新しい制約ではなく、既存の複数プラグイン併用時の制約をそのまま引き継いだだけであり、SF2のために新しい妥協を持ち込んだわけではない。
+MIDIモニターやパッチ選択の画面でプリセット名を出すため、FITOM_XはSF2ファイルの`phdr`(プリセットヘッダ)だけを自前で読む(`fitom::parseSf2PresetHeaders()`)。SoundFont 2のRIFF構造のうち`LIST/pdta`の`phdr`だけを読み、音声データ(`LIST/sdta`)はチャンクの大きさだけ読み飛ばす。
 
-**マスターボリューム/マスターピッチも既存のGM2 Universal Realtime SysExをそのまま転送するだけで済む**。マニュアル8節に既に「マスターボリューム(`F0 7F <dev> 04 01 ll mm F7`)」「マスターファインチューニング(`F0 7F <dev> 04 03 ll mm F7`)」が定義されており、FITOM_Xは外部MIDI機器からこれらを**受信**した際の解釈は既に持っている。`master_volume`/`master_pitch`(430–450Hz、440Hz中心で±100セント以内に収まるため、コースチューニングは不要でファインチューニングのみで足りる)が変化した際、同じバイト列を**構築してSF2ラッパーのハンドルへ`HWPlugin_WriteBlock`で送るだけ**でよい。新規のプライベートSysExを設計する必要はない。fluidsynth(または ラッパー内部の実装)がこれらの標準SysExを実際にどう処理するか(`fluid_synth_sysex()`が対応しているか、対応していなければラッパー側で自前解釈してゲイン/チューニングAPIを呼ぶか)は、別リポジトリであるラッパープラグイン側の実装詳細であり、FITOM_X側の設計はここまでで完結する。
+- `Sf2BankRegistry`が、ファイルを初めて見たときに1回だけ読み、`(sf2_bank, program)`→プリセット名の表を作る(`resolvePresetName()`/`resolvePresetNameByIndex()`)
+- プラグインには問い合わせない。プラグインが動いていなくても名前を出せる
+- 名前が引けないときは、他のモードと同じく番号を表示する
 
-### ③ FITOM_X本体側:「SF2直行パス」を新設(CC#0による切替は不採用)
+## GUI
 
-当初はCC#0の特定値(127)でSF2直行パスへ切り替える案を検討したが、後述する⑤の理由(fluidsynthの`chan`は複数MPU間で共有できない状態そのものを持つ)により、**CC#0による切替は採用しない**こととした。代わりに、Roland CM-64(LA音源部とPCM音源部それぞれへ、SysExでMIDIチャンネルを静的に割り当てる方式)を参考に、**MPU×chの単位で、あらかじめ(またはSysExで随時)「fluidsynthに渡す窓」を割り当てる**方式にする。割り当て方法の詳細は⑤で述べる。
+- **MIDIモニター**: 窓に含まれるMPU×chでは、`CInstCh`/`CRhythmCh`による解決をせず、Bank列にSF2ファイル名、Program列にプリセット名、Device列に`fluidsynth_chan`、Fnumber列に最後に送ったNote Onのバイト列(チャンネル付け替え後)を出す。表示のために、`CFITOM`が窓ごとに最後に送った値だけを持つ(`CFITOM::getSf2ChannelWindowInfo()`)。発音状態は追跡しないという方針は変えず、レジスタダンプモニターのシャドウレジスタと同じく「最後に送った値」の写しとして持つ
+- **CH設定ダイアログ**: チャンネル単位で窓をON/OFFするチェックボックスと`fluidsynth_chan`の選択を持つ。初めてONにしたときは、使われていない`fluidsynth_chan`を`CFITOM::listAssignedSf2Windows()`から探して提案する。リズムチャンネルの切替と排他で、OKを押すまで窓の割り当ては送らない
+- **パッチ選択**: `Sf2PatchPickerDialog`(Bank→Programの2階層)。OKを押すまで窓が割り当てられず、音を送る先が無いので、試聴はしない
 
-この窓に含まれるMPU×chは、`PatchManager`によるHwPatch解決・`ISoundDevice`経由のDVAを一切通さず、`MidiProcessor`が`CInstCh`/`CRhythmCh`へディスパッチするより前段で、Note On/Off・CC・プログラムチェンジを生MIDIバイト列に組み立て、SF2ラッパープラグイン(①②参照)の`fluid_synth_t`へ`HWPlugin_WriteBlock()`経由でそのまま素通しする経路に振り分けられる。**窓に含まれる限り、そのチャンネルが現在メロディ役割かリズム役割かは関係ない**(役割切替はCC#0=120/121によるCInstCh/CRhythmChレベルの区別だが、窓はそれより手前でMIDIチャンネル単位に決まるため)。SF2側で打楽器を鳴らしたい場合は、CRhythmChの仕組みを使うのではなく、④の`sf2_banks`でパーカッション用のSF2バンク(ネイティブbank 128等)を`sf2_bank`に指定したエントリを選ぶ形になる。
+## 見送った案と理由
 
-プログラムチェンジは、この経路ではそのままSF2側のpreset番号として使う。CC#32(バンクセレクトLSB)の扱いは④で述べる。CC#0自体は、この経路ではfluidsynthへ転送しない(理由は④末尾を参照)。
-
-窓に含まれないMPU×chは、これまでどおりCC#0の値(0=通常モード/1–111=直接デバイス選択/112=内蔵リズムバンク/120・121=役割切替)によるFITOM_Xネイティブの経路がそのまま適用される。SF2直行パスとネイティブ経路は、CC#0の値ではなく**この窓テーブルへの所属で完全に切り分けられる**。
-
-### ④ プロファイルでのSF2バンク定義(CC#32との対応)
-
-SF2ファイルは1ファイルの中に複数の(bank, preset)の組が既に定義されている(例:bank 0に通常楽器、bank 128に打楽器)ため、「CC#32の値をそのままSF2内部のbank番号として素通しする」という単純な案には2つの問題がある。
-
-- 複数の異なるSF2ファイルを同時に使い分けられない(ファイルを指定する情報がCC#32に含まれない)。
-- SF2の慣習であるbank 128(パーカッション)は、CC#32が7bit(0–127)であるため直接は表現できない。
-
-このため、既存の`hw_banks`(profile.schema.json、CC#32の値 → プロファイルで定義したバンクファイルへの間接参照)と同じパターンを踏襲し、新設の`sf2_banks`配列で間接参照させる。**スキーマは`config_schema/profile.schema.json`の`banks.sf2_banks`として確定済み**(2026年7月)。
-
-```jsonc
-"sf2_banks": [
-  { "bank": 0, "file": "soundfonts/orchestral.sf2", "sf2_bank": 0   },
-  { "bank": 1, "file": "soundfonts/orchestral.sf2", "sf2_bank": 8   },
-  { "bank": 2, "file": "soundfonts/drums.sf2",       "sf2_bank": 128 }
-]
-```
-
-- `bank`:CC#32で選択するインデックス(0–127、既存`hw_banks[].bank`と同じ意味論)。
-- `file`:SF2ファイルへのパス。同じファイルを指す複数エントリがあってよい(後述のとおり実体は1回だけ`fluid_synth_sfload()`する)。
-- `sf2_bank`:そのSF2ファイル内部でのネイティブbank番号(0–128、128はパーカッション慣習を許容するため`hw_banks[].bank`の0–127より上限を1つ広げる)。
-
-3フィールドとも必須(`required`)とした。`hw_banks`等の既存エントリと異なり`sf2_bank`という間接参照先の情報を必ず伴うため、後から省略可能にする理由がないと判断したため。
-
-`sf2_banks[].file`の相対パスは、他の`banks.*[].file`(hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)と同じく、プロファイルファイル自身のディレクトリを起点に解決する設計とする([`docs/design/patch-resolution.md`の「相対パスの解決基点」](patch-resolution.md)節と同じ規約)。ローダー実装時には、同節の一覧に`sf2_banks`を追加すること(5節に記載)。
-
-SF2直行パスの窓(⑤)に含まれるMPU×chがCC#32を受信すると、FITOM_Xコアがこの配列から`bank`が一致するエントリを検索し、対応する`file`/`sf2_bank`を解決する。実装上は`HwBankRegistry`とは別の、`PatchManager`を経由しない軽量なレジストリ(例:`Sf2BankRegistry`、(CC#32インデックス)→{file, sf2_bank})を**FITOM_Xコア側**に新設する想定。`HwBankRegistry`はFMオペレータパラメータ(`HwPatch`)を保持する構造であり、SF2のpreset(既にサウンドフォント内で完結した音色)とは型が異なるため、既存レジストリを流用せず独立させる。
-
-**ファイルパスの受け渡しは`HWPlugin_Open()`の`params_json`で一括して行う**(SysExでは運ばない)。MIDI SysExのデータバイトは7bitセーフ(0x00–0x7F)でなければならず、`file`(日本語フォルダ名等、非ASCIIを含みうる任意のファイルパス)を生のUTF-8バイト列としてSysExへ埋め込むことはできない。一方`params_json`はプレーンなC文字列であり、この制約を受けない(`hw_plugins[].profile`やPCMメモリイメージカタログのパスも同じ経路で渡している、既存の慣習)。具体的には、`sf2_banks[]`から重複を除いたファイルパスの一覧(プロファイルディレクトリ起点で解決済みの絶対パス)を、`HWPlugin_Open()`時に以下のような`params_json`で1回だけ渡す。
-
-```jsonc
-// 案(未確定)
-{ "soundfonts": ["<絶対パス1>.sf2", "<絶対パス2>.sf2"] }
-```
-
-ラッパーはこの配列順に0起算の`soundfont_index`を割り当て(または最初の参照時に遅延ロード)、`fluid_synth_sfload()`は各ファイルにつき1回だけ呼び出す。以降、演奏中に送る側(FITOM_Xコア)・受け取る側(ラッパー)の両方が、ファイルパスの代わりにこの`soundfont_index`(小さな整数)だけで該当ファイルを参照する。
-
-**演奏中のバンク/プログラム選択は、この`soundfont_index`を使った専用SysExで伝える**。標準のCC#32バイトをそのまま転送するのではなく、既存のプライベートSysEx(`00 48 01`、8.1節・⑤参照)と同じ枠組みに新規sub-cmd`0x05`(⑤の`sub-cmd 0x04`の次の空き番号)を新設する。
-
-```
-F0 00 48 01 05 <chan> <soundfont_index> <sf2_bank_msb> <sf2_bank_lsb> <prog> F7
-```
-
-| フィールド | 内容 |
-|---|---|
-| `chan` | 対象fluidsynth chan(0–15) |
-| `soundfont_index` | `params_json`の`soundfonts`配列でのインデックス(0起算) |
-| `sf2_bank_msb`/`sf2_bank_lsb` | `sf2_bank`(0–128)を14bit値(標準MIDIのMSB×128+LSB形式)として符号化したもの。128という値自体は1バイト(7bit、0–127)に収まらないため2バイトにした。 |
-| `prog` | プログラム番号(0–127) |
-
-ラッパーは受け取った値をそのまま`fluid_synth_program_select(chan, sfont_id[soundfont_index], sf2_bank, prog)`へ渡すだけでよい(`sfont_id`は`soundfont_index`をキーにしたキャッシュから引く)。ファイルパスという可変長・非ASCII混在しうる文字列を演奏中のメッセージに含めずに済み、全フィールドが固定長の小さな整数になる。
-
-**CC#0(バンクセレクトMSB)を転送しない**のも同じ理由で、標準のバンクセレクトCCとしてラッパー内部の`fluid_synth_cc()`に渡ると、この明示的な選択と二重に状態を持ち食い違う恐れがあるため、単純に読み捨てる。
-
-**該当エントリが無い場合・presetが実在しない場合の挙動**:⑤で確定した「FITOM_Xはステートレスなパッチベイに徹する」方針をここでも踏襲する。
-
-- CC#32が`sf2_banks`のどの`bank`とも一致しない場合、上記のsub-cmd 0x05メッセージ自体を送出せず、そのCC#32を単純に読み捨てる。有効な`sf2_banks`エントリが解決するまで、後続のプログラムチェンジも(渡すべき`soundfont_index`/`sf2_bank`が無いため)同様に読み捨てる。「直前の音色を維持する」という通常モード(2.2節①)やNRPN97のパフォーマンスパッチと同様のソフトフォールバックは行わない(それらはFITOM_X自身が状態を保持して解決する経路だからこそ可能なフォールバックであり、状態を持たないSF2直行パスとは前提が異なる)。
-- `sf2_banks`のエントリ自体は解決できたが、実際にはその`sf2_bank`/プログラム番号にpresetが存在しない場合は、上記のsub-cmd 0x05メッセージをそのまま送出し、以降はfluidsynth自身の挙動(該当presetなしとして無音になる等)にすべて委ねる。ポリフォニー上限・窓再割り当て時のクリーンアップ(⑤)と同じ理由で、FITOM_X側での検知・救済は行わない。
-
-### ⑤ MPU×chとfluidsynth chanの対応(窓の割り当て)
-
-`fluid_synth_t`はチャンネル番号(`chan`引数)そのものにバンク/プログラム/ピッチベンド/発音中ノート等の状態を持つ(FMチップの物理チャンネルのような「奪い合われるだけの発音リソース」ではなく、MIDIチャンネルの状態そのもの)。このため、複数MPU(現状`MAX_MPUS`=4、各16ch)を単純にfluidsynthの`chan`へそのまま対応させると、異なるMPUの同一チャンネル番号同士が同じ`chan`を取り合い、バンク/プログラム選択が混線する。
-
-これを避けるため、**MPU×chとfluidsynthの`chan`(0–15)の対応を、FITOM_X本体側で明示的な「窓」として管理する**。動的な自動割り当て・状態の引き継ぎは行わない(Roland CM-64のLA音源部/PCM音源部へのチャンネル割り当てと同様、切替時に情報が引き継がれないのを前提とし、必要なら演奏側が再設定する)。`fluid_synth_t`インスタンス自体は全MPUで1つを共有する(SF2ファイルのロードも`sfont_id`も1インスタンス内で共有できるため、④のファイルキャッシュとも相性が良い)。
-
-- **プロファイルでの静的設定**(初期値):**スキーマは`config_schema/profile.schema.json`のトップレベルプロパティ`sf2_channel_windows`として確定済み**(2026年7月)。`banks`直下ではなくトップレベルに置いたのは、`banks`(hw_banks等)が「バンク内容の参照」であるのに対し、これはバンク内容とは無関係な「MIDIチャンネルそのもののルーティング設定」であり、性質が異なるため。
-
-  ```jsonc
-  "sf2_channel_windows": [
-    { "mpu": 0, "ch": 12, "fluidsynth_chan": 0 },
-    { "mpu": 0, "ch": 13, "fluidsynth_chan": 1 },
-    { "mpu": 2, "ch": 9,  "fluidsynth_chan": 2 }
-  ]
-  ```
-
-  `fluidsynth_chan`の重複は許可しない(スキーマでは表現できないため、ローダー側でのバリデーションが必要)。エントリ総数はfluidsynthのデフォルトチャンネル数(16)を超えられない。この配列に載っていないMPU×chは、これまでどおりネイティブ経路(③末尾)になる。
-
-- **演奏中のSysExでの変更**:既存のプライベートSysEx([`docs/manuals/midi-message-reference.md`の「8.1 パッチパラメータオーバーライド」](../manuals/midi-message-reference.md#81-パッチパラメータオーバーライドプライベートsysex非標準)、マニュファクチャラID`00 48 01`)と同じ枠組みに、新規sub-cmd `0x04`(既存の`0x01`=HwPatch/`0x02`=SwPatch/`0x03`=チャンネル割り当て通知の次の空き番号)を追加する。
-
-  ```
-  F0 00 48 01 04 <mpu> <ch> <fluidsynth_chan|0x7F> F7
-  ```
-
-  | フィールド | 内容 |
-  |---|---|
-  | `mpu` | 対象MPU番号。`0`–`3`で個別指定するほか、**2026年8月追加**の2つの特殊値: `0x7E`(126)=このSysExを受信したMPU自身(受信側の`MidiProcessor`が既に`mpuIndex_`を持っているため、追加の状態管理なしで解決できる。内部用MIDIパイプ[`mpuIndex_==-1`]で受信した場合はMPUという概念自体が無いため無視する)、`0x7F`(127)=すべてのMPU(0–3全てへ同じ`(ch, fluidsynth_chan)`を個別に発行するブロードキャスト。解除[`fluidsynth_chan=0x7F`]は重複制約が無いため全MPUで一様に成功するが、割り当てはfluidsynth_chanの重複不可制約により最初の1件のみ成功し残りは拒否される、5節参照)。 |
-  | `ch` | 対象MIDIチャンネル番号(0–15)。**2026年8月追加**: 解除(`fluidsynth_chan=0x7F`)時に限り、特殊値`0x7F`(127)ですべてのチャンネルを指定できる(`mpu=0x7F`と組み合わせた`F0 00 48 01 04 7F 7F 7F F7`で全MPU全chの窓を一括解除できる)。割り当て時(`fluidsynth_chan=0–15`)にこの値を指定しても特別扱いしない(実チャンネルは0-15のため、既存のch>=16バリデーションにそのまま委ねて無視させる。1メッセージで16chへ同一のfluidsynth_chanを割り当てるのはそもそも意味を成さないため)。 |
-  | `fluidsynth_chan` | 割り当てるfluidsynth chan(0–15)。`0x7F`(127)は「窓を解除しネイティブ経路に戻す」ことを表す予約値(0–15の範囲外のため実chanとは衝突しない)。 |
-
-  プロファイルの静的設定は、起動時にこのSysExを内部的に発行するのと等価な初期状態として扱う(設定の実体は同じテーブル)。
-
-  **ペイロード形式は固定長バイナリとし、8.1節のようなJSON埋め込み方式は採用しない**。8.1節でJSONを使うのは、HwPatch/SwPatchが多数のフィールドを持ち「その一部だけを部分上書きしたい」という要求があるためで、JSON形式であること自体が汎用の上書き機構を意味するわけではない(`sub-cmd`と`target-type`の組み合わせごとに個別配線された専用経路という点は変わらない)。`sf2_channel_windows`の1エントリは`{mpu, ch, fluidsynth_chan}`という3つの小さな固定値のみで部分上書きの必要が無いため、素直に3バイトの固定長バイナリとする方がシンプルで、JSON化する利点が薄いと判断した。同様の理由で、配列全体を一括置換する形式も採らず、1エントリずつ設定する方式のままとする。
-
-- **FITOM_Xの役割は「CH変換付きMIDIパッチベイ」に徹する**:窓の割り当て・解除(新規SysEx受信、または重複する`fluidsynth_chan`への再割り当て)が発生しても、FITOM_X側はクリーンアップ(All Notes Off/All Sound Off相当)も状態の再現(バンク/プログラム/ボリューム等の再送)も一切行わない。FITOM_Xがこの経路で行う「解釈」は、④のCC#0破棄・CC#32→`sf2_banks`変換と、MPU×ch→`fluidsynth_chan`のチャンネル番号付け替えのみであり、ノートの所有権や発音状態そのものは一切追跡しない(=ステートレス)。窓の切替時に旧chanのノートが鳴りっぱなしになる可能性は、実物のMIDIパッチベイ/マージボックスでケーブルを繋ぎ替えた際に生じるのと同種の、MIDI運用上よく知られた現象として許容する。以前検討した「動的スロットプール+状態再送」案・「All Notes Off相当のクリーンアップだけは行う」案は、いずれもFITOM_X側に状態管理の責務を持たせることになるため不採用とする。「今どのMPU×chがfluidsynthのどのchanに割り当てられているか」の把握や、切替前後の後始末(必要ならAll Sound Off等を送る)は、ユーザー(演奏者/シーケンサー側)の責任とする。
-- **ポリフォニー上限(`synth.polyphony`)もFITOM_Xの関知しない事項とする**:同じ理由で、`fluid_synth_t`の同時発音数管理(上限到達時のvoice stealing等)はfluidsynth自身の既存の挙動にそのまま委ねる。複数の窓を同時に使う構成で上限に達しやすくなる可能性はあるが、これは実物のシンセに複数系統からMIDIを送り込めば同じことが起きるのと同種の話であり、FITOM_X側で事前に調整・警告する仕組みは設けない。
-
-### ⑥ `devices[]`/`hw_plugins[]`でのSF2ラッパー登録
-
-`hw_plugins[]`にこのプラグイン用のエントリ(`name`/`dll`/`profile`)を1つ登録し、`devices[]`に対応するエントリを1つ用意する、という既存の仕組みをそのまま使う。実装コードを確認したところ、この用途に好都合な既存の仕組みが2つあった。
-
-- **`CFITOM::initDevices()`**([CFITOM.cpp:400](../../core/src/CFITOM.cpp#L400)):`deviceType == DEVICE_NONE`の場合、`ISoundDevice`生成をスキップしてそのエントリを読み飛ばす経路が既に存在する(現状は「未知のchip文字列」に対するフォールバック用)。
-- **`FITOMConfig::buildDevice()`**([Config.cpp:323](../../core/src/Config.cpp#L323)):上記のスキップより前に`HWPlugin_Open()`を呼んで`IPort`(`HWPort`、実体は`HWHandle`)を生成済みである。つまり`ISoundDevice`が作られなくても、開かれたハンドル自体はちゃんと残る。
-
-これを踏まえ、以下のとおり決定した。
-
-- **`chip: "SF2"`という新しい認識可能な値を追加する**。`resolveChipDeviceId()`がこれを`DEVICE_NONE`へ解決することで、上記の既存スキップ経路にそのまま乗る。ただし現状このスキップは`FITOM_LOG_WARN("deviceType unknown, skipping")`という警告ログを伴う設計であり、SF2は意図したスキップなので、`chip=="SF2"`の場合は警告を出さない(本当に未知のchip文字列の場合とは区別する)よう`CFITOM::initDevices()`を小さく修正する。
-- スキップされても`FITOMConfig::buildDevice()`側の`IPort`/`HWHandle`生成は通常どおり行われるため、SF2直行パスの窓(⑤)がMIDIバイト列を転送する先として、この`IPort`をそのまま使う(`devices[]`を`chip=="SF2"`で走査して見つける)。
-- **`soundfonts`一覧(②の`params_json`)はFITOM_Xが`banks.sf2_banks[].file`から自動導出する**。ユーザーが`devices[]`エントリへ直接`"soundfonts": [...]`を書く必要はない。`FITOMConfig::buildDevice()`は`devices[]`エントリのJSONから制御フィールドを除いた残り全部をそのまま`params_json`へ転送する実装になっているため、FITOM_Xが`sf2_banks`から重複除去した一覧を構築し、`devices[]`のJSONへ動的に注入してからこの既存ロジックに乗せる形にする。`sf2_banks`とdevices[]の二重管理を避けるため。
-- **`type`は省略可能なまま**とする。既存enum(RE1/RE4/SPFM_TOWER/SPFM_LIGHT/FMHWIF)はいずれも「実機」か「FmEngineベースのエミュレータ統合」を表す区分で、SF2はそのどちらでもないため、無理に新規enum値を追加する積極的な理由は無いと判断した。
-- **他の既存フィールド(`serial`/`port`/`slot`/`extra_slot`/`clock`/`pan`/`rhythm_mode`/`stereo_pair`/`sample_rate`)は単に指定しなければよい**。いずれもFM/PSGチップ固有の概念でSF2ラッパーには無関係であり、スキーマ上の特別な対応は不要。
-- **複数の`devices[]`エントリが`chip=="SF2"`を使った場合は起動時エラーで終了する**。⑤で「`fluid_synth_t`は全MPUで1つを共有する」と決めた設計は、fluidsynthへのディスパッチ経路(⑤の窓)が一意であることを前提にしており、`chip=="SF2"`のエントリが複数存在するとこの前提に違反する。曖昧なまま起動を許容(最初に見つかったものを使う等)せず、プロファイル読み込み時に検出して明示的なエラーで起動を止める。
-
-### ⑦ `Sf2BankRegistry`の役割統合とビルド順序
-
-`banks.sf2_banks`の解析(④)と、`devices[]`の`params_json`組み立て(⑥)は別々の処理だが、後者が前者の結果(重複除去済みファイル一覧)を必要とする。この依存関係の扱いを決めた。
-
-- **`Sf2BankRegistry`に2つの役割を持たせ、1回のパースから両方を導出する**。(a)実行時のCC#32解決用`(bank番号)→{file, sf2_bank}`マップ(既に④で決定済み)、(b)`soundfonts`一覧構築・`soundfont_index`解決用の重複除去済みファイル一覧+`(file)→soundfont_index`マップ、の両方を同じクラスが持つ。別々の構造体で個別に構築すると食い違うリスクがあるが、単一のクラスが1回の`sf2_banks`走査から両方を導出する設計にすることで、この「同期」という問題自体が発生しない。
-- **これにより初期化順序の問題も自動的に解消する**。`Sf2BankRegistry`の構築(`banks.sf2_banks`のパース)を、`devices[]`のビルド(`FITOMConfig::buildDevice()`)より前に**1回呼ぶだけ**でよい。2つの独立した仕組みを後から同期させる必要はなく、単純な「先に読む→後で使う」という一方向の依存になる。`FITOMConfig::buildFromProfile()`内で、`devices[]`走査ループへ入る前に`Sf2BankRegistry`を構築する。
-- **`soundfont_index`の採番は`sf2_banks`配列の初出順**:配列を先頭から走査し、初めて登場した`file`に0起算の連番を振る。
-- **`devices[]`エントリのJSONへの注入**:`FITOMConfig::buildDevice()`内、`params.erase(...)`する箇所の前後で、`chip=="SF2"`のエントリに限り`params["soundfonts"] = <Sf2BankRegistryの一覧>`を追加する。
-- **`soundfonts`一覧は静的**:`sf2_channel_windows`と異なり`sf2_banks`には演奏中に変更するSysExを設計していないため、プロファイル読み込み時に一度確定すれば以降変化せず、実行時の再同期を考える必要はない。
-- **食い違う構成は非合法プロファイルとして起動時エラーとする**:複数`devices[]`が`chip=="SF2"`を使う場合と同様、`sf2_banks`または`sf2_channel_windows`に何らかのエントリがあるにもかかわらず`chip=="SF2"`のdevices[]エントリが存在しない(ディスパッチ経路が無い)場合も、起動時エラーで停止する。逆に`chip=="SF2"`のデバイスは存在するが`sf2_banks`/`sf2_channel_windows`が空、という構成(SF2を将来使う準備だけしておく等)はエラーにしない。
-
-### ⑧ プリセット名表示のための`phdr`パース(**実装済み**、2026年7月)
-
-MIDIモニターのBank/Program列にSF2プリセット名を表示するには、FITOM_Xがそのプリセット名を知っている必要がある。現状の設計では、実際にSF2ファイルを読み込む(`fluid_synth_sfload()`)のはSF2ラッパープラグイン内部だけであり、FITOM_Xコアはファイルパスを`sf2_banks[].file`として知っているだけで、中身(どんなプリセットが何個入っているか)を一切知らない。
-
-**方針:FITOM_Xコアが、SF2ファイルの`phdr`(プリセットヘッダ)サブチャンクだけを自前で読む軽量パーサーを持つ**。SoundFont2はRIFF形式で、`RIFF/sfbk` → `LIST/pdta` → `phdr`という経路にプリセット名の配列(`achPresetName[20]`/`wPreset`/`wBank`等、38バイト固定長レコード)が格納されている。実際の音声サンプル(`LIST/sdta`、ファイルサイズの大半を占めうる)は中身を読まずにチャンクサイズでシークして読み飛ばせるため、ファイルが大きくても軽量に処理できる。この構造はSoundFont 2.01/2.04仕様として安定しており、fluidsynthや外部ライブラリへの依存なしに実装できる。
-
-- **`Sf2BankRegistry`(④⑦)にこの`phdr`パース結果も持たせる**。`sf2_banks[].file`の重複除去は既にこのクラスの責務であり、ファイルごとの二重パースを避けるため、同じキャッシュ機構に相乗りさせる。`(sf2_bank, program) → プリセット名`のルックアップテーブルを、`soundfont_index`のキャッシュと同じタイミング(プロファイル読み込み時)で構築する。
-- **新規`IHWPlugin.h`関数は不要**。SF2ラッパープラグインは一切関与しない。プラグイン(別リポジトリ)が起動していない、あるいはまだ接続されていない状態でもプリセット名を表示できる。
-- **該当エントリが無い場合(未知のbank/program)は数値フォールバックにする**。既存の直接デバイス選択モード等、他のモードでの名前解決失敗時と同じ挙動に揃える。
-
-**検討した他の案(不採用)**:
-- **SF2ラッパープラグインへ問い合わせる**:新規`IHWPlugin.h`関数(クエリ応答型)が必要になり、①②で達成した「新規API不要」という設計を崩す。プラグインが起動していないと使えないという制約も生じる。
-- **ユーザーがサイドカーJSONで名前を手書きする**(既存の`*.hwbank.json`と同様の方式):SF2ファイル自体に既にある情報を二重管理させることになり、UXが悪い。
-- **名前表示を諦め数値のみにする**:`phdr`パースの実装コストが小さいため、今回は採用しない。
-
----
-
-## 5. 残る検討事項(実装時に詰める必要がある点)
-
-- **RPN/NRPNの引き継ぎ範囲**:方針決定済み。マニュアル本体(`docs/manuals/midi-message-reference.md`)の3.1/3.2/3.3節・新設2.6節へ反映済み(2026年7月)。未実装の機能であることは2.6節冒頭に明記した。
-- **GUIでの見え方**:方針は決定済み(デバイス一覧・PatchPickerDialogのSF2対応は見送り)。パッチ名解決は⑧の`phdr`パースとして**実装済み**(`Sf2BankRegistry::resolvePresetName()`/`resolvePresetNameByIndex()`、2026年7月)。**MIDIモニターバンドへの配線・CH設定ダイアログでのチャンネル単位のSF2切替も実装済み**(2026年8月、下記)。「`sf2_channel_windows`編集用の専用ダイアログ」(複数チャンネル分の窓割り当てを一覧表示・一括編集する画面)自体は依然未着手だが、CH設定ダイアログでのチャンネル単位の切替で実用上の主要なユースケース(1chずつSF2の窓をON/OFFし、SF2バンク/プログラムを選ぶ)はカバーできている。
-  - **MIDIモニターバンドのBank/Program/Device/Fnumber列表示(実装済み、2026年8月)**: `CFITOM::sf2Windows_`に表示専用のキャッシュ(`lastProg`・`hasLastNoteOn`・`lastNoteOnStatus/Note/Vel`)を追加し、`CFITOM::getSf2ChannelWindowInfo(mpu, ch)`で読み取り専用スナップショット(`Sf2WindowInfo`)として取得できるようにした。`FITOMBridge::getChannelMonitors()`が窓に含まれる(mpu,ch)を検出すると、`CInstCh`/`CRhythmCh`経由の解決を一切行わず`FITOMChannelMonitor`へ以下を差し替える: **Bank列**は`sf2_banks[].file`のファイル名(basename)、**Program列**は`resolvePresetNameByIndex()`で解決したプリセット名(未解決時は既存の数値フォールバック表示に自然に委ねる)、**Device列**は`"SF2 fluidsynth ch<N>"`、**Fnumber列**はfluidsynthへ実際に送出したNote On(velocity>0)の生バイト列を16進2桁×3(`"90 3C 64"`形式、ステータスバイトはfluidsynth chan付け替え後の値)。いずれもノート所有権・発音状態そのものは追跡しない(=状態を持たない設計方針を維持したまま、表示専用の「最後に送出した値」だけをレジスタダンプモニターのシャドウレジスタと同じ考え方でキャッシュする)。実機/実プラグイン接続環境でのユーザーによる目視確認は未実施。
-  - **CH設定ダイアログでのチャンネル単位のSF2切替(実装済み、2026年8月)**: 既存の「リズムチャンネル切替」(CC#0=120/121)と同じ操作感で、SF2直行パスの窓の割り当て/解除チェックボックス+fluidsynth_chan選択(未使用chanを自動提案)を追加。パッチ選択は新設の`Sf2PatchPickerDialog`(Bank→Programの2階層)で行うが、既存の`PatchPickerDialog`のような試聴機能(押している間だけ再生)は持たない(チェックボックスはOK確定まで実際には窓を割り当てないため、ピッカーを開いた時点では試聴の送り先が無い。ドラムキット選択ピッカーと同じ、選ぶだけの簡素な方式)。GUIからの構造化送出経路(`MidiProcessor::sendControlChange/sendProgramChange/sendNoteOn/sendNoteOff`)も窓判定を経由するよう修正し、実MIDI入力と同じ挙動に揃えた。実機/実プラグイン接続環境でのユーザーによる目視確認は未実施。
-
----
-
-## 6. 結論
-
-現在の構造のまま、FluidSynthのソースに一切手を入れずに組み込むことは**可能**。ただし「既存の`ISoundDevice`にもう1つ実装を足す」のではなく、FITOM_X本体側に新しい第三の経路(SF2直行パス)を設ける、という、既存の2経路(メロディ/リズム)とは別枠の設計にするのが筋が良いと考える。
-
-`fluid_synth_t`は既存のFMプラグインへの埋め込みやFITOM_Xコア本体への直接リンクではなく、**専用の新規hwif互換プラグイン(仮称`FitomSf2IF`)に閉じ込める**(①)。既存プラグインへの埋め込みは「誰が唯一の`fluid_synth_t`を持つか」が複数プラグイン併用時に曖昧になる点で、コア本体への直接リンクは重量級外部ライブラリへの依存をコアが初めて持つ点で、それぞれ不採用とした。専用プラグインなら、`devices[]`に専用エントリを1つ用意するだけで所有権が一意に決まり、fluidsynthへの依存もそのプラグインDLLの中だけに閉じ込められる。
-
-この結果、`IHWPlugin.h`への新規追加は一切不要になった(②)。MIDI入力は既存の`HWPlugin_WriteBlock`で生MIDIバイト列をそのまま渡し、音声出力はこのプラグインが他のhwifプラグインと同じく自己完結する(自前のオーディオコールバックかfluidsynth自身の`fluid_audio_driver_t`かはプラグイン実装側の判断で、FITOM_X本体は関知しない)。FITOM_Xは元々複数hwifプラグインインスタンスの音声出力をソフトウェアミックスする機能を持たないため、SF2ラッパーもその制約をそのまま引き継ぐだけで済み、SF2のために新しい仕組みを持ち込む必要が無い。
-
-SF2直行パスへの切替は、既存の「直接デバイス選択モード」のようにCC#0の値で行うのではなく、MPU×ch単位の「窓」をプロファイル設定+SysExで管理する方式を採る(Roland CM-64のLA音源部/PCM音源部へのチャンネル割り当てを参考にした)。これはfluidsynthの`chan`がFMチップの物理チャンネルと異なり状態そのものを保持するため、複数MPUを単純にCC#0の値だけで振り分けると状態が衝突する、という理由による。
-
-窓の内部でのFITOM_Xの役割は、CC#0破棄・CC#32→`sf2_banks`変換・チャンネル番号の付け替えのみを行う「CH変換付きMIDIパッチベイ」に徹し、ノートの所有権・発音状態の追跡、窓切替時のクリーンアップ、ポリフォニー上限の調整はいずれも行わない(いずれもfluidsynth自身、またはユーザー側の責任とする)。実物のMIDIパッチベイ/マージボックスが持つ制約(切替時にノートが引っかかりうる等)をそのまま受け入れることで、状態管理・状態再送・動的スロット再割り当てといった複雑な仕組みを一切持たずに済む。CC#32からSF2ファイル・内部バンクへの対応も、既存の`hw_banks`と同じ間接参照パターン(`sf2_banks`)を踏襲することで、他チップ族との一貫性を保てる。
-
-この文書は技術検討の記録であり、実装に着手する際は、上記5節の未決事項を先に詰めること。
+- **fluidsynthを`ISoundDevice`の1実装として組み込む案**: 「なぜ`ISoundDevice`の1実装にしないか」節の理由
+- **既存のFMエミュレータプラグイン(FitomEmuIF等)に組み込む案**: 複数のプラグインを併用する構成で、どのインスタンスが唯一の`fluid_synth_t`を持つかが曖昧になる。そのプラグインを使わない構成(実機だけ等)ではSF2が使えなくなる
+- **FITOM_X本体がfluidsynthに直接リンクする案**: 重い外部ライブラリへの依存をプラグインDLLに閉じ込める方針の例外になる
+- **`IHWPlugin.h`にソフトシンセ用の関数(`HWPlugin_SoftSynthNoteOn`等)を足す案**: `HWPlugin_WriteBlock`でMIDIバイト列を渡せば足りる
+- **CC#0の特定の値(127)でSF2直行パスへ切り替える案**: fluidsynthのチャンネルが状態を持つので、複数のMPUをCC#0だけで振り分けると状態が衝突する。窓の方式は、Roland CM-64がLA音源部とPCM音源部へSysExでMIDIチャンネルを割り当てる方式を参考にした
+- **CC#32をSF2内のbank番号としてそのまま渡す案**: 「バンクとプログラムの選択」節の理由
+- **窓の割り当てに動的なスロットプールを使い、切替時に状態を再送する案 / 切替時にAll Notes Off相当の後始末だけはする案**: いずれもFITOM_Xに状態を持たせることになる
+- **sub-cmd 0x04のペイロードをJSONにする案、窓の表全体を一括で置き換える案**: 3つの小さな値で、一部だけを上書きする必要が無い
+- **プリセット名をプラグインへ問い合わせる案**: 問い合わせ用の関数が`IHWPlugin.h`に要り、プラグインが動いていないと使えない
+- **プリセット名を利用者がサイドカーのJSONに手で書く案**: SF2ファイルにある情報を二重に管理させることになる
+- **プリセット名を出さず番号だけにする案**: `phdr`を読む手間が小さいため採らなかった

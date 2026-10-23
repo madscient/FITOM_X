@@ -1419,7 +1419,7 @@ TEST_CASE("FITOMConfig: sf2_banks parse into getSf2BankRegistry() when a chip=\"
 }
 
 // ================================================================
-//  SF2プリセット名解決 (phdrパース、docs/design/sf2-direct-path.md ⑧節)
+//  SF2プリセット名解決 (phdrパース、docs/design/sf2-direct-path.md「プリセット名」)
 // ================================================================
 
 namespace {

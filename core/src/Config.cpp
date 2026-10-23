@@ -531,7 +531,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
 
     // --- SF2直行パス: sf2_channel_windows(トップレベル)の読み込み ---
     // (2026年7月新設。banks.*とは異なりトップレベルプロパティ、詳細は
-    //  docs/design/sf2-direct-path.md ⑤節参照)
+    //  docs/design/sf2-direct-path.md「窓」参照)
     if (!loadSf2ChannelWindows(j)) {
         FITOM_LOG_ERR("sf2_channel_windows: 検証エラーのためプロファイル読み込みを中止します");
         return false;

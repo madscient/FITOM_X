@@ -10,7 +10,7 @@ namespace fitom {
 namespace fs = std::filesystem;
 
 // ================================================================
-//  SoundFont2 (RIFF/sfbk) phdrパース (docs/design/sf2-direct-path.md ⑧節)
+//  SoundFont2 (RIFF/sfbk) phdrパース (docs/design/sf2-direct-path.md「プリセット名」)
 // ================================================================
 namespace {
 

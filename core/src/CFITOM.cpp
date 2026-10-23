@@ -1865,7 +1865,7 @@ void MidiProcessor::processPrivateSysEx()
 
     // sub-cmd=0x04: SF2直行パス チャンネル窓の動的割り当て
     // (docs/manuals/midi-message-reference.md 8.2節、
-    //  docs/design/sf2-direct-path.md ⑤節参照)。
+    //  docs/design/sf2-direct-path.md「窓」参照)。
     //   F0 00 48 01 04 <mpu> <ch> <fluidsynth_chan|0x7F> F7
     //   <mpu>: 0-3=対象MPU番号 / 0x7E=このSysExを受信したMPU自身 /
     //          0x7F=すべてのMPU(ブロードキャスト)。

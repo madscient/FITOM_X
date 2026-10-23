@@ -233,7 +233,7 @@
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線
 - 内部用MIDIパイプ経由の音色試聴連携(GUIからのSysEx送出、パッチエディタ本体との結合)
-- `sf2_channel_windows`を一覧編集する専用ダイアログ(チャンネル単位の切替はCH設定ダイアログにある。`docs/design/sf2-direct-path.md`5節)
+- `sf2_channel_windows`を一覧編集する専用ダイアログ(チャンネル単位の切替はCH設定ダイアログにある。`docs/design/sf2-direct-path.md`「GUI」)
 - チャンネルレベルメーターのサブデバイスの表示順(現状はConfig側の生成順)
 
 **記録・出力**
