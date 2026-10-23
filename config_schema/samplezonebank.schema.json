@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fitom-samplezonebank",
   "title": "FITOM SampleZoneBank (*.samplezonebank.json)",
-  "description": "サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM、isSampleBasedVoicePatchType対象)専用のパッチバンク。通常のHwPatch(FMオペレータ型、hwbank.schema.json)とは完全に独立した別スキーマ。1プログラム=複数キーゾーンへの波形マッピングという、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状のデータを持つ。プロファイル側ではhw_banks[].group(AWM等)経由で参照される(PatchManager::loadSampleZoneBankJson)。生成はプログラム実装と密接に関わるため通常は手作業では作られないが、バリデーション対象にはなるため定義しておく(2026年7月新設)。詳細はdocs/voice-parameter-reference.mdの「OPL4 AWM」節参照。",
+  "description": "サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM、isSampleBasedVoicePatchType対象)専用のパッチバンク。通常のHwPatch(FMオペレータ型、hwbank.schema.json)とは完全に独立した別スキーマ。1プログラム=複数キーゾーンへの波形マッピングという、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状のデータを持つ。プロファイル側ではhw_banks[].group(AWM等)経由で参照される(PatchManager::loadSampleZoneBankJson)。生成はプログラム実装と密接に関わるため通常は手作業では作られないが、バリデーション対象にはなるため定義しておく(2026年7月新設)。詳細はdocs/manuals/hwpatch-reference.mdの「OPL4 AWM」節参照。",
   "type": "object",
   "required": ["patches"],
   "properties": {

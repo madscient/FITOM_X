@@ -115,7 +115,6 @@
 | `docs/interfaces/plugin-midi-pipe.md` | ✅ |
 | `docs/design/midi-processing.md` | ✅ |
 | `docs/design/terminology.md` | ✅ |
-| `docs/voice-parameter-reference.md` | ✅ |
 | `docs/design/sf2-direct-path.md` | ✅ |
 | `docs/proposals/vgm-recording.md` | ✅ (設計検討のみ) |
 | `docs/proposals/opm-opz-hw-lfo.md` | ✅ (設計検討のみ) |
@@ -160,10 +159,10 @@
 | 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-drivers.md` |
 | リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `docs/design/chip-drivers.md` |
 | ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-drivers.md` |
-| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-drivers.md`, `voice-parameter-reference.md`, `manuals/hwpatch-reference.md` |
+| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-drivers.md`, `manuals/hwpatch-reference.md` |
 | ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
 | PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
-| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `voice-parameter-reference.md` |
+| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
 | プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `docs/design/config-loading.md` |
 | SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `manuals/midi-message-reference.md` |
 | 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |

@@ -174,6 +174,35 @@ OPL系の実機は「サステインあり」と「パーカッシブ(サステ�
 
 ---
 
+`TL`は全チップ共通で**0.75dB/step**である。OPL系の実機TLレジスタが6bit
+(0-63、最大47.25dB)、OPN/OPM系が7bit(0-127、最大95.25dB)という違いは
+レンジだけで、ステップ幅は同一。したがってOPL系へのTL変換はスケーリング
+ではなく**等倍+クランプ**が正しく、`TL >> 1`のような縮小を掛けてはならない
+(掛けるとステップ幅が1.5dBに読み替わり、減衰量が半分になる)。SBI/VMA等の
+OPLネイティブ形式から起こしたバンクの`TL`は0-63の範囲に収まるが、これは
+そのままで正しい。
+
+#### レジスタイメージからの変換: `SR`/`RR`/`EGT`(実機EGビット)の関係
+
+OPL系(OPL/OPL2/OPL3)のパッチをレジスタイメージ(実機ダンプ等)から
+起こす場合、実機レジスタ`0x20+slot`のbit5(EG Type、通称EGTビット)と
+`0x80+slot`の下位4bit(RRフィールド)の組み合わせを、FITOMの`SR`/`RR`
+両フィールドに、以下の規則で変換する必要がある(`ops[i].EGT`自体は
+OPL系では別の用途(SSG-EGタイプ、OPN/SSG専用)のため無関係)。
+
+実機のEGビットは「サステイン(bit5=1)」と「パーカッシブ(bit5=0)」の
+2つの動作モードを切り替える。パーカッシブモードでは、キーオン中でも
+RRレジスタの値で減衰し続ける(通常のADSRの"サステイン"に相当する
+挙動が無く、代わりにRRが「2段目の減衰」として働く)。FITOMは、この
+2つのモードを`SR`(Sustain Rate)フィールドの有無で統一的に表現する。
+
+| 実機の状態 | FITOM側への変換 |
+|---|---|
+| EGTビット=1(サステイン)、RRレジスタ=r | `SR=0`、`RR = r << 1`(4bit→5bit、下位ビットは0埋めでよい) |
+| EGTビット=0(パーカッシブ)、RRレジスタ=r | `SR = r << 1`(4bit→5bit)、`RR`は任意(EGT=1時にのみ参照されるため実機データには反映されない。0のままでよい) |
+
+---
+
 ## 6. OPL3(YMF262)4オペレータモード
 
 | フィールド | 範囲 | 内容 |
@@ -226,6 +255,13 @@ OPL系と同じく、`SR`の値でサステインあり/パーカッシブを切
 - リリースの速さを`RR`で個別に指定したい場合は、`SR=0`にしてください。
 
 サステインペダル(CC#64)は、この`SR`/`RR`とは独立に実機のSUSビットで制御されます。
+
+レジスタイメージから起こす場合の変換:
+
+| 実機の状態 | FITOM側への変換 |
+|---|---|
+| EGTビット=1(サステイン)、RRレジスタ=r | `SR=0`、`RR=r`(そのまま、ビット幅変換不要) |
+| EGTビット=0(パーカッシブ)、RRレジスタ=r | `SR = r << 1`(4bit→5bit)、`RR`は無視される(0のままでよい) |
 
 ### プリセット/ユーザー音色
 
@@ -466,6 +502,71 @@ SSGと同じ基本的な意味論に加え、拡張機能を持ちます。
 個々のパッチ(`zones`が1件だけの最小限のSampleZonePatch、`wave_index`=PCM波形バンクのエントリ番号)は、`*.samplezonebank.json`を手書きしなくても自動生成できます。プロファイルの`banks.pcm_banks[]`エントリに`"group": "ADPCMB"` / `"ADPCMA"` / `"PCMD8"` / `"SSGS_ADPCM"`を指定すると、参照先の`*.pcmbank.json`(`entries[]`、adpcm_packer出力由来)の各サンプルから、`prog`=エントリ番号・`name`=サンプル名・`zones[0].wave_index`=同じエントリ番号・`zones[0].root_note`=adpcm_packer出力の`root_note`(省略時69)というnamed patchを`PatchManager::loadPcmBankJson()`が自動的に合成し、通常の`*.samplezonebank.json`経由のパッチと同様にパッチピッカー(CC#0=ADPCM-B/ADPCM-A/PCM-D8/SSGS-ADPCM)から選択・試聴できるようにします。`group`を省略した場合は波形データの登録のみが行われ、named patchは合成されません(後方互換)。
 
 SSGS-ADPCM(YMZ705)は、波形の開始/終了アドレスをチップ自身が外部メモリ先頭のボイステーブルから引く方式のため、`entries[]`の`start_offset`/`end_offset`はレジスタへ反映されません(エントリの存在確認と名前の解決にのみ使われます)。また再生ピッチを変えられず、`*.pcmbank.json`の`sample_rate`(4000/8000/16000/32000のいずれか)がそのままチップのサンプリング周波数指定になります。
+
+---
+
+### OPL4 AWM (YMF278+YRW801) — `COPL4AWM`
+
+**専用スキーマ (`SampleZonePatch`)。他チップの`HwPatch`/`hwOp[]`とは完全に独立した
+別の型を使う。** AWM音源は「1プログラム = 複数キーゾーンへの波形マッピング」
+という、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状の
+データを持つため、`ops[]`のフィールドは一切使わない。
+
+| フィールド (`SampleZone`、`zones[]`配列の各要素) | 意味 |
+|---|---|
+| `key_min`/`key_max` | このゾーンが適用されるMIDIノート範囲 |
+| `vel_min`/`vel_max` | ベロシティレイヤー範囲 (省略時0-127=無制限) |
+| `wave_index` | YRW801内蔵ROMの波形番号 (チップ側の生値) |
+| `root_note` | 録音時の基準ノート (OPL4AWMは下記`pitch_offset`/`key_scaling`ベースの計算を使うため未使用。将来のADPCM系転用に備えた予約フィールド) |
+| `pitch_offset` | **OPL4AWM専用**。波形ごとのピッチ校正値(100/128セント単位)。ROM波形は実測でないと絶対ピッチが分からないため必須(下記参照)。既定0 |
+| `key_scaling` | **OPL4AWM専用**。波形ごとのノート追従率(%、100=通常追従、0=固定ピッチ)。既定100 |
+| `tone_attenuate` | **OPL4AWM専用**。波形ごとの追加減衰量(7bit、加算)。既定0 |
+| `volume_factor` | **OPL4AWM専用**。波形ごとの音量スケール(0-254、254=無補正)。既定254 |
+| `sw_bank`/`sw_prog` | パフォーマンスパッチ(SwPatch)参照(`HwPatch::swBank/swProg`と同じ規約、-1=参照なし、2026年7月新設)。DrumNote側の個別上書きが優先される。**対応範囲**: ADPCM-B/PCMD8=全機能、ADPCM-A=ベロシティ感度/トレモロのみ(ピッチ制御不可のため)、AWM=参照は解決されるが音には未反映(実機LFO/VIBレジスタとの整合設計が別途必要)。詳細は`docs/design/patch-resolution.md`の「サンプルベース音源系へのパフォーマンスパッチ紐づけ」節参照 |
+
+ノートオン時、`zones[]`を先頭から線形探索し、`key_min <= note <= key_max` かつ
+`vel_min <= velocity <= vel_max` を満たす最初のゾーンの`wave_index`を使う。
+該当ゾーンが無ければ`zones[0]`にフォールバックする。
+
+
+バンクファイルは`hw_banks[].group: "AWM"`で指定し、通常の`.hwbank.json`とは
+異なる専用スキーマ (`prog`ごとに`zones[]`を持つ、`*.samplezonebank.json`) で
+記述する。YRW801内蔵GM ROMの標準マッピングは
+`config/profiles/opl4awm_yrw801_gm.samplezonebank.json`
+(メロディ128プログラム分) および
+`config/profiles/opl4awm_yrw801_drum.samplezonebank.json`
+(ドラム、`ws>=128`固定テーブル相当) として提供済み
+(Linuxカーネルドライバ`sound/drivers/opl4/yrw801.c`
+[`opl4_local.h`/`opl4_synth.c`/`yrw801.c`]から機械的に抽出。`wave_index`/
+`key_min`/`key_max`は2026年7月時点で既に移植済みだったが、`pitch_offset`/
+`key_scaling`/`tone_attenuate`/`volume_factor`は2026年8月に追加移植した。
+移植スクリプトはyrw801.cの`regions_XX[]`配列をプログラム番号ごと・
+`regions_drums[]`をドラム用としてパースし、既存JSONの各ゾーンへ
+`wave_index`[+key範囲]完全一致でマージするもので、GM 553ゾーン・
+ドラム57ゾーンとも欠落・曖昧一致ゼロで全件マッチした)。
+
+例:
+```json
+{
+  "name": "YRW801 GM (melodic)",
+  "patches": [
+    {
+      "prog": 0,
+      "name": "Acoustic Grand Piano",
+      "zones": [
+        { "key_min": 20, "key_max": 39, "wave_index": 300,
+          "pitch_offset": 7474, "key_scaling": 100,
+          "tone_attenuate": 0, "volume_factor": 200 },
+        { "key_min": 40, "key_max": 45, "wave_index": 301,
+          "pitch_offset": 6816, "key_scaling": 100,
+          "tone_attenuate": 0, "volume_factor": 200 }
+      ]
+    }
+  ]
+}
+```
+
+OPL4指定時は`resolveCompositeSpec`により`COPL3`(4OP)+`COPL3_2`(2OP)+`COPL4AWM`の3サブデバイスに自動展開される。
 
 ---
 

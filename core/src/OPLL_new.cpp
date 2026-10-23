@@ -136,7 +136,7 @@ protected:
                 //   SR==0 (EGT=1/sustain)  → RRをそのまま (キーオフ後のリリース)
                 // (SR>0の音色はレジスタイメージ由来ではRRフィールドが未使用=0で
                 //  あることが多く、ここでRRを書いてしまうと減衰しなくなる。
-                //  voice-parameter-reference.mdのOPLL節の変換表を参照)
+                //  docs/manuals/hwpatch-reference.mdのOPLL節の変換表を参照)
                 // Sustain (サステインペダル) は SUS bit で制御するため、
                 // ここでRRを細工する必要はない。
                 const uint8_t sl_opll = car_opll ? s.proc.velSL(i) : (o.SL & 0xF);
@@ -257,8 +257,7 @@ protected:
         // 動的に書き換える技法を使うが、実機OPLLのEG挙動はOPL系と異なり
         // 発音中のEGTビット書き換えが期待どおりに効かないことが2026年8月の
         // 実機検証で確認されたため、OPLL系のみ静的変換とする(確定仕様)
-        // (docs/design/chip-drivers.md 4.4節、
-        //  docs/voice-parameter-reference.md OPLL節を参照)。
+        // (docs/design/chip-drivers.md「OPLL系」を参照)。
         uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xEF;
         setReg(static_cast<uint16_t>(0x20 + ch),
                static_cast<uint8_t>(cur | (keyOn ? 0x10 : 0)), true);

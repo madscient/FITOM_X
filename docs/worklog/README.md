@@ -34,3 +34,5 @@ STATUS.md内の位置関係を指すため、別の件や別の月のファイ�
 | `terminology.md` | `docs/design/terminology.md` |
 | `plugin-hwif.md` / `plugin-midi.md` / `plugin-midi-pipe.md` | `docs/interfaces/`の同名ファイル |
 | `vgm-recording.md` / `opm-opz-hw-lfo.md` | `docs/proposals/`の同名ファイル |
+| `voice-parameter-reference.md` | 削除。利用者向けの内容は`docs/manuals/hwpatch-reference.md`、チップごとのレジスタと内部処理は`docs/design/chip-drivers.md` |
+| `DESIGN.md` / `chip-driver-migration.md` | 削除(2026年10月の「`docs/DESIGN.md`と`docs/chip-driver-migration.md`を削除した」の件) |

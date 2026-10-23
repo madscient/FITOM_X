@@ -95,8 +95,8 @@ struct FmHwOp {
                   // キーオフ毎)で動的に切り替える(updateVoice側の初期
                   // 書き込みは、直後のkeyOn/keyOff処理で即座に上書きされる
                   // 暫定値に過ぎない。2026年7月、「OPLLのみupdateKey」という
-                  // 誤った記述を訂正)。詳細はdocs/voice-parameter-reference.md
-                  // 参照。
+                  // 誤った記述を訂正)。詳細はdocs/design/chip-drivers.md
+                  // 「OPL系」参照。
     uint8_t RR;   // Release Rate:   4bit
     uint8_t TL;   // Total Level:    7bit (OPL は6bit / 上位1bit無視)
 
