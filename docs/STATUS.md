@@ -209,6 +209,10 @@
 - CC#67 Soft Pedal(FM音源に対応するパラメータが無いため意図的に非対応)
 - CC#2/CC#4 の変数分離
 
+**パッチの解決**
+- プロファイルの`hw_banks[]`で`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`を指定したバンクは、検索で見つからない。登録は`group`から決まるVoicePatchType(EPSGなら0x41)をキーにするが、検索は`PatchManager::hwBankLookupVoicePatchType()`がPSG系を常に0x40へ寄せるため。利用者向けマニュアルでは`group: "SSG"`で登録するよう案内している。**確認済み**: 登録(`loadHwBankJson()`)と検索(`resolveTriple()`)のコードを読んで確認。動かしては確かめていない
+- `PatchManager::loadDrumBankJson()`は呼び出し元が無い(実際に使うのは`loadDrumKitJson()`)。**確認済み**: grep
+
 **チップドライバ**
 - OPK(YM7116)/OPK2(YM7129)のドライバ(旧実装は`legacy/src/OPK.cpp`にある。**確認済み**: `DeviceFactory.cpp`に生成処理が無く、`Config.cpp`に`chip`名の対応も無いことをgrepで確認)
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
