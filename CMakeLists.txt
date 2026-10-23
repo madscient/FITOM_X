@@ -21,8 +21,6 @@ endif()
 option(FITOM_BUILD_BACKEND_HWIF      "HW I/F バックエンド DLL をビルド"           ON)
 # RtMidi (third_party/rtmidi) によるクロスプラットフォームMIDIバックエンド。
 # Windows(WinMM API)/Linux(ALSA)/macOS(CoreMIDI)を1つのDLLでカバーする。
-# 旧 midi_wms(Windows MIDI Services) / midi_winmm(WinMM直叩き) /
-# midi_alsa(ALSA直叩き) の3バックエンドを統合したもの。
 option(FITOM_BUILD_BACKEND_MIDI_RTMIDI "RtMidi MIDI バックエンド DLL (クロスプラットフォーム)" ON)
 # 名前付きパイプ(Windows)/UNIXドメインソケット(Linux/macOS)経由の内部専用
 # MIDIバックエンド。外部プロセス(例: 別プロジェクトのパッチエディタ)から
@@ -60,13 +58,13 @@ endif()
 
 # -------------------------------------------------------
 #  依存ライブラリ
-#  Boost: thread(named_mutex 等), format, log, interprocess(named_mutex)
-#         asio / system は使用箇所なし (旧 RtAudio 経由コードの残骸) のため削除。
-#         filesystem / algorithm / foreach は std で代替済みのため不要
+#  Boost: コードが使うのは log(と date_time)と format だけ。
+#         format はヘッダオンリー。thread はコードから直接は使っていないが、
+#         find_package の必須コンポーネントに残っている。
 #
 #  nlohmann-json は git submodule (third_party/nlohmann-json) で取得する。
-#  vcpkg は必須ではなくなった。Windows で boost を手元に用意しづらい場合の
-#  選択肢としてのみ vcpkg.json を残している (任意)。
+#  vcpkg は必須ではない。Windows で boost を手元に用意しづらい場合の
+#  選択肢としてのみ vcpkg.json を置いている (任意)。
 # -------------------------------------------------------
 
 # nlohmann-json: 既定は git submodule (ヘッダオンリー)。
@@ -89,11 +87,10 @@ endif()
 # INTERFACE ターゲットを定義するため、vcpkg 版と同じ名前でリンクできる。
 
 find_package(Boost 1.71 REQUIRED COMPONENTS
-    thread          # boost::thread
+    thread
     log             # Boost.Log (ロギング)
     log_setup
 )
-# interprocess::named_mutex はヘッダオンリーのため COMPONENTS 不要 (Boost::headers に含まれる)
 # Boost.Log は ヘッダオンリーでないため DLL/静的リンクを明示
 add_compile_definitions(BOOST_LOG_DYN_LINK)
 
@@ -107,7 +104,7 @@ add_subdirectory(plugin_sdk)
 # コアライブラリ (fitom_core static lib)
 add_subdirectory(core)
 
-# CLIモニターツール (GUI実装前にコア機能を評価するためのテキストコンソール版)
+# CLIモニターツール (コア機能を評価するためのテキストコンソール版)
 option(FITOM_BUILD_CLI "fitom_cli (テキストコンソールモニター) をビルド" ON)
 if(FITOM_BUILD_CLI)
     add_subdirectory(apps/fitom_cli)

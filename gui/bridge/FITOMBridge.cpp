@@ -33,7 +33,7 @@ struct FITOMBridge::MidiState {
     std::shared_ptr<fitom::MidiPluginInstance> plugin;
     std::vector<std::unique_ptr<fitom::MidiInPort>> ports;
 
-    // 内部用MIDIパイプ専用(2026年7月新設)。プロファイルのmidi_backend/
+    // 内部用MIDIパイプ専用。プロファイルのmidi_backend/
     // midi_inputsとは無関係な、独立したライフサイクルを持つため上記の
     // plugin/portsとは別メンバにする(reopenMidiPorts()がplugin/portsを
     // クリアしても、これは影響を受けない)。
@@ -130,8 +130,8 @@ void logAvailableMidiInPorts(const fitom::MidiPluginInstance& plugin)
 // PatchManager::resolveBuiltinRhythm()と同じ規約: hwBank相当値として
 // 対象チップのVoicePatchTypeをそのまま使う(バンク番号ではない、
 // 通常のHwBankRegistry/SampleZoneBankRegistryを一切経由しないため
-// JSON設定によるバンク一覧が存在しない。2026年7月新設、パッチピッカー
-// でAWM同様に表示されない不具合の指摘を受けて追加)。
+// JSON設定によるバンク一覧が存在しない。このためパッチピッカーに出す
+// 一覧をここで固定で持つ)。
 struct BuiltinRhythmChip {
     uint8_t     chipSel; // hwBank相当値 (resolveBuiltinRhythmのchipSel引数)
     const char* label;
@@ -218,7 +218,7 @@ bool FITOMBridge::init(const std::string& systemConfPath,
     if (initialized_) return true;
 
     // システム設定 (fitom.conf.json) を先に読み込み、その log.* 設定で
-    // Boost.Log を初期化する (省略時は従来通りの既定値 "info"を使う)。
+    // Boost.Log を初期化する (省略時の既定値は "info")。
     auto config   = std::make_unique<fitom::FITOMConfig>();
     auto patchMgr = std::make_unique<fitom::PatchManager>();
 
@@ -231,13 +231,11 @@ bool FITOMBridge::init(const std::string& systemConfPath,
 
     FITOM_LOG_INFO("FITOMBridge initializing...");
     if (!profilePath.empty()) {
-        // loadProfile()の戻り値を確認せず先へ進んでいたため、不正な
-        // プロファイル(JSON構文エラー・ファイル無し等)を渡してもinit()が
-        // 常にtrueを返してしまっていた(CFITOM::init()自体は常に0を返す
-        // 実装のため、下のret!=0チェックはこのケースを検知できない)。
+        // CFITOM::init()は常に0を返すため、不正なプロファイル(JSON構文
+        // エラー・ファイル無し等)は下のret!=0チェックでは検知できない。
         // apps/fitom_cliのmain.cppと同様、ここで明示的に失敗させる
-        // (2026年8月、GUIプロファイル切替の「起動失敗時に元のプロファイル
-        // へフォールバックする」機能が正しく動作するために必要な修正)。
+        // (GUIのプロファイル切替が、起動失敗時に元のプロファイルへ
+        // フォールバックするのに必要)。
         if (!config->loadProfile(fs::path(profilePath), patchMgr.get())) {
             FITOM_LOG_ERR("FITOMBridge: プロファイル読み込み失敗: " << profilePath);
             return false;
@@ -246,10 +244,8 @@ bool FITOMBridge::init(const std::string& systemConfPath,
     }
 
     // タイマースレッドの起動はinit()の呼び出し元(apps/fitom_gui等)が
-    // 初期化成功後にstartTimerThread()を呼んで行う(2026年7月訂正。
-    // 以前はここに「MFCタイマーからonTimer()を呼ぶため不要」という
-    // コメントがあったが、現行のfitom_gui(Dear ImGui)はMFCを使っておらず
-    // 実態と食い違っていた。詳細はFITOMBridge.hのonTimer()コメント参照)。
+    // 初期化成功後にstartTimerThread()を呼んで行う(理由はFITOMBridge.hの
+    // onTimer()宣言のコメント参照)。
     // CFITOM を初期化
     int ret = fitom::CFITOM::instance().init(
         std::move(config), std::move(patchMgr));
@@ -269,7 +265,7 @@ bool FITOMBridge::init(const std::string& systemConfPath,
     // 個別のポートのオープン失敗はログのみ出し、致命的エラーとしては
     // 扱わない(他のポートは引き続き使えるようにするため)。実処理は
     // reopenMidiPorts()(GUIのMIDIポート設定ダイアログからの再設定とも
-    // 共通、2026年7月新設)に切り出した。
+    // 共通)が行う。
     reopenMidiPorts();
     initInternalMidiPipe();
 
@@ -279,7 +275,7 @@ bool FITOMBridge::init(const std::string& systemConfPath,
 }
 
 // 内部用MIDIパイプ(fitom_midi_pipe)を、プロファイルのmidi_backend/
-// midi_inputs設定とは無関係に無条件でオープンする(2026年7月新設)。
+// midi_inputs設定とは無関係に無条件でオープンする。
 // 詳細はFITOMBridge.hの宣言コメント参照。
 void FITOMBridge::initInternalMidiPipe()
 {
@@ -315,11 +311,10 @@ void FITOMBridge::initInternalMidiPipe()
 
 // Config側の現在のMIDI入力ポート設定(getMidiInputCount()/
 // getMidiInputName())に基づき、既存ポートを全て閉じてから開き直す
-// (init()とsetMidiInputPorts()の共通処理、2026年7月新設)。
+// (init()とsetMidiInputPorts()の共通処理)。
 // 設定名が1件も無い場合はバックエンドDLL自体をロードしない
-// (init()の従来挙動を維持。オーディオデバイスと違い、MIDIバックエンドの
-// 読み込み自体に副作用は無いが、環境によってはDLLが存在しない場合もある
-// ため、不要な読み込みは避ける)。
+// (MIDIバックエンドの読み込み自体に副作用は無いが、環境によっては
+// DLLが存在しない場合もあるため、不要な読み込みは避ける)。
 void FITOMBridge::reopenMidiPorts()
 {
     auto& fitomInst = fitom::CFITOM::instance();
@@ -440,11 +435,10 @@ std::vector<FITOMDeviceInfo> FITOMBridge::getDevices() const
         info.index       = i;
         info.label       = cfg.getDeviceLabel(i);
         info.deviceType  = cfg.getDeviceType(i);
-        // 実機/エミュレータの区別は、HWプラグイン(IHWPlugin)経由に
-        // 一元化された現行アーキテクチャでは、この階層からは判定でき
+        // 実機/エミュレータの区別は、チップへのアクセスがHWプラグイン
+        // (IHWPlugin)経由に一元化されているため、この階層からは判定でき
         // ない(どちらであるかはロードされたHWプラグインDLLの内部
-        // 実装に委ねられている)。旧`FmEnginePort`型による判定は
-        // 同型が廃止されたため撤去した。判定手段が必要になった場合は
+        // 実装に委ねられている)。判定手段が必要になった場合は
         // IHWPlugin側にケイパビリティ問い合わせAPIを追加検討する。
         info.isEmulator  = false;
 
@@ -592,9 +586,8 @@ std::vector<FITOMMidiInfo> FITOMBridge::getMidiInputs() const
     auto& cfg = fitom::CFITOM::instance().getConfig();
     const int midiInCount = cfg.getMidiInputCount();
     // MPU(getMpuCount())分を常に返す。未設定のMPUはnameが空文字列になる
-    // (2026年7月、MIDIポート設定ダイアログでMPUごとの割り当てを一覧
-    // できるようにするため。以前はcfg.getMidiInputCount()件のみ返して
-    // いた)。
+    // (MIDIポート設定ダイアログでMPUごとの割り当てを一覧できるように
+    // するため)。
     for (int i = 0; i < fitom::CFITOM::getMpuCount(); ++i) {
         FITOMMidiInfo info;
         info.index = i;
@@ -686,7 +679,7 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         FITOMChannelMonitor mon;
         mon.ch = ch;
 
-        // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月新設):
+        // SF2直行パス(docs/design/sf2-direct-path.md参照):
         // 窓に含まれる(mpu,ch)はMidiProcessor::processMessage()がCInstCh/
         // CRhythmChへのディスパッチ自体を行わないため、以下のmidich由来の
         // 解決(bankNo/progNo/deviceName等)はいずれも意味を持たない。
@@ -764,11 +757,9 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                 if (p.isValid()) mon.progName = p.name;
             }
         } else if (bankSelMSB <= 0x6F) {
-            // 直接デバイス選択モード(2026年7月修正: 以前はここが未対応で
-            // 常に数値フォールバック表示になっていた)。サンプルベース
+            // 直接デバイス選択モード。サンプルベース
             // 音源系(ADPCM-B/ADPCM-A/PCMD8/AWM)はHwBankRegistryではなく
-            // SampleZoneBankRegistryを参照する(getHwBankList()等と同じ理由、
-            // 2026年7月追加修正)。
+            // SampleZoneBankRegistryを参照する(getHwBankList()等と同じ理由)。
             if (isSampleBasedVoicePatchType(bankSelMSB)) {
                 const auto* sampleBank = pm.sampleRegistry().find(bankSelMSB, mon.bankNo);
                 if (sampleBank) {
@@ -788,7 +779,7 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                 }
             } else if (mon.bankNo == 0 && pm.getOpllRomPatches(bankSelMSB) != nullptr) {
                 // OPLL系ROM音色(バンク0固定、getHwBankList()/getHwBankPatches()
-                // と同じ理由、2026年7月追加修正)。JSON定義のバンクを一切
+                // と同じ理由)。JSON定義のバンクを一切
                 // 経由しないため、HwBankRegistryには現れない。
                 // 【注意】実際の解決(resolveOpllRomVoice)はCC#0の値
                 // (bankSelMSB)ではなくhwProg(mon.progNo)自身の上位3bitで
@@ -815,9 +806,9 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
             mon.bankName = "無音";
             mon.progName = "(silence)";
         } else if (bankSelMSB == VOICE_PATCH_BUILTIN_RHYTHM) {
-            // 内蔵リズム音源(2026年7月追加修正、getHwBankList()/
-            // getHwBankPatches()と同じ理由)。mon.bankNoがchipSel
-            // (VOICE_PATCH_OPN2/VOICE_PATCH_OPLL)、mon.progNoが
+            // 内蔵リズム音源(getHwBankList()/getHwBankPatches()と同じ
+            // 理由)。mon.bankNoがchipSel(VOICE_PATCH_OPN2/
+            // VOICE_PATCH_OPLL/VOICE_PATCH_DSG)、mon.progNoが
             // パート番号(=デバイスチャンネル番号)を表す。
             for (const auto& c : kBuiltinRhythmChips) {
                 if (c.chipSel == mon.bankNo) { mon.bankName = c.label; break; }
@@ -879,11 +870,11 @@ FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
 
     auto& fitomInst = fitom::CFITOM::instance();
 
-    // SF2直行パス(2026年8月新設): 窓に含まれる(mpu,ch)はCInstCh/CRhythmCh
+    // SF2直行パス: 窓に含まれる(mpu,ch)はCInstCh/CRhythmCh
     // へのディスパッチ自体が行われないため(getChannelMonitors()と同じ
     // 理由)、midich由来の解決を一切行わない。Volume/Expression/Panpot/
     // Monoは読み戻す手段が無い(fluidsynth側の現在値をFITOM_Xは把握
-    // していない)ため既定値のままにする(スライダー自体は引き続き有効で、
+    // していない)ため既定値のままにする(スライダー自体は有効で、
     // 操作すればCC#7/#10/#11/#126/#127がそのままfluidsynthへ転送される)。
     const auto sf2 = fitomInst.getSf2ChannelWindowInfo(
         static_cast<uint8_t>(mpuIndex), static_cast<uint8_t>(ch));
@@ -912,7 +903,7 @@ FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
     return settings;
 }
 
-// ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年8月新設) ───
+// ─── SF2直行パス (docs/design/sf2-direct-path.md参照) ───
 
 void FITOMBridge::setSf2ChannelWindow(int mpuIndex, int ch, int fluidsynthChanOr7F)
 {
@@ -1061,10 +1052,9 @@ bool FITOMBridge::resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKi
 
     if (bankSelMSB == 0) {
         // 通常モード: レイヤードパッチ(PatchBank)そのものをキオスク対象に
-        // する(FITOM_patch_editor側 kind="layered")。以前はここで
-        // pm.resolve()により先頭ToneLayerのHwPatchまで解決していたため、
-        // 「レイヤードパッチ経由だった」という情報が失われ、常に
-        // デバイスパッチ編集画面が開いてしまう不具合があった(D-039)。
+        // する(FITOM_patch_editor側 kind="layered"、D-039)。pm.resolve()で
+        // 先頭ToneLayerのHwPatchまで解決すると「レイヤードパッチ経由だった」
+        // という情報が失われ、デバイスパッチ編集画面が開いてしまうため、
         // bankNoLsb = PatchBank番号、progNo = そのバンク内のPatch番号を
         // そのまま使う(解決は行わず存在確認のみ)。
         const fitom::PatchBank* bank = pm.findPatchBank(static_cast<int>(bankNoLsb));
@@ -1168,9 +1158,7 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
 
     // サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM)はHwBankRegistryでは
     // なくSampleZoneBankRegistryを参照する(PatchManager::resolveDirect()の
-    // isSampleBasedVoicePatchType分岐と同じ、2026年7月修正。以前はここが
-    // 常にhwRegistry()を見ており、対象チップのバンク一覧が常に空になる
-    // 不具合があった)。
+    // isSampleBasedVoicePatchType分岐と同じ)。
     if (isSampleBasedVoicePatchType(voicePatchType)) {
         for (int bankNo : pm.sampleRegistry().listBankNumbers(voicePatchType)) {
             FITOMBankInfo info;
@@ -1182,8 +1170,8 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         return result;
     }
 
-    // 内蔵リズム音源(VOICE_PATCH_BUILTIN_RHYTHM、2026年7月追加修正)。
-    // 通常のHwBankRegistryを一切経由しないため、対象チップ(OPNA/OPLL)を
+    // 内蔵リズム音源(VOICE_PATCH_BUILTIN_RHYTHM)。
+    // 通常のHwBankRegistryを一切経由しないため、対象チップ(OPNA/OPLL/DSG)を
     // 固定の選択肢として列挙する(JSON設定によるバンク一覧が存在しない)。
     if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
         for (const auto& c : kBuiltinRhythmChips) {
@@ -1207,12 +1195,12 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
         return result;
     }
 
-    // OPLL系ROM音色(バンク0固定、2026年7月追加修正)。バンク0はJSON定義
+    // OPLL系ROM音色(バンク0固定)。バンク0はJSON定義
     // 不可の予約領域のため、通常のhwRegistry検索とは別に合成して先頭へ
     // 追加する(hwRegistry側にバンク0が誤って登録されていても、
-    // resolveTriple()側で常に無視される[docs/design/patch-resolution.md
-    // 参照]のと同じ優先順位に揃えるため、hwRegistry側のバンク0は
-    // スキップする)。
+    // resolveTriple()側で常に無視される[docs/design/patch-resolution.mdの
+    // 「OPLL系のROM音色」参照]のと同じ優先順位に揃えるため、hwRegistry側の
+    // バンク0はスキップする)。
     const bool hasOpllRom = (pm.getOpllRomPatches(voicePatchType) != nullptr);
     if (hasOpllRom) {
         FITOMBankInfo info;
@@ -1261,7 +1249,7 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
     }
 
     // 内蔵リズム音源: getHwBankList()と同じ理由。hwBankがchipSel
-    // (VOICE_PATCH_OPN2/VOICE_PATCH_OPLL)、progが対象チップのパート番号
+    // (VOICE_PATCH_OPN2/VOICE_PATCH_OPLL/VOICE_PATCH_DSG)、progが対象チップのパート番号
     // (=デバイスチャンネル番号)を表す。
     if (voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM) {
         const char* const* names = nullptr;
@@ -1405,7 +1393,7 @@ void   FITOMBridge::setMasterPitch(double hz) {
     // CFITOM::setMasterPitch()経由にする(FnumRegistry直叩きだと、
     // Config側(config_->masterPitch_、プロファイル書き戻しの対象)の更新と
     // 発音中チャンネルへのF-number即時反映[onMasterPitchChanged]が
-    // どちらも行われなかったバグを修正、2026年7月)。
+    // どちらも行われない)。
     if (initialized_) fitom::CFITOM::instance().setMasterPitch(hz);
 }
 double FITOMBridge::getMasterPitch() const {
@@ -1420,7 +1408,7 @@ void FITOMBridge::allNoteOff()   { if (initialized_) fitom::CFITOM::instance().a
 void FITOMBridge::resetAllCtrl() { if (initialized_) fitom::CFITOM::instance().resetAllCtrl(); }
 
 // ================================================================
-//  タイマーコールバック (MFC WM_TIMER から毎 1ms 呼ぶ)
+//  タイマー (FITOMBridge.hのonTimer()宣言のコメント参照)
 // ================================================================
 
 void FITOMBridge::onTimer(uint32_t tick) {
@@ -1440,9 +1428,10 @@ void FITOMBridge::stopTimerThread() {
 // ================================================================
 
 std::vector<std::string> FITOMBridge::enumerateAudioDevices() const {
-    // オーディオデバイス列挙は fitom_fmhwif DLL が担当。
+    // オーディオデバイスの列挙・選択はHWプラグイン(FitomEmuIF等)が担当。
     // fitom_core は RtAudio に依存しないため、ここでは空リストを返す。
-    // GUI はプロファイルの audio_api 設定で API を選択する。
+    // オーディオAPIの選択は、プラグイン自身の設定ファイル(FitomEmuIFの
+    // fmhwif_profile.jsonのaudio_api等)で行う。
     return {};
 }
 

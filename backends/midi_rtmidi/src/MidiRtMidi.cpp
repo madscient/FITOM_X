@@ -1,9 +1,7 @@
 // backends/midi_rtmidi/src/MidiRtMidi.cpp
 // RtMidi (https://github.com/thestk/rtmidi) による
 // クロスプラットフォーム(Windows/Linux/macOS)MIDIバックエンドDLL。
-// 旧 backends/midi_wms / midi_winmm / midi_alsa の3実装を本ファイル1つに
-// 統合する(旧3実装はいずれもSysEx未対応だったが、RtMidiではSysExも
-// 通常メッセージと同じAPIで透過的に送受信できる)。
+// SysExも通常メッセージと同じRtMidiのAPIで送受信する。
 
 #include <fitom/IMidiPlugin.h>
 #include <nlohmann/json.hpp>
@@ -52,9 +50,8 @@ char* dupJsonArray(const std::vector<std::string>& names) {
 
 // device_name と一致するポート番号を検索する。
 // ポート番号はデバイスの抜き差しで変わりうるため、Open毎に毎回名前で
-// 再検索する(旧WinMM/ALSA実装と同じパターン)。同名デバイスが複数
-// 存在する場合は最初に一致したものを採用する(曖昧さは旧実装と同じ
-// 制約であり後退ではない)。
+// 再検索する。同名デバイスが複数存在する場合は最初に一致したものを
+// 採用する。
 template <typename RtT>
 bool findPortByName(RtT& rt, const std::string& name, unsigned int& outPort) {
     unsigned int n = rt.getPortCount();
@@ -81,8 +78,8 @@ struct MidiInDevice {
 // RtMidiのコールバックシグネチャ: void(double timeStamp,
 // std::vector<unsigned char>* message, void* userData)。timeStampは
 // 「前回受信イベントからの相対デルタ秒」であり、IMidiPlugin.hが要求する
-// 「絶対受信タイムスタンプ(不明なら0)」ではないため変換すると誤った
-// 値になる。既存WinMM/ALSA実装も常に0を渡しており後退ではない。
+// 「絶対受信タイムスタンプ(不明なら0)」ではないため、変換せず常に0を
+// 渡す。
 static void rtMidiInTrampoline(double /*timeStamp*/,
                                 std::vector<unsigned char>* message,
                                 void* userData)
@@ -140,9 +137,7 @@ FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_OpenIn(
     try {
         dev->rt->openPort(port, "FITOM In");
         dev->rt->setCallback(&rtMidiInTrampoline, dev.get());
-        // SysExは通す(false)。Timing Clock / Active Sensingは無視する
-        // (既存WinMM/ALSA実装がこれらのリアルタイムメッセージに対応
-        //  していないのと同じ挙動であり、後退ではない)。
+        // SysExは通す(false)。Timing Clock / Active Sensingは無視する。
         dev->rt->ignoreTypes(/*midiSysex=*/false,
                               /*midiTime=*/true,
                               /*midiSense=*/true);
@@ -204,9 +199,7 @@ FITOM_MIDIP_API MidiResult FITOM_MIDIP_CALL MidiPlugin_Send(
     MidiOutHandle handle, const uint8_t* data, size_t len, uint64_t /*timestamp_ns*/)
 {
     // RtMidiのsendMessage()は即時送信のみでスケジュール送信機構を
-    // 持たない。timestamp_ns は無視して即時送信する(旧WMS実装の
-    // 「スケジュール送信」もタイムスタンプをメタデータに埋め込むだけで
-    // 実質即時送信だったため後退ではない)。
+    // 持たない。timestamp_ns は無視して即時送信する。
     if (!handle || !data || len == 0) return MIDI_ERR_IO;
     auto* dev = reinterpret_cast<MidiOutDevice*>(handle);
     if (!dev->rt) return MIDI_ERR_IO;

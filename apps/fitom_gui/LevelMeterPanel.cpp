@@ -17,7 +17,7 @@ constexpr float kLabelH    = 16.0f;
 constexpr float kRowGap    = 6.0f;
 
 // LEDセグメント分割数と、下から何本目までを緑/黄/赤ゾーンとするか
-// (残りは赤ゾーン)。イメージ参照(緑が主体、上部に黄→赤)。
+// (残りは赤ゾーン)。緑が主体で、上部に黄→赤。
 constexpr int   kSegments    = 14;
 constexpr int   kGreenSegs   = 8;
 constexpr int   kYellowSegs  = 3;
@@ -86,8 +86,7 @@ void updateEnvelope(LevelMeterPanel::ChannelEnvelope& env, const FITOMLevelChann
 }
 
 // LEDカラム1本分を描画する。x範囲を指定できるため、モノラルチャンネルでは
-// トラック全幅で1回、ステレオチャンネルでは左右half-widthで2回呼ぶ
-// (2026年8月、L/R定位表示の追加で分離)。
+// トラック全幅で1回、ステレオチャンネルでは左右half-widthで2回呼ぶ。
 void renderLedColumn(ImDrawList* dl, float xMin, float xMax, float yBottom,
                       float level, float peakLevel, float peakAlpha)
 {
@@ -145,7 +144,7 @@ void renderOneBar(ImDrawList* dl, ImVec2 pos, const FITOMLevelChannel& ch,
 
     // カラーLED風: セグメントに分割し、下から現在レベル分だけ発光させる。
     // 未発光のセグメントも色ゾーンの暗いバリエーションで塗り、消灯中の
-    // LEDらしい見た目にする(イメージ参照)。
+    // LEDらしい見た目にする。
     float peakAlpha = 0.0f;
     if (env.peakStart >= 0.0f) {
         const float t = (now - env.peakStart) / kPeakHoldSec;

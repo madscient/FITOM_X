@@ -9,7 +9,7 @@ namespace {
 
 // CC#0(バンクセレクトMSB)のカテゴリ一覧。値の意味は仕様上固定のため、
 // コアから動的取得する必要はない
-// (docs/manuals/midi-message-reference.md 2.2節「直接デバイス選択値一覧」と同じ)。
+// (docs/manuals/midi-message-reference.md 2.2節「直接デバイス選択値(CC#0)一覧」と同じ)。
 // チャンネル役割切替値(120/121)はここに含めない
 // (ChSettingsDialogの「リズム/インストゥルメント切り替え」チェックボックスの担当)。
 struct CategoryEntry {
@@ -162,14 +162,14 @@ void PatchPickerDialog::renderProgramLevel(FITOMBridge& bridge)
         const std::string selId = std::string(buf) + "##ppd_prog" + std::to_string(p.prog);
         ImGui::Selectable(selId.c_str(), selectedProg_ == p.prog);
         // マウスボタンダウンでNote On、アップでNote Offにする(鍵盤を
-        // 押している間だけ鳴る動作、2026年7月)。IsItemActivated()/
+        // 押している間だけ鳴る動作)。IsItemActivated()/
         // IsItemDeactivated()は、Selectable()の戻り値(クリック確定、
         // 既定ではボタンアップ時にtrueになる)とは別に、ImGui内部の
         // ActiveId(マウスダウンで設定されアップされるまで保持される)の
         // 変化を直接見て判定するため、押下と離しをそれぞれ検出できる。
-        // (以前はダブルクリックでの即時確定も兼ねていたが、連打すると
-        // 試聴のNote Onと確定側のstopAudition()が競合し音が鳴らなくなる
-        // 不具合があったため、確定は下の「選択」ボタンに一本化済み)。
+        // 確定は下の「選択」ボタンだけで行う(ダブルクリックでの即時確定を
+        // 兼ねると、連打時に試聴のNote Onと確定側のstopAudition()が競合し
+        // 音が鳴らなくなるため)。
         if (ImGui::IsItemActivated()) {
             selectedProg_ = p.prog;
             auditionSelect(bridge, category_, bank_, selectedProg_);

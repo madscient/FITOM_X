@@ -9,8 +9,8 @@
 // プロファイルを省略した場合、コアは未初期化のまま画面のみ表示する
 // (デバイス一覧・MIDI入力一覧は空)。
 // fallback_profile.json は、profile.jsonの読み込みに失敗した場合に
-// 代わりに読み込むプロファイル。実行中のプロファイル切替(2026年8月新設、
-// renderProfileSwitchDialog参照)が、切替前のプロファイルを渡すために
+// 代わりに読み込むプロファイル。実行中のプロファイル切替
+// (renderProfileSwitchDialog参照)が、切替前のプロファイルを渡すために
 // 自動的に付与する引数で、通常ユーザーが手動指定するものではない。
 
 #include "FITOMBridge.h"
@@ -110,7 +110,7 @@ namespace
     }
 
     // ウィンドウタイトルへ現在のプロファイル名を反映する
-    // ("FITOM_X [<profile_nameまたはファイル名>]"、2026年8月新設)。
+    // ("FITOM_X [<profile_nameまたはファイル名>]")。
     void updateWindowTitle(GLFWwindow *window, const std::string &profilePath)
     {
         const std::string title = "FITOM_X [" + FITOMBridge::profileDisplayName(profilePath) + "]";
@@ -285,7 +285,7 @@ namespace
         }
     }
 
-    // ─── プロファイル選択画面 (起動時、プロファイル未指定の場合、2026年8月新設) ──
+    // ─── プロファイル選択画面 (起動時、プロファイル未指定の場合) ─────────────
     // fitom.conf.jsonのprofiles.root(省略時はカレントワーキングディレクトリ)
     // 配下の*.profile.jsonを一覧し、クリックで選択・起動できるようにする。
     struct ProfileSelectState
@@ -345,7 +345,7 @@ namespace
         return selected;
     }
 
-    // ─── プロファイル切替(実行中、2026年8月新設) ────────────────────────────
+    // ─── プロファイル切替(実行中) ──────────────────────────────────────────
     // コア(CFITOM)は「一度exit()した後にinit()し直す」という使い方を
     // 想定した設計になっていない(CFITOM::exit()には二重呼び出し防止の
     // 冪等ガードがあり、一度exit()すると以後のexit()は何もしなくなる。
@@ -353,8 +353,8 @@ namespace
     // 再初期化を繰り返す用途では、次に本当に終了するときにHWプラグインの
     // シャットダウン等が行われなくなる)。そのため、実行中のプロファイル
     // 切替は「新しいプロファイルを引数に自分自身を再起動する」方式で実現
-    // する(ユーザー了承済み、外部パッチエディタと同じlaunchProcess()を
-    // 流用する fire-and-forget 起動)。選択直後に新プロセスを起動し、
+    // する(外部パッチエディタと同じlaunchProcess()を流用する
+    // fire-and-forget 起動)。選択直後に新プロセスを起動し、
     // 現在のウィンドウを閉じて通常の終了処理(main()末尾のbridge.exit()等)
     // へ流す。
     struct ProfileSwitchState
@@ -438,8 +438,7 @@ namespace
                         // 内部用MIDIパイプを解放する。先に新プロセスを
                         // 起動してからこのプロセスを閉じる順序だと、新旧
                         // 両プロセスが同じMIDIポート/HWデバイスを同時に
-                        // 掴もうとする競合状態になりうるため(2026年8月、
-                        // レビュー指摘により順序を修正)。
+                        // 掴もうとする競合状態になりうるため。
                         // CFITOM::exit()は二重呼び出し防止の冪等ガード
                         // (exited_、一度trueになったら以後リセットされない)
                         // を持つため、ここでexit()した以上、このプロセス内で
@@ -531,11 +530,11 @@ namespace
             bridge.resetAllCtrl();
     }
 
-    // ─── MIDIモニター(試作): CH1のみ、列構成の確認用 ────────────────────
+    // ─── MIDIモニターの列 ──────────────────────────────────────────────
     // ImGui::Tableではなく固定X座標で列を並べる方式にしている。理由:
-    // キーボードビュー行(次段階で実装)がテーブル幅いっぱいに独自描画
+    // キーボードビュー行がテーブル幅いっぱいに独自描画
     // (ImDrawList)する必要があり、ImGui::Tableの自動列管理とは相性が
-    // 悪いため。列幅はここで確定させ、以後全チャンネル分に展開する。
+    // 悪いため。
     // 与えられた文字列を、maxWidth(ピクセル)に収まるよう末尾を"..."で
     // 省略して描画する。全体がホバーされたときは、省略前の全文をツール
     // チップで表示する。
@@ -785,8 +784,8 @@ namespace
         ImGui::SameLine(C::fnumber);
         if (mon.isSf2Windowed)
         {
-            // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月
-            // 新設): block:fnumという概念自体が存在しないため、代わりに
+            // SF2直行パス(docs/design/sf2-direct-path.md参照):
+            // block:fnumという概念自体が存在しないため、代わりに
             // fluidsynthへ実際に送出したNote Onの生バイト列(ステータス
             // バイトにはfluidsynth chan付け替え後の値を含む)を表示する。
             if (mon.sounding && !mon.sf2NoteOnHex.empty())
@@ -808,8 +807,8 @@ namespace
         // 誤認してFontSize分の余計な空行を挿入する)。ここで無条件に
         // SameLine()を呼び、常に「復元済み」の状態で関数を抜けることで、
         // 呼び出し側のNewLine()が発音状態に関わらず安定した挙動になる
-        // ようにする(発音中のみキーボードビューとの間に空行が挿入され、
-        // 以降の全チャンネルの表示位置がずれ下がる不具合の原因だった)。
+        // ようにする(そうしないと、発音中のみキーボードビューとの間に
+        // 空行が挿入され、以降の全チャンネルの表示位置がずれ下がる)。
         ImGui::SameLine();
     }
 
@@ -1007,17 +1006,15 @@ namespace
         static LevelMeterPanel levelMeterPanel;
         static ProfileSwitchState profileSwitchState;
         // MIDIモニター本体とレジスタダンプモニターは、ルート画面上で
-        // オルタネート表示(排他的に切り替え)する(2026年7月変更。以前は
-        // レジスタダンプモニターを別ウィンドウとして重ねて表示していた)。
+        // オルタネート表示(排他的に切り替え)する。
         static bool showRegisterDump = false;
 
         auto midiInputs = bridge.getMidiInputs();
 
         // MPU(MidiProcessor)はMAX_MPUS(コア側の固定上限、現状4)分が常に
-        // 存在する(CFITOM::init参照。2026年7月、MIDIポート設定ダイアログ
-        // から実行中に未割り当てのMPUへポートを割り当てられるよう変更した
-        // ため、以前あった「設定済みポート数にページ数を絞る」処理は
-        // 不要になった)。
+        // 存在する(CFITOM::init参照)。MIDIポート設定ダイアログから実行中に
+        // 未割り当てのMPUへポートを割り当てられるよう、ページ数は設定済み
+        // ポート数に絞らない。
         int mpuCount = bridge.getMpuCount();
         if (mpuCount <= 0)
             mpuCount = 1;
@@ -1042,7 +1039,7 @@ namespace
         }
         ImGui::SameLine();
 
-        // プロファイル切替ダイアログの入り口(2026年8月新設)。
+        // プロファイル切替ダイアログの入り口。
         if (ImGui::SmallButton("プロファイル切替"))
         {
             openProfileSwitchDialog(profileSwitchState, systemConfArg);
@@ -1097,8 +1094,8 @@ namespace
         if (showRegisterDump)
         {
             ImGui::Separator();
-            // 左右2ペイン(2026年7月新設): 左にチャンネルレベルメーター、
-            // 右に既存のレジスタダンプ。それぞれ独立してスクロールできる
+            // 左右2ペイン: 左にチャンネルレベルメーター、
+            // 右にレジスタダンプ。それぞれ独立してスクロールできる
             // ようBeginChildで区切る。
             const float leftWidth = ImGui::GetContentRegionAvail().x * 0.42f;
             ImGui::BeginChild("##levelMeterPane", ImVec2(leftWidth, 0.0f), true);
@@ -1198,14 +1195,13 @@ int main(int argc, char **argv)
     // FITOMBridge初期化。プロファイルはコマンドライン第1引数で指定する。
     // 省略時は、fitom.conf.jsonのprofiles.root(省略時はカレントワーキング
     // ディレクトリ)配下の*.profile.jsonから選択する画面を表示する
-    // (renderProfileSelectScreen()、2026年8月新設。以前はコア未初期化のまま
-    // 「引数で指定してください」という案内のみを表示していた)。
+    // (renderProfileSelectScreen())。
     // fitom.conf.json は実行ファイルと同じディレクトリにあれば読み込む
     // (省略可能なシステム設定)。
     FITOMBridge &bridge = FITOMBridge::instance();
     const std::string argvProfilePath = (argc >= 2) ? argv[1] : std::string();
     // プロファイル切替(renderProfileSwitchDialog)が、切替前のプロファイルを
-    // 引き継ぐために自動的に付与する第2引数(2026年8月新設)。第1引数の
+    // 引き継ぐために自動的に付与する第2引数。第1引数の
     // プロファイルが不正(JSON構文エラー・存在しない等)で読み込みに
     // 失敗した場合、こちらへフォールバックする。
     const std::string argvFallbackProfilePath = (argc >= 3) ? argv[2] : std::string();
@@ -1235,12 +1231,10 @@ int main(int argc, char **argv)
     // コアのタイマーコールバック(releaseTimer減算・ソフトウェアLFO tick等、
     // 全チップドライバが「1回の呼び出し=1ms経過」を前提にしている)は、
     // 専用の1msスレッド(apps/fitom_cliと同じCFITOM::startTimerThread())
-    // で駆動する。以前はレンダーループから毎フレーム1回onTimer(1)を
-    // 呼ぶ簡易実装だったが、実際のフレームレート(~60fps、~16ms/frame)は
-    // 前提の1msから大きく外れており、kReleasingHoldMs(2000tick=本来2秒)
-    // 等の時間ベースの処理が実時間で約16倍(30秒以上)に間延びしてしまう
-    // バグがあった(2026年7月発見・修正。「演奏停止後もレジスタが更新され
-    // 続ける」報告の根本原因)。
+    // で駆動する。レンダーループから毎フレーム呼ぶと、フレームレート
+    // (~60fps、~16ms/frame)が前提の1msから大きく外れ、
+    // kReleasingHoldMs(2000tick=2秒)等の時間ベースの処理が実時間で
+    // 約16倍に間延びするため。
     if (coreReady)
         bridge.startTimerThread();
 
@@ -1301,7 +1295,7 @@ int main(int argc, char **argv)
         {
             // ルート画面はMIDIモニターのバンドのみを表示する。
             // デバイス一覧・MIDI入力一覧・マスターコントロール等、他の
-            // ビューへの導線は今後実装する(renderDeviceList/
+            // ビューへの導線は未実装(renderDeviceList/
             // renderMidiInputList/renderMasterControlsは[[maybe_unused]]
             // として温存済み)。
             renderMidiMonitorBand(bridge, window, systemConfArg, coreReady);

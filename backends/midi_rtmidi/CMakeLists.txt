@@ -1,9 +1,8 @@
 # backends/midi_rtmidi/CMakeLists.txt
 #
 # RtMidi (https://github.com/thestk/rtmidi) を使った単一クロスプラットフォーム
-# MIDIバックエンドDLL。旧 backends/midi_wms (Windows MIDI Services) /
-# backends/midi_winmm (WinMM) / backends/midi_alsa (ALSA) の3実装を統合し、
-# Windows(WinMM API)/Linux(ALSA)/macOS(CoreMIDI) を1ソースでカバーする。
+# MIDIバックエンドDLL。Windows(WinMM API)/Linux(ALSA)/macOS(CoreMIDI) を
+# 1ソースでカバーする。
 #
 # RtMidi 本体は third_party/rtmidi に git submodule として配置済み
 # (git submodule update --init --recursive で取得)。
@@ -40,7 +39,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(RTMIDI_BUILD_TESTING OFF)
 
 # Linux開発機に偶然JACKが入っていても、意図せずJACK依存を持ち込まないよう
-# 明示的に無効化する(既存backends/midi_alsaと同じくALSAのみを土台にする)。
+# 明示的に無効化する(LinuxではALSAのみを土台にする)。
 # なお RtMidi 本体の CMakeLists.txt は ALSA サポート自体を
 # find_package(ALSA) の可否だけで自動的に有効化する(RTMIDI_API_ALSA
 # オプションの値は実際には参照されない)ため、ALSA側は明示設定不要。

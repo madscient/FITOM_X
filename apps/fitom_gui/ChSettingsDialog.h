@@ -34,9 +34,7 @@ public:
     // 親のBegin/EndPopup区間の外側(兄弟階層)で行うと、同じレベル0を
     // 親ポップアップと奪い合う形になり、ImGui::OpenPopupEx()内の
     // ClosePopupToLevel()によって親ポップアップ自体がOpenPopupStackから
-    // 消去されてしまう(結果、親モーダルが消える実害あり。2026年7月、
-    // 一度この構造を兄弟階層に分離してしまい、パッチ選択でOKを押すと
-    // CH設定ごと消える不具合を作り込んだため、入れ子構造に戻した)。
+    // 消去されてしまう(パッチ選択でOKを押すとCH設定ごと消える)。
     void render(FITOMBridge& bridge);
 
 private:
@@ -56,7 +54,7 @@ private:
     PatchSelection  patch_;
     bool            patchChanged_ = false; // ピッカーで実際に選び直したか
 
-    // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月新設)。
+    // SF2直行パス(docs/design/sf2-direct-path.md参照)。
     // isRhythm_と相互排他(どちらか一方のみtrue、isSf2_ON時はisRhythm_を
     // 強制falseにしチェックボックス自体も無効化する。窓に含まれる限り
     // メロディ/リズムの区別と無関係という設計のため)。isSf2_のON/OFF・

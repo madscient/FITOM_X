@@ -162,7 +162,7 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
         ImGui::Text("MPU%d CH%d", mpuIndex_, ch_ + 1);
         ImGui::Separator();
 
-        // SF2直行パス(2026年8月新設): リズムチャンネル切替と同様、OK確定
+        // SF2直行パス: リズムチャンネル切替と同様、OK確定
         // まで実際には送信しない(ライブプレビューなし)。isRhythm_とは
         // 相互排他のため、ONにした瞬間にリズム側を強制falseにし、
         // リズムチェックボックス自体も無効化する。
@@ -199,7 +199,7 @@ void ChSettingsDialog::render(FITOMBridge& bridge)
         ImGui::EndDisabled();
         // Volume/Panpot/Expressionはドラッグ中(値が変わった瞬間)に
         // 実際にCC#7/#10/#11を送り、その場で音を確認できるようにする
-        // (2026年7月新設、プレビュー再生)。最終的な値はOKでも改めて
+        // (プレビュー再生)。最終的な値はOKでも改めて
         // 送られる(applyAndClose参照)ため、ここでの送信はプレビュー専用。
         if (ImGui::SliderInt("ボリューム (CC#7)", &volume_, 0, 127)) {
             bridge.sendControlChange(mpuIndex_, ch_, 7, static_cast<uint8_t>(volume_));

@@ -6,7 +6,7 @@
 // フォームなMIDIバックエンド。名前付きパイプ(Windows)/UNIXドメイン
 // ソケット(Linux/macOS)を使う。
 //
-// 複数クライアント対応(2026年7月〜): 最大16本(内部パイプMPUの16ch分)
+// 複数クライアント: 最大16本(内部パイプMPUの16ch分)
 // まで同時接続を受け付ける。接続ごとに専用スレッドで処理し、接続
 // 確立直後、読み取りを始める前にFITOM_X側からチャンネル割り当てを
 // プライベートSysExで通知する(sub-cmd 0x03、docs/interfaces/plugin-midi-pipe.md
@@ -15,7 +15,7 @@
 // 切る。
 //
 // MIDI Outは上記のチャンネル割り当て通知の一往復のみ実装しており、
-// それ以外の汎用送信(MidiPlugin_Send/OpenOut)は引き続き未実装
+// それ以外の汎用送信(MidiPlugin_Send/OpenOut)は未実装
 // (このバックエンドの主用途は「外部プロセス→FITOM_X」の受信側)。
 //
 // デバイス列挙は固定の1エントリ(kDeviceName)のみを返す。実際の接続先
@@ -99,9 +99,9 @@ struct MidiInDevice {
         // acceptThreadがConnectNamedPipe()でブロックしている場合、別スレッド
         // からのCloseHandle()だけでは同期I/O呼び出し中のスレッドを確実には
         // 解放できない(ブロッキングモードのハンドルに対する既知のWindowsの
-        // 制約。実際、パッチエディタ未接続時でもacceptThreadは起動直後から
+        // 制約。パッチエディタ未接続時でもacceptThreadは起動直後から
         // 常にConnectNamedPipe待ちのため、CloseHandleだけに頼るとFITOM_X
-        // 終了時に高確率でハングしていた)。CancelSynchronousIo()はハンドル
+        // 終了時にハングする)。CancelSynchronousIo()はハンドル
         // ではなくスレッド単位で保留中の同期I/Oをキャンセルできる(Vista
         // 以降のAPI)ため、まずこちらでacceptThreadを確実に解放してから
         // ハンドルを閉じる。
@@ -159,7 +159,7 @@ namespace {
 // チャンネル割り当て通知(FITOM_X → クライアント、接続直後に1回のみ)。
 // F0 00 48 01 03 <ch> F7 (マニュファクチャラID 00 48 01 は既存の
 // HwPatch/SwPatchパラメータオーバーライドSysExと共通。sub-cmd 0x01/0x02
-// は使用済みのため 0x03 を新設。詳細はdocs/interfaces/plugin-midi-pipe.md参照)
+// はそちらが使っているため 0x03。詳細はdocs/interfaces/plugin-midi-pipe.md参照)
 void buildChannelAnnounce(uint8_t (&out)[7], int ch)
 {
     out[0] = 0xF0; out[1] = 0x00; out[2] = 0x48; out[3] = 0x01;
@@ -323,7 +323,7 @@ FITOM_MIDIP_API const char* FITOM_MIDIP_CALL MidiPlugin_EnumerateIn() {
 }
 
 FITOM_MIDIP_API const char* FITOM_MIDIP_CALL MidiPlugin_EnumerateOut() {
-    // MIDI Out(汎用送信)は現状未実装。チャンネル割り当て通知のみ、
+    // MIDI Out(汎用送信)は未実装。チャンネル割り当て通知のみ、
     // 接続受け入れ側(MidiPlugin_OpenIn)が内部で直接書き込む。
     nlohmann::json arr = nlohmann::json::array();
     const std::string s = arr.dump();

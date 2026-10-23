@@ -1,6 +1,6 @@
 // apps/fitom_cli/main.cpp
 //
-// GUI実装前にコア機能を評価するためのテキストコンソール版CLIツール。
+// コア機能を評価するためのテキストコンソール版CLIツール。
 // プロファイルに指定された実MIDIデバイスからの入力を受け取り、
 // 各MIDI入力ポートごとに16チャンネルの発音状況をtopコマンド風に
 // 定期再描画するモニター画面を表示する。
@@ -207,8 +207,8 @@ void renderPort(std::ostringstream& out, CFITOM& fitom, PatchManager& pm,
 // MIDI入力ポートが複数ある場合は縦に並べて全て表示する。
 // byteCounts: ポートごとの累計受信バイト数 (診断用、バックエンドが実際に
 // データを受信できているかを一目で確認するため)。openFailed: オープンに
-// 失敗したポートかどうか (失敗時はヘッダーにその旨を表示し続ける、
-// 従来はエラーメッセージが次の再描画で即座に消えてしまい気づけなかった)。
+// 失敗したポートかどうか (失敗時はヘッダーにその旨を表示し続ける。
+// 標準エラーへのメッセージは次の再描画で即座に消えてしまうため)。
 void renderMonitor(CFITOM& fitom, PatchManager& pm,
                     const std::vector<std::string>& midiInNames,
                     const std::vector<std::shared_ptr<std::atomic<uint64_t>>>& byteCounts,
@@ -352,7 +352,7 @@ int main(int argc, char** argv)
     }
 
     // 内部用MIDIパイプ(fitom_midi_pipe)を、プロファイルのmidi_backend/
-    // midi_inputsとは無関係に常時有効化する(2026年7月新設)。設計の詳細は
+    // midi_inputsとは無関係に常時有効化する。設計の詳細は
     // gui/bridge/FITOMBridge.cpp::initInternalMidiPipe()と同じ
     // (FITOM_BUILD_BACKEND_MIDI_PIPE=OFFでDLLが存在しない場合は何もしない、
     // 致命的エラーにはしない)。

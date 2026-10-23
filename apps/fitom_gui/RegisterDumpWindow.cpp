@@ -79,10 +79,9 @@ void RegisterDumpWindow::renderChipTable(int chipIndex, const FITOMChipInfo& inf
     // テーブル自体はスクロールさせず、行数分の高さへ自然にフィットさせる
     // (outer_size.y=0.0fで自動サイズ、ScrollY未指定)。ウィンドウ全体の
     // 内容が窓の高さを超えた場合は、ルートウィンドウ側のスクロールに
-    // 任せる(MIDIモニターバンドと同じ挙動、2026年7月修正。以前はテーブル
-    // ごとに高さを見積もってScrollYを付けていたが、見積もりがセル
-    // パディング分だけ実際の内容より小さくなり、バンド単位で常に
-    // スクロールバーが出てしまっていた)。
+    // 任せる(MIDIモニターバンドと同じ挙動)。テーブルごとに高さを見積もって
+    // ScrollYを付けると、見積もりがセルパディング分だけ実際の内容より
+    // 小さくなり、バンド単位で常にスクロールバーが出てしまうため。
     ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg;
     if (ImGui::BeginTable(tableId, kCols + 1, flags)) {
         ImGui::TableSetupColumn("addr", ImGuiTableColumnFlags_WidthFixed, 40.0f);

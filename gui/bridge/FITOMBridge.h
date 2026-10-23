@@ -28,7 +28,7 @@ struct FITOMMidiInfo {
     std::string name;
 };
 
-// ─── プロファイル情報 (起動時のプロファイル選択画面用、2026年8月新設) ──────
+// ─── プロファイル情報 (起動時のプロファイル選択画面用) ─────────────────────
 // FITOMConfig::listProfiles() が返す内容をUIフレームワーク非依存の型に
 // 写したもの。pathはそのままFITOMBridge::init()/loadProfile()に渡せる。
 struct FITOMProfileInfo {
@@ -50,7 +50,7 @@ struct FITOMBankInfo {
     std::string name;
 };
 
-// ─── 物理チップ情報 (レジスタダンプモニター用、2026年7月新設) ──────────────
+// ─── 物理チップ情報 (レジスタダンプモニター用) ─────────────────────────────
 // サブデバイス自動生成(OPNA→FM+SSG+ADPCM-B等、同一物理チップを共有)や
 // 同種デバイス自動束ね(spanGroups)・リニアステレオ化(stereoPairPort)で
 // 生成される複数の論理デバイスは、物理チップ単位で1エントリにまとめられる
@@ -77,7 +77,7 @@ struct FITOMPartGain {
     float defaultR = 1.0f;
 };
 
-// ─── チャンネルレベルメーター情報 (2026年7月新設) ──────────────────────────
+// ─── チャンネルレベルメーター情報 ──────────────────────────────────────────
 // FITOM_Xは音声合成を行わないため実際の音量信号は存在しない。soundingと
 // velocityによる疑似メーター表示である点に注意(CFITOM::PhysicalChipChannelState
 // 参照)。nameは「接頭辞+ch番号」形式("FM1"等)、内蔵リズム音源のみ楽器名の
@@ -94,9 +94,9 @@ struct FITOMLevelChannel {
     // する。sounding/velocityは現在値のスナップショットに過ぎず、同一
     // ベロシティでの再トリガー(ボイススチールによる同一チャンネル上の
     // 連続ノートオン)をGUI側のフレーム間差分だけでは検出できないため、
-    // 「本当にノートオンが起きたか」の判定に使う(2026年7月新設)。
+    // 「本当にノートオンが起きたか」の判定に使う。
     uint32_t    noteOnSeq = 0;
-    // PhysicalChipChannelState::stereo/gainL/gainR由来 (2026年8月新設)。
+    // PhysicalChipChannelState::stereo/gainL/gainR由来。
     // stereo=true なら、GUIはバー1本を左右half-widthの2本に分割し、
     // それぞれ gainL/gainR を掛けた高さで描く(左右の定位が見える)。
     // gainL/gainRは大きい側が1.0になるよう正規化された定位係数であり、
@@ -150,7 +150,7 @@ struct FITOMChannelMonitor {
     uint8_t     fnumBlock = 0;
     uint16_t    fnum = 0;
 
-    // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月新設)。
+    // SF2直行パス(docs/design/sf2-direct-path.md参照)。
     // trueの場合、このチャンネルは(mpu,ch)の窓に含まれており、CInstCh/
     // CRhythmCh経由のbankNo/progNo/deviceName等の解決を一切経由しない
     // (それらは意味を持たないため、代わりに以下のフィールドで上書きする)。
@@ -171,8 +171,7 @@ struct FITOMChannelMonitor {
 
 // ─── チャンネル設定情報 (CH設定ダイアログの初期値取得用) ────────────────────
 // getChannelMonitors()は毎フレーム全16ch分呼ばれるホットパスのため、
-// ダイアログを開いた時にだけ呼ぶ、この専用の軽量な取得関数を分ける
-// (2026年7月新設)。
+// ダイアログを開いた時にだけ呼ぶ、この専用の軽量な取得関数を分ける。
 struct FITOMChannelSettings {
     uint8_t  volume     = 100;
     uint8_t  expression = 127;
@@ -183,7 +182,7 @@ struct FITOMChannelSettings {
     uint16_t bankNo     = 0;   // getBankNo()相当 (CC#32が意味する値)
     uint8_t  progNo     = 0;
 
-    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年8月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照) ───
     // isSf2Windowed==trueの場合、このチャンネルは(mpu,ch)の窓に含まれており
     // CInstCh/CRhythmCh経由のbankSelMSB/bankNo/progNo等は意味を持たない
     // (上記フィールドは常に既定値のまま)。sf2Bank/sf2Progは、sf2_banks[].bank
@@ -196,7 +195,7 @@ struct FITOMChannelSettings {
 };
 
 // SF2直行パスの窓割り当て1件分(CH設定ダイアログの「未使用chan」候補
-// 算出用、2026年8月新設)。
+// 算出用)。
 struct FITOMSf2WindowAssignment {
     int mpu;
     int ch;
@@ -220,11 +219,11 @@ public:
     // (相対パスはカレントワーキングディレクトリ基点、省略時はカレント
     // ディレクトリそのもの)にある*.profile.jsonを列挙する。init()より前
     // (プロファイル選択前)にも呼べるよう静的関数にする(GUIのプロファイル
-    // 選択画面用、2026年8月新設)。
+    // 選択画面用)。
     static std::vector<FITOMProfileInfo> listAvailableProfiles(const std::string& systemConfPath);
 
     // 指定したプロファイルファイル1件の表示名("profile_name"フィールド、
-    // 無ければファイル名)。ウィンドウタイトル表示用(2026年8月新設)。
+    // 無ければファイル名)。ウィンドウタイトル表示用。
     // init()前後どちらでも呼べるよう静的関数にする。
     static std::string profileDisplayName(const std::string& profilePath);
 
@@ -233,15 +232,15 @@ public:
     std::string currentProfilePath() const;
     // 現在のプロファイル状態(MIDIポート設定/マスターボリューム・
     // マスターピッチ/部位ごとのゲイン)を、現在ロード中のプロファイルファイルへ書き戻す
-    // (MIDIポート設定ダイアログ/システム設定ダイアログのOK確定用、
-    // 2026年7月新設)。currentProfilePath()が空(プロファイル未指定で起動)
+    // (MIDIポート設定ダイアログ/システム設定ダイアログのOK確定用)。
+    // currentProfilePath()が空(プロファイル未指定で起動)
     // の場合は何もせずfalseを返す。
     bool saveCurrentProfile();
 
     // ─── デバイス情報 ────────────────────────────────────────────────────
     std::vector<FITOMDeviceInfo> getDevices() const;
 
-    // ─── レジスタダンプモニター (2026年7月新設) ────────────────────────
+    // ─── レジスタダンプモニター ──────────────────────────────────────────
     // 物理チップ単位の一覧。サブデバイス自動生成等で複数の論理デバイスが
     // 同一物理チップを共有する場合も1エントリにまとまる。
     std::vector<FITOMChipInfo> getHwChips() const;
@@ -259,7 +258,7 @@ public:
     bool setHwChipPartGain(int chipIndex, const std::string& part,
                            float gainL, float gainR);
 
-    // チャンネルレベルメーター用のバンド一覧(2026年7月新設)。表示単位の
+    // チャンネルレベルメーター用のバンド一覧。表示単位の
     // 粒度が異なる2種類を用意し、GUI側で切り替えられるようにする。
     // 物理チップ単位: 同一物理ポートを共有するサブデバイスを1バンドにまとめる
     // (getHwChips()と同じ粒度。stereoPairPort/spanGroups経由のチップは
@@ -270,12 +269,11 @@ public:
     // 経由のチップも(束ねられた合成chとしてではあるが)表示できる。
     std::vector<FITOMLevelBand> getLogicalLevelBands() const;
     // MPU(getMpuCount()、現状4)分を常に返す(indexはMPU番号と一致)。
-    // 未割り当てのMPUはnameが空文字列になる(2026年7月、MIDIポート設定
-    // ダイアログ対応のため「設定済みの件数分だけ返す」旧仕様から変更)。
+    // 未割り当てのMPUはnameが空文字列になる(MIDIポート設定ダイアログで
+    // MPUごとの割り当てを一覧するため)。
     std::vector<FITOMMidiInfo>   getMidiInputs() const;
 
-    // ─── MIDIポート設定 (MIDIモニターのポート名クリックで開くダイアログ用、
-    //     2026年7月新設) ──────────────────────────────────────────────────
+    // ─── MIDIポート設定 (MIDIモニターのポート名クリックで開くダイアログ用) ─
     // システムが現在列挙するMIDI入力ポート名の一覧。MIDIバックエンドDLLが
     // 未ロード(プロファイルのmidi_inputsが元々0件だった等)の場合はここで
     // 遅延ロードするため非const。ロード自体に失敗した場合は空配列を返す。
@@ -295,11 +293,11 @@ public:
     // mpuIndexが範囲外の場合は空配列を返す。常に16要素(ch0-15)。
     std::vector<FITOMChannelMonitor> getChannelMonitors(int mpuIndex) const;
 
-    // 指定チャンネルの現在設定値(CH設定ダイアログの初期値用、
-    // 2026年7月新設)。範囲外・未初期化の場合は既定値のFITOMChannelSettingsを返す。
+    // 指定チャンネルの現在設定値(CH設定ダイアログの初期値用)。
+    // 範囲外・未初期化の場合は既定値のFITOMChannelSettingsを返す。
     FITOMChannelSettings getChannelSettings(int mpuIndex, int ch) const;
 
-    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年8月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照) ───
     // CH設定ダイアログの「SF2直行パス」トグル用。fluidsynthChanOr7Fは
     // 0-15で窓を割り当て、0x7F(127)で解除する(プライベートSysEx
     // sub-cmd 0x04と同じ意味論)。同じfluidsynthChanが既に別の(mpu,ch)へ
@@ -318,14 +316,14 @@ public:
     // program番号昇順)。FITOMPatchInfo::bankはbank引数をそのまま返す。
     std::vector<FITOMPatchInfo> getSf2BankPatches(int bank) const;
 
-    // ─── MIDI送信 (CH設定ダイアログのOKで使う、2026年7月新設) ────────────
+    // ─── MIDI送信 (CH設定ダイアログのOKで使う) ────────────────────────────
     // 生バイト列(receiveByte())を経由せず、コアのMIDI処理経路
     // (MidiProcessor::processControl/IMidiCh::progChange)を直接呼ぶ。
     // MIDI受信時と全く同じ挙動になる(CC#0特殊値によるリズム/メロディ
     // 動的切替等も含む)。
     void sendControlChange(int mpuIndex, int ch, uint8_t cc, uint8_t val);
     void sendProgramChange(int mpuIndex, int ch, uint8_t prog);
-    // パッチピッカーの音色試聴用(2026年7月新設)。
+    // パッチピッカーの音色試聴用。
     void sendNoteOn(int mpuIndex, int ch, uint8_t note, uint8_t vel);
     void sendNoteOff(int mpuIndex, int ch, uint8_t note);
 
@@ -333,7 +331,7 @@ public:
     std::vector<FITOMPatchInfo> getPatches(int bankNo) const;
     std::vector<std::string>    getPatchBankNames() const;
 
-    // ─── パッチピッカー用階層列挙 (2026年7月新設) ────────────────────────
+    // ─── パッチピッカー用階層列挙 ────────────────────────────────────────
     // 通常モード(CC#0=0)のCC#32階層: 登録済みPatchBank番号一覧
     std::vector<FITOMBankInfo>  getPatchBankList() const;
     // 直接デバイス選択モードのCC#32階層: 指定VoicePatchType用HwBank番号一覧
@@ -362,9 +360,9 @@ public:
     // Patchのprog、そのPatchが実際に何層のToneLayerを持つかに関わらず
     // こちらになる)、"drum"(リズムチャンネル。outBankFile=*.drumkit.json、
     // outProgNo=そのチャンネルの現在のプログラムチェンジ値)のいずれかを
-    // 返す(2026年7月、drumをdevice/layeredと同列に対応。D-040参照)。
+    // 返す(D-040参照)。
     // performanceは「チャンネルの現在のパッチ」になることが無いため
-    // 引き続き対象外(D-039参照)。解決できない場合(AWM等HwBank/PatchBank/
+    // 対象外(D-039参照)。解決できない場合(AWM等HwBank/PatchBank/
     // DrumKitを使わない音色、対応するバンクが見つからない等)はfalseを返す。
     bool resolveChannelHwPatch(int mpuIndex, int ch, std::string& outKind,
                                 std::string& outBankFile, int& outProgNo) const;
@@ -381,21 +379,15 @@ public:
     void allNoteOff();
     void resetAllCtrl();
 
-    // ─── タイマーコールバック (MFC タイマーから呼ぶ) ───────────────────
-    // 2026年7月時点でonTimer()を実際に呼んでいるのはapps/fitom_cli(独自の
-    // 1msスレッド)のみ。MFC実装は存在しない(コメントは移植元からの記述が
-    // 残っていたもの)。apps/fitom_gui(Dear ImGui)は従来GUIのレンダー
-    // ループから毎フレーム1回onTimer(1)を呼んでいたが、これは「1回の呼び
-    // 出し=1ms経過」という全チップドライバ共通の前提(releaseTimer減算・
-    // ソフトウェアLFOのtick単位)と食い違い、実際には約16ms(60fps)に1回
-    // しか呼ばれないため、kReleasingHoldMs(2000tick=本来2秒)等の
-    // 時間ベースの処理が実時間で約16倍(30秒以上)に間延びしてしまう
-    // バグがあった(2026年7月発見。「演奏停止後もレジスタが更新され続ける」
-    // 報告の根本原因)。startTimerThread()/stopTimerThread()
-    // (apps/fitom_cliが既に使っている、CFITOM側の本来の1ms専用スレッド)
-    // をfitom_gui側からも呼べるようラップして新設し、フレームレートに
-    // 依存しない正確な1msキックへ切り替える。onTimer()自体は後方互換の
-    // ため残す。
+    // ─── タイマー ────────────────────────────────────────────────────────
+    // 全チップドライバは「1回の呼び出し=1ms経過」を前提にしている
+    // (releaseTimer減算・ソフトウェアLFOのtick単位)。GUIのレンダーループ
+    // から毎フレーム呼ぶと約16ms(60fps)に1回しか呼ばれず、
+    // kReleasingHoldMs(2000tick=2秒)等の時間ベースの処理が実時間で
+    // 約16倍に間延びする。このためGUIはstartTimerThread()/stopTimerThread()
+    // (CFITOM側の1ms専用スレッド、apps/fitom_cliと同じもの)で駆動する。
+    // onTimer()はこのリポジトリ内に呼び出し元が無く、後方互換のために
+    // 残している。
     void onTimer(uint32_t tick);
     void startTimerThread(uint32_t intervalMs = 1);
     void stopTimerThread();
@@ -431,12 +423,12 @@ private:
 
     // Config側の現在のMIDI入力ポート設定(getMidiInputCount()/
     // getMidiInputName())に基づき、既存ポートを全て閉じてから開き直す
-    // (init()とsetMidiInputPorts()の共通処理、2026年7月新設)。
+    // (init()とsetMidiInputPorts()の共通処理)。
     void reopenMidiPorts();
 
     // 内部用MIDIパイプ(backends/midi_pipe、fitom_midi_pipe)を、プロファイル
-    // のmidi_backend/midi_inputs設定とは無関係に無条件でオープンする
-    // (2026年7月新設)。init()から一度だけ呼ぶ。FITOM_BUILD_BACKEND_MIDI_PIPE=ON
+    // のmidi_backend/midi_inputs設定とは無関係に無条件でオープンする。
+    // init()から一度だけ呼ぶ。FITOM_BUILD_BACKEND_MIDI_PIPE=ON
     // でビルドされ、DLLが実行ファイルと同じディレクトリに存在する場合のみ
     // 動作し、存在しない場合(既定のOFFビルド)は何もせず即座に返る(致命的
     // エラーにはしない)。reopenMidiPorts()/loadProfile()の影響を受けず、
