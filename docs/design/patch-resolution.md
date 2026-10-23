@@ -497,8 +497,45 @@ YM2608(OPNA)/YM2413(OPLL)系は、通常のFM/PSGチャンネルとは別に、�
 で行えるようになり、`CInstCh`の通常チャンネルからも内蔵リズムの
 個別楽器を選択できる。「音色がデバイスを選択する」原則の例外である
 点(音色データではなくチップ選択+チャンネル番号がデバイスを選ぶ)は
-変わらない(詳細な経路・レジスタ構造は`docs/design/terminology.md`の「内蔵
-リズム音源専用バンク」節を参照)。
+変わらない。
+
+```
+CC#0/#32 → PatchManager::resolveTriple(0x70, chipSel, hwProg, ...)
+  → PatchManager::resolveBuiltinRhythm(chipSel, hwProg, ...)
+      chipSel(CC#32相当): 対象チップを選ぶ。既存のVOICE_PATCH_*定数を
+        再利用する (VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。
+      hwProg(ProgChg相当): そのチップ内の楽器(=デバイスチャンネル)
+        番号をそのまま指定する。範囲外の場合は解決失敗(無音、警告ログ)。
+      → デバイスとチャンネル(ResolvedLayer::forcedCh)の両方を解決する
+        (2026年7月、DrumNote::fixed_ch依存を廃止)。
+```
+
+**「楽器番号=物理チャンネル番号」というハードウェア上の制約があるため、
+`patch_prog`(hwProg)をそのままチャンネル番号として解釈する**
+(2026年7月、`DrumNote::fixed_ch`依存を廃止)。`PatchManager::
+resolveBuiltinRhythm()`がhwProgを検証し、解決結果(`ResolvedLayer::
+forcedCh`)としてデバイスチャンネル番号を確定させる。呼び出し元
+(`CRhythmCh::applyNoteOn`/`CInstCh::noteOn`)は共通して、
+`forcedCh>=0`なら`assignCh(forcedCh, ...)`で強制的にそのチャンネル
+へ割り当てる。
+
+| チップ | patch_prog範囲 | 対応楽器(参考) |
+|---|---|---|
+| COPNARhythm(OPNA) | 0-5 (6ch) | 実機レジスタ0x10のビット0-5に対応 |
+| COPLLRhythm(OPLL) | 0-4 (5ch) | 0=HH, 1=CYM, 2=TOM, 3=SD, 4=BD |
+
+範囲外の`patch_prog`を指定した場合、`resolveBuiltinRhythm()`が解決
+自体を失敗させる(警告ログを出し、`ResolvedTriple::isValid()`が
+falseになる)。旧仕様の`fixed_ch`未設定時とは異なり、**動的チャンネル
+割り当て(`allocCh`)へのフォールバックは発生しない**——誤った楽器が
+鳴るより、発音しない方が安全という判断による。
+
+`patch_prog`をチャンネル選択にそのまま使うことで、`CInstCh`の通常の
+Program Change経由でも内蔵リズムの個別楽器を選択できるようになった
+(以前は`DrumNote`(`CRhythmCh`)経由でのみ楽器選択が可能だった)。
+
+DrumNote経由で使う場合は、`voice_patch_type=0x70`,
+`patch_bank=chipSel`, `patch_prog=instIndex`と設定する。
 
 **GUIパッチピッカーでの列挙(2026年8月新設)**: この経路も上記OPLL ROM
 音色と同様、通常のHwBankRegistry/SampleZoneBankRegistryを一切経由
@@ -537,7 +574,32 @@ OPL_RHYは「任意のHwPatch(音色)を指定可能」という設計のため�
 指定できるというOPL_RHYの利点を損なうため撤回した)。`hwProg`(どの
 音色を選ぶか)と`ext.rhythm_ch`(その音色がどの楽器向けか)は独立した
 軸であり、同じ楽器に複数の音色バリエーションを別スロットとして
-用意できる。詳細は`docs/design/terminology.md`の該当節を参照。
+用意できる。
+
+**OPL系内蔵リズムチャンネル(`COPLRhythm`)は、この`0x70`経路を使わない**
+(2026年7月に実装、当初は0x70への統合を検討したが設計変更)。OPNA/OPLL
+のリズム音がROM固定でHwPatchを要求しないのに対し、OPLのリズム音は
+BD(バスドラム、2op)以外は1オペレータのみの実際のFM音色パラメータを
+要求するため、**`VOICE_PATCH_OPL_RHY`(0x23)という通常のVoicePatchType**
+を持たせ、他の直接モードチップと全く同じ経路(`resolveTriple`→
+`HwBankRegistry`)でパッチを解決する。HwBankの名前空間も、他のチップ
+種別と同じく`VOICE_PATCH_OPL_RHY`単位で独立している。
+
+「チャンネル番号=楽器」というハードウェア制約自体は`0x70`と同じで
+あるが、OPL_RHYはHwBankから「任意のHwPatch(音色)を指定可能」という
+設計のため、`hwProg`(HwBank内の格納スロット番号)をそのままチャンネル
+番号に使うことはできない(1チャンネルにつきHwBankスロットを1つしか
+使えなくなってしまう)。代わりに、**HwPatch自身が持つ
+`ext.rhythm_ch`**(対象チャンネル番号、0=HH/1=CYM/2=TOM/3=SD/4=BD)を
+`resolveTriple()`が参照し、`ResolvedTriple::forcedCh`に設定する
+(2026年7月、`fixed_ch`廃止に伴い新設)。未設定(255)または範囲外は
+解決失敗として扱う(無音、警告ログ)。
+
+`hwProg`(どの音色候補を選ぶか)と`ext.rhythm_ch`(その音色がどの
+物理チャンネル向けか)は完全に独立した軸のため、同じ楽器(例:SD)に
+対して複数の音色バリエーションをHwBank内の別スロットに用意できる
+(HwPatch作成者が各スロットの`rhythm_ch`を正しく設定する責任を負う)。
+詳細は`docs/design/chip-drivers.md`の「VoicePatchType対応表」参照。
 
 ### チョークグループ（ハイハット等の相互ダンプ、2026年7月新設）
 
@@ -675,6 +737,24 @@ FM系ドライバが`wasReleasing`を見て行うRR最大化の事前ダンプ�
 OPL系内蔵リズム(`COPLRhythm`、後述)の楽器選択も同じ`forcedCh`機構、
 ノート間のチョークは本節の`chokeGroups`と、旧`fixed_ch`が担っていた
 3つの役割はすべて専用の仕組みに置き換わった。
+
+なお、ハイハットのオープン/クローズ等、ノート間の相互ダンプ(チョーク)
+は、以前は`DrumNote::fixed_ch`によるハードウェアチャンネル共有トリック
+(同一物理チャンネルへの再アサインで物理的retriggerを起こす)で実現
+していたが、2026年7月に**`DrumPatch::chokeGroups`**による、ハードウェア
+に依存しない明示的な設計へ置き換えた。詳細は`docs/patch-structure-
+design.md`の「チョークグループ」節を参照。`ResolvedLayer::forcedCh`
+(本節のハードウェア制約)と`chokeGroups`(ノート間の相互ダンプ)は、
+どちらも「チャンネル固定」に関わるが出自も実現レイヤーも別物である
+点に注意。
+
+ただし2026年8月、`chokeGroups`の実装が事実上機能していなかったこと
+(発音参照がゲートタイム満了時に破棄されるため、チョークが走る頃には
+停止対象の記録が消えていた)が判明し、実現方式を再設計した。あわせて
+**同一ノートの再打鍵は同じ物理チャンネルを取り直す**方式に変わり、
+旧`fixed_ch`が持っていた「1ノート=1ボイス」という性質だけは、
+ハードウェア非依存な形で復活している。詳細は同じ節の
+「発音参照の寿命と消音手段」を参照。
 
 ### PSG系共有バンク（voicePatchType=0x40固定、2026年7月〜）
 
