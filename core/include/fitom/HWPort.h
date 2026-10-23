@@ -1,9 +1,7 @@
 #pragma once
-// fitom/HWPort.h  (v2)
+// fitom/HWPort.h
 // HW I/F バックエンド DLL (IHWPlugin) → IPort アダプター
 //
-// ─── 変更点 (v1 からの差分) ──────────────────────────────────────────────────
-//   hw::HWControllerBase を直接 include しない。
 //   IHWPlugin.h の C API (HWHandle) 経由でのみ HW を操作する。
 //   DLL は実行時ロード (PluginLoader 経由)。
 
@@ -94,7 +92,6 @@ private:
 
 // -------------------------------------------------------
 //  HWPluginRegistry: 複数の名前付き HWPluginInstance を管理する
-//  (FmEngine直接ロード経路は廃止済み。HWPluginRegistryのみ残す)。
 //
 //  FitomEmuIF.dll (エミュレーター) も、SPFM等の物理ハードウェア用
 //  プラグインも、同じ IHWPlugin C API を実装しているため、FITOM本体は
@@ -178,7 +175,7 @@ public:
     HWResult setPartGain(const std::string& part, float gainL, float gainR);
     HWResult getPartGain(const std::string& part, float& gainL, float& gainR) const;
 
-    // ─── レジスタダンプモニター用シャドウレジスタ (2026年7月新設) ────────
+    // ─── レジスタダンプモニター用シャドウレジスタ ────────────────────────
     // write()/writeBurst()で実際にHWPlugin_Write/WriteBlockへ渡した値を
     // そのままミラーする「最後に書き込んだ値」のキャッシュ。IHWPluginには
     // レジスタ読み出しAPIが無い(実チップの多くはそもそも読み出し不可)ため、
@@ -190,7 +187,7 @@ public:
     // (startAddr+len が 0x10000 を超える分は 0 を返す)。
     void    getShadowRegRange(uint16_t startAddr, uint8_t* out, size_t len) const;
 
-    // ─── 物理チップ名 (レジスタダンプモニター用、2026年7月新設) ──────────
+    // ─── 物理チップ名 (レジスタダンプモニター用) ──────────────────────────
     // HWPlugin_Open() に渡したparams_json (docs/interfaces/plugin-hwif.md記載の
     // フォーマット。物理HWなら{type,serial/port,slot,...}、fitom_fmhwifなら
     // {type:"FMHWIF",engine,chip,index,...})から、実際に接続されている

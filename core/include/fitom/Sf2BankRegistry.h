@@ -45,7 +45,7 @@ public:
     // 不正なエントリ(bank/sf2_bankが範囲外、fileが空)は警告して読み飛ばす。
     // 同一bankが複数回指定された場合は後勝ち(警告ログを出す)。
     // 新規に登場したfileごとに一度だけparseSf2PresetHeaders()を呼び、
-    // プリセット名解決用テーブル(⑧節)も同じタイミングで構築する。
+    // プリセット名解決用テーブルも同じタイミングで構築する。
     void load(const nlohmann::json& sf2BanksArray, const std::filesystem::path& baseDir);
 
     bool empty() const { return byBank_.empty(); }
@@ -62,7 +62,7 @@ public:
     // 重複除去済み・初出順の絶対パス一覧。
     const std::vector<std::string>& soundfontFiles() const { return files_; }
 
-    // プリセット名解決 (⑧節)。CC#32の値(bank)をresolve()と同じ経路で
+    // プリセット名解決 (docs/design/sf2-direct-path.md「プリセット名」)。CC#32の値(bank)をresolve()と同じ経路で
     // {soundfontIndex, sf2Bank}へ変換した上で、そのSF2ファイルのphdrから
     // (sf2Bank, prog)に一致するachPresetNameを返す。sf2_banksにbankが
     // 無い・該当ファイルのphdrに一致するプリセットが無い、いずれの場合も
@@ -70,15 +70,15 @@ public:
     bool resolvePresetName(uint8_t cc32Bank, uint8_t prog, std::string& outName) const;
 
     // resolvePresetName()と同じ引き(phdrルックアップ)を、CC#32の値を経由せず
-    // 既に解決済みのsoundfontIndex/sf2Bankから直接行う。MIDIモニター表示用
-    // (2026年8月新設): SF2直行パスの窓は`resolve()`結果(soundfontIndex/
+    // 既に解決済みのsoundfontIndex/sf2Bankから直接行う。MIDIモニター表示用。
+    // SF2直行パスの窓は`resolve()`結果(soundfontIndex/
     // sf2Bank)をキャッシュしているため、cc32Bankの生値を別途保持しなくても
     // この経路でプリセット名を引ける。soundfontIndexが範囲外、または該当
     // プリセットが無い場合はfalseを返す。
     bool resolvePresetNameByIndex(int soundfontIndex, int sf2Bank, uint8_t prog,
                                    std::string& outName) const;
 
-    // ─── GUI用列挙API (2026年8月新設、CH設定ダイアログのSF2パッチピッカー用) ───
+    // ─── GUI用列挙API (CH設定ダイアログのSF2パッチピッカー用) ───
     // banks.sf2_banks[]で設定されたCC#32インデックス(bank)一覧。
     // bank番号の昇順(他のバンク一覧系API[getPatchBankList()等]と同じ並び)。
     struct BankEntry {

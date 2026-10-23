@@ -115,11 +115,6 @@ protected:
 //    setReg(0xA4 + ch, data)   // port1 (ch0-2)
 //    setReg(0x1A4 + ch, data)  // port2 (ch3-5)
 //  と書くだけで、HW/エミュレーター両方に対応できる。
-//
-//  エミュレーターバックエンド (FmEnginePort) では:
-//    FmEnginePort は addr 上位バイトを port 引数として渡す実装なので、
-//    SplitPort を経由しない 1 ポート接続で完結する。
-//    (FmEnginePort は 0x100 以上のアドレスを port=1 として解釈する)
 // ================================================================
 class SplitPort : public IPort {
 public:

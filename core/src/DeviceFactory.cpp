@@ -183,8 +183,8 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider));
 
     case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider));
-    // DSG (YM2163) は以前 CSSG へ暫定的にルーティングされていたが、
-    // レジスタマップ・音色モデルともSSGとは全く別物のため専用ドライバを持つ。
+    // DSG (YM2163) はレジスタマップ・音色モデルともSSGとは全く別物のため
+    // 専用ドライバを持つ。
     case DEVICE_DSG:       return createCDSG(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_DSG_RHY:   return createCDSGRhythm(port, psgMasterClock(port, sampleRate, clockDivider));
     case DEVICE_SCC:
@@ -246,8 +246,7 @@ uint8_t DeviceFactory::defaultChCount(uint32_t t) {
     case DEVICE_PCMD8: case DEVICE_MA2: return 8;
     // Y8950内蔵ADPCM-Bは1チャンネル(DEVICE_ADPCMB/DEVICE_ADPCMB_OPNAと
     // 同じ、実機は同時に1音のみ再生可能)。旧汎用識別子DEVICE_ADPCMは
-    // 削除した(動いていなかったコードとの互換性維持は不要と判断、
-    // 2026年7月)。
+    // ドライバを持たないため、ここでは扱わない。
     case DEVICE_ADPCMB_Y8950:                              return 1;
     // Y8960拡張OPL2部の内蔵ADPCM-Bも同様に1ch(Y8950と同一のDelta-T方式)。
     case DEVICE_ADPCMB_OPL2EX:                             return 1;

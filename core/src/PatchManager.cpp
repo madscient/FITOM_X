@@ -72,9 +72,6 @@ namespace {
 //  変えず、実際に発音を担当するデバイスの選択だけが変わる)。
 // ================================================================
 
-// 接続されている全デバイスに対して DeviceFactory::acceptsFallback を
-// 順に問い合わせ、受け入れ可能な最初の1つのインデックスを返す
-// (-1 = 見つからない)。usedVptにそのデバイスの実際のVoicePatchTypeを返す。
 // 要求されたチップと同じ族(VoiceGroup)に属するチップに登録済みのHwBankを、
 // 直接デバイス選択モードで実際に指定すべき値(CC#0=チップ / CC#32=バンク
 // 番号)の形で1行に列挙する。バンク番号の名前空間はチップごとに独立して
@@ -103,6 +100,9 @@ std::string describeHwBanksInFamily(const HwBankRegistry& reg,
     return out.empty() ? std::string("(none)") : out;
 }
 
+// 接続されている全デバイスに対して DeviceFactory::acceptsFallback を
+// 順に問い合わせ、受け入れ可能な最初の1つのインデックスを返す
+// (-1 = 見つからない)。usedVptにそのデバイスの実際のVoicePatchTypeを返す。
 int findFallbackDeviceIndex(const FITOMConfig& config, uint8_t sourceVoicePatchType,
                              const HwPatch& patch, uint8_t& usedVpt) {
     int count = config.getDeviceCount();
@@ -128,10 +128,9 @@ ResolvedPatch PatchManager::resolve(const Patch& patch,
     // resolveDirect()と共有する)。voicePatchTypeに一致するデバイスが
     // 見つからない、またはHwBankのタグと不一致の場合、そのレイヤーだけを
     // スキップする (Patch全体は無効にしない。確保できたレイヤーのみ発音する)。
-    // SwPatch(パフォーマンスパッチ)は、以前はPatch単位で1つだけ
-    // 解決していたが、HwPatch自身がswBank/swProgを持つ設計に変更した
-    // ため、resolveTriple()内でHwPatchごとに自動解決される
-    // (レイヤーごとに異なるパフォーマンスパッチを持ちうる、2026年7月)。
+    // SwPatch(パフォーマンスパッチ)はHwPatch自身がswBank/swProgを持つため、
+    // resolveTriple()内でHwPatchごとに自動解決される
+    // (レイヤーごとに異なるパフォーマンスパッチを持ちうる)。
     for (int i = 0; i < MAX_TONE_LAYERS; ++i) {
         const auto& layer = patch.layers[i];
         if (!layer.isActive()) continue;
@@ -200,17 +199,12 @@ ResolvedPatch PatchManager::resolveDirect(uint8_t voicePatchType, uint8_t hwBank
     rl.deviceIndex = rt.deviceIndex;
     rl.swPatch     = rt.swPatch;   // 直接モードでも、HwPatch自身が
                                     // swBank/swProgを持てば適用される
-                                    // (2026年7月の設計変更、旧仕様は
-                                    //  「直接モードはSwPatchなし」だった)
     rl.forcedCh    = rt.forcedCh;
     result.layers[0]  = rl;
     result.layerCount = 1;
     return result;
 }
 
-// voicePatchType + hwBank + hwProg の3つ組から、実際に発音可能な
-// (device, HwPatch または SamplePatch) を解決する共通ロジック。
-// resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる。
 PatchManager::PatchManager()
 {
     initOpllRomPatches();
@@ -222,8 +216,8 @@ PatchManager::PatchManager()
 // hw.ALG(下位4bit=INSTナンバー)以外のフィールドを一切参照しないため、
 // この2フィールドだけを設定すればよい(他はデフォルト値のまま)。
 //
-// ext.ALG_EXTのbit2-1には、variantSelをそのままBANK値として焼き込む
-// (2026年8月〜)。COPLL/COPLLX/COPLLP/CVRC7(標準OPLL系)のupdateVoice()は
+// ext.ALG_EXTのbit2-1には、variantSelをそのままBANK値として焼き込む。
+// COPLL/COPLLX/COPLLP/CVRC7(標準OPLL系)のupdateVoice()は
 // bit0しか見ないためこれらのチップで再生する場合は無害だが、
 // COPLLEX(Y8960拡張OPLL部、DEVICE_OPLLEX)は独自にbit2-1をBANKレジスタへ
 // 書き込む。Y8960の拡張OPLL部はOPLL/OPLL-X/OPLL-P/VRC7の4バンクを
@@ -368,8 +362,8 @@ PatchManager::ResolvedTriple PatchManager::resolveDsgBuiltinVoice(
 // 一方、requestedVoicePatchType==VOICE_PATCH_OPLLEXの場合だけは
 // 挙動が異なる: OPLLEXはOPLL/OPLL-X/OPLL-P/VRC7の4バンクを全て
 // 内蔵しているため、hwProgのvariantSelは「OPLLEX自身のどのBANKか」を
-// 選ぶだけで、ターゲットチップは常にOPLLEX自身になる(2026年8月〜。
-// 他のOPLLファミリーと同様、progだけで暗黙バンク内の音色を一意に
+// 選ぶだけで、ターゲットチップは常にOPLLEX自身になる(他のOPLL
+// ファミリーと同様、progだけで暗黙バンク内の音色を一意に
 // 解決できるようにする設計)。
 PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     uint8_t requestedVoicePatchType, uint8_t hwProg, const FITOMConfig& config,
@@ -420,7 +414,7 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     // 例外: OPLLEX(Y8960拡張OPLL部)はOPLL/OPLL-X/OPLL-P/VRC7の4バンクを
     // すべて内蔵しているため、標準4チップのいずれかを要求していて
     // (actualVptがそのいずれか)、かつそのチップ自体が接続されていない
-    // 場合に限り、OPLLEXへのフォールバックだけを試みる(2026年8月〜)。
+    // 場合に限り、OPLLEXへのフォールバックだけを試みる。
     // opllRomPatches_[variantSel][instIndex]は生成時点で既にBANK値
     // (variantSel)をext.ALG_EXTのbit2-1へ焼き込み済み(initOpllRomPatches
     // 参照)のため、ここでHwPatchを書き換える必要はなく、再生先デバイスを
@@ -442,7 +436,7 @@ PatchManager::ResolvedTriple PatchManager::resolveOpllRomVoice(
     // ROM音色自体のswBank/swProgは常に-1(未設定)のため(initOpllRomPatches
     // 参照)、代わりにbuiltinMetaBank_(profile.jsonのhw_banks[].role=
     // "builtin_swpatch_meta"で指定された専用バンク)を、(variantSel,
-    // instIndex)で検索してswPatchを解決する(2026年7月新設)。
+    // instIndex)で検索してswPatchを解決する。
     // variantSelの0-3はそのままBUILTIN_TYPE_OPLL..VRC7に一致する。
     // 同じバンクはDSGのビルトイン音色(BUILTIN_TYPE_DSG)とも共有され、
     // patchTypeで区別される(resolveDsgBuiltinVoice参照)。
@@ -503,7 +497,8 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
     } else if (chipSel == VOICE_PATCH_DSG) {  // DSG (YM2163)
         targetDeviceType = DEVICE_DSG_RHY;
     } else {
-        // OPL(COPLRhythm)は現状未実装、その他の値も無効。
+        // OPL(COPLRhythm)はこの経路を使わない(VOICE_PATCH_OPL_RHYの
+        // HwBank経由で鳴らす)。その他の値も無効。
         FITOM_LOG_WARN(ctx << " builtin-rhythm: undefined chip selector=0x"
             << std::hex << (int)chipSel);
         return result;
@@ -523,13 +518,9 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
     }
 
     // chCountはchipType固有の固定値であり、実際に稼働中のISoundDevice
-    // インスタンスを必要としない(そもそもFITOMConfigはISoundDeviceを
-    // 所有しない設計 — CFITOM::devices_が所有し、FITOMConfig::getDevice()
-    // は常にnullptrしか返さない未使用コード。2026年7月、OPLビルトイン
-    // リズムのデバイス配線修正で初めてこのコードパスに実際に到達する
-    // ようになった際に発覚。以前はresolveDirect()側で「一致するデバイス
-    // 自体が無い」により早期returnしていたため、このバグ自体が一度も
-    // 顕在化していなかった)。DeviceFactory::defaultChCount()で
+    // インスタンスを必要としない(FITOMConfigはISoundDeviceを所有しない
+    // 設計で、CFITOM::devices_が所有する。FITOMConfig::getDevice()は
+    // 常にnullptrを返すため使えない)。DeviceFactory::defaultChCount()で
     // deviceType固有の固定chCountを引く。
     const uint8_t chCount = DeviceFactory::defaultChCount(targetDeviceType);
     if (hwProg >= chCount) {
@@ -556,6 +547,9 @@ PatchManager::ResolvedTriple PatchManager::resolveBuiltinRhythm(
     return result;
 }
 
+// voicePatchType + hwBank + hwProg の3つ組から、実際に発音可能な
+// (device, HwPatch または SamplePatch) を解決する共通ロジック。
+// resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる。
 PatchManager::ResolvedTriple PatchManager::resolveTriple(
     uint8_t voicePatchType, uint8_t hwBank, uint8_t hwProg,
     const FITOMConfig& config, const std::string& logContext) const
@@ -594,7 +588,7 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // OPLL系ROM音色専用バンク: バンク0はROM音色専用の予約領域であり、
     // 通常のHwBankRegistry検索(JSONプリセット)を経由しない。
     // (OPLL2はVOICE_PATCH_OPLLを共有するため、この判定に個別追加は不要)
-    // OPLLEX(Y8960拡張OPLL部)も同じ暗黙バンクを共有する(2026年8月〜)。
+    // OPLLEX(Y8960拡張OPLL部)も同じ暗黙バンクを共有する。
     // OPLLEXは標準4チップ分のROMテーブルを全て内蔵しているため、
     // 他の4値と全く同じhwProgエンコード(variantSel<<4|instIndex)で
     // どのバンクの何番の音色かを直接指定できる。
@@ -660,7 +654,7 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     int deviceIndex;
     uint8_t usedVpt;
     if (isPsgFamilyVoicePatchType(voicePatchType)) {
-        // PSG系共有バンク(2026年7月新設): バンク検索は常に共有の
+        // PSG系共有バンク: バンク検索は常に共有の
         // 入口(VOICE_PATCH_SSG=0x40)で行うが、実際のデバイス解決は
         // パッチごとのext.targetVoicePatchType(未設定なら
         // config.getPsgFallbackChip())で行う。「音色がデバイスを
@@ -727,14 +721,8 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // という判断は0x70と同じ)。
     if (voicePatchType == VOICE_PATCH_OPL_RHY) {
         // chCountはchipType固有の固定値であり、実際に稼働中の
-        // ISoundDeviceインスタンスを必要としない(そもそもFITOMConfigは
-        // ISoundDeviceを所有しない設計 — CFITOM::devices_が所有し、
-        // FITOMConfig::getDevice()は常にnullptrしか返さない未使用
-        // コードだった。2026年7月、OPLビルトインリズムのデバイス配線
-        // 修正で初めてこのコードパスに実際に到達するようになった際に
-        // 発覚。以前はresolveDirect()側で「一致するデバイス自体が無い」
-        // により早期returnしていたため、このバグ自体が一度も顕在化して
-        // いなかった。resolveBuiltinRhythm()の同種修正も参照)。
+        // ISoundDeviceインスタンスを必要としない(resolveBuiltinRhythm()と
+        // 同じ理由で、FITOMConfig::getDevice()は使えない)。
         const uint8_t chCount = DeviceFactory::defaultChCount(config.getDeviceType(deviceIndex));
         const uint8_t rhythmCh = hwPatch->ext.rhythmCh;
         if (rhythmCh >= chCount) {
@@ -808,8 +796,8 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
 // voicePatchTypeから、そのチップが使うオペレータ数(1/2/4)を判定する。
 // docs/design/chip-drivers.mdの「VoicePatchType 対応表」参照。
 // HwBank保存時(hwPatchToJson)に、実際に意味のあるオペレータ数分だけ
-// JSON出力するために使う(2026年7月〜。以前は常に4要素固定で出力して
-// おり、2op/1opチップでも無意味なダミーデータが書き出されていた)。
+// JSON出力するために使う(2op/1opチップで無意味なダミーデータを
+// 書き出さないため)。
 // ADPCM/AWM系はHwPatchを使わない(SampleZonePatchを使う別スキーマ)ため
 // この関数の対象外。
 static int operatorCountForVoicePatchType(uint8_t vpt) {
@@ -828,7 +816,7 @@ static int operatorCountForVoicePatchType(uint8_t vpt) {
     // ごとに実際のオペレータ数が異なる(混在する)。保存時はバンク単位で
     // 1つの代表値しか指定できないため、情報欠落を避けるためBDの
     // 要求(2)を代表値とする(HH等の保存時は未使用のhwOp[1]が0埋めで
-    // 余分に出力されるだけで実害はない、2026年7月)。
+    // 余分に出力されるだけで実害はない)。
     case VOICE_PATCH_OPL_RHY:
         return 2;
     case VOICE_PATCH_OPN: case VOICE_PATCH_OPN2:
@@ -909,9 +897,8 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
             jsonToHwOp(j["ops"][i], p.hwOp[i]);
     }
     if (j.contains("ext")) {
-        // 注意: ext サブオブジェクトのフィールドは ex から読む必要がある。
-        // (以前は誤って親スコープ j を参照する g8 を流用しており、
-        //  ext.* が正しく読み込まれていなかった)
+        // 注意: ext サブオブジェクトのフィールドは ex から読む必要がある
+        // (g8 は親スコープの j を参照するため流用できない)。
         const auto& ex = j["ext"];
         auto ge8 = [&](const char* k, uint8_t& v){ if(ex.contains(k)) v=ex[k].get<uint8_t>(); };
         ge8("FIX",p.ext.FIX); ge8("ALG_EXT",p.ext.ALG_EXT);
@@ -922,8 +909,8 @@ HwPatch jsonToHwPatch(const json& j, uint32_t bank, uint32_t prog) {
     return p;
 }
 
-// SysExによるHwPatchパラメータオーバーライド用のマージ実装
-// (2026年7月新設)。jsonToHwPatch()と異なり、まっさらなHwPatchからでは
+// SysExによるHwPatchパラメータオーバーライド用のマージ実装。
+// jsonToHwPatch()と異なり、まっさらなHwPatchからでは
 // なく既存のtargetへ差分マージする(存在するキーのみ上書き)。
 // id/name/builtinはこの経路では対象外(意図的に無視する。builtinの
 // 有無で分岐すると「音色データが標準のHwPatch形状かどうか」の判断が
@@ -972,8 +959,8 @@ void jsonToSwOp(const json& j, FmSwOp& op) {
     g("SLY",op.SLY); g("SLR",op.SLR); g("SLI",op.SLI);
 }
 
-// SysExによるSwPatchパラメータオーバーライド用のマージ実装
-// (2026年7月新設)。mergeHwPatchFromJson()と同じ設計方針(既存targetへの
+// SysExによるSwPatchパラメータオーバーライド用のマージ実装。
+// mergeHwPatchFromJson()と同じ設計方針(既存targetへの
 // 差分マージ、"ops"はnull/{}要素をスキップ、id/nameは対象外)。
 // JSONのキー名はsaveSwBankJson()が出力するSwBankファイル形式と同じ。
 static void mergeSwPatchFromJson(const json& j, SwPatch& target) {
@@ -1022,8 +1009,8 @@ ToneLayer jsonToToneLayer(const json& j) {
     return l;
 }
 
-// SysExによるレイヤードパッチ(Patch)オーバーライド用のマージ実装
-// (2026年8月新設)。mergeHwPatchFromJson()と同じ設計方針(既存targetへの
+// SysExによるレイヤードパッチ(Patch)オーバーライド用のマージ実装。
+// mergeHwPatchFromJson()と同じ設計方針(既存targetへの
 // 差分マージ)だが、jsonToToneLayer()のようにまっさらなToneLayerを
 // 構築するのではなく、既存のtarget.layers[i]へ差分マージする点が異なる。
 static void mergeToneLayerFromJson(const json& j, ToneLayer& target) {
@@ -1040,7 +1027,7 @@ static void mergeToneLayerFromJson(const json& j, ToneLayer& target) {
 
 // Patch.layers[] / DrumPatch.notes{} 共通の削除センチネル。文字列"remove"を
 // 指定すると、null/{}(現状維持)ではなく該当要素をデフォルト値へリセット
-// する(2026年8月新設、パッチエディタ側でのレイヤー/ドラムノート削除用)。
+// する(パッチエディタ側でのレイヤー/ドラムノート削除用)。
 static bool isRemoveSentinel(const json& v) {
     return v.is_string() && v.get<std::string>() == "remove";
 }
@@ -1598,9 +1585,8 @@ bool PatchManager::savePatchBankJson(const std::filesystem::path& path, int bank
 bool PatchManager::loadHwBankLegacy(const std::filesystem::path& path,
                                      uint8_t voicePatchType, int bankNo)
 {
-    // 既存 CFITOMConfig::ParseVoiceBank で読んだ CFMBank を
-    // HwBankRegistry に変換するブリッジ。
-    // フェーズ6 でチップドライバ移行が完了したら本実装に差し替える。
+    // 旧FITOMの CFITOMConfig::ParseVoiceBank が読む形式を HwBankRegistry へ
+    // 取り込むための入口。読み込み処理は実装しておらず、常に false を返す。
     FITOM_LOG_WARN("loadHwBankLegacy: " << path.string()
         << " — legacy INI loader not yet fully implemented; use JSON format");
     return false;
@@ -1665,11 +1651,11 @@ bool PatchManager::loadDrumBankJson(const std::filesystem::path& path, int bankN
 }
 
 // ================================================================
-//  DrumKit JSON I/O (新方式: prog単位の独立ファイル)
+//  DrumKit JSON I/O (prog単位の独立ファイル)
 //
 //  "type"フィールドで2種類のキット定義を判別する:
-//    "routed" (省略時のデフォルト、後方互換): ノートごとに任意の
-//      Patch(bank/prog)へ個別にルーティングする、旧来のnotes[]配列形式。
+//    "routed" (省略時のデフォルト): ノートごとに任意の
+//      Patch(bank/prog)へ個別にルーティングする、notes[]配列形式。
 //      FM合成系チップのように、ドラム音1つ1つが別々のPatchとして
 //      定義されている場合に使う。
 //    "direct": チップ自身が内蔵のキーゾーン切り替えを持つ場合
@@ -1677,7 +1663,7 @@ bool PatchManager::loadDrumBankJson(const std::filesystem::path& path, int bankN
 //      パススルーを [note_min, note_max] の範囲に自動展開する
 //      (playNote = 受信ノート番号そのまま)。ノート数分の重複記述を
 //      書かずに済む。ロード時にDrumNote配列へ展開するため、
-//      CRhythmCh側のランタイムコードは一切変更不要。
+//      CRhythmCh側はroutedと区別せずに扱える。
 // ================================================================
 
 bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
@@ -1734,7 +1720,7 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
                 dn.gateTime  = gateTime;
             }
         } else if (type == "routed") {
-            // 旧来のnotes[]配列形式 (ノートごとに個別のPatchへルーティング)
+            // notes[]配列形式 (ノートごとに個別のPatchへルーティング)
             if (j.contains("notes") && j["notes"].is_array()) {
                 for (const auto& nj : j["notes"]) {
                     int noteNo = nj.value("note", -1);
@@ -1812,8 +1798,8 @@ bool PatchManager::loadDrumKitJson(const std::filesystem::path& path, int prog)
 bool PatchManager::saveDrumBankJson(const std::filesystem::path& path, int bankNo) const
 {
     const DrumPatchBank* bank = nullptr;
-    // DrumBankRegistry に find が必要 — getOrCreate の const 版を追加する方針で
-    // ここでは drumReg_ を mutable にして対応
+    // DrumBankRegistry に const の検索が無いため const_cast して getOrCreate を
+    // 使う(hasBank() で存在を確かめてから呼ぶので、バンクは生成されない)
     auto& reg = const_cast<DrumBankRegistry&>(drumReg_);
     if (!reg.hasBank(bankNo)) return false;
     bank = &reg.getOrCreate(bankNo); // 存在確認済み
@@ -1908,7 +1894,7 @@ bool PatchManager::loadDrumBankLegacy(const std::filesystem::path& path, int ban
             if (noteNo < 0 || noteNo >= 128) continue;
 
             // カンマ分割: name,DevName,BankNo,ProgNo,Note[:FineTune],Pan,Gate[,Ch]
-            // 末尾の[,Ch]列(旧チャンネル固定値)はfixed_ch廃止に伴い読み捨てる。
+            // 末尾の[,Ch]列(チャンネル固定値)は対応する機能が無いため読み捨てる。
             // ハイハット等のチョークが必要な場合は、変換後にDrumPatch::
             // chokeGroupsで明示的に再設定すること。
             std::vector<std::string> parts;
@@ -2150,7 +2136,7 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
         }
 
         // swpatches[]: entries[](adpcm_json由来も直接記述も)の各entry_noに
-        // 1:1でパフォーマンスパッチ(SwPatch)を紐づける(2026年7月新設)。
+        // 1:1でパフォーマンスパッチ(SwPatch)を紐づける。
         // entries[]のロードより後に処理することで、直接記述優先の規約と
         // 独立して常に正しいentry_noへ反映できる。
         if (j.contains("swpatches") && j["swpatches"].is_array()) {
@@ -2176,7 +2162,7 @@ bool PatchManager::loadPcmBankJson(const std::filesystem::path& path, int bankNo
         // voicePatchType指定時: entries[]から個別選択可能なnamed patchを
         // 自動合成し、sampleRegistry()側にも登録する。ADPCM-B/ADPCM-A/
         // PCMD8はAWMと同じSampleZonePatchスキーマを使い(HwPatch/ops[]は
-        // 使わない、PatchManager::resolveDirect()のisSampleBasedVoicePatchType
+        // 使わない、PatchManager::resolveTriple()のisSampleBasedVoicePatchType
         // 分岐/PatchData.hのSampleZone関連コメント参照)、パッチピッカー等が
         // 参照する経路もsampleRegistry()側のみのため、*.samplezonebank.jsonを
         // 別途手書きしなくても、このpcmbank.json(adpcm_packer出力)自体を

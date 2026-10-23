@@ -185,7 +185,8 @@ void Sf2BankRegistry::load(const nlohmann::json& arr, const fs::path& baseDir)
             files_.push_back(absStr);
             fileIndex_[absStr] = fileIdx;
 
-            // プリセット名解決用テーブル(⑧節)を、この新規fileの初出時に
+            // プリセット名解決用テーブル(docs/design/sf2-direct-path.md
+            // 「プリセット名」)を、この新規fileの初出時に
             // 一度だけ構築する(soundfont_indexのキャッシュと同じタイミング)。
             std::unordered_map<uint32_t, std::string> names;
             for (const auto& preset : parseSf2PresetHeaders(path)) {

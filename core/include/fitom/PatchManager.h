@@ -6,17 +6,17 @@
 //   PatchManager は以下を担う:
 //     1. HwBankRegistry / SwBankRegistry / PatchBank を保持
 //     2. ProgChange 時に Patch → ResolvedPatch を構築
-//     3. デバイス device_type から適切な HwPatch を選択（チップ族照合）
+//     3. 音色 (voicePatchType + HwPatch) から発音するデバイスを選択
 //     4. バンクファイル (JSON / 旧INI) の読み書き
 //
-// ─── チップ族照合の仕組み ────────────────────────────────────────────────────
-//   Patch::ToneLayer は hwBank/hwProg を持つが、VoiceGroup は指定しない。
-//   ProgChange 時に deviceIndex → device_type → VoiceGroup を解決し、
-//   HwBankRegistry から対応する HwPatch を取得する。
+// ─── 解決の流れ ──────────────────────────────────────────────────────────────
+//   Patch::ToneLayer は voicePatchType/hwBank/hwProg を持つ。HwPatch は常に
+//   レイヤー本来の voicePatchType で HwBankRegistry から引き、発音する
+//   デバイスはその voicePatchType に一致するもの、無ければフォールバックを
+//   受け入れるものから選ぶ (resolveTriple() 参照)。
 //
-//   照合に失敗した場合 (バンク未登録・プログラム空白):
-//     → デフォルト HwPatch (全0) を使用してサイレントに動作継続
-//     → FITOM_LOG_WARN を出力
+//   解決に失敗したレイヤー (バンク未登録・プログラム空白・デバイス無し) は
+//   スキップし、FITOM_LOG_WARN を出力する。
 
 #include "fitom/PatchData.h"
 #include "fitom/DrumData.h"
@@ -85,7 +85,7 @@ public:
     // 方針。SysEx側からバンクを新規作成することはできない)。
     PatchBank* findMutablePatchBank(int bankNo);
     // 登録済みのPatchBank番号一覧を昇順で返す(GUIのパッチピッカー
-    // ダイアログ向け、通常モードのCC#32階層列挙用、2026年7月新設)。
+    // ダイアログ向け、通常モードのCC#32階層列挙用)。
     std::vector<int> listPatchBankNumbers() const;
 
     // ─── SysExによるHwPatchパラメータオーバーライド ────────────────
@@ -146,7 +146,7 @@ public:
     // voicePatchType + hwBank + hwProg から単層 ResolvedPatch を直接構築する。
     // storage は呼び出し側 (CInstCh) が寿命を保持する実体
     // (ResolvedPatch::patch はここを指す)。
-    // SwPatch は常に nullptr (直接モードはベロシティ感度等を持たない)。
+    // SwPatch は HwPatch 自身の swBank/swProg から解決される。
     // voicePatchType == VOICE_PATCH_SILENCE の場合のみ、layerCount==0 の
     // 「有効な」ResolvedPatch を返す (無効な戻り値との違いは重要:
     //  ResolvedTriple::silent のコメント参照)。
@@ -155,11 +155,10 @@ public:
 
     // OPLL系ROM音色(バンク0固定、resolveOpllRomVoice()参照)をvoicePatchType
     // 単位で列挙するための読み取り専用アクセサ(GUIのパッチピッカーの
-    // カテゴリ別バンク0一覧向け、2026年7月新設)。voicePatchTypeが
+    // カテゴリ別バンク0一覧向け)。voicePatchTypeが
     // OPLL/OPLLP/OPLLX/VRC7以外ならnullptrを返す(OPLLEXは4バンク分
-    // [64音色]を持ち16音色の配列1つで表現できないため、現状このアクセサ
-    // では未対応。GUIのOPLLEXカテゴリ一覧表示が必要になった時点で別途
-    // 対応すること)。添字0は無音(ユーザー音色との衝突回避のため予約)
+    // [64音色]を持ち16音色の配列1つで表現できないため、このアクセサ
+    // では扱わない)。添字0は無音(ユーザー音色との衝突回避のため予約)
     // のため、呼び出し側で除外すること。
     // 【注意】実際の発音解決(resolveOpllRomVoice)は、標準4チップ
     // (OPLL/OPLLP/OPLLX/VRC7)向けにはこのvoicePatchType(CC#0の値)では
@@ -171,13 +170,12 @@ public:
     // (生の配列添字を使ってはならない)。ただしvoicePatchType==
     // VOICE_PATCH_OPLLEXでCC#0を選んだ場合は例外で、hwProgの上位3bitは
     // 「OPLLEX自身のBANK選択」の意味になり常にOPLLEX自身で鳴る
-    // (resolveOpllRomVoice()のrequestedVoicePatchType引数参照、
-    // 2026年8月〜)。
+    // (resolveOpllRomVoice()のrequestedVoicePatchType引数参照)。
     const std::array<HwPatch, 16>* getOpllRomPatches(uint8_t voicePatchType) const;
 
     // hwProg(Program Changeの値そのもの)から直接ROM音色を解決する
     // (resolveOpllRomVoice()の合成ロジックのみを公開する読み取り専用版、
-    // GUI[MIDIモニター]のパッチ名表示向け、2026年7月新設)。上位3bitで
+    // GUI[MIDIモニター]のパッチ名表示向け)。上位3bitで
     // チップ種別・下位4bitでROM音色インデックスを決定する(CC#0の値には
     // 一切依存しない、resolveOpllRomVoice()と全く同じ規約)。
     // variantSel>=4(未定義)またはinstIndex==0(無音として予約)の場合は
@@ -251,10 +249,10 @@ public:
     bool loadDrumBankJson(const std::filesystem::path& path, int bankNo);
     bool saveDrumBankJson(const std::filesystem::path& path, int bankNo) const;
 
-    // 新方式: プログラムチェンジ1つぶんのドラムキットを、独立した小さな
-    // ファイル (*.drumkit.json) から直接ロードする。旧方式(1ファイルに
-    // 全prog分のpatches[]を詰め込む loadDrumBankJson)は、ファイルが
-    // 肥大化する問題があったため、ファイル分割を前提とした設計に変更。
+    // プログラムチェンジ1つぶんのドラムキットを、独立した小さな
+    // ファイル (*.drumkit.json) から直接ロードする。プロファイルの
+    // drum_banks[] はこちらを使う(1ファイルに全prog分のpatches[]を
+    // 詰め込む loadDrumBankJson では、ファイルが肥大化するため)。
     // ドラムバンクは常に固定バンク番号(0)を使う (CRhythmChはMIDI経由での
     // バンク切替をサポートしないため)。
     bool loadDrumKitJson(const std::filesystem::path& path, int prog);
@@ -277,8 +275,8 @@ public:
     // SampleZonePatchスキーマを使う、PatchData.hのSampleZone関連コメント
     // 参照)。ADPCM/PCM系は個別の*.samplezonebank.jsonを手書きしなくても、
     // pcmbank.json(adpcm_packer出力)を唯一の情報源として直接ピッカーに
-    // 反映できる、2026年7月新設。
-    // 省略時(0=VOICE_PATCH_NONE)は従来通り波形データの登録のみ行う。
+    // 反映できる。
+    // 省略時(0=VOICE_PATCH_NONE)は波形データの登録のみ行う。
     // deviceType: このバンクを特定の物理チップのADPCM系サブデバイスに
     // 限定する場合に指定する(DEVICE_ADPCMB_OPNA等、PcmBank::deviceType
     // 参照)。省略時(0)は制限なし(voicePatchTypeのみで解決)。
@@ -289,7 +287,7 @@ public:
     // 物理チップ向けバンクをdeviceType指定で併用する場合、entries[]の
     // 名前集合はどのバンクも同一(サンプル名・並び順は共通、オフセット値
     // のみチップ毎に異なる)なので、2つ目以降のバンクでtrueを指定すれば
-    // パッチピッカーへの重複表示を避けられる(2026年7月新設)。
+    // パッチピッカーへの重複表示を避けられる。
     bool loadPcmBankJson(const std::filesystem::path& path, int bankNo,
                           uint8_t voicePatchType = 0, uint32_t deviceType = 0,
                           bool offsetsOnly = false);
@@ -308,8 +306,7 @@ public:
 private:
     // voicePatchType + hwBank + hwProg の3つ組から、実際に発音可能な
     // (device, HwPatch または SamplePatch) を解決する共通ロジック。
-    // resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる
-    // (旧実装ではほぼ同一のロジックが2箇所に重複していたため統一した)。
+    // resolve()の各ToneLayer処理、resolveDirect()の両方から呼ばれる。
     //
     // voicePatchType == VOICE_PATCH_NONE(0) は常に失敗として扱う
     // (CC#0の実時間セマンティクスにおける「通常モード」=PatchBank参照に
@@ -329,7 +326,8 @@ private:
         // デバイスチャンネルへ強制割り当て(assignCh)しなければならない
         // 場合に、そのチャンネル番号を保持する(-1=制約なし、通常通り
         // allocCh/DVAによる動的割り当てが可能)。ビルトインリズム音源
-        // (resolveBuiltinRhythm参照)が現状唯一の設定元。
+        // (resolveBuiltinRhythm参照)と、OPL系内蔵リズム(VOICE_PATCH_OPL_RHY、
+        // HwPatchのext.rhythmCh)が設定元。
         int8_t forcedCh = -1;
         // 無音バンク(VOICE_PATCH_SILENCE)による解決。「解決には成功したが
         // 発音しない」という第3の結果を表すため、isValid()(=デバイスが
@@ -347,7 +345,7 @@ private:
                                   const std::string& logContext = "") const;
 
     // ─── OPLL系ROM音色専用の解決ロジック ──────────────────────────
-    // voicePatchTypeがOPLLファミリー(OPLL/OPLLP/OPLLX/VRC7、OPLL2は
+    // voicePatchTypeがOPLLファミリー(OPLL/OPLLP/OPLLX/VRC7/OPLLEX、OPLL2は
     // VOICE_PATCH_OPLLを共有するため区別不要)で、hwBank==0の場合、
     // 通常のHwBankRegistry検索を経由せず、hwProgの上位3bit/下位4bitから
     // 直接HwPatchを合成する。バンク0はROM音色専用の予約領域であり、
@@ -360,8 +358,8 @@ private:
     //   実際の解決に影響しない(hwProgの上位3bitのみで決まる)が、
     //   VOICE_PATCH_OPLLEXの場合だけは上位3bitが「OPLLEX自身のBANK
     //   選択」の意味に変わり、常にOPLLEX自身をターゲットにする
-    //   (2026年8月〜、OPLLEXも他のOPLLファミリーと同様にprogだけで
-    //   暗黙バンク内の音色を一意に解決できるようにするための拡張)。
+    //   (OPLLEXも他のOPLLファミリーと同様にprogだけで暗黙バンク内の
+    //   音色を一意に解決できるようにするため)。
     ResolvedTriple resolveOpllRomVoice(uint8_t requestedVoicePatchType, uint8_t hwProg,
                                         const FITOMConfig& config,
                                         const std::string& logContext) const;
@@ -370,9 +368,10 @@ private:
     // voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM(0x70)の場合に
     // resolveTriple()から呼ばれる。
     //   chipSel(hwBank相当): 対象チップを選ぶ。既存のVOICE_PATCH_*定数
-    //     を再利用する(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL)。
+    //     を再利用する(VOICE_PATCH_OPN2=OPNA、VOICE_PATCH_OPLL=OPLL、
+    //     VOICE_PATCH_DSG=DSG)。
     // 通常のVoicePatchTypeベースルーティングでは、COPNARhythm/
-    // COPLLRhythmはdeviceTypeToVoicePatchType()がVOICE_PATCH_NONEを
+    // COPLLRhythm/CDSGRhythmはdeviceTypeToVoicePatchType()がVOICE_PATCH_NONEを
     // 返すため到達不能 (findDeviceIndexByDeviceType()で直接検索する)。
     //
     // 「楽器番号=チャンネル番号」というハードウェア上の制約があるため、
@@ -391,8 +390,8 @@ private:
 
     // resolveOpllRomVoice()が返すHwPatchの実体。ResolvedTriple::hwPatchは
     // ポインタのため、呼び出し元が使い続けられるよう安定した記憶域に
-    // 保持する。[variantSel(0-3)][instIndex(0-15)]。プリセットフラグ
-    // (ext.ALG_EXT=1)とINSTナンバー(hw.ALG)以外のフィールドはOPLLドライバ
+    // 保持する。[variantSel(0-3)][instIndex(0-15)]。ext.ALG_EXT(bit0=
+    // プリセットフラグ、bit2-1=BANK)とINSTナンバー(hw.ALG)以外のフィールドはOPLLドライバ
     // 側で無視されるため未設定のままでよい。PatchManagerコンストラクタで
     // 一括初期化する。
     mutable std::array<std::array<HwPatch, 16>, 4> opllRomPatches_{};
@@ -475,10 +474,6 @@ private:
 
 } // namespace fitom
 
-// ================================================================
-//  DrumBankRegistry をPatchManager に統合
-//  (PatchManager.h の末尾に追記)
-// ================================================================
 #include "fitom/DrumData.h"
 #include "fitom/SccWaveData.h"
 #include "fitom/PcmBankData.h"

@@ -6,13 +6,14 @@
 // 対応するチップドライバ (COPN / COPM / COPLL 等) でラップして
 // ISoundDevice として返す。
 //
-// ─── デバイス ID とチップドライバの対応 ─────────────────────────────────────
+// ─── デバイス ID とチップドライバの対応 (主なもの。全体は create() 参照) ─────
 //   DEVICE_OPN / OPNA / OPN2   → COPN / COPNA / COPN2
 //   DEVICE_OPM / OPP / OPZ     → COPM / COPP / COPZ
 //   DEVICE_OPL / OPL2          → COPL / COPL2
 //   DEVICE_OPL3                → COPL3
 //   DEVICE_OPLL / OPLL2 / OPLLP→ COPLL / COPLL2 / COPLLP
-//   DEVICE_SSG / PSG / EPSG    → CSSG
+//   DEVICE_SSG / PSG           → CSSG
+//   DEVICE_EPSG                → CEPSG
 //   DEVICE_DCSG                → CDCSG
 //   DEVICE_SCC / SCCP          → CSCC
 

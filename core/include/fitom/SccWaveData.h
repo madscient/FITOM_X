@@ -15,11 +15,10 @@
 //
 //   ファイル形式:
 //     *.sccwave.json (SCC Wave Bank)
-//     HwBank の chip_group: "PSG" に対応するバンクディレクトリに置く。
 //     プロファイルの banks.scc_wave_banks[] で読み込む。
 //
-//   CSCC::setVoice(ch, hwPatch):
-//     hwPatch.hwOp[ch].WS → SccWaveRegistry::getWave(WS) → setWaveform(ch, data)
+//   CSCC::updateVoice(ch):
+//     hwPatch.hwOp[0].WS → SccWaveRegistry::getWaveData(bank, WS) → writeWaveform(ch, data)
 
 #include <cstdint>
 #include <array>
@@ -94,7 +93,7 @@ struct SccWaveBank {
 
 // ================================================================
 //  SccWaveRegistry: バンク番号 → SccWaveBank のマッピング
-//  PatchManager が保持し、CSCC::setVoice から参照される。
+//  PatchManager が保持し、CSCC::updateVoice から参照される。
 // ================================================================
 class SccWaveRegistry {
 public:

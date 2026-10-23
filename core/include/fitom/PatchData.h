@@ -5,26 +5,26 @@
 // ─── 設計概念 ────────────────────────────────────────────────────────────────
 //
 //   Patch (プログラムチェンジ1つ)
-//   ├── ToneLayer [0..3]          1チップデバイス = 1レイヤー（最大4つ）
-//   │   ├── hw_patch_id           → HwPatch バンクへの参照
-//   │   │     HwPatch             チップレジスタに直接書く値 (FmHwVoice + FmHwOp[4])
-//   │   └── レイヤー固有設定       音域・トランスポーズ・音量・パン
-//   └── sw_patch_id               → SwPatch バンクへの参照（全レイヤー共通）
-//         SwPatch                 ソフト処理パラメータ (FmSwVoice + FmSwOp[4])
+//   └── ToneLayer [0..3]          1チップデバイス = 1レイヤー（最大4つ）
+//       ├── voicePatchType + hwBank/hwProg
+//       │                         → HwPatch (またはSampleZonePatch) への参照
+//       │     HwPatch             チップレジスタに直接書く値 (FmHwVoice + FmHwOp[4])
+//       │     └── swBank/swProg   → SwPatch への参照 (HwPatchごと)
+//       │           SwPatch       ソフト処理パラメータ (FmSwVoice + FmSwOp[4])
+//       └── レイヤー固有設定       音域・トランスポーズ・音量・パン
 //
 // ─── 設計の意図 ──────────────────────────────────────────────────────────────
 //
 //   [HwPatch / HwBank]
-//     チップ族ごとに独立したバンクで管理する。
+//     チップ (voicePatchType) ごとに独立したバンクで管理する。
 //     OPM と OPN はアルゴリズム/レジスタ構造が異なるため、同一パッチに
 //     両方の HwPatch を持たせることで「OPM で弾いても OPN で弾いても
 //     意図した音色に近い」パッチを作成できる。
-//     バンクセレクトは MIDI CC#0/32 で選択するが、チップ族の判定は
-//     デバイスの device_type から自動的に行う。
+//     どのチップの HwBank を引くかはレイヤーの voicePatchType が決め、
+//     発音するデバイスもそこから選ぶ。
 //
 //   [SwPatch / SwBank]
 //     ソフトLFO・ベロシティ感度はチップ構造に依存しないため、
-//     全レイヤーで1つの SwPatch を共有する。
 //     チップ族ごとに SwBank を持つ必要はない。
 //
 //   [ToneLayer]
@@ -36,14 +36,12 @@
 // ─── バンク番号の扱い ─────────────────────────────────────────────────────────
 //
 //   MIDI Bank Select:
-//     CC#0 (MSB) = HwBank 番号  (0..MAX_HW_BANK-1)
-//     CC#32(LSB) = SwBank 番号  (0..MAX_SW_BANK-1)
+//     CC#0 (MSB) = 0 なら通常モード (CC#32 = PatchBank 番号)、
+//                  0x01..0x6F なら直接モード (CC#0 = voicePatchType、
+//                  CC#32 = その voicePatchType の HwBank 番号)
 //   Program Change:
-//     プログラム番号 0..127 → Patch を選択
-//
-//   後方互換:
-//     旧来の「デバイス ID でバンク種別を特定」方式は
-//     HwBankRegistry::get(device_type, bank_no) が吸収する。
+//     プログラム番号 0..127 → Patch (直接モードでは HwPatch) を選択
+//   詳細は docs/design/midi-processing.md「Bank Select 方式」参照。
 
 #include "fitom/VoiceData.h"
 #include <algorithm>
@@ -65,16 +63,17 @@ static constexpr int MAX_HW_BANK     = 128;  // HW バンク数上限
 static constexpr int MAX_SW_BANK     = 128;  // SW バンク数上限
 static constexpr int BANK_PROG_SIZE  = 128;  // バンク内プログラム数
 
-// HwPatch が持つオペレータ数（FSM音源は4OP固定、OPLLは2OP）
+// HwPatch が持つオペレータ数（FM音源は4OP固定、OPLLは2OP）
 static constexpr int MAX_HW_OPS = 4;
 
 // ================================================================
-//  BuiltinRef: OPLL ROM音色(内部生成、opllRomPatches_)への参照。
+//  BuiltinRef: OPLL系ROM音色・DSGビルトイン音色(内部生成、
+//  opllRomPatches_/dsgBuiltinPatches_)への参照。
 //  「builtin」フィールド専用バンク(hw_banks[].roleで指定)の各
 //  パッチエントリが持つ。通常のops[]とは排他(一方が設定されて
 //  いれば、もう一方はJSON上に存在しないことをスキーマで強制する)。
-//  2026年7月新設: ROM音色にswBank/swProg(パフォーマンスパッチ)を
-//  紐づけるための、prog番号に依存しないuser specificな識別子。
+//  ROM音色にswBank/swProg(パフォーマンスパッチ)を紐づけるための、
+//  prog番号に依存しない識別子。
 // ================================================================
 struct BuiltinRef {
     // 対象チップ。-1=未設定。
@@ -128,7 +127,7 @@ struct HwPatch {
     // -1 = 参照なし(センチネル)。このHwPatch(音色データ)自身が
     // 「本来意図している演奏特性」のデフォルトを指す。DrumNote側に
     // 個別の上書き指定(swBank/swProg != -1)があれば、そちらが優先
-    // される (詳細は docs/design/terminology.md 参照)。
+    // される (詳細は docs/design/patch-resolution.md「データ構造」参照)。
     // 指定先が解決できなかった場合は、パフォーマンスパッチが
     // 適用されないだけで、HwPatch自体の発音は妨げられない
     // (ソフトな失敗、エラー扱いにしない)。
@@ -165,7 +164,8 @@ struct HwPatch {
 
 // ================================================================
 //  SwPatch: ソフトウェア処理パラメータ
-//  チップ族に依存しない。全レイヤーで共有される。
+//  チップ族に依存しない。HwPatch(またはSampleZone)ごとに
+//  swBank/swProgで参照される。
 // ================================================================
 struct SwPatch {
     uint32_t   id;            // バンク内 ID
@@ -179,11 +179,11 @@ struct SwPatch {
     // レイヤー固有パラメータ、こちらはSwPatch=演奏特性の一部として、
     // 直接モード等でも効かせられる)。両方が有効な場合は加算する。
     // 適用時は「半音部分(ノート番号に加算)」と「セント端数部分
-    // (kfs単位に変換して加算。docs/design/terminology.mdの「kfs」参照)」に
+    // (kfs単位に変換して加算。docs/design/terminology.mdの「単位: kfs (KF Step)」参照)」に
     // 分解される (MidiCh.cpp参照)。名前は DrumNote::fineTune と同じ
     // 命名スタイル (ToneLayer.transposeとの役割混同を避けるため
-    // "fixed"ではなく"fine"を使う、2026年7月)。
-    // 固定ディレイは2026年7月時点で保留(別途設計を要する)。
+    // "fixed"ではなく"fine"を使う)。
+    // 固定ディレイは持たない(別途設計を要する)。
     int16_t    fineTranspose = 0;
 
     SwPatch() noexcept : id(0xFFFFFFFFu) { name[0] = '\0'; }
@@ -256,7 +256,6 @@ struct SwBank {
 // ================================================================
 //  HwBankRegistry: (voicePatchType, バンク番号) → HwBank のマッピング
 //
-//  旧 CFITOMConfig の vOpmBank[] / vOpnBank[] 等を統合する。
 //  【重要】ここをVoiceGroupキーにしてはならない (SampleZoneBankRegistryと
 //  同じ理由)。VoiceGroupはOPM/OPZ/OPZ2、OPL/OPL2/OPL3_2、OPLL/OPLLP/OPLLX/
 //  VRC7をそれぞれ1つに束ねるため、VoiceGroupキーだと同じバンク番号を族内の
@@ -279,7 +278,7 @@ public:
         return &it2->second;
     }
     // SysExによるプリセットバンク直接編集(target-type=0x01)用の
-    // 可変アクセサ(2026年7月新設)。
+    // 可変アクセサ。
     HwBank* findMutable(uint8_t voicePatchType, int bankNo) {
         auto it = banks_.find(voicePatchType);
         if (it == banks_.end()) return nullptr;
@@ -290,7 +289,7 @@ public:
 
     // 指定voicePatchTypeに登録済みのバンク番号一覧を昇順で返す(GUIの
     // パッチピッカーダイアログ向け、直接デバイス選択モードのCC#32階層
-    // 列挙用、2026年7月新設)。該当チップが未登録なら空を返す。
+    // 列挙用)。該当チップが未登録なら空を返す。
     std::vector<int> listBankNumbers(uint8_t voicePatchType) const {
         std::vector<int> result;
         auto it = banks_.find(voicePatchType);
@@ -329,9 +328,9 @@ private:
 
 // ================================================================
 //  サンプルベース音源 (波形メモリ/PCM) 系共通ボイスパッチ
-//  VOICE_PATCH_AWM (YMF278 AWM部+YRW801 ROM等) で使用。
-//  ADPCM系 (ADPCM-A/ADPCM-B/PCMD8等) も将来的にこのスキーマを転用する
-//  ことを想定した、チップ非依存の汎用設計としている。
+//  VOICE_PATCH_AWM (YMF278 AWM部+YRW801 ROM等) と、ADPCM系
+//  (ADPCM-A/ADPCM-B/PCMD8/SSGS_ADPCM、isSampleBasedVoicePatchType()) で
+//  使う、チップ非依存の汎用設計としている。
 //
 //  設計意図: サンプルベース音源は「1プログラム = 複数キーゾーン
 //  (+ベロシティレイヤー) への波形/サンプルマッピング」という、
@@ -339,13 +338,12 @@ private:
 //  形状のデータを持つ。無理にHwPatch/FmChipExtへ押し込めると
 //  (a) FmChipExtが想定する「少数の追加スカラー値」という設計から外れる
 //  (b) 使われないAR/DR/SL/RR等のフィールドが無意味に残る
-//  ため、HwPatch/HwBank/HwBankRegistryとは完全に独立した専用の型を
-//  新設する。既存チップ(OPN/OPM/OPL3等)のHwPatch関連コードには
-//  一切影響を与えない。
+//  ため、HwPatch/HwBank/HwBankRegistryとは完全に独立した専用の型に
+//  している。
 //
 //  上位層 (Patch/ToneLayer が hw_bank/hw_prog をインデックスとして
-//  参照する構造) は変更不要。voicePatchType がサンプルベース系
-//  (VOICE_PATCH_AWM等) の場合のみ、PatchManager::resolve() が
+//  参照する構造) は共通。voicePatchType がサンプルベース系
+//  (VOICE_PATCH_AWM等) の場合のみ、PatchManager::resolveTriple() が
 //  HwBankRegistryではなくこちらを検索し、
 //  ResolvedLayer::samplePatch に結果を格納する。
 //
@@ -356,13 +354,12 @@ private:
 // ================================================================
 
 // 1ゾーン: このノート範囲・ベロシティ範囲では指定の波形/サンプルを使う。
-// (現状のOPL4AWM実装のkAllRegions[]相当の1エントリに対応)
 struct SampleZone {
     uint8_t  keyMin = 0;
     uint8_t  keyMax = 127;
     // ベロシティレイヤー (ベロシティスイッチ)。0-127/0-127 (無制限) が既定値
-    // のため、ベロシティレイヤーを使わないパッチ(OPL4AWM現行実装等)は
-    // このフィールドを省略しても後方互換に動作する。
+    // のため、ベロシティレイヤーを使わないパッチは
+    // このフィールドを省略してよい。
     uint8_t  velMin = 0;
     uint8_t  velMax = 127;
     uint16_t waveIndex = 0;   // チップ側のROM/PCM波形番号 (チップ依存の生値)
@@ -370,15 +367,12 @@ struct SampleZone {
     // (ADPCM-B/PCMD8等)がノートからの相対ピッチシフト量を計算するのに
     // 使う。OPL4AWMは下記pitchOffset/keyScalingベースの計算(ALSA
     // sound/drivers/opl4/yrw801.cと同一規約)を使うため未使用
-    // (0のままでよい)。将来のADPCM系転用に備えた予約。
+    // (0のままでよい)。
     //
-    // 【重要・ADPCM拡張時の必須知識】旧FITOMでは、ADPCM-Bのサンプルは
-    // 「A4=440Hz(MIDI note 69)でサンプリングされている」という暗黙の
-    // 制約でコーディングされている。ADPCM-B/PCMD8等にこのスキーマを
-    // 転用する際、既存のサンプル資産と後方互換を保つには、rootNoteの
-    // 既定値は69(A4)にすべきであり、60(C4)にしてはならない。
-    // (このコメントは会話の文脈が失われても参照できるよう、意図的に
-    //  ここに残している)
+    // 【重要】旧FITOMのADPCM-Bのサンプルは「A4=440Hz(MIDI note 69)で
+    // サンプリングされている」という暗黙の制約でコーディングされている。
+    // 既存のサンプル資産と互換を保つため、rootNoteの既定値は69(A4)であり、
+    // 60(C4)にしてはならない。
     uint8_t  rootNote = 69;  // 既定: A4 (MIDI note 69)。旧FITOM ADPCM-B
                               // の暗黙の基準ピッチ規約に合わせている。
 
@@ -389,9 +383,7 @@ struct SampleZone {
     // (sound/drivers/opl4/yrw801.c、opl4_sound構造体)がYRW801実機向けに
     // 実測・埋め込んでいる値と同一規約でここに持ち、COPL4AWM
     // (core/src/OPL4.cpp)がgetFnumber()/updateVolExp()で使う
-    // (2026年8月新設。ユーザー報告『AWMが意図した波形と違う音に聞こえる』
-    // の調査で、この校正値が無いと波形によっては数オクターブ単位で
-    // ピッチがずれることが判明したため、ALSAの値を丸ごと移植した)。
+    // (この校正値が無いと、波形によっては数オクターブ単位でピッチがずれる)。
     // OPL4AWM以外のチップでは未使用(既定値のままでよい)。
     int16_t  pitchOffset   = 0;    // 100/128セント単位
     uint8_t  keyScaling    = 100;  // % (100=通常のノート追従、0=固定ピッチ)
@@ -401,20 +393,20 @@ struct SampleZone {
     // ─── パフォーマンスパッチ(SwPatch)参照 ────────────────────────
     // HwPatch::swBank/swProgと同じ意味・同じソフトフォールバック規約
     // (-1=参照なし、指定先が解決できなくてもゾーン自体の発音は妨げない)。
-    // 2026年7月新設。DrumNote側に個別の上書き指定があれば、そちらが優先
-    // される(詳細はdocs/design/patch-resolution.md参照)。
+    // DrumNote側に個別の上書き指定があれば、そちらが優先
+    // される(詳細はdocs/design/patch-resolution.md「データ構造」参照)。
     // 【対応チップの制約】ADPCM-B/PCMD8は全機能(チャンネルLFO/トレモロ/
-    // VTL感度/fine_transpose)が有効。ADPCM-Aはピッチ制御が無いため
+    // VTL感度/fine_transpose)が有効。ADPCM-A/SSGS_ADPCMはピッチ制御が無いため
     // VTL感度/トレモロのみ有効(チャンネルLFO/fine_transposeは無効)。
     // AWMは実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が
-    // 別途必要なため、現状この参照は解決されるが音には反映されない
-    // (2026年7月時点、docs/design/patch-resolution.md参照)。
+    // 別途必要なため、この参照は解決されるが音には反映されない
+    // (docs/design/patch-resolution.md「サンプル系」参照)。
     int8_t   swBank    = -1;
     int8_t   swProg    = -1;
 };
 
 // 1プログラムぶんのゾーン列。ノート・ベロシティに応じて↑を線形探索し、
-// 該当するSampleZone::waveIndexを使う (現状のresolveWaveNumber()相当)。
+// 該当するSampleZone::waveIndexを使う (resolveZone())。
 // zonesは可変長 (プログラムによってゾーン数が異なるため、HwPatchのような
 // 固定長オペレータ配列では表現できない)。
 struct SampleZonePatch {
@@ -428,7 +420,7 @@ struct SampleZonePatch {
 
     // ノート・ベロシティに一致する最初のゾーンを返す(該当なしなら
     // zones[0]にフォールバック、zones自体が空ならnullptr)。COPL4AWM/
-    // CAdPcmBaseに重複していた線形探索を統一する正準実装(2026年7月)。
+    // CAdPcmBase等が共用する。
     const SampleZone* resolveZone(uint8_t note, uint8_t vel) const noexcept {
         for (const auto& z : zones) {
             if (note >= z.keyMin && note <= z.keyMax &&
@@ -449,7 +441,7 @@ struct SampleZoneBank {
     std::array<SampleZonePatch, BANK_PROG_SIZE> patches;
 
     // HwBank::voicePatchType と同じ意図。このバンクを使うチップの
-    // VoicePatchType (VOICE_PATCH_AWM、将来的にADPCM系の値等) を保持する。
+    // VoicePatchType (VOICE_PATCH_AWM、ADPCM系の値等) を保持する。
     uint8_t voicePatchType = 0;
 
     SampleZoneBank() { for (auto& p : patches) p = SampleZonePatch{}; }
@@ -466,15 +458,13 @@ struct SampleZoneBank {
 
 // ================================================================
 //  SampleZoneBankRegistry: (voicePatchType, バンク番号) → SampleZoneBank
-//  のマッピング。HwBankRegistryのVoiceGroupキーと同じ役割をvoicePatchType
-//  で担う(2026年7月修正)。
+//  のマッピング。HwBankRegistryと同じくvoicePatchTypeをキーにする。
+//  バンク番号だけをキーにすると、AWMバンク0/1とADPCM-B/ADPCM-Aの
+//  バンク0/1が番号衝突し、後から読み込んだ側が前の登録を上書きする。
 //  【重要】ここをVoiceGroupキーにしてはならない。
 //  FITOMConfig::voicePatchTypeToVoiceGroup()はADPCM-B/ADPCM-A/PCMD8/AWMを
 //  全てVOICE_GROUP_PCMへ束ねるため、VoiceGroupキーだと逆にこの4チップ族が
 //  バンク番号空間を共有してしまい、本来分離したい対象が分離できない。
-//  (以前はバンク番号のみをキーにしたフラットな空間だったが、AWMバンク0/1と
-//  ADPCM-B/ADPCM-Aのバンク0/1が番号衝突し、後から読み込んだ側が前の登録を
-//  上書きしてパッチピッカーからAWMバンクが消える不具合があった)。
 // ================================================================
 class SampleZoneBankRegistry {
 public:
@@ -496,7 +486,7 @@ public:
 
     // 指定voicePatchTypeに登録済みのバンク番号一覧を昇順で返す(GUIの
     // パッチピッカーダイアログ向け、サンプルベース音源系(ADPCM-B/
-    // ADPCM-A/PCMD8/AWM)のCC#32階層列挙用、2026年7月新設)。
+    // ADPCM-A/PCMD8/AWM)のCC#32階層列挙用)。
     std::vector<int> listBankNumbers(uint8_t voicePatchType) const {
         std::vector<int> result;
         auto it = banks_.find(voicePatchType);
@@ -531,7 +521,7 @@ public:
         return (it != banks_.end()) ? &it->second : nullptr;
     }
     // SysExによるプリセットバンク直接編集(target-type=0x01)用の
-    // 可変アクセサ(2026年7月新設)。
+    // 可変アクセサ。
     SwBank* findMutable(int bankNo) {
         auto it = banks_.find(bankNo);
         return (it != banks_.end()) ? &it->second : nullptr;
@@ -561,8 +551,8 @@ struct ToneLayer {
     uint8_t voicePatchType;
 
     // ─── HW パッチ参照 ────────────────────────────────────────────
-    // hw_bank / hw_prog はチップ族から適切な HwBank を引くためのキー。
-    // 実際の VoiceGroup は voicePatchType から一意に決定する。
+    // hw_bank / hw_prog は voicePatchType ごとの HwBank (サンプル系なら
+    // SampleZoneBank) を引くためのキー。
     // 注意: これらは Patch プリセット (JSON) に静的に埋め込まれた値であり、
     // ライブの MIDI Bank Select (CC#0/CC#32) からは供給されない。
     // どのデバイス・どの HW バンクで鳴らすかは Patch 定義時に固定される。
@@ -611,7 +601,7 @@ struct Patch {
     std::array<ToneLayer, MAX_TONE_LAYERS> layers;
 
     // ─── パッチ共通パラメータ ─────────────────────────────────────
-    uint8_t poly;     // ポリフォニー数 (0=チャンネルマップのデフォルト)
+    uint8_t poly;     // ポリフォニー数 (ファイルとの読み書きのみで、発音処理は参照しない)
 
     Patch() noexcept
         : id(0xFFFFFFFFu), poly(0)
@@ -628,8 +618,8 @@ struct Patch {
         return n;
     }
 
-    // 後方互換: 旧 FMVOICE 1本からシングルレイヤーパッチを作成
-    // 直接モード (バンクセレクトLSB) の単層パッチ構築にも使用する。
+    // HwPatch 1本からシングルレイヤーパッチを作成する。
+    // 直接モード (バンクセレクトLSB) の単層パッチ構築に使用する。
     static Patch fromSingleLayer(const HwPatch& hwp, uint8_t voicePatchType,
                                   uint32_t bank, uint32_t prog) noexcept {
         Patch p;
@@ -687,14 +677,12 @@ struct ResolvedLayer {
     const ToneLayer*    layer    = nullptr;  // ToneLayer の参照
     const HwPatch*      hwPatch  = nullptr;  // 解決済み HwPatch (通常のFMオペレータ系チップ)
     // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ設定される。
-    // hwPatchとは排他 (どちらか一方のみ非nullptr)。既存チップドライバは
-    // hwPatchのみを参照するため、このフィールド追加による影響はない。
+    // hwPatchとは排他 (どちらか一方のみ非nullptr)。
     const SampleZonePatch* samplePatch = nullptr;
     int              deviceIndex = -1;    // devices[] インデックス
-    // 解決済み SwPatch (パフォーマンスパッチ)。以前はResolvedPatch側に
-    // Patch単位で1つだけ保持していたが、HwPatch自身がswBank/swProgを
-    // 持つ設計に変更したため、レイヤー単位(HwPatch単位)の粒度に変更した
-    // (2026年7月)。解決に失敗した場合もnullptrのままになるだけで、
+    // 解決済み SwPatch (パフォーマンスパッチ)。HwPatch自身がswBank/swProgを
+    // 持つため、レイヤー単位(HwPatch単位)で保持する。
+    // 解決に失敗した場合もnullptrのままになるだけで、
     // HwPatch自体の発音は妨げられない(ソフトな失敗)。
     const SwPatch*   swPatch = nullptr;
     // ハードウェア制約による強制チャンネル(-1=制約なし)。

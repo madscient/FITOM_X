@@ -1,6 +1,6 @@
 #pragma once
-// fitom/Config.h  (改訂版)
-// FITOMConfig — ISoundDevice を直接保持するよう拡張
+// fitom/Config.h
+// FITOMConfig — プロファイルの読み込みとデバイス構成(ISoundDevice を含む)の保持
 
 #include "fitom/IPort.h"
 #include "fitom/HWPort.h"
@@ -31,7 +31,7 @@ class ISoundDevice;
 enum class StereoSide : uint8_t {
     None = 0,  // 未指定 (プロファイルの stereo_pair:true)。IPort::getPanpot()
                // の 1(L)/2(R) から役割を判定する = プラグイン側の出力
-               // ルーティングでL/Rを分離する従来方式。
+               // ルーティングでL/Rを分離する方式。
     Left,      // stereo_pair:"L"。チップ自身のL/R出力ビットでL側に固定する
     Right,     // stereo_pair:"R"。同上、R側
 };
@@ -53,10 +53,9 @@ struct PortGroup {
     uint32_t                deviceType = 0;
     // このポートグループ本来のrhythm_mode。代表デバイス(devices_[i].
     // rhythmMode)を流用せず、このポートが元々属していたDeviceEntry
-    // 自身の値を保持する(deviceTypeと同じ理由。2026年8月、OPL/OPLL系で
-    // rhythm_mode:trueのチップが別のrhythm_mode:false chipとspanGroup
-    // として束ねられた場合に、束ねられた側のch6-8無効化が代表デバイスの
-    // 値で上書きされ効かなくなっていたバグの修正で追加)。
+    // 自身の値を保持する(OPL/OPLL系でrhythm_mode:trueのチップが別の
+    // rhythm_mode:false chipとspanGroupとして束ねられた場合、代表デバイスの
+    // 値を流用すると束ねられた側のch6-8無効化が効かなくなるため)。
     bool                     rhythmMode = false;
 };
 
@@ -73,7 +72,7 @@ struct DeviceEntry {
     // 使うとは限らないため必要になる(例: YM2608のSSG部はφM/4で動作する)。
     // 1 = ポートが報告するクロックをそのまま使う。
     int                            clockDivider = 1;
-    // B-2: 2ポートチップ用の2番目のポート（HW SPFM extra_slot）
+    // 2ポートチップ用の2番目のポート（HW SPFM extra_slot）
     std::shared_ptr<IPort>         port2;        // nullptr = 1ポート
     int                            extraSlot   = -1; // -1 = 未使用
     // リズムモード (OPLL/OPL/OPL2/OPL3 等、チップ内蔵リズム音源を持つ
@@ -85,15 +84,15 @@ struct DeviceEntry {
     int                            compositeGroup = -1;
 
     // ─── リニアステレオ化 (CLinearPanDevice) ────────────────────────────
-    // プロファイルで stereo_pair:true が明示指定されたエントリ同士のうち、
-    // 同一VoicePatchType・同一InterfaceDesc・Panpot(L=1,R=2)の組み合わせを
+    // プロファイルで stereo_pair が明示指定されたエントリ同士のうち、
+    // 同一deviceType・同一InterfaceDesc・L/R役割の組み合わせを
     // mergeStereoPairDevices() が検出し、代表エントリの stereoPairPort に
     // 相手側(R側)のポートを設定する。自動検出はせず、明示指定が無ければ
     // 発動しない。non-null なら「port(L) + stereoPairPort(R)」で
     // CLinearPanDevice を構成する。
     bool                            stereoPairRequested = false; // プロファイル指定
     std::shared_ptr<IPort>          stereoPairPort;               // 統合後に設定
-    // L/R役割の宣言方法 (StereoSide参照)。None なら従来どおり
+    // L/R役割の宣言方法 (StereoSide参照)。None なら
     // IPort::getPanpot() の 1/2 から判定する。
     StereoSide                      stereoSide = StereoSide::None;
     // 統合後に設定。true なら「チップ自身のL/R出力ビットで分離する」方式
@@ -113,7 +112,7 @@ struct DeviceEntry {
     // デバイス(chip:"SF2")かどうか。deviceType は他の未知チップ文字列と
     // 同じくDEVICE_NONEになるが、これは意図したスキップであるため、
     // CFITOM::initDevices()が「deviceType unknown」警告を出さずに区別
-    // できるようにするためのフラグ(2026年7月新設)。
+    // できるようにするためのフラグ。
     bool                            isSf2       = false;
 };
 
@@ -133,7 +132,7 @@ public:
     bool loadLegacyIni(const std::filesystem::path& path);
 
     // 現在のプロファイル状態をpathへ書き戻す(GUIのMIDIポート設定/
-    // システム設定ダイアログのOK確定用、2026年7月新設)。loadProfile()で
+    // システム設定ダイアログのOK確定用)。loadProfile()で
     // 読み込んだJSON(profileJson_)をベースに、GUIから変更されうる
     // フィールド(midi_inputs/master_volume/master_pitch/part_gains)のみ現在値で
     // 上書きする。devices/hw_plugins/banks等、他のフィールドはロード時の
@@ -143,7 +142,7 @@ public:
 
     // fitom.conf.json の log.* 設定を取り出す。loadSystemConf() 未実行、
     // または該当フィールドが省略されている場合は fallback を返す
-    // (呼び出し側の従来デフォルト値をそのまま維持できるようにするため)。
+    // (呼び出し側のデフォルト値をそのまま使えるようにするため)。
     std::string getLogLevel(const std::string& fallback)   const;
     std::string getLogFile(const std::string& fallback)    const;
     bool        getLogConsole(bool fallback)                const;
@@ -155,8 +154,7 @@ public:
     // 絶対パスを渡すこと)。
     std::string getProfileRoot(const std::string& fallback) const;
 
-    // ─── プロファイル選択 (GUI起動時、プロファイル未指定の場合の一覧表示用、
-    //     2026年8月新設) ──────────────────────────────────────────────────
+    // ─── プロファイル選択 (GUI起動時、プロファイル未指定の場合の一覧表示用) ───
     struct ProfileEntry {
         std::filesystem::path path;
         std::string           displayName; // "profile_name"フィールド、
@@ -170,7 +168,7 @@ public:
     // フィールドが読み取れればそれを、無い/開けない/パース失敗時は
     // ファイル名(".profile.json"サフィックスがあれば除いたもの、
     // 無ければ拡張子のみ除いたもの)を返す。GUIのウィンドウタイトル表示・
-    // listProfiles()の表示名解決の両方から共用する(2026年8月新設)。
+    // listProfiles()の表示名解決の両方から共用する。
     static std::string peekProfileDisplayName(const std::filesystem::path& path);
 
     // HWプラグイン(実機/エミュレータ問わず、IHWPluginを実装するDLL)を
@@ -190,15 +188,13 @@ public:
 
     int              getDeviceCount()              const;
     IPort*           getDevicePort(int index)      const;
-    // B-2: 2ポートチップ (OPN2/OPNA/OPL3等) の2番目のポート。単一ポート
+    // 2ポートチップ (OPN2/OPNA/OPL3等) の2番目のポート。単一ポート
     // デバイスや未使用の場合は nullptr。
     IPort*           getDevicePort2(int index)     const;
     ISoundDevice*    getDevice(int index)          const;
     uint32_t         getDeviceType(int index)      const;
-    // devices[i] のサンプルレート (旧audio_output.sample_rate相当。
-    // 廃止に伴い、デバイスごとに保持していた値をそのまま使う。
-    // HW経由の場合、実際の値はHWプラグイン側が管理するため、この値は
-    // Fnumber計算等の目安として使われる)。
+    // devices[i] のサンプルレート (HW経由の場合、実際の値はHWプラグイン側が
+    // 管理するため、この値はFnumber計算等の目安として使われる)。
     int              getDeviceSampleRate(int index) const;
     // チップのマスタークロックに対する分周比 (DeviceEntry::clockDivider 参照)。
     int              getDeviceClockDivider(int index) const;
@@ -208,7 +204,7 @@ public:
     // SF2直行パス用ラッパーデバイス(chip:"SF2")かどうか。
     bool             isSf2Device(int index)        const;
 
-    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照) ───
     // banks.sf2_banks[]から構築されたレジストリ(CC#32解決・soundfonts一覧)。
     const Sf2BankRegistry& getSf2BankRegistry() const { return sf2Banks_; }
 
@@ -235,7 +231,7 @@ public:
     // rhythm_modeが異なりうる(OPL/OPLL系でrhythm_mode:trueのチップと
     // falseのチップが同一VoicePatchTypeでspanGroupとして束ねられる場合)
     // ため、CFITOM::initDevices() はサブチップ生成時に代表の
-    // getDeviceRhythmMode(index)ではなくこちらを使う(2026年8月新設)。
+    // getDeviceRhythmMode(index)ではなくこちらを使う。
     bool             getDeviceSpanGroupRhythmMode(int index, int k) const;
     // k番目の追加ポートグループがステレオペアの場合、それがチップ内L/R分離方式
     // (stereo_pair:"L"/"R") かどうか。getDeviceStereoPairChipLevel()と同じ意味。
@@ -246,17 +242,18 @@ public:
     IPort*           getDeviceStereoPairPort(int index) const;
     // 上記ステレオペアが「チップ自身のL/R出力ビットで分離する」方式
     // (stereo_pair:"L"/"R") かどうか。false ならプラグイン側の出力ルーティング
-    // (pan:1/2) でL/Rを分離する従来方式。
+    // (pan:1/2) でL/Rを分離する方式。
     bool             getDeviceStereoPairChipLevel(int index) const;
 
     // ─── VoicePatchType (音色パッチ互換性分類) ──────────────────────────────
     // devices_[index] の deviceType (DEVICE_*) から対応する VoicePatchType
-    // (VOICE_PATCH_* 、0x10〜0x74) を返す。未対応の場合は VOICE_PATCH_NONE(0)。
+    // (VOICE_PATCH_* 、0x10〜0x55) を返す。未対応の場合は VOICE_PATCH_NONE(0)。
     uint8_t getVoicePatchType(int deviceIndex) const;
 
     // voicePatchType に一致する最初のデバイスのインデックスを返す。
     // 見つからない場合は -1。旧FITOMの CFITOMConfig::GetLogDeviceFromID 相当
-    // (完全一致のみ、互換フォールバックは将来実装)。
+    // (完全一致のみ。互換フォールバックは findAllFallbackDeviceIndices() と
+    // PatchManager.cpp の findFallbackDeviceIndex() が扱う)。
     int findDeviceIndexByVoicePatchType(uint8_t voicePatchType) const;
 
     // 生のdeviceType(DEVICE_*)に一致する最初のデバイスのインデックスを
@@ -314,10 +311,10 @@ public:
     // OPL系/OPLL系は内蔵リズムがFM本体側のch6-8とハードウェアレジスタを
     // 共有するため、trueの場合のみ`DEVICE_OPL_RHY`/`DEVICE_OPLL_RHY`
     // サブデバイスをoutSpecに追加する(falseならFM本体のみのまま=ch6-8を
-    // 通常の楽音chとして使う。2026年7月、ビルトインリズムと通常楽音chを
-    // またいだDVAは未実装のため、両者を同時に有効化しないようにする形で
-    // 修正。同一チップ種別の複数インスタンス中、rhythm_mode:trueが1つも
-    // 無ければリズムサブデバイス自体が生成されない)。OPNA系の内蔵リズムは
+    // 通常の楽音chとして使う。ビルトインリズムと通常楽音chをまたいだDVAは
+    // 未実装のため、両者を同時に有効化しない。同一チップ種別の複数
+    // インスタンス中、rhythm_mode:trueが1つも無ければリズムサブデバイス
+    // 自体が生成されない)。OPNA系の内蔵リズムは
     // FM本体と完全に独立したレジスタ空間を持つためこの制約の対象外で、
     // rhythmModeFromProfileの値に関わらず常に生成する。
     static bool resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeFromProfile,
@@ -326,8 +323,8 @@ public:
     // composite展開されたサブデバイスが、リニアステレオ化
     // (CLinearPanDevice、プロファイルの stereo_pair:true) の対象になりうるか。
     // false を返すのは、チャンネルごとのパンポットをハードウェアで持っており
-    // L/R2台の束ねによる代替が不要かつ有害なサブデバイス(現状はOPL4の
-    // AWM/PCM部 = DEVICE_OPL4AWM のみ)。false の場合、その物理チップの
+    // L/R2台の束ねによる代替が不要かつ有害なサブデバイス(OPL4のAWM/PCM部、
+    // SSGS系のSSG部・ADPCM部、Y8960のOPL2EX/OPLLEX系)。false の場合、その物理チップの
     // 他のサブデバイス(OPL4ならFM部)がステレオ化されても、当該サブデバイスは
     // 独立したモノラルデバイスとして devices_ に残る。
     static bool subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept;
@@ -350,7 +347,7 @@ public:
     // stereo_pair:"L"/"R" のチップ内L/R分離方式が実効性を持つ。
     // false のチップ(モノラル出力しか持たないもの)では updatePanpot() が
     // no-op のため、"L"/"R" を指定しても左右に分離されない
-    // (プラグイン側の pan:1/2 による従来方式が必要)。
+    // (プラグイン側の pan:1/2 で分離する方式が必要)。
     static bool deviceHasChipLevelPanpot(uint32_t deviceType) noexcept {
         return getChipPanType(deviceType) != ChipPanType::Mono;
     }
@@ -365,7 +362,7 @@ public:
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;
     // 実行中にMIDI入力ポートの割り当てを丸ごと差し替える(GUIのMIDIポート
-    // 設定ダイアログ用、2026年7月新設)。namesの各要素がMPU 0,1,2...に
+    // 設定ダイアログ用)。namesの各要素がMPU 0,1,2...に
     // 対応する。空文字列の要素は「未設定」を表す。呼び出し側(FITOMBridge)
     // が実際のMIDIポートの開閉を行う責務を持ち、ここではConfigが保持する
     // 名前一覧を更新するのみ。
@@ -378,7 +375,7 @@ public:
     uint8_t getMasterVolume()   const;
     double  getMasterPitch()    const { return masterPitch_; }
     void    setMasterPitch(double p)  { masterPitch_ = p; }
-    // PSG系共有バンクのフォールバック先(2026年7月新設)。
+    // PSG系共有バンクのフォールバック先。
     uint8_t getPsgFallbackChip() const { return psgFallbackChip_; }
 
     using ProgressCb = std::function<void(const std::string&)>;
@@ -390,7 +387,7 @@ protected:
     virtual bool buildFromLegacyIni(const nlohmann::json& ini);
     virtual void buildDevice(const nlohmann::json& dev);
 
-    // buildDevice() の FMENGINE/HW 両ブランチ共通処理。
+    // buildDevice() から呼ぶ。
     // composite chip (resolveCompositeSpec が true を返す場合) なら
     // 複数の DeviceEntry を、そうでなければ単独の DeviceEntry を devices_ に追加する。
     void pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
@@ -411,8 +408,7 @@ protected:
     // composite展開されたチップ(OPLL+内蔵リズム、OPNA+SSG+ADPCM等)は、
     // グループ内の「stereo_pair対象サブデバイス」(上記
     // subDeviceAcceptsStereoPair()参照)のdeviceTypeが1対1で対応する場合に限り
-    // compositeGroup単位でまとめてペアリングする(2026年8月対応。それ以前は
-    // composite展開対象のチップではstereo_pairが無視されていた)。
+    // compositeGroup単位でまとめてペアリングする。
     void mergeStereoPairDevices();
 
     // 【Step2: Step1の後に実行】全 buildDevice() 完了後に1回呼ぶ。同一
@@ -429,7 +425,7 @@ protected:
     void loadDrumBanks(const nlohmann::json& banks, PatchManager& pm,
                         const std::filesystem::path& baseDir);
 
-    // ─── SF2直行パス (2026年7月新設) ──────────────────────────────────────
+    // ─── SF2直行パス ──────────────────────────────────────────────────────
     // banks.sf2_banks[]をパースしsf2Banks_を構築する。devices[]のビルド
     // (buildDevice()、chip:"SF2"のparams_json組み立て)より前に、
     // buildFromProfile()の先頭付近で1回だけ呼ぶ(Sf2BankRegistryが
@@ -453,8 +449,8 @@ protected:
 
     // PSG系共有バンク(voice_patch_type=0x40固定)における、HwPatch側の
     // targetVoicePatchTypeが未設定(0)の場合のフォールバック先。
-    // プロファイルのpsg_fallback_chipから設定される(2026年7月新設、
-    // 省略時はVOICE_PATCH_SSG)。
+    // プロファイルのpsg_fallback_chipから設定される(省略時は
+    // VOICE_PATCH_SSG)。
     uint8_t     psgFallbackChip_ = VOICE_PATCH_SSG;
 
     uint8_t     masterVolume_    = 100;
@@ -484,7 +480,7 @@ protected:
     void applyPartGains(const std::string& plugin, const nlohmann::json& params, HWPort& port);
     PartGainEntry* findPartGainEntry(const std::string& plugin, const nlohmann::json& params);
 
-    // ─── SF2直行パス (2026年7月新設) ──────────────────────────────────────
+    // ─── SF2直行パス ──────────────────────────────────────────────────────
     Sf2BankRegistry               sf2Banks_;
     std::vector<Sf2ChannelWindow> sf2ChannelWindows_;
 

@@ -4,9 +4,8 @@
 //
 // ─── 設計概要 ────────────────────────────────────────────────────────────────
 //
-//   HwPatch が PCM デバイス (ADPCM / PCMD8) に使われる場合:
-//     FmHwOp::WS = PCM バンクのエントリ番号 (0〜127)
-//     → SCC と同じ WS 方式で統一
+//   PCM デバイス (ADPCM / PCMD8) の音色は SampleZonePatch で表し、
+//     SampleZone::waveIndex = PCM バンクのエントリ番号 (0〜127) とする。
 //
 //   ワークフロー:
 //     [1] adpcm_packer ツール (オフライン)
@@ -25,11 +24,11 @@
 //           場合ROM/事前フラッシュ済みRAMであり、その配置はhwif側
 //           [実機ボード・fitom_fmhwif側の設定]の責務。FITOM_X本体は
 //           波形データが既にそこへ配置されている前提でStart/Endアドレス
-//           レジスタを設定するだけでよい。2026年7月、設計を訂正)
+//           レジスタを設定するだけでよい)
 //
 //     [4] NoteOn 時
-//           HwPatch.hwOp[0].WS = エントリ番号
-//           → CAdPcmBase::updateVoice() が voices_[WS] のオフセットを
+//           SampleZonePatch のゾーン検索結果の waveIndex = エントリ番号
+//           → CAdPcmBase が voices_[waveIndex] のオフセットを
 //             使ってStart/Endアドレスレジスタへ書き込み、発音する
 //
 // ─── adpcm_packer 出力 JSON との対応 ─────────────────────────────────────────
@@ -79,7 +78,7 @@ struct PcmEntry {
     // パフォーマンスパッチ(SwPatch)参照。-1=参照なし。pcmbank.jsonの
     // トップレベル"swpatches"配列(entry_noで対応づけ)から読み込む。
     // 自動合成されるSampleZone::swBank/swProgへそのまま渡す
-    // (2026年7月新設、docs/design/patch-resolution.md参照)。
+    // (docs/design/patch-resolution.md「サンプル系」参照)。
     int8_t   swBank      = -1;
     int8_t   swProg      = -1;
 
@@ -107,7 +106,7 @@ struct PcmBank {
     // PCMデバイスへ割り当てるバンク番号をこの値から逆引きするために使う
     // (PcmBankRegistry::findBankNoForVoicePatchType()参照)。また
     // PatchManager::loadPcmBankJson()が、0以外の場合にこのバンクの
-    // entries[]から同じ内容のHwBank(named patch)を自動合成する際にも使う。
+    // entries[]からSampleZoneBank(named patch)を自動合成する際にも使う。
     uint8_t     voicePatchType = 0;
 
     // このバンクを特定の物理チップのADPCM系サブデバイスに限定するための
@@ -118,9 +117,8 @@ struct PcmBank {
     // OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)のADPCM-Bは同一のVoicePatchType
     // (音色パラメータ形式が共通)を使うことが多いが、実際に配置された波形
     // バイナリのバウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なる
-    // ため、同じエントリ(オフセット/サイズ)テーブルを共有できない
-    // (2026-07-24、実機ログでOPNBが誤ってOPNA用オフセットを使っている
-    // ことを確認)。voicePatchTypeが同じ複数バンクが存在する場合、
+    // ため、同じエントリ(オフセット/サイズ)テーブルを共有できない。
+    // voicePatchTypeが同じ複数バンクが存在する場合、
     // findBankNoForVoicePatchType()だけでは(banks_がunordered_mapのため)
     // どちらが選ばれるか不定になるので、このフィールドで物理チップ単位に
     // 明示的にバンクを区別できるようにする

@@ -1,10 +1,9 @@
 // fitom/MultiDev_new.cpp
-// マルチデバイス — ISoundDevice ベース移行版
+// マルチデバイスのファクトリ関数
 //
 // CMultiDevice / CSpanDevice / CUnison の実装本体は
-// fitom/MultiDevice.h に移動した (他のチップドライバから
+// fitom/MultiDevice.h にある (他のチップドライバから
 // CSpanDevice 等を継承できるようにするため)。
-// このファイルにはファクトリ関数のみを残す。
 
 #include "fitom/MultiDevice.h"
 #include "fitom/Log.h"

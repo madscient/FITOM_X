@@ -70,13 +70,12 @@
 #define DEVICE_PCMD8	57	//YMZ280
 #define DEVICE_SSGD		58	//SSG on Digital (YMF288/YMF294)
 
-#define	DEVICE_ADPCM	119	//virtual device for ADPCM channel (旧汎用名、DEVICE_ADPCMB_Y8950推奨)
+#define	DEVICE_ADPCM	119	//virtual device for ADPCM channel (旧汎用名。Y8950にはDEVICE_ADPCMB_Y8950を使う)
 #define	DEVICE_ADPCMA	118	//YM2610/YM2610B
 #define	DEVICE_ADPCMB	117	//YM2610/YM2610B (OPNB系)。OPNA用は DEVICE_ADPCMB_OPNA を使う
 #define	DEVICE_ADPCMB_OPNA	60	//YM2608 (OPNA) 内蔵ADPCM-B。レジスタマップがOPNBと異なるため分離
 // Y8950(YM3801)内蔵ADPCM-B。レジスタマップ・fnumDivideがOPNA/OPNBと
-// 異なるため、専用のdeviceTypeとして分離する(2026年7月に新設。
-// 以前は汎用的なDEVICE_ADPCMを流用しており、専用の識別子が無かった)。
+// 異なるため、専用のdeviceTypeとして分離する。
 // voicePatchTypeはVOICE_PATCH_ADPCMB(OPNAと共通)を使う。実機の
 // レジスタマップ・分周比の違いはチップドライバ(CYmDelta)内部の
 // 初期化パラメータで吸収されるため、音色データ形式(SampleZonePatch)
@@ -103,9 +102,7 @@
 // (OPLLEX/OPL2EX/SSGEX/SCCEX)はいずれもチャンネルごとの8bit定位
 // (1=左端/128=中央/255=右端、リセット値128)を持つ。0-63は使い切っているため
 // 64以降を使う(BUILTIN_RHYTHMビット、下記参照、が128のため64-127は
-// 素のベースIDとして自由に使える。2026年8月、以前はBUILTIN_RHYTHM=64
-// だったため64-127を避けて128-130から採番していたが、BUILTIN_RHYTHMを
-// 128へ移動したのに合わせてこちらも64-66へ詰め直した)。
+// 素のベースIDとして自由に使える)。
 //
 // 拡張OPLL部(OPLLEX): 標準OPLL(YM2413)レジスタ(0x00-0x3F)に加え、
 // ch0-ch8ごとの音色プリセットバンク選択レジスタ(0x40-0x48、
@@ -116,8 +113,8 @@
 // 拡張OPL2部(OPL2EX): YM3812(OPL2)相当のFMコア + ADPCM-B(Y8950の
 // ADPCM部と同一レジスタ配置)を1回路にまとめた拡張チップ。FM部の
 // レジスタマップはOPL2に定位レジスタ(0xF6-0xFE、ADPCMは0xFF)を足したもので、
-// 音色データ形式は同一のためVoicePatchTypeはOPL2と共用する(専用deviceType
-// のみ新設。deviceTypeToVoicePatchType参照)。
+// 音色データ形式は同一のためVoicePatchTypeはOPL2と共用する(専用なのは
+// deviceTypeだけ。deviceTypeToVoicePatchType参照)。
 #define DEVICE_OPL2EX	65	//Y8960 拡張OPL2部 (FMコア)
 // OPL2EXの内蔵ADPCM-B。レジスタアドレス配置がY8950(DEVICE_ADPCMB_Y8950)
 // と完全に同一のため、CYmDeltaドライバはkY8950_DeltaTレジスタマップを
@@ -212,10 +209,10 @@
 #define GDEVID_YM2212	0x2212	//SCC
 #define GDEVID_YM2312	0x2312	//SCC+
 
-// 128(2026年8月、以前は64だった)。ベースDEVICE_*とOR合成して「その
+// 内蔵リズム変種を表すビット(128)。ベースDEVICE_*とOR合成して「その
 // チップの内蔵リズム変種」を表す。ベースIDは0-127の範囲に収まっている
 // 限りこのビットと衝突しない(この上限までは自由にベースIDを採番できる、
-// FITOMdefine.h冒頭のY8960セクション参照)。
+// 上のY8960セクション参照)。
 #define BUILTIN_RHYTHM	128
 #define DEVICE_OPNA_RHY	(DEVICE_OPNA | BUILTIN_RHYTHM)			//132
 #define DEVICE_OPN3L_RHY	(DEVICE_OPN3L | BUILTIN_RHYTHM)		//138
@@ -258,9 +255,9 @@
 #define VOICE_TYPE_PCM	0x70
 #define VOICE_TYPE_OPL4 0x71
 
-// 以下3つは CFITOM.cpp の kDevMap (死んだコード、呼び出し元なし。
-// VoicePatchType システムと機能重複) が参照するために暫定追加。
-// kDevMap 自体の削除・整理を検討中のため、正式な体系には組み込んでいない。
+// 以下3つは CFITOM.cpp の kDevMap の voicetype 列だけが参照する。この列を
+// 読む CFITOM::getDeviceVoiceType() には呼び出し元が無く、VoicePatchType と
+// 機能が重複するため、正式な体系には組み込んでいない。
 #define VOICE_TYPE_FM4  0x60
 #define VOICE_TYPE_FM2  0x61
 #define VOICE_TYPE_PSG  0x62
@@ -288,14 +285,15 @@
 #define ADPCM_BANK	0x77
 
 // ================================================================
-//  VoicePatchType — 音色パッチ互換性分類 (0x10-0x74)
+//  VoicePatchType — 音色パッチ互換性分類 (0x01-0x6F の範囲で採番)
 //
 //  DeviceFactory の DEVICE_* (チップドライバ生成用) とは独立した分類。
 //  「ボイスパラメータ・ハードウェア機能が一致するもの」だけをまとめる。
 //  0 = 無効/未指定 (予約値、設定禁止)。
 //
-//  各ブロックの先頭値がそのまま VoiceGroup (HwBankRegistry 検索キー、
-//  データフォーマット/パラメータ範囲の分類) に対応する。
+//  各ブロックの見出しに、そのブロックが属する VoiceGroup
+//  (FITOMConfig::voicePatchTypeToVoiceGroup()、チップ族の括り) を併記する。
+//  HwBankRegistry の検索キーは VoiceGroup ではなく VoicePatchType そのもの。
 // ================================================================
 #define VOICE_PATCH_NONE     0x00
 
@@ -320,7 +318,7 @@
 // VOICE_PATCH_NONEではなくこの専用識別子を持たせ、「音色がデバイスを
 // 選択する」原則(findDeviceIndexByVoicePatchTypeがそのまま使える)を
 // 保つ。HwBankの名前空間もOPL2等とは独立させる
-// (voicePatchTypeToVoiceGroup→VOICE_GROUP_RHYTHM、2026年7月)。
+// (voicePatchTypeToVoiceGroup→VOICE_GROUP_RHYTHM)。
 #define VOICE_PATCH_OPL_RHY  0x23
 
 // 0x28: VoiceGroup=OPLL
@@ -331,8 +329,8 @@
 // Y8960拡張OPLL部(DEVICE_OPLLEX)専用。標準OPLL系とパラメータ定義の
 // 大半(FB/AR/DR/SL/SR/RR/TL/KSR/KSL/MUL/AM/VIB/WS)を共有するが、
 // ext.ALG_EXTにチャンネル別プリセットバンク選択(bit2-1、0-3)が
-// 追加されているため、混同を避けて専用の値を持つ(ChipCapabilities/
-// hwpatch-reference.md参照)。VOICE_PATCH_OPLL等とは異なるHwBank名前空間
+// 追加されているため、混同を避けて専用の値を持つ(spec/chip-capabilities.json・
+// docs/manuals/hwpatch-reference.md参照)。VOICE_PATCH_OPLL等とは異なるHwBank名前空間
 // になる点に注意(voicePatchTypeToVoiceGroupではVOICE_GROUP_OPLLを
 // 共有するため、hw_banks[]のgroup文字列自体は別に用意すること)。
 #define VOICE_PATCH_OPLLEX   0x2c  // Y8960拡張OPLL部
@@ -362,17 +360,16 @@
 #define VOICE_PATCH_SCC      0x48  // SCC, SCCP
 
 // 0x50: VoiceGroup=PCM
-// (旧0x70-0x74から変更。BankSel.MSB(CC#0)による直接モードのチップ選択
-//  IDとして使うため、0x01-0x6Fの範囲に収める必要がある。0x70-0x7Fは
-//  特定チップを指さないモード選択子(0x70/0x7F)、GM2 リズム/メロディ
-//  切替 (0x78/0x79)、および将来の予約領域とする)
+// (BankSel.MSB(CC#0)による直接モードのチップ選択IDとして使うため、
+//  0x01-0x6Fの範囲に収める必要がある。0x70-0x7Fは特定チップを指さない
+//  モード選択子(0x70/0x7F)、GM2 リズム/メロディ切替 (0x78/0x79)、
+//  および将来の予約領域とする)
 //
-// 0x50は予約領域(2026年7月、VOICE_PATCH_ADPCMB_Y8950を削除した際に
-// 空いた枠)。Y8950内蔵ADPCM-BはDEVICE_ADPCMB_Y8950というdeviceType
+// 0x50は予約領域。Y8950内蔵ADPCM-BはDEVICE_ADPCMB_Y8950というdeviceType
 // を持つが、voicePatchTypeはOPNAと共通のVOICE_PATCH_ADPCMB(0x51)を
 // 使う(音色データ形式・ハードウェア挙動に互換性がありspanning対象と
 // なるため)。0x50自体は、将来他のPCM系デバイスを追加する場合のために
-// 予約領域として残す(スキーマ上は許容するが、現状マッピングされる
+// 予約領域として残す(スキーマ上は許容するが、マッピングされる
 // デバイスは無い)。
 #define VOICE_PATCH_ADPCMB       0x51  // YM2608
 #define VOICE_PATCH_ADPCMA       0x52  // YM2610
@@ -410,20 +407,20 @@
 // サンプルベース音源系 (ADPCM-B/ADPCM-A/PCMD8/AWM/SSGS-ADPCM) かどうかを
 // 判定する。これらは HwPatch(FMオペレータ型)ではなく SampleZonePatch
 // (キーゾーン+ベロシティレイヤー+波形/サンプル参照)を使う共通スキーマで
-// 扱われる (PatchManager::resolve()の分岐、PatchData.hのSampleZone*参照)。
+// 扱われる (PatchManager::resolveTriple()の分岐、PatchData.hのSampleZone*参照)。
 // 範囲の下限は0x50(予約領域、現状未使用)から。0x50-0x55は連続した
 // 値として意図的に採番されているため、範囲チェックで判定できる。
 inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
     return vpt >= 0x50 && vpt <= VOICE_PATCH_SSGS_ADPCM;
 }
 
-// PSG系(SSG/EPSG/DCSG/SAA/SCC)かどうかを判定する(2026年7月新設)。
+// PSG系(SSG/EPSG/DCSG/SAA/SCC)かどうかを判定する。
 // 値が連続していない(0x40,0x41,0x42,0x43,0x48)ため範囲チェックでは
 // 判定できず、個別列挙する。PSG系は全チップが共通のCC#0
 // (VOICE_PATCH_SSG=0x40)/HwBank名前空間を共有する設計になっており、
 // この判定関数は主にHwPatch::ext.targetVoicePatchTypeの妥当性検証、
 // および将来この共有設計を他のPSG派生チップに拡張する際の判定基準
-// として使う。詳細はdocs/design/patch-resolution.md参照。
+// として使う。詳細はdocs/design/patch-resolution.md「PSG系共有バンク」参照。
 inline bool isPsgFamilyVoicePatchType(uint8_t vpt) noexcept {
     switch (vpt) {
     // VOICE_PATCH_DSG(YM2163)はこの共有名前空間には含めない。ユーザー音色を

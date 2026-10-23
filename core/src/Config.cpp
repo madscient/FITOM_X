@@ -1,13 +1,5 @@
 // fitom/Config.cpp
 // FITOMConfig 実装 — プラットフォーム非依存部
-//
-// 移行方針:
-//   boost::property_tree (INI) → nlohmann/json (JSON) + IniReader (薄いラッパー)
-//   boost::filesystem         → std::filesystem
-//   boost::algorithm::string  → std::string + <algorithm>
-//   boost::format             → そのまま維持
-//   LPCTSTR / TCHAR           → std::string (UTF-8)
-//   BOOST_FOREACH             → 範囲 for
 
 #include "fitom/Config.h"
 #include "fitom/PatchManager.h"
@@ -106,7 +98,7 @@ static double getDouble(const json& ini, const std::string& section,
 } // namespace ini
 
 // -------------------------------------------------------
-//  banks/bank_overrides 外部参照の解決 (2026年7月新設)
+//  banks/bank_overrides 外部参照の解決
 //  プロファイルの"banks"(および同一スキーマの"bank_overrides")は通常
 //  オブジェクト直書きだが、文字列の場合は外部JSONファイルへのパスとみなし、
 //  その内容(hw_banks/sw_banks/...を持つオブジェクト)をそのままキーの値
@@ -157,7 +149,7 @@ static json resolveBanksSection(const json& j, const fs::path& baseDir)
 }
 
 // -------------------------------------------------------
-//  bank_overrides の適用 (2026年7月新設)
+//  bank_overrides の適用
 //  外部参照の共通バンクセット(banks)に対し、プロファイルごとに一部の
 //  バンクだけを差し替えたり追加したりするための機能。配列種別ごとに
 //  「識別キー」が一致するエントリを上書き対象とみなし、一致しなければ
@@ -241,7 +233,7 @@ bool FITOMConfig::loadProfile(const fs::path& path, PatchManager* patchMgr)
         json j = json::parse(f, nullptr, true, true); // allow comments
         // ロードした内容をそのまま保持しておく(saveProfile()が、GUIから
         // 変更されないフィールド(devices/hw_plugins/banks等)をそのまま
-        // 維持して書き戻すためのベースにする。2026年7月新設)。
+        // 維持して書き戻すためのベースにする)。
         profileJson_ = j;
         // バンクファイルパスの解決基点は「プロファイルファイル自身が
         // 置かれているディレクトリ」とする。起動時のカレントワーキング
@@ -411,9 +403,8 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
                     // rhythm_mode(FITOM_X固有のデバイス合成概念)を知らない
                     // ため返さない。ここで列挙結果の"chip"名と突き合わせ、
                     // 一致するチップにだけdevices[]相当のrhythm_mode:trueを
-                    // 補って渡す(2026年7月、auto_devices経由のOPL/OPLL系
-                    // プロファイルではビルトインリズムを一切有効化できな
-                    // かった制約を解消するため新設)。
+                    // 補って渡す(これが無いとauto_devices経由のOPL/OPLL系
+                    // プロファイルではビルトインリズムを有効化できない)。
                     std::vector<std::string> rhythmChips;
                     if (p.contains("auto_devices_rhythm_mode") &&
                         p["auto_devices_rhythm_mode"].is_array()) {
@@ -471,7 +462,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
         applyBankOverrides(resolvedBanks, bankOverrides);
     }
 
-    // --- SF2直行パス: sf2_banksレジストリの構築 (2026年7月新設) ---
+    // --- SF2直行パス: sf2_banksレジストリの構築 ---
     // devices[](chip:"SF2")のparams_json組み立て(buildDevice()内)が
     // soundfonts一覧を必要とするため、devices[]構築より前に1回だけ行う。
     // PatchManagerに依存しないためpatchMgrの有無を問わず常に実行する。
@@ -520,7 +511,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
         }
     }
     // マスターボリューム・マスターピッチ(GUIのシステム設定ダイアログで
-    // 変更・書き戻しされる、2026年7月新設)。省略時は既定値(100/440.0Hz)
+    // 変更・書き戻しされる)。省略時は既定値(100/440.0Hz)
     // を維持する。
     if (j.contains("master_volume") && j["master_volume"].is_number_integer()) {
         masterVolume_ = static_cast<uint8_t>(j["master_volume"].get<int>());
@@ -530,7 +521,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
     }
 
     // --- SF2直行パス: sf2_channel_windows(トップレベル)の読み込み ---
-    // (2026年7月新設。banks.*とは異なりトップレベルプロパティ、詳細は
+    // (banks.*とは異なりトップレベルプロパティ、詳細は
     //  docs/design/sf2-direct-path.md「窓」参照)
     if (!loadSf2ChannelWindows(j)) {
         FITOM_LOG_ERR("sf2_channel_windows: 検証エラーのためプロファイル読み込みを中止します");
@@ -538,11 +529,8 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
     }
 
     // --- 音色バンク一式のロード (hw/sw/patch/drum/scc_wave/pcm) ---
-    // patchMgr が渡された場合のみ実行する (省略時は従来通りデバイス構成
-    // のみを構築し、音色バンクロードはスキップする、後方互換動作)。
-    // (以前はここでbanksセクションが一切処理されておらず、プロファイルの
-    //  hw_banks/sw_banks/patch_banks/drum_banks等が実際には一度もロード
-    //  されないという重大な不具合があったため修正)
+    // patchMgr が渡された場合のみ実行する (省略時はデバイス構成のみを
+    // 構築し、音色バンクロードはスキップする)。
     if (patchMgr) {
         loadDrumBanks(resolvedBanks, *patchMgr, baseDir);
     }
@@ -550,7 +538,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
     // --- バリデーション ---
     validateProfile();
 
-    // --- SF2直行パス: 構成の整合性検証 (2026年7月新設) ---
+    // --- SF2直行パス: 構成の整合性検証 ---
     // devices[]内でchip:"SF2"が宣言された回数を数える。実際にHWPluginの
     // オープンに成功したかどうかとは無関係に、プロファイル記述レベルで
     // 判定する(devices_[].isSf2はHWPort生成成功時のみ立つため、
@@ -618,7 +606,7 @@ void FITOMConfig::buildDevice(const json& dev)
             params["soundfonts"] = files;
         }
 
-        // B-2: extra_slot → 2ポート目の HWPort を生成 (2ポート目は
+        // extra_slot → 2ポート目の HWPort を生成 (2ポート目は
         // 元のparamsの"slot"(チップスロット番号)をextra_slotの値で
         // 上書きして開く。FitomHwIFのparams_json仕様上、"slot"がチップの
         // スロット番号("index"はRE1/RE4のUSB接続順という別の意味なので
@@ -643,7 +631,7 @@ void FITOMConfig::buildDevice(const json& dev)
             }
             uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
             bool rhythmMode = dev.value("rhythm_mode", false);
-            // stereo_pair: true (従来方式、pan:1/2からL/R役割を判定) または
+            // stereo_pair: true (プラグイン側で分離、pan:1/2からL/R役割を判定) または
             // "L"/"R" (チップ内L/R分離方式)。docs/design/chip-drivers.md「リニアステレオ化」参照。
             bool       stereoPair = false;
             StereoSide stereoSide = StereoSide::None;
@@ -717,7 +705,7 @@ bool FITOMConfig::buildFromLegacyIni(const json& ini)
         FITOM_LOG_INFO("Device.mode != MANUAL: auto device config (legacy SCCI) skipped in cross-platform build");
     }
 
-    // チャンネルマップ (Channel.ch1〜ch16) は廃止。
+    // チャンネルマップ (Channel.ch1〜ch16) は読まない。
     // MIDI ch10(0-indexed:ch9)は固定でリズムチャンネル(GM準拠)、
     // ポリフォニー数はProgChange時に解決されたデバイスのチャンネル数から
     // 動的に決定されるため、レガシーINIのこのセクションは読み捨てる。
@@ -734,8 +722,8 @@ void FITOMConfig::loadLegacyManualDevices(const json& ini)
         if (param.empty()) continue;
         FITOM_LOG_DEBUG("Legacy manual device[" << i << "]: " << param);
         // param 書式: "DEVTYPE:IFTYPE:PORT,CLOCK,PAN" 等
-        // → JSON プロファイルへの移行を推奨するため、完全実装は省略
-        // → FITOMCfgWin.cpp の CreateDevice() 相当のロジックを後で移植
+        // JSON プロファイルへの移行を推奨するため、解釈は実装していない
+        // (旧FITOMの FITOMCfgWin.cpp の CreateDevice() 相当)
     }
 }
 
@@ -976,9 +964,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_2610B: case DEVICE_F286: case DEVICE_OPN3:
         // OPNB(YM2610)のFM部はYM2612/YM2608と同じOPN2世代のFMコアを持つ
         // (ch0/ch3を無効化した4ch構成、COPNB参照)。VoicePatchType上は
-        // OPN2互換として扱う(2026年7月、以前はOPN(YM2203)側=0x10に誤分類
-        // されており、FITOMdefine.hのVOICE_PATCH_OPN2コメント自体には
-        // 元々YM2610/YM2610Bが含まれていたのに実装が追随していなかった)。
+        // OPN2互換として扱う。
         return VOICE_PATCH_OPN2;
 
     case DEVICE_OPM:  return VOICE_PATCH_OPM;
@@ -999,7 +985,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     case DEVICE_OPLL:   return VOICE_PATCH_OPLL;
     case DEVICE_OPLLP:  return VOICE_PATCH_OPLLP;
     case DEVICE_OPLLX:  return VOICE_PATCH_OPLLX;
-    case DEVICE_OPLL2:  return VOICE_PATCH_OPLL; // YM2420 は OPLL(0x28) に統合済み
+    case DEVICE_OPLL2:  return VOICE_PATCH_OPLL; // YM2420 は OPLL(0x28) と同じ分類
     // OPLLEX(Y8960拡張OPLL部)はチャンネル別ROMプリセットバンク選択
     // (ext.ALG_EXT bit2-1)が標準OPLL系に無い拡張のため、専用の
     // VoicePatchType(HwBank名前空間)を持つ。
@@ -1012,7 +998,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
     // OPL系内蔵リズムチャンネル: COPNARhythm/COPLLRhythm(VOICE_PATCH_NONE
     // のまま、findDeviceIndexByDeviceType()で個別に検索する設計)とは異なり、
     // リズム音が実際のFMオペレータパラメータを要求するため、専用の
-    // VoicePatchType(VOICE_PATCH_OPL_RHY)を持たせる(2026年7月)。
+    // VoicePatchType(VOICE_PATCH_OPL_RHY)を持たせる。
     // OPL2EX(Y8960)の内蔵リズムは定位レジスタを書く点だけが違い、音色データ
     // 形式は同一のため、同じVoicePatchTypeを返す(標準のOPLリズムと混在して
     // いてもCSpanDeviceの束ね対象になる)。
@@ -1030,8 +1016,8 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
         return VOICE_PATCH_SSG;
     case DEVICE_EPSG:  return VOICE_PATCH_EPSG;
     case DEVICE_DCSG:  return VOICE_PATCH_DCSG;
-    // DSG (YM2163) はROM固定音色専用の独自VoicePatchType。以前はSSGと
-    // 同一視されていたが、SSG用の音色データを与えても意味を成さない。
+    // DSG (YM2163) はROM固定音色専用の独自VoicePatchType。SSG用の音色
+    // データを与えても意味を成さないため、SSGとは分ける。
     case DEVICE_DSG:   return VOICE_PATCH_DSG;
     case DEVICE_SAA:   return VOICE_PATCH_SAA;    // CSAA1099 実装済み
 
@@ -1039,7 +1025,7 @@ uint8_t FITOMConfig::deviceTypeToVoicePatchType(uint32_t deviceType) noexcept
 
     case DEVICE_ADPCMB: return VOICE_PATCH_ADPCMB;
     case DEVICE_ADPCMB_OPNA: return VOICE_PATCH_ADPCMB; // 音色パラメータ形式はOPNBと共通
-    // Y8950内蔵ADPCM-Bも同じVOICE_PATCH_ADPCMBを使う(2026年7月〜)。
+    // Y8950内蔵ADPCM-Bも同じVOICE_PATCH_ADPCMBを使う。
     // レジスタマップ・分周比の違いはCYmDelta内部で吸収されるため、
     // 音色データ形式・ハードウェア挙動に互換性があり、OPNA/OPNBの
     // ADPCM-Bとspanning対象になる(OPN2/OPNBのFM音源部と同じ考え方)。
@@ -1071,7 +1057,7 @@ uint32_t FITOMConfig::voicePatchTypeToVoiceGroup(uint8_t vpt) noexcept
     case VOICE_PATCH_OPL3:
         return VOICE_GROUP_OPL3;
     // OPL系内蔵リズムチャンネル専用。独立した名前空間とする(通常の
-    // OPL2用HwBankとは別管理、2026年7月)。旧FITOMのDEVICE_RHYTHM由来の
+    // OPL2用HwBankとは別管理)。旧FITOMのDEVICE_RHYTHM由来の
     // 既存グループを流用する。
     case VOICE_PATCH_OPL_RHY:
         return VOICE_GROUP_RHYTHM;
@@ -1095,10 +1081,8 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
 {
     // 【重要】ここで新しい文字列を追加/変更した場合は、
     // config_schema/profile.schema.json の hw_banks[].group の enum も
-    // 必ず同期して更新すること。2026年7月、この同期が長期間行われて
-    // おらず、OPZ等の多数の文字列がスキーマから欠落し、
-    // docs/design/patch-resolution.mdの記載例がバリデーションエラーに
-    // なる不整合が発見された(ステージングプロジェクトからの指摘)。
+    // 必ず同期して更新すること(ここで認識してもenumに無い文字列を使った
+    // プロファイルは、スキーマ検証を通らない)。
     // SD1/MA3/MA5/MA7系(未実装チップドライバ)は、この関数では認識するが
     // enumには意図的に含めない(実装済みのVoicePatchTypeのみ許可する方針)。
     // OPNA/OPNBは音色パラメータ互換性の観点でOPN2に統合済み
@@ -1181,9 +1165,6 @@ const char* FITOMConfig::voicePatchTypeToString(uint8_t vpt) noexcept
 // ================================================================
 //  Sub-device 自動生成 (composite chip)
 // ================================================================
-// ================================================================
-//  Sub-device 自動生成 (composite chip)
-// ================================================================
 void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseDeviceType,
                                      std::shared_ptr<IPort> port, std::shared_ptr<IPort> port2,
                                      int sampleRate, int extraSlot, bool rhythmModeFromProfile,
@@ -1192,10 +1173,9 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
     std::vector<SubDeviceSpec> spec;
     if (resolveCompositeSpec(baseDeviceType, rhythmModeFromProfile, spec)) {
         // composite展開されたサブデバイス群にもstereo_pairを伝播する
-        // (2026年8月対応。以前はここで警告を出して無視しており、内蔵リズムを
-        // 持つOPLL/OPL系やSSG/ADPCMを持つOPNA系など、composite展開対象の
-        // チップでは stereo_pair:true を書いてもリニアステレオ化が一切
-        // 発動しなかった)。ただしsubDeviceAcceptsStereoPair()が false を返す
+        // (内蔵リズムを持つOPLL/OPL系やSSG/ADPCMを持つOPNA系など、composite
+        // 展開対象のチップでもリニアステレオ化を発動させるため)。
+        // ただしsubDeviceAcceptsStereoPair()が false を返す
         // サブデバイス(自前でハードウェアパンポットを持つもの)は対象外とする。
         // 実際のL/R対応付けは全devices_構築後に mergeStereoPairDevices() が
         // compositeGroup単位で行う。
@@ -1244,9 +1224,8 @@ bool FITOMConfig::subDeviceAcceptsStereoPair(uint32_t deviceType) noexcept
     // ハードウェアで持っている。L/R2台を等パワーパンニングでクロスフェード
     // させるCLinearPanDeviceの束ねは、チップ自身がモノラル出力しか持たない
     // 音源を対象とした代替手段であり、AWM部に適用すると本来のハードウェア
-    // パンポットを潰した上で2倍のチップを消費することになるため対象外とする
-    // (2026年8月、ユーザー指摘)。OPL4のFM部(DEVICE_OPL3/DEVICE_OPL3_2)は
-    // 引き続き対象で、例えば「OPL4のFM部 + OPL3」をL/Rペアとして
+    // パンポットを潰した上で2倍のチップを消費することになるため対象外とする。
+    // OPL4のFM部(DEVICE_OPL3/DEVICE_OPL3_2)は対象で、例えば「OPL4のFM部 + OPL3」をL/Rペアとして
     // ステレオ化する用法が成立する(両者ともFM部のサブデバイス構成が
     // DEVICE_OPL3/DEVICE_OPL3_2で一致するため)。
     // SSGS(YMZ705)/SSGS2(YMZ732)/SSGS3(YMZ771)はSSG部・ADPCM部ともchごとの
@@ -1329,18 +1308,17 @@ void FITOMConfig::pairStereoDevices(std::vector<DeviceEntry>& devices)
     std::vector<bool> removed(n, false);
 
     // マッチ条件は「同一deviceType・同一InterfaceDesc・L/R役割の組」。
-    // 以前はVoicePatchTypeで比較していたが、composite展開されたサブデバイスには
+    // VoicePatchTypeで比較すると、composite展開されたサブデバイスのうち
     // 専用のVoicePatchTypeを持たないもの(COPLLRhythm/COPNARhythm等、
-    // VOICE_PATCH_NONE)があり、それらが常に対象外となってR側だけが孤立して
-    // 残ってしまうため、deviceType同士の比較に変更した(2026年8月)。
+    // VOICE_PATCH_NONE)が常に対象外となり、R側だけが孤立して残る。
     // CLinearPanDeviceは物理的に同一のチップ2台がL/Rへ固定配線されている構成を
     // 前提とするため、VoicePatchTypeより厳しいdeviceType一致で判定する方が
     // 本来の意味にも合う。
     //
     // L/R役割は stereo_pair:"L"/"R" の明示指定(StereoSide)を優先し、
-    // 未指定(stereo_pair:true)なら従来どおり IPort::getPanpot() の 1/2 から
+    // 未指定(stereo_pair:true)なら IPort::getPanpot() の 1/2 から
     // 判定する。前者は「チップ自身のL/R出力ビットで分離する」方式で、
-    // プラグイン側の pan は 0(Stereo) のままでよい(2026年8月新設)。
+    // プラグイン側の pan は 0(Stereo) のままでよい。
     auto sideOf = [&](size_t idx) {
         const DeviceEntry& e = devices[idx];
         if (e.stereoSide != StereoSide::None) return e.stereoSide;
@@ -1361,7 +1339,8 @@ void FITOMConfig::pairStereoDevices(std::vector<DeviceEntry>& devices)
     auto pairUp = [&](size_t l, size_t r) {
         // 両側とも "L"/"R" で明示宣言された場合のみチップ内L/R分離方式とする
         // (片側だけ明示・片側はpan由来、という混在構成では、プラグイン側の
-        //  ルーティングが絡んで意図が確定しないため従来方式に倒す)。
+        //  ルーティングが絡んで意図が確定しないため、プラグイン側で分離する
+        //  方式に倒す)。
         const bool chipLevel = devices[l].stereoSide != StereoSide::None
                             && devices[r].stereoSide != StereoSide::None;
         devices[l].stereoPairPort     = devices[r].port;
@@ -1487,7 +1466,7 @@ void FITOMConfig::pairStereoDevices(std::vector<DeviceEntry>& devices)
 void FITOMConfig::mergeSpannableDevices()
 {
     // グループ化キー: (voicePatchType, interfaceDesc, panpot)。
-    // ただし stereoPairPort 設定済み (Step1でステレオ化済み) のエントリは
+    // ただし stereoPairPort 設定済み (mergeStereoPairDevices()でステレオ化済み) のエントリは
     // もはや単一のL/Rパンという概念を持たないため、panpot をキーから除外する
     // (panpot=-1 の特別値で表現し、常に一致させる)。
     struct Key {
@@ -1528,10 +1507,9 @@ void FITOMConfig::mergeSpannableDevices()
             // devices_[j]自身のdeviceType・rhythmModeを保持する(VoicePatchType
             // が同じでも実装クラスやrhythm_mode指定が異なる場合があるため、
             // 代表devices_[i]の値を流用してはならない。CFITOM::initDevices()
-            // 参照。rhythmModeは2026年8月追加: 以前はdeviceTypeのみ保持して
-            // おり、rhythm_mode:trueのチップがfalseのチップとspanGroupとして
-            // 束ねられた場合に束ねられた側のch6-8無効化が代表の値で上書き
-            // され効かなくなっていた)。
+            // 参照。rhythm_mode:trueのチップがfalseのチップとspanGroupとして
+            // 束ねられた場合、代表の値を流用すると束ねられた側のch6-8無効化が
+            // 効かなくなる)。
             devices_[i].spanGroups.push_back(
                 {devices_[j].port, devices_[j].stereoPairPort,
                  devices_[j].stereoPairChipLevel, devices_[j].deviceType,
@@ -1623,10 +1601,9 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // 全サブデバイスが同一の物理ポート(+extraPort)を共有する。
         // ADPCM-BはOPNB系と異なるレジスタマップのため DEVICE_ADPCMB_OPNA を使う。
         // ADPCM-B(OPNA)は実チップ上port2(アドレス0x100以降)に配置される
-        // レジスタ体系のためusesExtraPort=trueとする(2026年7月、ユーザー
-        // 指摘により発覚。以前はSSGと同じport1のまま割り当てておりレジスタ
-        // アドレスが衝突していた。実際の高位ポートへの差し替えは
-        // CFITOM::resolveHighBankPort()が行う)。
+        // レジスタ体系のためusesExtraPort=trueとする(SSGと同じport1に
+        // 割り当てるとレジスタアドレスが衝突する。実際の高位ポートへの
+        // 差し替えはCFITOM::resolveHighBankPort()が行う)。
         outSpec.push_back({baseDeviceType,      "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,          "-SSG",    false, false, kOpnSsgClockDivider});
         outSpec.push_back({DEVICE_ADPCMB_OPNA,  "-ADPCMB", true,  false});
@@ -1636,12 +1613,11 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
     case DEVICE_OPNB:
         // OPNB (YM2610無印): FM本体(COPNB、実効4ch) + SSG + ADPCM-A + ADPCM-B。
         // YM2610無印とYM2610Bの違いはFMチャンネル数(4ch vs 6ch)のみで、
-        // SSG/ADPCM-A/ADPCM-Bのケーパビリティ自体は共通(2026年7月、
-        // ステージング環境からの指摘で訂正: 以前は無印にADPCM-B用メモリ
-        // 空間が無いという誤った前提でADPCM-Bを生成していなかった)。
+        // SSG/ADPCM-A/ADPCM-Bのケーパビリティ自体は共通(無印にもADPCM-B用の
+        // メモリ空間がある)。
         // ADPCM-Aは実チップ上port2(アドレス0x100以降)に配置される
         // レジスタ体系のためusesExtraPort=trueとする(ADPCM-Bは逆にport1の
-        // ままで正しい。2026年7月、ユーザー指摘により発覚)。
+        // ままで正しい)。
         outSpec.push_back({baseDeviceType, "-FM",     true,  false});
         outSpec.push_back({DEVICE_SSG,     "-SSG",    false, false, kOpnSsgClockDivider});
         outSpec.push_back({DEVICE_ADPCMA,  "-ADPCMA", true,  false});
@@ -1665,10 +1641,9 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // 共有する(OPLLと同じ構成パターン)。COPLRhythmはFM本体側の
         // ch6-8とハードウェアレジスタを共有し、両者を跨いだDVA(動的ボイス
         // 割当)は実装されていないため、rhythm_mode:trueのインスタンスに
-        // 限りリズムサブデバイスを追加する(2026年7月修正。以前は
-        // rhythm_modeの値に関わらず常にDEVICE_OPL_RHYを生成しており、
-        // rhythm_mode:falseのままだとFM本体のch6-8[通常の楽音ch]と
-        // リズムパートが同じレジスタを無調整で奪い合っていた)。
+        // 限りリズムサブデバイスを追加する(rhythm_mode:falseのまま生成すると、
+        // FM本体のch6-8[通常の楽音ch]とリズムパートが同じレジスタを
+        // 無調整で奪い合う)。
         outSpec.push_back({baseDeviceType, "-FM",     false, true});
         if (rhythmModeFromProfile) {
             outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
@@ -1682,12 +1657,8 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // デバイスが同一の物理ポートを共有する。ADPCM-BはFM本体のオペレータ
         // レジスタとは独立したレジスタ空間(実機のADPCM関連レジスタ群)を
         // 持ち、ch6-8のリズム専用化とは無関係なため、OPNAの
-        // DEVICE_ADPCMB_OPNAと同様rhythm_modeの値に関わらず常に生成する
-        // (2026年8月修正。以前はDEVICE_OPLと同一caseにまとめられており、
-        // DEVICE_ADPCMB_Y8950というdeviceType自体・ファクトリ・
-        // VoicePatchType変換は用意されていたのにoutSpecへの登録が
-        // 漏れていたため、Y8950をプロファイルに指定してもADPCM-B
-        // インスタンスが一切生成されていなかった)。
+        // DEVICE_ADPCMB_OPNAと同様rhythm_modeの値に関わらず常に生成する。
+        // ADPCM-Bを持つため、DEVICE_OPLとは別のcaseにしている。
         outSpec.push_back({baseDeviceType,      "-FM",     false, true});
         outSpec.push_back({DEVICE_ADPCMB_Y8950, "-ADPCMB", false, false});
         if (rhythmModeFromProfile) {
@@ -1760,8 +1731,7 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // ため対象外)。COPLLRhythmはFM本体側のch6-8とハードウェア
         // レジスタを共有し、両者を跨いだDVAは実装されていないため、
         // OPL系と同様rhythm_mode:trueのインスタンスに限りリズムサブ
-        // デバイスを追加する(2026年7月修正。以前はrhythm_modeの値に
-        // 関わらず常にDEVICE_OPLL_RHYを生成していた)。
+        // デバイスを追加する。
         // OPLLEX(Y8960拡張OPLL部)のリズムはレジスタ体系(0x0E,0x36-0x38)が
         // 標準OPLLと同一だが、使う物理chの定位レジスタも書くため専用の
         // DEVICE_OPLLEX_RHYを使う。
@@ -1844,7 +1814,6 @@ std::vector<int> FITOMConfig::findAllFallbackDeviceIndices(uint8_t sourceVoicePa
     return result;
 }
 
-// DeviceFactory を使ってポートからデバイスを生成する
 
 
 // ================================================================
@@ -1898,7 +1867,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
 // (PcmBank::deviceTypeのコメント参照)。OPNA(YM2608)とOPNB/OPNBB
 // (YM2610/2610B)のADPCM-Bは同一のVoicePatchTypeを共有するが波形バイナリの
 // バウンダリ整列が異なるため、pcm_banks[]エントリを物理チップ単位に
-// 明示区別する必要がある(2026-07-24)。ADPCM-A/PCM-D8はVoicePatchTypeと
+// 明示区別する必要がある。ADPCM-A/PCM-D8はVoicePatchTypeと
 // deviceTypeが1:1のため通常この区別は不要(chip省略でよい)。
 static uint32_t resolvePcmBankChipDeviceType(const std::string& chipName)
 {
@@ -1931,15 +1900,14 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
                                  const std::filesystem::path& baseDir)
 {
     // drum_banks[]: プログラムチェンジ1つぶんずつ、独立したファイル
-    // (*.drumkit.json) を割り当てる方式。1ファイルに全prog分を
-    // 詰め込む旧方式は、ファイル肥大化のため廃止。
+    // (*.drumkit.json) を割り当てる方式(1ファイルに全prog分を
+    // 詰め込むとファイルが肥大化するため)。
     // "bank"フィールドは持たない (ドラムバンクは常に固定バンク番号0。
     // CRhythmChはMIDI経由でのバンク切替をサポートしないため)。
     // drum_banks はスキーマ上省略可能 (banks.hw_banks 等とは独立) なので、
     // 無くても以降の hw_banks/sw_banks/patch_banks/scc_wave_banks/pcm_banks
-    // の処理を打ち切ってはならない(以前はここで関数ごとreturnしており、
-    // drum_banksを省略したプロファイルは他の全バンク種別がロードされない
-    // というバグがあった)。
+    // の処理を打ち切ってはならない(ここでreturnすると、drum_banksを
+    // 省略したプロファイルでは他の全バンク種別がロードされない)。
     if (banks.contains("drum_banks")) {
         for (const auto& entry : banks["drum_banks"]) {
             int prog = entry.value("prog", -1);
@@ -1972,7 +1940,7 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
             // エントリは1つのファイルにまとめること(2回指定すると後勝ちで
             // 上書きされる)。
             // group/bankフィールドはこの場合意味を持たない(スキーマ上は
-            // 引き続き必須のまま、既存形式との一貫性のため)。
+            // 通常のhw_banksエントリとの一貫性のため必須のまま)。
             std::string role = e.value("role", "");
             if (role == "builtin_swpatch_meta") {
                 pm.loadBuiltinMetaBankJson(path);
@@ -2039,12 +2007,12 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
 
             // "group"(任意): ADPCMB/ADPCMA/PCMD8等、このPCMバンクが対象と
             // するVoicePatchType。指定すると、①CFITOM::initDevices()が
-            // 対応デバイスへこのバンク番号を自動的に割り当てるようになり
-            // (従来はbankNo=0固定で、複数のPCMバンクを併用できなかった)、
+            // 対応デバイスへこのバンク番号を自動的に割り当て(複数のPCM
+            // バンクを併用するにはこれが要る)、
             // ②entries[]の各サンプルがパッチピッカーで選択可能なnamed
             // patchとして自動的にhwRegistry()へ公開される
-            // (PatchManager::loadPcmBankJson()参照)。省略時は従来通り
-            // 波形データの登録のみ行う(後方互換)。
+            // (PatchManager::loadPcmBankJson()参照)。省略時は
+            // 波形データの登録のみ行う。
             uint8_t voicePatchType = VOICE_PATCH_NONE;
             if (e.contains("group")) {
                 std::string groupStr = e["group"].get<std::string>();
@@ -2059,7 +2027,7 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
             // 波形バイナリのバウンダリ整列が異なるため、同一group内で複数の
             // 物理チップ向けバンクを併用する場合に指定する
             // (PcmBank::deviceType/CFITOM::initDevices()参照)。省略時は
-            // 従来通りgroup(VoicePatchType)のみで解決する
+            // group(VoicePatchType)のみで解決する
             uint32_t chipDeviceType = 0;
             if (e.contains("chip")) {
                 std::string chipStr = e["chip"].get<std::string>();
@@ -2079,7 +2047,7 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
 }
 
 // ================================================================
-//  SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設)
+//  SF2直行パス (docs/design/sf2-direct-path.md参照)
 // ================================================================
 
 void FITOMConfig::loadSf2Banks(const nlohmann::json& banks, const std::filesystem::path& baseDir)

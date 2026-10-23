@@ -1,5 +1,5 @@
 // fitom/HWPort.cpp
-// hw::HWControllerBase → IPort アダプター実装（IHWPlugin DLL 経由）
+// HW I/F バックエンド DLL (IHWPlugin) → IPort アダプター実装
 
 #include "fitom/HWPort.h"
 #include "fitom/Log.h"
@@ -36,7 +36,7 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
     // 呼び出し側は必ずnullptrチェックすること)。
     self->GetLatencySamples = l.symOptional<PFN_GetLatencySamples>("HWPlugin_GetLatencySamples");
     self->SetDelaySamples   = l.symOptional<PFN_SetDelaySamples  >("HWPlugin_SetDelaySamples");
-    // HWPlugin_Shutdown (2026年7月新設): 未エクスポートのプラグインとの
+    // HWPlugin_Shutdown: 未エクスポートのプラグインとの
     // 後方互換のためoptional。詳細はIHWPlugin.hの宣言コメント参照。
     self->Shutdown_          = l.symOptional<PFN_Shutdown        >("HWPlugin_Shutdown");
     // 部位ごとのゲインは4関数で1組。組の有無は先頭(GetPartCount)だけで

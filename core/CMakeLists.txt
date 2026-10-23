@@ -1,9 +1,8 @@
 # core/CMakeLists.txt
 
-# RtAudio は fitom_core から削除済み。
-# FmEngineの直接制御 (FmEnginePort/FmEngineRegistry) も廃止済み。
-# HWPort (IHWPlugin) 経由に一元化した。実機/エミュレータ問わず、
-# 音声出力は HWプラグイン (FitomEmuIF等) が内部で管理する。
+# チップへのアクセスは HWPort (IHWPlugin) 経由に一元化している。
+# 実機/エミュレータ問わず、音声出力は HWプラグイン (FitomEmuIF等) が
+# 内部で管理するため、fitom_core はオーディオ出力ライブラリに依存しない。
 
 # ─── ソースファイル ────────────────────────────────────────────────────────────
 set(FITOM_CORE_SOURCES

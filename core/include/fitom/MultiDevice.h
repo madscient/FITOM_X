@@ -8,8 +8,6 @@
 //
 // 個別チップドライバ (OPN2_new.cpp, OPL_new.cpp 等) が CSpanDevice を
 // 継承してサブチップを束ねられるよう、実装をヘッダーに公開する。
-// (旧実装は MultiDev_new.cpp 内の .cpp ローカルクラスとしてのみ存在しており、
-//  他の翻訳単位から継承できない状態だった)
 
 #pragma once
 
@@ -69,12 +67,9 @@ public:
     // ADPCM系PCMバンク) は、ISoundDevice基底のデフォルトがno-opのため、
     // CMultiDeviceが未オーバーライドのままだと同種デバイス自動束ね
     // (CSpanDevice、VoicePatchType基準)やCUnison経由の構成で、実際の
-    // 発音を担うサブチップ側に一切伝播しない(2026年7月、ADPCM-Aが
-    // 2チップにspanされた構成で「キーオンは動くが波形アドレスが常に0の
-    // まま」という不具合の根本原因として発覚。setPcmRegistry()/
-    // initPcmData()がCSpanDevice自身のno-opデフォルトで止まっており、
-    // 束ねられた実チップ(CAdPcm2610A等)のvoices_テーブルが一度も
-    // 登録されていなかった)。全サブチップへブロードキャストする。
+    // 発音を担うサブチップ側に一切伝播しない(ADPCM系なら、束ねられた
+    // 実チップ(CAdPcm2610A等)のvoices_テーブルが登録されず、キーオンは
+    // 動くが波形アドレスが常に0のままになる)。全サブチップへブロードキャストする。
     void setWaveRegistry(const SccWaveRegistry* reg) override {
         for (auto* c : chips_) c->setWaveRegistry(reg);
     }
@@ -87,10 +82,7 @@ public:
     // (PcmBankRegistry::findBankNoForDeviceType()、PcmBank::deviceTypeの
     // コメント参照)、見つかった場合はbankNoではなくそちらを使う。見つから
     // ない場合のみ、代表デバイス基準で解決済みのbankNoにフォールバックする
-    // (単一チップ種のみが束ねられている旧来の構成との後方互換)。
-    // 2026-07-24、OPNA+OPNB+OPNBBのADPCM-Bが束ねられた構成で、OPNB/OPNBB
-    // 側のサブチップにもbankNo(代表=OPNAのバンク)がそのまま伝播しており、
-    // OPNB/OPNBB用の正しいバンクが一切反映されないバグとして発覚。
+    // (単一チップ種のみが束ねられている構成ではこちらになる)。
     void setPcmRegistry(const PcmBankRegistry* reg, int bankNo = 0) override {
         for (auto* c : chips_) {
             int chipBankNo = bankNo;
@@ -203,13 +195,11 @@ public:
     // 単体 CSoundDevice::allocCh (findBestCh) と同じ設計思想:
     // patch は一切 nullptr にせず (デバイス制約情報を最後まで保持する)、
     // mode だけを 1(奪取なし)→0(奪取あり) の順に緩和して再試行する。
-    // (旧実装は owner/patch を順に nullptr化する3段階リトライだったが、
-    //  3回ともmode=1のままで強制奪取が機能せず、かつ最終段でpatch=nullptr
-    //  になることでデバイス制約(例: ノイズ→ch7固定)を最も必要な場面
-    //  (強制奪取判断時)で失うという重大な欠陥があった)
+    // (patch を nullptr にして再試行すると、デバイス制約(例: ノイズ→ch7固定)を
+    //  最も必要な場面(強制奪取判断時)で失う)
     //
-    // チップの試行順序は毎回 nextChipIdx_ から始まるようローテーションする
-    // (2026年8月、ユーザー指摘で追加)。GM準拠のリズムパートはほとんどの
+    // チップの試行順序は毎回 nextChipIdx_ から始まるようローテーションする。
+    // GM準拠のリズムパートはほとんどの
     // ドラムノートにゲートタイムの概念が無く(シーケンサーが送るノートオンの
     // ゲートタイムは規格上ごく短い)、ノートオフ受信後も実際の発音は
     // すぐには止まらない(クラッシュシンバル等の長い減衰)。そのため
@@ -240,11 +230,9 @@ public:
             }
         }
         // CSoundDevice::allocCh()(単体チップ用)は失敗時にWARNログを出すが、
-        // こちらは全サブチップのqueryCh()を直接呼ぶ別経路のため、従来
-        // 同種のログが一切無かった(2026年7月、束ね構成での「後半チップに
-        // ボイスが割り当てられない」調査時、失敗しているのか・そもそも
-        // このパスを通っていないのか切り分けができず判明)。診断のため
-        // 同じ形式のWARNログを追加する。
+        // こちらは全サブチップのqueryCh()を直接呼ぶ別経路のため、ここでも
+        // 同じ形式のWARNログを出す(束ね構成で割り当てに失敗しているのか、
+        // このパスを通っていないのかを切り分けられるように)。
         FITOM_LOG_WARN("CSpanDevice::allocCh: no channel available across "
             << chips_.size() << " spanned chip(s)");
         return 0xFF;
@@ -305,10 +293,8 @@ public:
     // HW LFO: OPM/OPZ等がスパン(複数物理チップを1つのデバイスとして
     // 束ねる構成)されている場合、Depth/Rateは物理チップごとに独立した
     // リソースのため、そのチャンネルが実際に発音している物理チップへ
-    // 正しく転送する必要がある(2026年7月追加。以前はCMultiDevice/
-    // CSpanDeviceがこれらのメソッドを一切オーバーライドしておらず、
-    // ISoundDevice基底のno-opにフォールバックしていたため、スパン構成
-    // ではHW LFOが常に無効化されたままだった)。
+    // 正しく転送する必要がある(オーバーライドしないとISoundDevice基底の
+    // no-opに落ち、スパン構成ではHW LFOが常に無効になる)。
     void enablePM(uint8_t ch, bool on) override                        SPAN_DELEGATE(enablePM, on)
     void enableAM(uint8_t ch, bool on) override                        SPAN_DELEGATE(enableAM, on)
     void setLFODepth(uint8_t ch, uint8_t dep) override                 SPAN_DELEGATE(setLFODepth, dep)
@@ -373,10 +359,8 @@ public:
     // 反映したch番号、または制約を満たせない場合は0xFF) をそのまま採用する。
     // CUnison は同一デバイス種別のチップのみを束ねる前提のため、
     // 代表チップの制約判定は他の全チップにもそのまま当てはまる。
-    // (修正前は各チップのqueryCh戻り値を完全に無視し、gch=0から単純な
-    //  空きチェックのみで判定していたため、OPMノイズ(ch7固定)等の
-    //  デバイス制約付き音色がCUnison経由で正しくch7に割り当てられない
-    //  重大なバグがあった)
+    // (queryCh戻り値を無視して空きチェックだけで判定すると、OPMノイズ
+    //  (ch7固定)等のデバイス制約付き音色が正しく割り当てられない)
     uint8_t queryCh(IMidiCh* o, const HwPatch* p, int mode) override {
         if (chips_.empty()) return 0xFF;
         uint8_t gch = chips_[0]->queryCh(o, p, mode);
@@ -386,14 +370,9 @@ public:
         //   mode=1 (奪取なし) → Empty または Releasing (findBestCh の score 2-4)
         //   mode=0 (奪取あり) → Running も可 (score 1)。Disabled でなければよい
         //
-        // 2026年8月修正: 以前は mode に関わらず全チップに isEmpty() を要求して
-        // いたため、代表チップが mode=1 で Releasing のchを返した場合も、
-        // mode=0 で奪取対象の Running のchを返した場合も必ず 0xFF になり、
-        // 「全チップで完全に Empty」のときしか発音できなかった。減衰中/発音中の
-        // chが残る通常の演奏ではほぼ常に割り当てに失敗し、allocCh() の
-        // 「no channel available」警告が大量に出てノートが落ちていた
-        // (旧FITOM CUnison::QueryCh は chips[0] の結果をそのまま返しており、
-        //  この事後チェック自体が新実装で追加されたもの)。
+        // mode に関わらず全チップに isEmpty() を要求すると、代表チップが
+        // Releasing / Running のchを返した場合に必ず 0xFF になり、減衰中/
+        // 発音中のchが残る通常の演奏ではほぼ常に割り当てに失敗する。
         for (auto* c : chips_) {
             const auto* st = c->getChState(gch);
             if (!st || !st->isEnabled()) return 0xFF;
@@ -404,10 +383,10 @@ public:
 
     // 単体 CSoundDevice::allocCh と同じ設計思想:
     // patch は一切 nullptr にせず、mode だけを 1(奪取なし)→0(奪取あり)
-    // の順に緩和して再試行する。queryCh (代表チップ方式、修正済み) が
+    // の順に緩和して再試行する。queryCh (代表チップ方式) が
     // デバイス制約を正しく反映するため、その戻り値をそのまま使う。
-    // 旧実装の「見つからなければ強制的にグループ0」というフォールバックは、
-    // mode=0 (強制奪取許可) まで正しく試行すればほぼ起こり得ないため削除した。
+    // 「見つからなければ強制的にグループ0」というフォールバックは持たない
+    // (mode=0 (強制奪取許可) まで試行すればほぼ起こり得ないため)。
     uint8_t allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
                      const SwPatch* swPatch = nullptr,
                      const SampleZonePatch* samplePatch = nullptr) override {
@@ -418,8 +397,7 @@ public:
                 return gch;
             }
         }
-        // CSpanDevice::allocCh()と同じ理由(単体CSoundDevice::allocCh()と
-        // 違い、失敗時のログが従来無かった)で診断用に追加。
+        // CSpanDevice::allocCh()と同じ理由で、診断用のWARNログを出す。
         FITOM_LOG_WARN("CUnison::allocCh: no channel available");
         return 0xFF;
     }
@@ -451,8 +429,7 @@ public:
     // 同一チップ2台) では、左右で音程がずれると定位ではなくビート(うなり)に
     // なってしまい、かつ直前の setNoteFine() が書いた音色側のfine tune
     // (sw.fine_tune・マスターピッチ等) を上書きで失うため、デチューンを
-    // 行ってはならない (2026年8月修正。それ以前は無条件に ±kDefaultDetuneStep
-    // を fineFreq へ代入していた)。
+    // 行ってはならない。
     void noteOn(uint8_t gch, uint8_t vel) override {
         int n = static_cast<int>(chips_.size());
         for (int i = 0; i < n; ++i) {
@@ -509,7 +486,7 @@ public:
     void setPanpot(uint8_t ch, int8_t p, bool u) override              UNISON_BROADCAST(setPanpot, p, u)
     void setSustain(uint8_t ch, bool s, bool u) override               UNISON_BROADCAST(setSustain, s, u)
     // HW LFO: ユニゾン構成は全チップが同じchで同時発音するため、
-    // 単純に全チップへ同じ値をブロードキャストする(2026年7月追加、
+    // 単純に全チップへ同じ値をブロードキャストする(オーバーライドが要る
     // 理由はCSpanDevice側の同種コメント参照)。
     void enablePM(uint8_t ch, bool on) override                        UNISON_BROADCAST(enablePM, on)
     void enableAM(uint8_t ch, bool on) override                        UNISON_BROADCAST(enableAM, on)
@@ -554,14 +531,14 @@ protected:
 //  本クラス自身が「本来の (計算前の) 音量・パン値」を保持する。
 // ================================================================
 //
-//  chipLevelPan (プロファイルの stereo_pair:"L"/"R"、2026年8月新設):
+//  chipLevelPan (プロファイルの stereo_pair:"L"/"R"):
 //  true にすると、束ねた2チップ自身の ChState::panpot を左右端へ固定し、
 //  チップのL/R出力ビット(OPM: 0x20 bit7/6、OPL3: 0xC0 bit5/4、
 //  OPN2/OPNA: 0xB4 bit7/6 等)でL/Rを分離する。この場合プラグイン側の
 //  出力ルーティング(pan)は 0(Stereo) のままでよく、同一物理チップ上の
 //  他のサブデバイス(OPL4のAWM部等)が自前のハードウェアパンポットを
 //  フルに使えるようになる。false(既定)ならサブチップのパンポットには
-//  一切触れず、L/R分離はプラグイン側の pan:1/2 に委ねる(従来方式)。
+//  一切触れず、L/R分離はプラグイン側の pan:1/2 に委ねる。
 // ================================================================
 class CLinearPanDevice : public CUnison {
 public:
@@ -571,12 +548,9 @@ public:
         // detuneStep=0: L/Rは同じ音を同じ音程で鳴らす (CUnison::noteOn参照)
         : CUnison(leftChip, rightChip, 0)
         , chipLevelPan_(chipLevelPan)
-        // getChCount()(=chips_の最小ch数)分だけ確保する。以前は
-        // CSoundDevice::MAX_CHSとは無関係に独自定義した固定長16の
-        // 配列だったため、16chを超えるチップ(OPL4 AWM = 24ch)が将来
-        // CLinearPanDeviceで束ねられた場合、chState_と同種の範囲外
-        // アクセスが再発しうる作りだった(2026年7月、chState_のvector化
-        // に合わせて同じ問題を修正)。
+        // getChCount()(=chips_の最小ch数)分だけ確保する(固定長にすると、
+        // 16chを超えるチップ(OPL4 AWM = 24ch)を束ねた場合に範囲外アクセス
+        // になりうる)。
         , masterVolume_(getChCount(), uint8_t{127})
         , masterPan_(getChCount(), int8_t{0})
     {

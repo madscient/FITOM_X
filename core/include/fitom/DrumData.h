@@ -8,7 +8,8 @@
 //     - 128 エントリの DrumNote 配列
 //     - 各 DrumNote が「どの Patch で・どのノートを鳴らすか」を保持
 //     - Patch は CInstCh と完全に共通 → ToneLayer のマルチレイヤーが有効
-//     - SwPatch も Patch が持つものをそのまま使う
+//     - SwPatch は HwPatch 自身の参照を使い、DrumNote の swBank/swProg で
+//       上書きできる
 //
 //   CRhythmCh::noteOn(midiNote, vel):
 //     1. DrumNote を引く → patchBank/patchProg で Patch を解決
@@ -45,7 +46,7 @@ struct DrumNote {
     //     同じ意味に読み替わる(patchBankはそのVoicePatchType用HwBankの
     //     インデックス、patchProgはそのバンク内のHwProg。
     //     PatchManager::resolveDirect(voicePatchType, patchBank,
-    //     patchProg, config, storage)を使う。単層Patch、SwPatch無し)。
+    //     patchProg, config, storage)を使う。単層Patch)。
     uint8_t voicePatchType = VOICE_PATCH_NONE; // 省略時0=通常モード(後方互換)
     uint8_t patchBank = 0;   // 通常モード:PatchBank番号 / 直接モード:HwBankインデックス
     uint8_t patchProg = 0;   // 通常モード:Progプログラム番号 / 直接モード:HwProg
@@ -53,12 +54,10 @@ struct DrumNote {
     // ─── 発音ノート ────────────────────────────────────────────────
     // Patch の ToneLayer.transpose は使わず、ここで絶対指定する
     uint8_t  playNote  = 60;  // 実際に発音する MIDI ノート番号
-    // ファインチューニング。ISoundDevice::setNoteFine()にそのまま渡す
-    // ため、centsではなくkfs単位(1半音=64ステップ、docs/design/terminology.md
-    // の「kfs」参照)。従来「[cents]」と誤記していたが、単位変換を一切
-    // 行わずsetNoteFine()へ渡している実装(MidiCh.cpp)に合わせて訂正
-    // (2026年7月、fromLegacyDrumMap()の旧DRUMMAP::fnum(kfs単位)からの
-    // 単純代入も参照)。値そのもの・フィールド名は変更なし。
+    // ファインチューニング。ISoundDevice::setNoteFine()に単位変換せず
+    // そのまま渡す(MidiCh.cpp)ため、centsではなくkfs単位(1半音=64ステップ、
+    // docs/design/terminology.mdの「単位: kfs (KF Step)」参照)。
+    // fromLegacyDrumMap()も旧DRUMMAP::fnum(kfs単位)を単純代入する。
     int16_t  fineTune  = 0;   // ファインチューニング [kfs]
 
     // ─── パフォーマンスパッチ(SwPatch)参照の上書き ─────────────────
@@ -89,12 +88,11 @@ struct DrumPatch {
     char     name[32] = {};
 
     // 読み込み元の*.drumkit.jsonファイルパス(PatchManager::loadDrumKitJson()
-    // が設定する)。D-040(FITOM_patch_editor側)のkiosk kind="drum"は
-    // 「1ファイル=1キット」の粒度のため、DrumPatchBank::filename(バンク
-    // 単位、複数progが同じバンクを共有し最後に読んだファイルで上書き
-    // されてしまう)ではなくprog単位の本フィールドを参照する必要がある
-    // (2026年7月、FITOMBridge::resolveChannelHwPatch()のリズムチャンネル
-    // 対応で追加)。
+    // が設定する)。パッチエディタはドラムキットを「1ファイル=1キット」の
+    // 粒度で扱うため、DrumPatchBank::filename(バンク単位、複数progが
+    // 同じバンクを共有し最後に読んだファイルで上書きされる)ではなく
+    // prog単位の本フィールドを参照する必要がある
+    // (FITOMBridge::resolveChannelHwPatch()のリズムチャンネル参照)。
     std::string filename;
 
     std::array<DrumNote, 128> notes;
@@ -204,8 +202,8 @@ inline DrumNote fromLegacyDrumMap(const DRUMMAP& src,
     d.patchProg = patchProg;
     d.playNote  = src.num;
     d.fineTune  = static_cast<int16_t>(src.fnum);
-    // 旧DRUMMAP::chは物理チャンネル固定値だったが、fixed_ch廃止に伴い
-    // 変換先が無い。ハイハット等のチョークが必要な場合は、変換後に
+    // 旧DRUMMAP::ch(物理チャンネル固定値)には対応するフィールドが
+    // 無い。ハイハット等のチョークが必要な場合は、変換後に
     // DrumPatch::chokeGroupsで明示的に再設定すること。
     d.pan       = src.pan;
     d.gateTime  = src.gate;
