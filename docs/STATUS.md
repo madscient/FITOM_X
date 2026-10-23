@@ -214,6 +214,7 @@
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
 - VoicePatchType 完全一致以外へのフォールバック(旧FITOMの互換リスト相当)。OPLL系はROMプリセットがOPLLEXへ落ちるものだけがあり、標準OPLL系どうしの相互フォールバックは無い
 - OPM/OPZ ハードウェアLFO: 設計検討完了・実装未着手。`docs/proposals/opm-opz-hw-lfo.md`
+- OPM/OPZ の既存の不具合2つ(`docs/proposals/opm-opz-hw-lfo.md`「着手前に修正が必要な既存の不具合」)。(1) `COPM::reset()`がLFOのレジスタ`$18`/`$19`をクリアしないのに`lfoDepth_`/`lfoRate_`のキャッシュは0に戻すので、リセット後にCC#14/#15で0を送っても同じ値として書き込みが省かれ、チップに古い値が残る。(2) `enablePM`/`enableAM`が`$38+ch`をシャドウ1バイトで読み書きするため、OPZの第2LFOのセレクタ(b7/b2)を扱えない。いずれもコードを読んで確かめた。音での影響は未検証
 - SCCの波形バンク番号が常に0: `CSCC::setWaveBankNo()`がどこからも呼ばれておらず、複数の`sccwave`バンクを音色データ側から使い分ける経路が無い。バンク0だけなら動作する
 - AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`docs/design/patch-resolution.md`)
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ

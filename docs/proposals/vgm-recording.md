@@ -1,8 +1,8 @@
 # VGMレコーディング機能 技術検討
 
-**ステータス**: 設計検討完了、**実装は未着手**(2026年7月)。方針の骨子は確定した: レジスタ書き込みは`HWPort::write()`/`writeBurst()`(既存のシャドウレジスタ更新と同じチョークポイント)にフックして記録する/ タイミングは壁時計ベースでVGMのwaitサンプルへ変換する(FITOM_Xがサンプル精度の内部クロックを持たないため)/ ヘッダは既存の`CFITOM::PhysicalChipInfo`列挙(レジスタダンプモニター用に2026年7月新設)を流用して構築する/ 波形バイナリを使うチップ(ADPCM-A/B、AWM、PCMD8)は`PcmBankRegistry`が持つ実ファイルパスをVGMのROMイメージ型data block(0x67)として埋め込み、他プレイヤーでも再生可能にする/ VGM仕様に対応チップIDが存在しないチップ(OPZ/OPP/VRC7/SID等)が構成に含まれる場合は、記録開始そのものをGUI側で拒否する(部分的な記録は行わない)。
+**対象読者**: FITOM_X本体の開発者・AI  
+**状態**: 設計検討のみで、実装は未着手。検討の前提としたコードは2026年7月時点のもの。着手する前に「現状のアーキテクチャ確認」節がコードと合っているかを確かめること。方針の骨子: レジスタ書き込みは`HWPort::write()`/`writeBurst()`(既存のシャドウレジスタ更新と同じチョークポイント)にフックして記録する/ タイミングは壁時計ベースでVGMのwaitサンプルへ変換する(FITOM_Xがサンプル精度の内部クロックを持たないため)/ ヘッダは既存の`CFITOM::PhysicalChipInfo`列挙(レジスタダンプモニター用)を流用して構築する/ 波形バイナリを使うチップ(ADPCM-A/B、AWM、PCMD8)は`PcmBankRegistry`が持つ実ファイルパスをVGMのROMイメージ型data block(0x67)として埋め込み、他プレイヤーでも再生可能にする/ VGM仕様に対応チップIDが存在しないチップ(OPZ/OPP/VRC7/SID等)が構成に含まれる場合は、記録開始そのものをGUI側で拒否する(部分的な記録は行わない)。
 
-**検討日**: 2026年7月
 **検討の目的**: FITOM_Xが実際にMIDI演奏をチップへ流している最中のレジスタ書き込みを、そのままVGM(Video Game Music)形式のファイルとして記録できるかどうかを検証する。GUIから任意のタイミングで開始・停止でき、出力ファイル名は開始時に指定する、というユースケースを想定する。
 
 ---
@@ -25,15 +25,15 @@ FITOM_XはMIDIメッセージを解釈し、`ISoundDevice`経由でチップの�
 
 ### b. 全レジスタ書き込みの唯一のチョークポイント
 
-`HWPort::write()`/`writeBurst()`([HWPort.h:137,139](../../core/include/fitom/HWPort.h#L137))は、実機・エミュレータを問わず`IHWPlugin`契約を通る**すべての**レジスタ書き込みが最終的に通る場所であり、既にレジスタダンプモニター用の`shadowRegs_`([HWPort.h:181](../../core/include/fitom/HWPort.h#L181))をここでミラーしている。VGM記録もこれと全く同じ場所にフックできる。
+`HWPort::write()`/`writeBurst()`は、実機・エミュレータを問わず`IHWPlugin`契約を通る**すべての**レジスタ書き込みが最終的に通る場所であり、既にレジスタダンプモニター用の`shadowRegs_`をここでミラーしている。VGM記録もこれと全く同じ場所にフックできる。
 
 ### c. 物理チップ単位の列挙が既に存在する
 
-レジスタダンプモニター向けに2026年7月新設された`CFITOM::PhysicalChipInfo`([CFITOM.h:153-178](../../core/include/fitom/CFITOM.h#L153))・`buildPhysicalChipList()`([CFITOM.cpp:591](../../core/src/CFITOM.cpp#L591))が、サブデバイス自動生成(OPNA→FM+SSG+ADPCM-B等)・同種デバイス自動束ね(spanGroups)・2ポートチップ(port/port2)を全て解決した上で、「物理チップ1個」単位に`deviceType`・`port`/`port2`・クロック(`port->getClock()`)を列挙してくれる。これはVGMヘッダが要求する情報(チップ種別・クロック)そのものであり、そのまま流用できる。
+レジスタダンプモニター向けの`CFITOM::PhysicalChipInfo`・`buildPhysicalChipList()`が、サブデバイス自動生成(OPNA→FM+SSG+ADPCM-B等)・同種デバイス自動束ね(spanGroups)・2ポートチップ(port/port2)を全て解決した上で、「物理チップ1個」単位に`deviceType`・`port`/`port2`・クロック(`port->getClock()`)を列挙してくれる。これはVGMヘッダが要求する情報(チップ種別・クロック)そのものであり、そのまま流用できる。
 
 ### d. 波形バイナリの実ファイルパスも既に引ける
 
-`PcmBankRegistry`が保持する`PcmBank::binPath`([PcmBankData.h:97](../../core/include/fitom/PcmBankData.h#L97))・`PcmBank::deviceType`([PcmBankData.h:128](../../core/include/fitom/PcmBankData.h#L128))により、ADPCM-A/ADPCM-B/PCMD8等の波形バイナリファイルへのパスをdeviceType単位で解決できる。FITOM_X本体はこのバイナリをチップへ転送しない設計(波形データの配置はhwif側の責務、STATUS.md参照)だが、**VGMファイルへ埋め込む目的でなら、FITOM_X自身がこのファイルを直接読み込んで良い**(hwif側の責務とは別の話)。
+`PcmBankRegistry`が保持する`PcmBank::binPath`・`PcmBank::deviceType`により、ADPCM-A/ADPCM-B/PCMD8等の波形バイナリファイルへのパスをdeviceType単位で解決できる。FITOM_X本体はこのバイナリをチップへ転送しない設計(波形データの配置はhwif側の責務)だが、**VGMファイルへ埋め込む目的でなら、FITOM_X自身がこのファイルを直接読み込んで良い**(hwif側の責務とは別の話)。
 
 ---
 
@@ -72,10 +72,12 @@ VGM仕様(v1.71)が直接サポートするチップは固定リストであり�
 - `DEVICE_VRC7`(FS1001)
 - `DEVICE_EPSG`(AY8930)/`DEVICE_SSGS`(YMZ705)/`DEVICE_SSGS2`(YMZ732)/`DEVICE_SSGS3`(YMZ771)/`DEVICE_SSGS_ADPCM`/`DEVICE_SSGL`/`DEVICE_SSGLP`
 - `DEVICE_SID`(MOS6581/8580)
+- `DEVICE_DSG`(YM2163)/`DEVICE_OPL4ML`(YMF704)/`DEVICE_OPL4ML2`(YMF721)/`DEVICE_NBV`
 - Y8960の拡張ブロック `DEVICE_OPLLEX`/`DEVICE_OPLLEX_RHY`/`DEVICE_OPL2EX`/`DEVICE_OPL2EX_RHY`/`DEVICE_ADPCMB_OPL2EX`/`DEVICE_SSGEX`/`DEVICE_SCCEX`(互換元のチップIDで書くと、拡張レジスタ[BANK・定位]が失われる)
 - `DEVICE_OPQ`/`DEVICE_OPK`/`DEVICE_OPK2`/`DEVICE_RYP4`/`DEVICE_RYP6`/`DEVICE_FMS`/`DEVICE_5232`
 - `DEVICE_MA1`/`MA2`/`MA3`/`MA5`/`MA7`/`DEVICE_SD1`
 - `DEVICE_OPN2C`/`DEVICE_OPN2L`/`DEVICE_OPN3`/`DEVICE_OPN3L`/`DEVICE_OPNC`/`DEVICE_F286`(OPNA/OPN2の実装差分クローンで、VGM側は無印のYM2608/YM2612として書けば互換動作する可能性はあるが未検証)
+- `DEVICE_OPLL2`(YM2420)/`DEVICE_OPLLP`(YMF281)/`DEVICE_OPLLX`(YM2423)/`DEVICE_SSGD`(YMF288/YMF294のSSG部)(同様に、YM2413/AY8910として書けば互換動作する可能性はあるが未検証)
 
 この非対称性は本質的にVGM仕様側の制約であり、FITOM_X側の実装でどうにかできるものではない。**ユーザー確認済みの方針**: 記録対象の物理チップ一覧に1つでも非対応deviceTypeが含まれる場合、記録開始そのものをGUI側で拒否する(該当チップだけ無視して部分的に記録する、という選択肢は「後で気づきにくい欠落したVGM」を生みやすいため採らない)。
 
@@ -94,7 +96,7 @@ void stopVgmRecording();
 bool isVgmRecording() const;
 ```
 
-`startVgmRecording()`はコア層(後述の`VgmRecorder`)へ委譲し、`CFITOM::getPhysicalChipInfo()`を全走査して4節⑤のマッピング表と照合、非対応deviceTypeが1つでもあれば失敗として返す。GUI側は失敗時にモーダルでエラー表示する(外部パッチエディタ起動失敗時のエラーダイアログと同じパターン)。
+`startVgmRecording()`はコア層(後述の`VgmRecorder`)へ委譲し、`CFITOM::getPhysicalChipInfo()`を全走査して3節bの対応表と照合、非対応deviceTypeが1つでもあれば失敗として返す。GUI側は失敗時にモーダルでエラー表示する(外部パッチエディタ起動失敗時のエラーダイアログと同じパターン)。
 
 ### ② `VgmRecorder`の新設・所有・フック位置
 
@@ -117,7 +119,7 @@ if (auto* rec = CFITOM::instance().getVgmRecorder(); rec && rec->isActive())
 
 `VgmRecorder`内部に、3節bの対応表を実装したテーブル(`CFITOM.cpp`の`kDevMap`と同じ「静的テーブル+線形探索」のパターンを踏襲。VGM固有の知識のため`CFITOM.cpp`本体ではなく`VgmRecorder`側に置く)を持つ。各エントリは deviceType・VGMチップID・ヘッダ上のクロックフィールドオフセット・データコマンドのオペコード(port0/port1が別れているチップはその両方)を持つ。
 
-`PhysicalChipInfo::port`/`port2`([CFITOM.h:161-162](../../core/include/fitom/CFITOM.h#L161))は、VGM側のport0/port1コマンド(例: YM2608なら`0x56`/`0x57`)にそのまま対応する。既存の2ポート設計(`SplitPort`/`OffsetPort`)とVGM仕様の2ポート表現が構造的に一致しているのは好都合な点である。
+`PhysicalChipInfo::port`/`port2`は、VGM側のport0/port1コマンド(例: YM2608なら`0x56`/`0x57`)にそのまま対応する。既存の2ポート設計(`SplitPort`/`OffsetPort`)とVGM仕様の2ポート表現が構造的に一致しているのは好都合な点である。
 
 同一チップ種別の物理チップが複数存在する場合(例: OPNAを2枚使う構成)、`getPhysicalChipInfo()`の列挙順で2台目以降を「dual chip」としてクロックフィールドの最上位ビット(0x40000000)を立てる。
 
@@ -131,7 +133,7 @@ if (auto* rec = CFITOM::instance().getVgmRecorder(); rec && rec->isActive())
 
 ADPCM-A/ADPCM-B/AWM/PCMD8等、波形バイナリを使うチップについては、VGM仕様のROMイメージ型data block(`0x67 0x66 tt <size:4> <ROMサイズ:4> <開始アドレス:4> <データ...>`、`tt`はチップ別のブロック種別、例: YM2608 delta-t=0x82、YM2610 ADPCM-A/delta-t=0x83/0x84、YMF278B=0x87、YMZ280B=0x89)を使う。
 
-`PcmBankRegistry::PcmBank::binPath`/`deviceType`(2.d節)から該当チップの実ファイルを1回読み込み、開始アドレス=0でそのまま埋め込む。FITOM_X自身が既にこの`.bin`を「Start/Endレジスタへ書くバイトオフセット」として扱う設計(`registerVoice()`、STATUS.md 2026年7月の修正群参照)になっているため、**記録済みのStart/Endレジスタ書き込みが、埋め込んだdata blockに対してそのまま正しいオフセットとして機能する**(既存の設計と自然に整合する)。
+`PcmBankRegistry::PcmBank::binPath`/`deviceType`(2.d節)から該当チップの実ファイルを1回読み込み、開始アドレス=0でそのまま埋め込む。FITOM_X自身が既にこの`.bin`を「Start/Endレジスタへ書くバイトオフセット」として扱う設計(`registerVoice()`)になっているため、**記録済みのStart/Endレジスタ書き込みが、埋め込んだdata blockに対してそのまま正しいオフセットとして機能する**(既存の設計と自然に整合する)。
 
 複数の物理チップが同じ`.bin`を共有する構成(spanGroups等)では、同じ内容を重複して埋め込まず1回にまとめる(`Sf2BankRegistry`のファイル重複除去と同じ考え方)。
 
@@ -141,14 +143,15 @@ ADPCM-A/ADPCM-B/AWM/PCMD8等、波形バイナリを使うチップについて�
 
 ### ⑧ スレッド安全性
 
-`HWPort::write()`は複数のMIDI処理スレッド(MPU毎、内部MIDIパイプ等)から並行して呼ばれうるため、`VgmRecorder`は`shadowMutex_`と同じパターンで専用のmutexを持ち、書き込みバッファ(および直近書き込み時刻)への追記を保護する。
+`HWPort::write()`は複数のスレッド(MIDI入力・タイマー・GUI操作)から呼ばれる。現在はこれらが`CFITOM`の1つのロックで直列化されているが、`HWPort`はそれを前提にしない設計なので、`VgmRecorder`は`shadowMutex_`と同じパターンで専用のmutexを持ち、書き込みバッファ(および直近書き込み時刻)への追記を保護する。
 
 ---
 
 ## 5. 残る検討事項(実装時に詰める必要がある点)
 
 - コマンドオペコード・data blockタイプの正確な値の最終確認(特にSCC/SAA1099/YMF278Bまわり、公式VGM仕様書 v1.71)。
-- クローン/派生チップ(`DEVICE_OPN2C`/`OPN2L`/`OPN3`系等)を、無印チップ(YM2612/YM2608等)として書けば実用上問題ないか、それとも安全側に倒して非対応扱いにするか。
+- AY8930(`DEVICE_EPSG`)を、VGMのAY8910のチップ種別の指定で表せるか(推測: 表せる可能性がある。VGM仕様書で確認していない)。
+- クローン/派生チップ(`DEVICE_OPN2C`/`OPN2L`/`OPN3`系、OPLL系の派生等)を、無印チップ(YM2612/YM2608等)として書けば実用上問題ないか、それとも安全側に倒して非対応扱いにするか。
 - 複数MPU/複数プロファイル同時記録の要否(本検討では「1回のレコーディングで、その時点で構成されている全物理チップの書き込みを1ファイルにまとめる」という前提で設計している)。
 - 出力ファイルの書き込み失敗(ディスク容量不足、パス不正等)時のGUI側エラーハンドリング。
 - `VgmRecorder`が保持する書き込みバッファのメモリ上限(長時間録音時、逐次ファイル書き込みにするかオンメモリで持ち切るか)。
