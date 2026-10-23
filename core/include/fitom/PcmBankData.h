@@ -79,7 +79,7 @@ struct PcmEntry {
     // パフォーマンスパッチ(SwPatch)参照。-1=参照なし。pcmbank.jsonの
     // トップレベル"swpatches"配列(entry_noで対応づけ)から読み込む。
     // 自動合成されるSampleZone::swBank/swProgへそのまま渡す
-    // (2026年7月新設、docs/patch-structure-design.md参照)。
+    // (2026年7月新設、docs/design/patch-resolution.md参照)。
     int8_t   swBank      = -1;
     int8_t   swProg      = -1;
 

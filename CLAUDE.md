@@ -86,23 +86,23 @@ GUI(Dear ImGui)をビルドする場合は`-DFITOM_GUI_IMGUI=ON`が必要です�
 | `docs/worklog/` | 変更・修正・調査の経緯(月ごとに1ファイル。約束事は`docs/worklog/README.md`) |
 | `docs/manuals/midi-message-reference.md` | エンドユーザー向けMIDIメッセージ仕様(CC/RPN/NRPN/SysEx全般) |
 | `docs/manuals/midi-implementation-chart.md` | 上記の対応状況一覧表 |
-| `docs/midi-implementation-status.md` | 開発者向けMIDI実装状況(内部実装詳細つき) |
+| `docs/design/midi-processing.md` | 開発者向けMIDI実装状況(内部実装詳細つき) |
 | `docs/manuals/hwpatch-reference.md` | HwPatch(音色合成パラメータ)リファレンス |
 | `spec/chip-capabilities.json` | 上記の機械可読版(チップ種別ごとの有効パラメータ・値域・実効解像度・排他条件)。パッチエディタ等の外部ツール向け |
 | `docs/manuals/swpatch-reference.md` | SwPatch(演奏特性パラメータ)リファレンス |
 | `docs/manuals/layered-patch-reference.md` | レイヤードパッチ(ToneLayer)リファレンス |
-| `docs/plugin-hwif.md` | HW I/Fプラグイン要件定義(実装リポジトリ: FitomEmuIF) |
-| `docs/plugin-midi.md` | MIDIバックエンドプラグイン要件定義 |
-| `docs/plugin-midi-pipe.md` | 内部用MIDIパイプ(名前付きパイプ)インターフェース仕様。**別プロジェクトのパッチエディタ向け**。このリポジトリ側はインターフェース(`backends/midi_pipe/`)とドキュメントの整備のみがスコープで、パッチエディタ本体は実装しない |
+| `docs/interfaces/plugin-hwif.md` | HW I/Fプラグイン要件定義(実装リポジトリ: FitomEmuIF) |
+| `docs/interfaces/plugin-midi.md` | MIDIバックエンドプラグイン要件定義 |
+| `docs/interfaces/plugin-midi-pipe.md` | 内部用MIDIパイプ(名前付きパイプ)インターフェース仕様。**別プロジェクトのパッチエディタ向け**。このリポジトリ側はインターフェース(`backends/midi_pipe/`)とドキュメントの整備のみがスコープで、パッチエディタ本体は実装しない |
 
 ## 別プロジェクトとの境界
 
 - **パッチエディタ**:別プロジェクトとして実装される。このリポジトリの
   スコープは`backends/midi_pipe/`(インターフェース)と
-  `docs/plugin-midi-pipe.md`(仕様書)の整備のみ
+  `docs/interfaces/plugin-midi-pipe.md`(仕様書)の整備のみ
 - **FitomEmuIF / YMEngine**:HW I/Fの実装は別リポジトリ。このリポジトリは
   `plugin_sdk/include/fitom/IHWPlugin.h`(契約)と
-  `docs/plugin-hwif.md`(要件定義)を整備する側
+  `docs/interfaces/plugin-hwif.md`(要件定義)を整備する側
 
 ## GUI(apps/fitom_gui)の現状
 

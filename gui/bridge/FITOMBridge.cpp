@@ -686,7 +686,7 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
         FITOMChannelMonitor mon;
         mon.ch = ch;
 
-        // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月新設):
+        // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月新設):
         // 窓に含まれる(mpu,ch)はMidiProcessor::processMessage()がCInstCh/
         // CRhythmChへのディスパッチ自体を行わないため、以下のmidich由来の
         // 解決(bankNo/progNo/deviceName等)はいずれも意味を持たない。
@@ -912,7 +912,7 @@ FITOMChannelSettings FITOMBridge::getChannelSettings(int mpuIndex, int ch) const
     return settings;
 }
 
-// ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年8月新設) ───
+// ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年8月新設) ───
 
 void FITOMBridge::setSf2ChannelWindow(int mpuIndex, int ch, int fluidsynthChanOr7F)
 {
@@ -1210,7 +1210,7 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
     // OPLL系ROM音色(バンク0固定、2026年7月追加修正)。バンク0はJSON定義
     // 不可の予約領域のため、通常のhwRegistry検索とは別に合成して先頭へ
     // 追加する(hwRegistry側にバンク0が誤って登録されていても、
-    // resolveTriple()側で常に無視される[docs/patch-structure-design.md
+    // resolveTriple()側で常に無視される[docs/design/patch-resolution.md
     // 参照]のと同じ優先順位に揃えるため、hwRegistry側のバンク0は
     // スキップする)。
     const bool hasOpllRom = (pm.getOpllRomPatches(voicePatchType) != nullptr);

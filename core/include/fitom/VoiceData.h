@@ -248,7 +248,7 @@ struct FmChipExt {
     // バンクの検索(常に0x40)とデバイス解決(パッチごとに異なる)の
     // 2段階に分離することで維持している。0=未設定
     // (profile.schema.jsonのpsg_fallback_chipで指定されたチップに
-    // フォールバックする)。詳細はdocs/patch-structure-design.md参照。
+    // フォールバックする)。詳細はdocs/design/patch-resolution.md参照。
     uint8_t targetVoicePatchType;
 
     // VOICE_PATCH_OPL_RHY(COPLRhythm)専用(2026年7月新設)。このHwPatchが

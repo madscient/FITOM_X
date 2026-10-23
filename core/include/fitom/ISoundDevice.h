@@ -56,7 +56,7 @@ struct ChState {
     VoiceProcessor proc;          // SW パラメータ処理エンジン
 
     uint8_t  lastNote  = 0xFF;
-    int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/terminology.md「kfs」参照)
+    int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/design/terminology.md「kfs」参照)
     uint16_t noteOnAge = 0;       // 古いチャンネルを奪う優先度
     // ノートオン(CSoundDevice::noteOn())が呼ばれるたびに単調増加する
     // シーケンス番号。sounding/velocityは現在値のスナップショットに過ぎず、
@@ -185,7 +185,7 @@ public:
     // hwPatchとは排他 (通常のFMオペレータ系チップはnullptrのまま呼ぶ)。
     // vel/swPatch: 2026年7月追加。VoiceProcessor::onNoteOn()をupdateVoice()
     // より前に呼べるようにするため(ドキュメント化された正しい設計、
-    // voice-data-design.mdのフェーズ6手順3参照。以前はonNoteOn()が
+    // docs/design/voice-processor.mdのフェーズ6手順3参照。以前はonNoteOn()が
     // noteOn()側に遅延しており、updateVoice()内のキャリア側ベロシティ
     // 補正値(velAR/velDR/velSL/velRR/velSR)が常に未計算のまま実機へ
     // 送信されるバグがあった)。pendingSwPatch機構はこれにより不要に
@@ -435,7 +435,7 @@ protected:
     // 既定false(呼ばない=既存動作維持)。effectiveTL()のみ(または
     // その一部)で音量を決める設計のチップのみtrueにオーバーライドする。
     // AWMは実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が
-    // 別途必要なため対象外(2026年7月、docs/patch-structure-design.md参照)。
+    // 別途必要なため対象外(2026年7月、docs/design/patch-resolution.md参照)。
     virtual bool usesVoiceProcessorForSamplePatch() const { return false; }
 
     // 上記がtrueの場合にonNoteOn()へ渡すvolume。既定はs.volume(実際の

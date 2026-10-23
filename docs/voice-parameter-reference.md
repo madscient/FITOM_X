@@ -5,8 +5,8 @@
 場合がある。本ドキュメントは、**チップを選んだときに実際に効くフィールドと
 その意味**を素早く参照するためのリファレンスである。
 
-設計の背景・経緯は`voice-data-design.md`、全チップの継承構造は
-`chip-driver-architecture.md`を参照。
+設計の背景・経緯は`docs/design/voice-processor.md`、全チップの継承構造は
+`docs/design/chip-drivers.md`を参照。
 
 ---
 
@@ -293,7 +293,7 @@ PSG系の周波数レジスタは F-number ではなく**周期**であり、音
 
 2026年7月〜、PSG系は全チップが共通の入口(`VOICE_PATCH_SSG`=0x40固定)/
 HwBank名前空間を共有する設計に変更されている。詳細は
-`docs/patch-structure-design.md`の「PSG系共有バンク」参照。
+`docs/design/patch-resolution.md`の「PSG系共有バンク」参照。
 
 ---
 
@@ -452,7 +452,7 @@ prog = 波形番号(0-4) * 4 + エンベロープ番号(0-3)
 `builtin: { "patch_type": "DSG", "patch_no": <prog 0-19> }`で紐づける
 (`PatchManager::resolveDsgBuiltinVoice()`が`findByBuiltinRef()`で探索する)。
 OPLL系と1つのファイルを共有でき、`patch_type`で区別される。
-詳細は`patch-structure-design.md`の「ROM/ビルトイン音色へのパフォーマンス
+詳細は`docs/design/patch-resolution.md`の「ROM/ビルトイン音色へのパフォーマンス
 パッチ紐づけ」を参照。
 
 `patch_no`は**0から**有効(prog 0 = `St.Percussive`が正規の音色)。
@@ -640,7 +640,7 @@ PCMメモリイメージ側にこのボイステーブルが含まれている�
 | `key_scaling` | **OPL4AWM専用**。波形ごとのノート追従率(%、100=通常追従、0=固定ピッチ)。既定100 |
 | `tone_attenuate` | **OPL4AWM専用**。波形ごとの追加減衰量(7bit、加算)。既定0 |
 | `volume_factor` | **OPL4AWM専用**。波形ごとの音量スケール(0-254、254=無補正)。既定254 |
-| `sw_bank`/`sw_prog` | パフォーマンスパッチ(SwPatch)参照(`HwPatch::swBank/swProg`と同じ規約、-1=参照なし、2026年7月新設)。DrumNote側の個別上書きが優先される。**対応範囲**: ADPCM-B/PCMD8=全機能、ADPCM-A=ベロシティ感度/トレモロのみ(ピッチ制御不可のため)、AWM=参照は解決されるが音には未反映(実機LFO/VIBレジスタとの整合設計が別途必要)。詳細は`patch-structure-design.md`の「サンプルベース音源系へのパフォーマンスパッチ紐づけ」節参照 |
+| `sw_bank`/`sw_prog` | パフォーマンスパッチ(SwPatch)参照(`HwPatch::swBank/swProg`と同じ規約、-1=参照なし、2026年7月新設)。DrumNote側の個別上書きが優先される。**対応範囲**: ADPCM-B/PCMD8=全機能、ADPCM-A=ベロシティ感度/トレモロのみ(ピッチ制御不可のため)、AWM=参照は解決されるが音には未反映(実機LFO/VIBレジスタとの整合設計が別途必要)。詳細は`docs/design/patch-resolution.md`の「サンプルベース音源系へのパフォーマンスパッチ紐づけ」節参照 |
 
 ノートオン時、`zones[]`を先頭から線形探索し、`key_min <= note <= key_max` かつ
 `vel_min <= velocity <= vel_max` を満たす最初のゾーンの`wave_index`を使う。
@@ -710,4 +710,4 @@ OPL4指定時は`resolveCompositeSpec`により`COPL3`(4OP)+`COPL3_2`(2OP)+`COPL
 
 ## VoicePatchType 対応表
 
-正確な一覧は`chip-driver-architecture.md`の「5. VoicePatchType 対応表」を参照。
+正確な一覧は`docs/design/chip-drivers.md`の「5. VoicePatchType 対応表」を参照。

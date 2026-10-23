@@ -10,7 +10,7 @@
 
 ## 2. パッチ側フィールド
 
-`FmHwVoice`が持つHW LFO関連は`AMS`(2bit)/`PMS`(3bit)と、オペレータ単位の`FmHwOp::AM`(1bit)のみ。`LFRQ`/`PMD`/`AMD`/波形に相当するフィールドは**意図的に持たない**(チップ内蔵LFOがチップ全体で1系統の共有リソースであり、マルチティンバー・ダイナミックボイスアサインと相性が悪いため。`voice-data-design.md`「旧`LFO`フィールドは廃止」の項参照)
+`FmHwVoice`が持つHW LFO関連は`AMS`(2bit)/`PMS`(3bit)と、オペレータ単位の`FmHwOp::AM`(1bit)のみ。`LFRQ`/`PMD`/`AMD`/波形に相当するフィールドは**意図的に持たない**(チップ内蔵LFOがチップ全体で1系統の共有リソースであり、マルチティンバー・ダイナミックボイスアサインと相性が悪いため。`docs/design/voice-processor.md`「旧`LFO`フィールドは廃止」の項参照)
 
 ## 3. OPZレジスタ仕様
 

@@ -34,7 +34,7 @@ public:
     static constexpr int kMasterClock = 3579545;
 
     // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
-    // 専用として無効化する(COPLLと同じ設計、docs/config-design.mdの
+    // 専用として無効化する(COPLLと同じ設計、docs/design/config-loading.mdの
     // rhythm_modeフィールド参照。2026年7月、OPL系リズムモード対応で追加)。
     COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2,
          bool rhythmMode = false)
@@ -910,7 +910,7 @@ protected:
 
         // FB/ALG/Panは物理ch単位のレジスタ(0xC0+physCh)。ch7(HH/SD)・
         // ch8(TOM/CYM)は共有するため、後着優先で上書きされる(仕様として
-        // 許容、docs/terminology.md参照)。
+        // 許容、docs/design/terminology.md参照)。
         setReg(static_cast<uint16_t>(0xC0 + physCh),
                static_cast<uint8_t>(0x30 | ((p.hw.FB & 7) << 1) | (p.hw.ALG & 1)));
 

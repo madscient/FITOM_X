@@ -18,3 +18,19 @@ FITOM_Xの変更・修正・調査の経緯を、月ごとに1ファイルで置
 STATUS.md内の位置関係を指すため、別の件や別の月のファイル、`docs/STATUS.md`に
 残った記述を指していることがある。移す前の版は、このREADME.mdを追加したコミットの
 親で読める(`git log --diff-filter=A -- docs/worklog/README.md`)。
+
+## 文書のファイル名の対応
+
+記録の中の文書名は、書いた時点の名前のまま。現在の場所は次のとおり。
+
+| 記録の中の名前 | 現在の場所 |
+|---|---|
+| `chip-driver-architecture.md` | `docs/design/chip-drivers.md` |
+| `patch-structure-design.md` | `docs/design/patch-resolution.md` |
+| `voice-data-design.md` | `docs/design/voice-processor.md` |
+| `midi-implementation-status.md` | `docs/design/midi-processing.md` |
+| `config-design.md` | `docs/design/config-loading.md` |
+| `sf2-fluidsynth-integration.md` | `docs/design/sf2-direct-path.md` |
+| `terminology.md` | `docs/design/terminology.md` |
+| `plugin-hwif.md` / `plugin-midi.md` / `plugin-midi-pipe.md` | `docs/interfaces/`の同名ファイル |
+| `vgm-recording.md` / `opm-opz-hw-lfo.md` | `docs/proposals/`の同名ファイル |

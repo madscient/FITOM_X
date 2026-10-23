@@ -150,7 +150,7 @@ struct FITOMChannelMonitor {
     uint8_t     fnumBlock = 0;
     uint16_t    fnum = 0;
 
-    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月新設)。
+    // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月新設)。
     // trueの場合、このチャンネルは(mpu,ch)の窓に含まれており、CInstCh/
     // CRhythmCh経由のbankNo/progNo/deviceName等の解決を一切経由しない
     // (それらは意味を持たないため、代わりに以下のフィールドで上書きする)。
@@ -183,7 +183,7 @@ struct FITOMChannelSettings {
     uint16_t bankNo     = 0;   // getBankNo()相当 (CC#32が意味する値)
     uint8_t  progNo     = 0;
 
-    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年8月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年8月新設) ───
     // isSf2Windowed==trueの場合、このチャンネルは(mpu,ch)の窓に含まれており
     // CInstCh/CRhythmCh経由のbankSelMSB/bankNo/progNo等は意味を持たない
     // (上記フィールドは常に既定値のまま)。sf2Bank/sf2Progは、sf2_banks[].bank
@@ -299,7 +299,7 @@ public:
     // 2026年7月新設)。範囲外・未初期化の場合は既定値のFITOMChannelSettingsを返す。
     FITOMChannelSettings getChannelSettings(int mpuIndex, int ch) const;
 
-    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年8月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年8月新設) ───
     // CH設定ダイアログの「SF2直行パス」トグル用。fluidsynthChanOr7Fは
     // 0-15で窓を割り当て、0x7F(127)で解除する(プライベートSysEx
     // sub-cmd 0x04と同じ意味論)。同じfluidsynthChanが既に別の(mpu,ch)へ

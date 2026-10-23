@@ -816,7 +816,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPLL composite spec adds DEVICE_OPLL_RHY only "
 
 // ================================================================
 //  リニアステレオ化 (CLinearPanDevice、stereo_pair:true の明示指定)
-//  docs/chip-driver-architecture.md「3.1 リニアステレオ化」参照
+//  docs/design/chip-drivers.md「3.1 リニアステレオ化」参照
 // ================================================================
 
 namespace {
@@ -1197,7 +1197,7 @@ TEST_CASE("FITOMConfig::getChipPanType: classifies three-way / continuous / mono
 }
 
 // ================================================================
-//  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
+//  SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設)
 // ================================================================
 
 TEST_CASE("Sf2BankRegistry: resolves CC#32 to {soundfont_index, sf2_bank} and "
@@ -1419,7 +1419,7 @@ TEST_CASE("FITOMConfig: sf2_banks parse into getSf2BankRegistry() when a chip=\"
 }
 
 // ================================================================
-//  SF2プリセット名解決 (phdrパース、docs/sf2-fluidsynth-integration.md ⑧節)
+//  SF2プリセット名解決 (phdrパース、docs/design/sf2-direct-path.md ⑧節)
 // ================================================================
 
 namespace {

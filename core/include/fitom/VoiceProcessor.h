@@ -52,7 +52,7 @@ enum class LfoMode : uint8_t {
 //  設計:
 //    - delay / 波形位相 / フェードインを完全に分離
 //    - rate: 波形の周期 (rateToTicks(rate)、対数カーブで0.5Hz〜50Hzに
-//            マッピングする数式。0=無効。docs/voice-data-design.md参照)
+//            マッピングする数式。0=無効。docs/design/voice-processor.md参照)
 //    - fadein: フェードイン速度 (0=即フルデプス, 1〜127 tick でフル到達)
 //    - mode: Repeat / OneShotHold / OneShotZero
 //    - S&H seed はインスタンス固有 (チャンネル間非共有)

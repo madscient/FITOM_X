@@ -175,7 +175,7 @@ Patch BのレイヤーがPatch Aを参照する、といった無限再帰)を�
 
 CC#0(Bank Select MSB)の値が、通常モード/直接モード/GM2リズム切替という
 3種類の意味を排他的に切り替えるモード選択子になっている。詳細は
-`docs/midi-implementation-status.md`の「Bank Select 方式」を参照。
+`docs/design/midi-processing.md`の「Bank Select 方式」を参照。
 
 ### 通常モード（CC#0=0）: PatchBank/Patch/ToneLayer による多層解決
 
@@ -217,7 +217,7 @@ PatchManager::resolveDirect(voicePatchType, hwBank, hwProg, config, storage)
 ```
 
 `VOICE_PATCH_*`の値は全て`0x01`-`0x6F`の範囲に収まるよう採番されている
-(`0x70`は内蔵リズム音源専用バンク(詳細は`docs/terminology.md`参照)、
+(`0x70`は内蔵リズム音源専用バンク(詳細は`docs/design/terminology.md`参照)、
 `0x71`-`0x7F`はGM2リズム/メロディ切替(`0x78`/`0x79`)専用および将来予約)。
 `bankSelM_==0`は通常モードのトリガーであり、直接モードには使えない。
 
@@ -475,10 +475,10 @@ resolveTriple(voicePatchType, hwBank, hwProg, ...)
 AWMバンク0/1とADPCM-B/ADPCM-Aのバンク0/1が番号衝突し、後から読み込んだ
 側が前の登録を上書きしてパッチピッカーからAWMバンクが消える不具合が
 あった)。
-(詳細な種別と対応チップの一覧は`docs/plugin-hwif.md`の「PCM/ADPCM
+(詳細な種別と対応チップの一覧は`docs/interfaces/plugin-hwif.md`の「PCM/ADPCM
 メモリイメージの扱い」参照。なお、この節で扱うのはFITOM_X内部の
 `SampleZonePatch`(音色メタデータ、キーゾーン等)であり、
-`plugin-hwif.md`が扱うPCMメモリイメージ(実際の波形データファイル)とは
+`docs/interfaces/plugin-hwif.md`が扱うPCMメモリイメージ(実際の波形データファイル)とは
 別レイヤーの話である点に注意)。
 
 ### 内蔵リズム音源専用バンク（CC#0=0x70、OPNA/OPLLのROM固定リズム）
@@ -497,7 +497,7 @@ YM2608(OPNA)/YM2413(OPLL)系は、通常のFM/PSGチャンネルとは別に、�
 で行えるようになり、`CInstCh`の通常チャンネルからも内蔵リズムの
 個別楽器を選択できる。「音色がデバイスを選択する」原則の例外である
 点(音色データではなくチップ選択+チャンネル番号がデバイスを選ぶ)は
-変わらない(詳細な経路・レジスタ構造は`docs/terminology.md`の「内蔵
+変わらない(詳細な経路・レジスタ構造は`docs/design/terminology.md`の「内蔵
 リズム音源専用バンク」節を参照)。
 
 **GUIパッチピッカーでの列挙(2026年8月新設)**: この経路も上記OPLL ROM
@@ -523,7 +523,7 @@ Top Cymbal/Tom/Snare Drum/Bass Drumの5パート)を列挙するよう
 (`resolveTriple`→`HwBankRegistry`)でパッチを解決する。「音色データが
 標準の`HwPatch`形状でソフトウェア管理されているかどうか」が、特殊
 ルーティングの要否を分ける基準になっている
-(`docs/chip-driver-architecture.md`の「デバイスに特殊ルーティングが
+(`docs/design/chip-drivers.md`の「デバイスに特殊ルーティングが
 必要かどうかの判断基準」参照)。
 
 ただし「チャンネル番号=楽器」というハードウェア制約自体は`0x70`と
@@ -537,7 +537,7 @@ OPL_RHYは「任意のHwPatch(音色)を指定可能」という設計のため�
 指定できるというOPL_RHYの利点を損なうため撤回した)。`hwProg`(どの
 音色を選ぶか)と`ext.rhythm_ch`(その音色がどの楽器向けか)は独立した
 軸であり、同じ楽器に複数の音色バリエーションを別スロットとして
-用意できる。詳細は`docs/terminology.md`の該当節を参照。
+用意できる。詳細は`docs/design/terminology.md`の該当節を参照。
 
 ### チョークグループ（ハイハット等の相互ダンプ、2026年7月新設）
 
@@ -686,7 +686,7 @@ SCC(K051649/K052539)は、実機のハードウェアケーパビリティに大
 難しい。このため、PSG系チップは全て共通の入口(`VOICE_PATCH_SSG`
 =0x40固定)/HwBank名前空間を共有する設計に変更した。
 
-「音色データがデバイスを選択する」原則(`docs/chip-driver-architecture.md`
+「音色データがデバイスを選択する」原則(`docs/design/chip-drivers.md`
 参照)を、**バンク検索**と**デバイス解決**の2段階に分離することで、
 名前空間の共有と、正確なデバイス選択(誤ったspanning防止)を両立して
 いる。
@@ -912,7 +912,7 @@ pcm_banks/sf2_banks)に書く相対パスは、**そのプロファイルファ�
 のCWDに依存せず常に同じ結果になる。
 
 (`sf2_banks`はスキーマ(`config_schema/profile.schema.json`)のみ追加済みで、
-ローダー(`Sf2BankRegistry`、`docs/sf2-fluidsynth-integration.md`参照)は
+ローダー(`Sf2BankRegistry`、`docs/design/sf2-direct-path.md`参照)は
 本書執筆時点(2026年7月)ではまだ未実装。実装時にはこの規約に従うことを
 設計上決めているため、先行してここに記載している。)
 
@@ -927,7 +927,7 @@ pcm_banks/sf2_banks)に書く相対パスは、**そのプロファイルファ�
 ディレクトリ**を起点に解決される(`PatchManager::loadPcmBankJson()`)。
 今回の変更はこれと同じ「参照元ファイルの置き場所を起点にする」考え方を
 profile側の `banks.*[].file` 全種別にも揃えたものであり、`hw_plugins[].dll`
-/`midi_backend.dll`(実行ファイルのディレクトリが起点。`config-design.md`
+/`midi_backend.dll`(実行ファイルのディレクトリが起点。`docs/design/config-loading.md`
 参照)とは解決基点が異なる点に注意。
 
 ---
@@ -1018,7 +1018,7 @@ EGT/RR切り替えを持つ一部の例外を除く)。そのため、**`updateV
 `COPN`を含む、ほぼ全てのチップドライバに共通する欠陥だった
 (`COPN`も`car ? s.proc.velAR(op) : ...`という同型のコードを持つ)。
 
-`docs/voice-data-design.md`の「フェーズ6（チップドライバ移行）の
+`docs/design/voice-processor.md`の「フェーズ6（チップドライバ移行）の
 具体的な手順」には、当初から正しい設計が明記されていた
 (`3. SetVoice() で proc_[ch].onNoteOn(...) を呼ぶように変更`)。
 しかし実際の実装では、`onNoteOn`が`SetVoice`相当の`assignCh`ではなく、

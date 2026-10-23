@@ -73,7 +73,7 @@ F0 00 48 01 03 <ch> F7
 
 ### 5.1 試聴対象の音源を選ぶ(直接デバイス選択モード)
 
-編集中のHwPatch/SwPatchと同じ音源を鳴らすため、まず直接デバイス選択モードでチップ・バンク・プログラムを指定します(詳細は[MIDIメッセージリファレンスマニュアルの「2.2 バンクセレクト / プログラムチェンジ」](manuals/midi-message-reference.md#22-バンクセレクト--プログラムチェンジ)参照)。
+編集中のHwPatch/SwPatchと同じ音源を鳴らすため、まず直接デバイス選択モードでチップ・バンク・プログラムを指定します(詳細は[MIDIメッセージリファレンスマニュアルの「2.2 バンクセレクト / プログラムチェンジ」](../manuals/midi-message-reference.md#22-バンクセレクト--プログラムチェンジ)参照)。
 
 ```
 B0 00 <VoicePatchType>   ; CC#0 バンクセレクトMSB(直接デバイス選択値)
@@ -81,11 +81,11 @@ B0 20 <HwBank>            ; CC#32 バンクセレクトLSB(HwBankインデック
 C0 <HwProg>               ; プログラムチェンジ
 ```
 
-`VoicePatchType`の値一覧は[同マニュアルの「直接デバイス選択値」表](manuals/midi-message-reference.md#直接デバイス選択値cc0一覧)を参照してください。
+`VoicePatchType`の値一覧は[同マニュアルの「直接デバイス選択値」表](../manuals/midi-message-reference.md#直接デバイス選択値cc0一覧)を参照してください。
 
 ### 5.2 編集中のパラメータを送る(プライベートSysEx)
 
-HwPatch/SwPatchのパラメータオーバーライドは、[同マニュアルの「8.1 パッチパラメータオーバーライド」](manuals/midi-message-reference.md#81-パッチパラメータオーバーライドプライベートsysex非標準)で定義したプロトコルをそのまま使います。`target-type=0x00`(チャンネル)を使い、`layer=0`で構いません(単一レイヤーの音色を編集する想定)。
+HwPatch/SwPatchのパラメータオーバーライドは、[同マニュアルの「8.1 パッチパラメータオーバーライド」](../manuals/midi-message-reference.md#81-パッチパラメータオーバーライドプライベートsysex非標準)で定義したプロトコルをそのまま使います。`target-type=0x00`(チャンネル)を使い、`layer=0`で構いません(単一レイヤーの音色を編集する想定)。
 
 ```
 F0 00 48 01 <sub-cmd> 00 <ch> 00 <JSONバイト列> F7
@@ -93,7 +93,7 @@ F0 00 48 01 <sub-cmd> 00 <ch> 00 <JSONバイト列> F7
 
 - `sub-cmd`:HwPatchなら`01`、SwPatchなら`02`
 - `<ch>`:「4.1 チャンネル割り当て通知」でFITOM_Xから通知されたMIDIチャンネル(0-15)
-- JSONは、変更したいフィールドのみを含むオブジェクト([HwPatchリファレンス](manuals/hwpatch-reference.md)/[SwPatchリファレンス](manuals/swpatch-reference.md)参照)
+- JSONは、変更したいフィールドのみを含むオブジェクト([HwPatchリファレンス](../manuals/hwpatch-reference.md)/[SwPatchリファレンス](../manuals/swpatch-reference.md)参照)
 
 パラメータをつまみで動かすたびに、このSysExを送り直すことで、リアルタイムに音を作り込めます。空オブジェクト`{}`を送ると、オーバーライドが解除され直前のプログラムチェンジで選択した音色本来の値に戻ります。
 
@@ -108,7 +108,7 @@ F0 00 48 01 <sub-cmd> 00 <ch> 00 <JSONバイト列> F7
 
 ### 5.4 レイヤードパッチ(ToneLayer)の編集
 
-通常モードの音色(レイヤードパッチ)を編集する場合は、NRPN 97番台([同マニュアルの「3.3 ToneLayerオーバーライド」](manuals/midi-message-reference.md#33-tonelayerオーバーライドnrpn-97))を使います。この場合、あらかじめ通常モード(CC#0=0)でバンク/プログラムを選択しておく必要があります。
+通常モードの音色(レイヤードパッチ)を編集する場合は、NRPN 97番台([同マニュアルの「3.3 ToneLayerオーバーライド」](../manuals/midi-message-reference.md#33-tonelayerオーバーライドnrpn-97))を使います。この場合、あらかじめ通常モード(CC#0=0)でバンク/プログラムを選択しておく必要があります。
 
 ### 5.5 後片付け
 
@@ -127,9 +127,9 @@ B<ch> 79 00   ; CC#121 リセットオールコントローラー(RPN/NRPN/SysEx
 
 | 編集対象 | 送信するSysEx | 参照 |
 |---|---|---|
-| HwPatch(単一音色) | `F0 00 48 01 01 01 <VoicePatchType> <HwBank> <HwProg> 00 <JSON> F7` | [8.1節](manuals/midi-message-reference.md#81-パッチパラメータオーバーライドプライベートsysex非標準) |
+| HwPatch(単一音色) | `F0 00 48 01 01 01 <VoicePatchType> <HwBank> <HwProg> 00 <JSON> F7` | [8.1節](../manuals/midi-message-reference.md#81-パッチパラメータオーバーライドプライベートsysex非標準) |
 | SwPatch(演奏特性) | `F0 00 48 01 02 01 <SwBank> <SwProg> 00 <JSON> F7` | 同上 |
-| レイヤードパッチ(ToneLayer構成) | `F0 00 48 01 06 <PatchBank> <Prog> <JSON> F7` | [8.1.1節](manuals/midi-message-reference.md#811-レイヤードパッチ--ドラムキットの直接編集永続化) |
+| レイヤードパッチ(ToneLayer構成) | `F0 00 48 01 06 <PatchBank> <Prog> <JSON> F7` | [8.1.1節](../manuals/midi-message-reference.md#811-レイヤードパッチ--ドラムキットの直接編集永続化) |
 | ドラムキット(DrumPatch、ノート単位の編集を含む) | `F0 00 48 01 07 <DrumBank> <Prog> <JSON> F7` | 同上 |
 
 これらはいずれも**メモリ上のみの変更で、ディスクへの保存は行いません**。ディスクへの保存はパッチエディタ自身の既存の責務(バンクファイルへの書き込み)のままです。典型的な編集終了時のワークフローは次の通りです。

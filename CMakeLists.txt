@@ -27,7 +27,7 @@ option(FITOM_BUILD_BACKEND_MIDI_RTMIDI "RtMidi MIDI バックエンド DLL (ク�
 # 名前付きパイプ(Windows)/UNIXドメインソケット(Linux/macOS)経由の内部専用
 # MIDIバックエンド。外部プロセス(例: 別プロジェクトのパッチエディタ)から
 # ローカルのみでFITOM_Xへメッセージを送るための、クロスプラットフォームな
-# バックエンド。詳細はdocs/plugin-midi-pipe.md参照。
+# バックエンド。詳細はdocs/interfaces/plugin-midi-pipe.md参照。
 option(FITOM_BUILD_BACKEND_MIDI_PIPE "内部用MIDIパイプ バックエンド DLL (クロスプラットフォーム)" OFF)
 option(FITOM_GUI_IMGUI                "Dear ImGui GUI (apps/fitom_gui) をビルド"    OFF)
 option(FITOM_GUI_QT                  "Qt6 GUI をビルド"                           OFF)

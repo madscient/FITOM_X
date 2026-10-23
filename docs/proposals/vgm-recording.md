@@ -25,15 +25,15 @@ FITOM_XはMIDIメッセージを解釈し、`ISoundDevice`経由でチップの�
 
 ### b. 全レジスタ書き込みの唯一のチョークポイント
 
-`HWPort::write()`/`writeBurst()`([HWPort.h:137,139](../core/include/fitom/HWPort.h#L137))は、実機・エミュレータを問わず`IHWPlugin`契約を通る**すべての**レジスタ書き込みが最終的に通る場所であり、既にレジスタダンプモニター用の`shadowRegs_`([HWPort.h:181](../core/include/fitom/HWPort.h#L181))をここでミラーしている。VGM記録もこれと全く同じ場所にフックできる。
+`HWPort::write()`/`writeBurst()`([HWPort.h:137,139](../../core/include/fitom/HWPort.h#L137))は、実機・エミュレータを問わず`IHWPlugin`契約を通る**すべての**レジスタ書き込みが最終的に通る場所であり、既にレジスタダンプモニター用の`shadowRegs_`([HWPort.h:181](../../core/include/fitom/HWPort.h#L181))をここでミラーしている。VGM記録もこれと全く同じ場所にフックできる。
 
 ### c. 物理チップ単位の列挙が既に存在する
 
-レジスタダンプモニター向けに2026年7月新設された`CFITOM::PhysicalChipInfo`([CFITOM.h:153-178](../core/include/fitom/CFITOM.h#L153))・`buildPhysicalChipList()`([CFITOM.cpp:591](../core/src/CFITOM.cpp#L591))が、サブデバイス自動生成(OPNA→FM+SSG+ADPCM-B等)・同種デバイス自動束ね(spanGroups)・2ポートチップ(port/port2)を全て解決した上で、「物理チップ1個」単位に`deviceType`・`port`/`port2`・クロック(`port->getClock()`)を列挙してくれる。これはVGMヘッダが要求する情報(チップ種別・クロック)そのものであり、そのまま流用できる。
+レジスタダンプモニター向けに2026年7月新設された`CFITOM::PhysicalChipInfo`([CFITOM.h:153-178](../../core/include/fitom/CFITOM.h#L153))・`buildPhysicalChipList()`([CFITOM.cpp:591](../../core/src/CFITOM.cpp#L591))が、サブデバイス自動生成(OPNA→FM+SSG+ADPCM-B等)・同種デバイス自動束ね(spanGroups)・2ポートチップ(port/port2)を全て解決した上で、「物理チップ1個」単位に`deviceType`・`port`/`port2`・クロック(`port->getClock()`)を列挙してくれる。これはVGMヘッダが要求する情報(チップ種別・クロック)そのものであり、そのまま流用できる。
 
 ### d. 波形バイナリの実ファイルパスも既に引ける
 
-`PcmBankRegistry`が保持する`PcmBank::binPath`([PcmBankData.h:97](../core/include/fitom/PcmBankData.h#L97))・`PcmBank::deviceType`([PcmBankData.h:128](../core/include/fitom/PcmBankData.h#L128))により、ADPCM-A/ADPCM-B/PCMD8等の波形バイナリファイルへのパスをdeviceType単位で解決できる。FITOM_X本体はこのバイナリをチップへ転送しない設計(波形データの配置はhwif側の責務、STATUS.md参照)だが、**VGMファイルへ埋め込む目的でなら、FITOM_X自身がこのファイルを直接読み込んで良い**(hwif側の責務とは別の話)。
+`PcmBankRegistry`が保持する`PcmBank::binPath`([PcmBankData.h:97](../../core/include/fitom/PcmBankData.h#L97))・`PcmBank::deviceType`([PcmBankData.h:128](../../core/include/fitom/PcmBankData.h#L128))により、ADPCM-A/ADPCM-B/PCMD8等の波形バイナリファイルへのパスをdeviceType単位で解決できる。FITOM_X本体はこのバイナリをチップへ転送しない設計(波形データの配置はhwif側の責務、STATUS.md参照)だが、**VGMファイルへ埋め込む目的でなら、FITOM_X自身がこのファイルを直接読み込んで良い**(hwif側の責務とは別の話)。
 
 ---
 
@@ -117,7 +117,7 @@ if (auto* rec = CFITOM::instance().getVgmRecorder(); rec && rec->isActive())
 
 `VgmRecorder`内部に、3節bの対応表を実装したテーブル(`CFITOM.cpp`の`kDevMap`と同じ「静的テーブル+線形探索」のパターンを踏襲。VGM固有の知識のため`CFITOM.cpp`本体ではなく`VgmRecorder`側に置く)を持つ。各エントリは deviceType・VGMチップID・ヘッダ上のクロックフィールドオフセット・データコマンドのオペコード(port0/port1が別れているチップはその両方)を持つ。
 
-`PhysicalChipInfo::port`/`port2`([CFITOM.h:161-162](../core/include/fitom/CFITOM.h#L161))は、VGM側のport0/port1コマンド(例: YM2608なら`0x56`/`0x57`)にそのまま対応する。既存の2ポート設計(`SplitPort`/`OffsetPort`)とVGM仕様の2ポート表現が構造的に一致しているのは好都合な点である。
+`PhysicalChipInfo::port`/`port2`([CFITOM.h:161-162](../../core/include/fitom/CFITOM.h#L161))は、VGM側のport0/port1コマンド(例: YM2608なら`0x56`/`0x57`)にそのまま対応する。既存の2ポート設計(`SplitPort`/`OffsetPort`)とVGM仕様の2ポート表現が構造的に一致しているのは好都合な点である。
 
 同一チップ種別の物理チップが複数存在する場合(例: OPNAを2枚使う構成)、`getPhysicalChipInfo()`の列挙順で2台目以降を「dual chip」としてクロックフィールドの最上位ビット(0x40000000)を立てる。
 

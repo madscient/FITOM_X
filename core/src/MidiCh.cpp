@@ -497,7 +497,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // NoteHistへ保存する(enterNote参照)。
         const int16_t swFineKfs = static_cast<int16_t>(swTransposeFineCents * 64 / 100);
 
-        int16_t fine = 0; // kfs単位 (1半音=64ステップ、docs/terminology.md参照)
+        int16_t fine = 0; // kfs単位 (1半音=64ステップ、docs/design/terminology.md参照)
         if (!portaActive) {
             // ピッチベンド + RPN#1ファインチューニング + RPN#2コース
             // チューニングはapplyPitchBendToAll()と共通の実装を使う

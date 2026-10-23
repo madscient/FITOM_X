@@ -257,7 +257,7 @@ protected:
         // 動的に書き換える技法を使うが、実機OPLLのEG挙動はOPL系と異なり
         // 発音中のEGTビット書き換えが期待どおりに効かないことが2026年8月の
         // 実機検証で確認されたため、OPLL系のみ静的変換とする(確定仕様)
-        // (docs/chip-driver-architecture.md 4.4節、
+        // (docs/design/chip-drivers.md 4.4節、
         //  docs/voice-parameter-reference.md OPLL節を参照)。
         uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xEF;
         setReg(static_cast<uint16_t>(0x20 + ch),

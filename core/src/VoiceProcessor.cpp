@@ -40,7 +40,7 @@ static const int8_t kSinTable[240] = {
 // 変更した(2026年7月)。理由: 線形に近い値を直接周期として使う
 // 旧方式では、低域(ビブラートとして最も使われる帯域)ほど隣接ステップ
 // 間の比率(知覚的な尺度)が大きくなり、分解能が悪化する問題があった
-// (docs/voice-data-design.md参照)。対数カーブなら、rate値を1増やす
+// (docs/design/voice-processor.md参照)。対数カーブなら、rate値を1増やす
 // ごとに周波数が一定比率(約3.7%)で変化するため、低域・高域を問わず
 // 均等なステップになる。
 // 周波数レンジ0.5Hz〜50Hzは、旧FITOM(ROM::speedstep[]、10ms tick)が
@@ -587,7 +587,7 @@ void VoiceProcessor::recalcChLfo(const FmVoice& voice) noexcept
     const int16_t wav = static_cast<int16_t>(chLfo_.wave(sw.LWF));
 
     // depthCents[セント、-1200〜+1200] をkfs単位に変換
-    // (docs/terminology.mdの「kfs」参照)。SLD(トレモロ深さ)と同じ設計
+    // (docs/design/terminology.mdの「kfs」参照)。SLD(トレモロ深さ)と同じ設計
     // パターン: 波形が最大振幅(±120)のとき、変調量はdepthKfsそのもの
     // (=ユーザー指定の深さ)になる。
     // CC#77(Depth)はGM2規格のSound Controller同様、値64を中央(補正なし)

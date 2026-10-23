@@ -423,7 +423,7 @@ inline bool isSampleBasedVoicePatchType(uint8_t vpt) noexcept {
 // (VOICE_PATCH_SSG=0x40)/HwBank名前空間を共有する設計になっており、
 // この判定関数は主にHwPatch::ext.targetVoicePatchTypeの妥当性検証、
 // および将来この共有設計を他のPSG派生チップに拡張する際の判定基準
-// として使う。詳細はdocs/patch-structure-design.md参照。
+// として使う。詳細はdocs/design/patch-resolution.md参照。
 inline bool isPsgFamilyVoicePatchType(uint8_t vpt) noexcept {
     switch (vpt) {
     // VOICE_PATCH_DSG(YM2163)はこの共有名前空間には含めない。ユーザー音色を

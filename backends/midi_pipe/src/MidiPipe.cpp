@@ -9,7 +9,7 @@
 // 複数クライアント対応(2026年7月〜): 最大16本(内部パイプMPUの16ch分)
 // まで同時接続を受け付ける。接続ごとに専用スレッドで処理し、接続
 // 確立直後、読み取りを始める前にFITOM_X側からチャンネル割り当てを
-// プライベートSysExで通知する(sub-cmd 0x03、docs/plugin-midi-pipe.md
+// プライベートSysExで通知する(sub-cmd 0x03、docs/interfaces/plugin-midi-pipe.md
 // 参照)。クライアント側はMIDIチャンネルを自分で選ばず、この通知を
 // 待ってから送信を開始する。空きチャンネルが無い場合は接続を即座に
 // 切る。
@@ -21,7 +21,7 @@
 // デバイス列挙は固定の1エントリ(kDeviceName)のみを返す。実際の接続先
 // (パイプ名/ソケットパス)はkPipeName/kSocketPathで固定されており、
 // プロファイル側の指定は使わない(接続先を都度探す必要をなくすため)。
-// 詳細な仕様はdocs/plugin-midi-pipe.mdを参照。
+// 詳細な仕様はdocs/interfaces/plugin-midi-pipe.mdを参照。
 
 #include <fitom/IMidiPlugin.h>
 #include <nlohmann/json.hpp>
@@ -159,7 +159,7 @@ namespace {
 // チャンネル割り当て通知(FITOM_X → クライアント、接続直後に1回のみ)。
 // F0 00 48 01 03 <ch> F7 (マニュファクチャラID 00 48 01 は既存の
 // HwPatch/SwPatchパラメータオーバーライドSysExと共通。sub-cmd 0x01/0x02
-// は使用済みのため 0x03 を新設。詳細はdocs/plugin-midi-pipe.md参照)
+// は使用済みのため 0x03 を新設。詳細はdocs/interfaces/plugin-midi-pipe.md参照)
 void buildChannelAnnounce(uint8_t (&out)[7], int ch)
 {
     out[0] = 0xF0; out[1] = 0x00; out[2] = 0x48; out[3] = 0x01;

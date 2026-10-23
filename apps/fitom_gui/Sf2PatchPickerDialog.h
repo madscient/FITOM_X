@@ -1,6 +1,6 @@
 // apps/fitom_gui/Sf2PatchPickerDialog.h
 //
-// SF2直行パス(docs/sf2-fluidsynth-integration.md参照)専用のパッチ選択
+// SF2直行パス(docs/design/sf2-direct-path.md参照)専用のパッチ選択
 // モーダルダイアログ。banks.sf2_banks[]のバンク(CC#32相当)→プログラム
 // (phdrから解決したプリセット名つき)の2階層をブラウジングする。
 // ChSettingsDialogから、「SF2直行パス」チェックボックスON時に「パッチ」

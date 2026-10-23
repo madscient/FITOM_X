@@ -531,7 +531,7 @@ bool FITOMConfig::buildFromProfile(const json& j, PatchManager* patchMgr,
 
     // --- SF2直行パス: sf2_channel_windows(トップレベル)の読み込み ---
     // (2026年7月新設。banks.*とは異なりトップレベルプロパティ、詳細は
-    //  docs/sf2-fluidsynth-integration.md ⑤節参照)
+    //  docs/design/sf2-direct-path.md ⑤節参照)
     if (!loadSf2ChannelWindows(j)) {
         FITOM_LOG_ERR("sf2_channel_windows: 検証エラーのためプロファイル読み込みを中止します");
         return false;
@@ -607,7 +607,7 @@ void FITOMConfig::buildDevice(const json& dev)
         params.erase("rhythm_mode");
         params.erase("stereo_pair");
 
-        // SF2直行パス(docs/sf2-fluidsynth-integration.md参照): chip:"SF2"の
+        // SF2直行パス(docs/design/sf2-direct-path.md参照): chip:"SF2"の
         // devices[]エントリには、banks.sf2_banks[].fileから重複除去した
         // soundfonts一覧を自動的に注入する。ユーザーがdevices[]へ直接
         // "soundfonts"を書く必要はない(sf2_banksとの二重管理を避けるため)。
@@ -644,7 +644,7 @@ void FITOMConfig::buildDevice(const json& dev)
             uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
             bool rhythmMode = dev.value("rhythm_mode", false);
             // stereo_pair: true (従来方式、pan:1/2からL/R役割を判定) または
-            // "L"/"R" (チップ内L/R分離方式)。docs/config-design.md参照。
+            // "L"/"R" (チップ内L/R分離方式)。docs/design/config-loading.md参照。
             bool       stereoPair = false;
             StereoSide stereoSide = StereoSide::None;
             if (dev.contains("stereo_pair")) {
@@ -1097,7 +1097,7 @@ uint8_t FITOMConfig::stringToVoicePatchType(const std::string& s) noexcept
     // config_schema/profile.schema.json の hw_banks[].group の enum も
     // 必ず同期して更新すること。2026年7月、この同期が長期間行われて
     // おらず、OPZ等の多数の文字列がスキーマから欠落し、
-    // docs/patch-structure-design.mdの記載例がバリデーションエラーに
+    // docs/design/patch-resolution.mdの記載例がバリデーションエラーに
     // なる不整合が発見された(ステージングプロジェクトからの指摘)。
     // SD1/MA3/MA5/MA7系(未実装チップドライバ)は、この関数では認識するが
     // enumには意図的に含めない(実装済みのVoicePatchTypeのみ許可する方針)。
@@ -1880,7 +1880,7 @@ static uint32_t resolveChipDeviceId(const std::string& chipName)
         {"DSG",   DEVICE_DSG},   {"YM2163",  DEVICE_DSG},
         {"PCMD8", DEVICE_PCMD8},
         {"ADPCMB_Y8950", DEVICE_ADPCMB_Y8950},
-        // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用ラッパー
+        // SF2直行パス(docs/design/sf2-direct-path.md参照)用ラッパー
         // デバイス。DEVICE_NONEへ明示的に解決することで、CFITOM::
         // initDevices()の「deviceType unknown」警告(下記kChipMapで
         // 一致しない場合の既定分岐)を意図せず出さないようにする
@@ -2079,7 +2079,7 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
 }
 
 // ================================================================
-//  SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設)
+//  SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設)
 // ================================================================
 
 void FITOMConfig::loadSf2Banks(const nlohmann::json& banks, const std::filesystem::path& baseDir)

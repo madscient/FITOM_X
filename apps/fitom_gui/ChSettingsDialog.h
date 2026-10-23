@@ -56,7 +56,7 @@ private:
     PatchSelection  patch_;
     bool            patchChanged_ = false; // ピッカーで実際に選び直したか
 
-    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月新設)。
+    // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月新設)。
     // isRhythm_と相互排他(どちらか一方のみtrue、isSf2_ON時はisRhythm_を
     // 強制falseにしチェックボックス自体も無効化する。窓に含まれる限り
     // メロディ/リズムの区別と無関係という設計のため)。isSf2_のON/OFF・

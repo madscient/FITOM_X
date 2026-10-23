@@ -27,7 +27,7 @@ class PatchManager; // 前方宣言 (loadDrumBanks の引数用)
 class ISoundDevice;
 
 // リニアステレオ化 (CLinearPanDevice) におけるL/R役割の宣言方法。
-// docs/chip-driver-architecture.md「3.1 リニアステレオ化」参照。
+// docs/design/chip-drivers.md「3.1 リニアステレオ化」参照。
 enum class StereoSide : uint8_t {
     None = 0,  // 未指定 (プロファイルの stereo_pair:true)。IPort::getPanpot()
                // の 1(L)/2(R) から役割を判定する = プラグイン側の出力
@@ -109,7 +109,7 @@ struct DeviceEntry {
     // 生成し CSpanDevice で束ねる。
     std::vector<PortGroup>          spanGroups;
 
-    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用のラッパー
+    // SF2直行パス(docs/design/sf2-direct-path.md参照)用のラッパー
     // デバイス(chip:"SF2")かどうか。deviceType は他の未知チップ文字列と
     // 同じくDEVICE_NONEになるが、これは意図したスキップであるため、
     // CFITOM::initDevices()が「deviceType unknown」警告を出さずに区別
@@ -208,7 +208,7 @@ public:
     // SF2直行パス用ラッパーデバイス(chip:"SF2")かどうか。
     bool             isSf2Device(int index)        const;
 
-    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設) ───
     // banks.sf2_banks[]から構築されたレジストリ(CC#32解決・soundfonts一覧)。
     const Sf2BankRegistry& getSf2BankRegistry() const { return sf2Banks_; }
 

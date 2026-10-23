@@ -40,7 +40,7 @@
 | `include/fitom/PatchManager.h` / `.cpp` | ✅ | バンク管理・JSON I/O |
 
 #### 音源デバイス
-設計は`chip-driver-architecture.md`、Y8960の拡張ブロックは同4.5.3節。
+設計は`docs/design/chip-drivers.md`、Y8960の拡張ブロックは同4.5.3節。
 
 | ファイル | 状態 | 内容 |
 |---|---|---|
@@ -49,7 +49,7 @@
 | `OPM_new.cpp` | ✅ | OPM / OPP / OPZ (REV/EGS対応)。Y8960のOPMも`chip:"OPM"`としてそのまま扱う |
 | `OPN2_new.cpp` | ✅ | COPNA/COPN2 (CSpanDevice、6ch) / COPNB (YM2610無印、ch0/ch3無効化した実効4ch) / COPNARhythm |
 | `OPL_new.cpp` | ✅ | OPL/OPL2/COPL3(4OPモード)/COPL3_2(2OP、CSpanDevice)/COPLRhythm(内蔵リズム5パート)/COPL2EX(Y8960拡張OPL2部、chごとの定位つき)+COPL2EXRhythm |
-| `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm/COPLLEX(Y8960拡張OPLL部。chごとのROMプリセットバンク選択と定位)+COPLLEXRhythm。ROMプリセットの解決規則は`patch-structure-design.md` |
+| `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm/COPLLEX(Y8960拡張OPLL部。chごとのROMプリセットバンク選択と定位)+COPLLEXRhythm。ROMプリセットの解決規則は`docs/design/patch-resolution.md` |
 | `PSG_new.cpp` | ✅ | SSG/EPSG/DCSG/SCC/SAA1099と、SSG互換部を持つチップ: CSSGS(YMZ705=SSGS / YMZ732=SSGS2)、CSSGS3(YMZ771=SSGS3。AMM部は非対応)、CSSGEX(Y8960のSSG部)。CSCCはY8960のSCC部(SCCEX)も担当する |
 | `DSG_new.cpp` | 🚧 | CDSG (YM2163楽音4ch) / CDSGRhythm (内蔵リズム5パート)。ROM固定の20音色をPatchManagerが暗黙のバンクとして生成する。`VOICE_PATCH_DSG`は`isPsgFamilyVoicePatchType()`に含めない(HwBankを持たないため、含めるとパッチピッカーのDSGカテゴリにSSGのバンクが並ぶ)。音とGUIは未確認(3節) |
 | `OPL4.cpp` | ✅ | COPL4AWM (YMF278のAWM部) |
@@ -75,7 +75,7 @@
 | ファイル | 状態 | 内容 |
 |---|---|---|
 | `backends/midi_rtmidi/` | ✅ | RtMidi (Windows/Linux/macOS共通) |
-| `backends/midi_pipe/` | ✅ | 内部用MIDIパイプ (`fitom_midi_pipe`、名前付きパイプ/UNIXソケット、パッチエディタ連携用、既定OFF)。`-DFITOM_BUILD_BACKEND_MIDI_PIPE=ON`でビルドするとプロファイルの設定と無関係に常時有効。最大16本まで同時接続でき、接続直後にチャンネル割り当てをプライベートSysEx(sub-cmd 0x03)で通知する。詳細は`plugin-midi-pipe.md` |
+| `backends/midi_pipe/` | ✅ | 内部用MIDIパイプ (`fitom_midi_pipe`、名前付きパイプ/UNIXソケット、パッチエディタ連携用、既定OFF)。`-DFITOM_BUILD_BACKEND_MIDI_PIPE=ON`でビルドするとプロファイルの設定と無関係に常時有効。最大16本まで同時接続でき、接続直後にチャンネル割り当てをプライベートSysEx(sub-cmd 0x03)で通知する。詳細は`docs/interfaces/plugin-midi-pipe.md` |
 | `backends/hw_if/CMakeLists.txt` | ✅ | `HWIF_SOURCE_DIR`で外部のHW I/Fソースを取り込む口だけを持つ。実際の`fitom_hw.dll`はFitomHwIF(別リポジトリ)がビルドする(**確認済み**: FitomHwIFのCMakeLists.txtとREADMEを読んで確認) |
 
 ### GUI
@@ -108,19 +108,19 @@
 | `patchbank.schema.json` | ✅ |
 | `docs/DESIGN.md` | ✅ |
 | `docs/chip-driver-migration.md` | ✅ |
-| `docs/chip-driver-architecture.md` | ✅ |
-| `docs/patch-structure-design.md` | ✅ |
-| `docs/voice-data-design.md` | ✅ |
-| `docs/config-design.md` | ✅ |
-| `docs/plugin-hwif.md` | ✅ |
-| `docs/plugin-midi.md` | ✅ |
-| `docs/plugin-midi-pipe.md` | ✅ |
-| `docs/midi-implementation-status.md` | ✅ |
-| `docs/terminology.md` | ✅ |
+| `docs/design/chip-drivers.md` | ✅ |
+| `docs/design/patch-resolution.md` | ✅ |
+| `docs/design/voice-processor.md` | ✅ |
+| `docs/design/config-loading.md` | ✅ |
+| `docs/interfaces/plugin-hwif.md` | ✅ |
+| `docs/interfaces/plugin-midi.md` | ✅ |
+| `docs/interfaces/plugin-midi-pipe.md` | ✅ |
+| `docs/design/midi-processing.md` | ✅ |
+| `docs/design/terminology.md` | ✅ |
 | `docs/voice-parameter-reference.md` | ✅ |
-| `docs/sf2-fluidsynth-integration.md` | ✅ |
-| `docs/vgm-recording.md` | ✅ (設計検討のみ) |
-| `docs/opm-opz-hw-lfo.md` | ✅ (設計検討のみ) |
+| `docs/design/sf2-direct-path.md` | ✅ |
+| `docs/proposals/vgm-recording.md` | ✅ (設計検討のみ) |
+| `docs/proposals/opm-opz-hw-lfo.md` | ✅ (設計検討のみ) |
 | `docs/manuals/midi-message-reference.md` | ✅ |
 | `docs/manuals/midi-implementation-chart.md` | ✅ |
 | `docs/manuals/hwpatch-reference.md` | ✅ |
@@ -133,44 +133,44 @@
 
 | 機能 | 状態 | 関連ドキュメント |
 |---|---|---|
-| ベロシティ感度 (VTL + VAR〜VRR、全FMチップ + PSG) | ✅ | `voice-data-design.md` |
-| ソフトウェアLFO (LfoControl) | ✅ | `voice-data-design.md` |
-| CC#1 Modulation → LFR=0音色専用のCC駆動LFO | ✅ | `midi-implementation-status.md` |
+| ベロシティ感度 (VTL + VAR〜VRR、全FMチップ + PSG) | ✅ | `docs/design/voice-processor.md` |
+| ソフトウェアLFO (LfoControl) | ✅ | `docs/design/voice-processor.md` |
+| CC#1 Modulation → LFR=0音色専用のCC駆動LFO | ✅ | `docs/design/midi-processing.md` |
 | マスターピッチ可変 (430-450Hz) | ✅ | — |
 | ダイナミックボイスアサイン (findBestCh 1パス) | ✅ | — |
-| Sustain (CC#64、チップ依存実装) | ✅ | `midi-implementation-status.md` |
-| Sostenuto (CC#66) | ✅ | `midi-implementation-status.md` |
-| Portamento/Legato (モノフォニック専用) | ✅ | `midi-implementation-status.md` |
-| Portamento Rate テーブル (GM2グラフ準拠、セント単位遷移) | ✅ | `midi-implementation-status.md` |
-| CC#120 forceDamp (全チップ、ALGキャリア判定込み) | ✅ | `midi-implementation-status.md` |
-| RPN#1 チャンネルファインチューニング | ✅ | `midi-implementation-status.md` |
-| VoicePatchType システム (音色パッチ互換性分類)。HwBankの登録キーはチップ種別(VoicePatchType)単位 | ✅ | `patch-structure-design.md` |
-| バンクセレクトLSB直接指定モード | ✅ | `patch-structure-design.md` |
-| 無音バンク (CC#0=127、`VOICE_PATCH_SILENCE`) | ✅ | `patch-structure-design.md` |
-| PSGソフトウェアエンベロープ (SoftEnvelope, FM実機準拠ADSR) | ✅ | `voice-data-design.md` |
-| AY-3-8910 HW EG (ext.HWEP)、AY8930拡張モードのバンク切り替え | ✅ | `voice-data-design.md`, `chip-driver-architecture.md` |
-| リズムモード汎用フィールド (`rhythm_mode`)、ビルトインリズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `config-design.md` |
-| HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `plugin-hwif.md` |
-| HWPlugin_Shutdown (任意API、二重実行防止) | ✅ | `plugin-hwif.md` |
-| HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `plugin-hwif.md` |
-| HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `plugin-hwif.md`, `config-design.md` |
-| Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `chip-driver-architecture.md` |
-| 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `chip-driver-architecture.md` |
-| リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `chip-driver-architecture.md`, `config-design.md` |
-| OPL3 4OPモード (COPL3) + 疑似デチューン(DT2転用) | ✅ | `chip-driver-architecture.md` |
-| OPN FXモード (3rd channel special mode、疑似デチューン/非整数倍率/固定周波数) | ✅ | `chip-driver-architecture.md`, `voice-data-design.md` |
-| 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `chip-driver-architecture.md` |
-| リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `chip-driver-architecture.md` |
-| ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `chip-driver-architecture.md` |
-| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `chip-driver-architecture.md`, `voice-parameter-reference.md`, `manuals/hwpatch-reference.md` |
-| ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `patch-structure-design.md` |
-| PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `patch-structure-design.md`, `manuals/hwpatch-reference.md` |
-| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `patch-structure-design.md`, `voice-parameter-reference.md` |
-| プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `config-design.md` |
-| SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `sf2-fluidsynth-integration.md`, `manuals/midi-message-reference.md` |
-| 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `plugin-midi-pipe.md` |
-| MIDIバックエンドのRtMidi単一実装 | ✅ | `plugin-midi.md` |
-| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書10月20日版に追従) | 🚧 | `chip-driver-architecture.md` 4.5.3節 |
+| Sustain (CC#64、チップ依存実装) | ✅ | `docs/design/midi-processing.md` |
+| Sostenuto (CC#66) | ✅ | `docs/design/midi-processing.md` |
+| Portamento/Legato (モノフォニック専用) | ✅ | `docs/design/midi-processing.md` |
+| Portamento Rate テーブル (GM2グラフ準拠、セント単位遷移) | ✅ | `docs/design/midi-processing.md` |
+| CC#120 forceDamp (全チップ、ALGキャリア判定込み) | ✅ | `docs/design/midi-processing.md` |
+| RPN#1 チャンネルファインチューニング | ✅ | `docs/design/midi-processing.md` |
+| VoicePatchType システム (音色パッチ互換性分類)。HwBankの登録キーはチップ種別(VoicePatchType)単位 | ✅ | `docs/design/patch-resolution.md` |
+| バンクセレクトLSB直接指定モード | ✅ | `docs/design/patch-resolution.md` |
+| 無音バンク (CC#0=127、`VOICE_PATCH_SILENCE`) | ✅ | `docs/design/patch-resolution.md` |
+| PSGソフトウェアエンベロープ (SoftEnvelope, FM実機準拠ADSR) | ✅ | `docs/design/voice-processor.md` |
+| AY-3-8910 HW EG (ext.HWEP)、AY8930拡張モードのバンク切り替え | ✅ | `docs/design/voice-processor.md`, `docs/design/chip-drivers.md` |
+| リズムモード汎用フィールド (`rhythm_mode`)、ビルトインリズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `docs/design/config-loading.md` |
+| HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `docs/interfaces/plugin-hwif.md` |
+| HWPlugin_Shutdown (任意API、二重実行防止) | ✅ | `docs/interfaces/plugin-hwif.md` |
+| HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `docs/interfaces/plugin-hwif.md` |
+| HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `docs/interfaces/plugin-hwif.md`, `docs/design/config-loading.md` |
+| Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `docs/design/chip-drivers.md` |
+| 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `docs/design/chip-drivers.md` |
+| リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/design/config-loading.md` |
+| OPL3 4OPモード (COPL3) + 疑似デチューン(DT2転用) | ✅ | `docs/design/chip-drivers.md` |
+| OPN FXモード (3rd channel special mode、疑似デチューン/非整数倍率/固定周波数) | ✅ | `docs/design/chip-drivers.md`, `docs/design/voice-processor.md` |
+| 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-drivers.md` |
+| リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `docs/design/chip-drivers.md` |
+| ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-drivers.md` |
+| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-drivers.md`, `voice-parameter-reference.md`, `manuals/hwpatch-reference.md` |
+| ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
+| PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
+| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `voice-parameter-reference.md` |
+| プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `docs/design/config-loading.md` |
+| SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `manuals/midi-message-reference.md` |
+| 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |
+| MIDIバックエンドのRtMidi単一実装 | ✅ | `docs/interfaces/plugin-midi.md` |
+| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書10月20日版に追従) | 🚧 | `docs/design/chip-drivers.md` 4.5.3節 |
 | テストケース名はASCIIに限定 (`tests/test_test_names.cpp`が検査する) | ✅ | — |
 
 ---
@@ -212,9 +212,9 @@
 **チップドライバ**
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
 - VoicePatchType 完全一致以外へのフォールバック(旧FITOMの互換リスト相当)。OPLL系はROMプリセットがOPLLEXへ落ちるものだけがあり、標準OPLL系どうしの相互フォールバックは無い
-- OPM/OPZ ハードウェアLFO: 設計検討完了・実装未着手。`docs/opm-opz-hw-lfo.md`
+- OPM/OPZ ハードウェアLFO: 設計検討完了・実装未着手。`docs/proposals/opm-opz-hw-lfo.md`
 - SCCの波形バンク番号が常に0: `CSCC::setWaveBankNo()`がどこからも呼ばれておらず、複数の`sccwave`バンクを音色データ側から使い分ける経路が無い。バンク0だけなら動作する
-- AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`patch-structure-design.md`)
+- AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`docs/design/patch-resolution.md`)
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
@@ -227,16 +227,16 @@
 
 **Y8960**
 - カートリッジ側のミキサー(ブロックごとの音量 0x7FF7-0x7FFE)はカートリッジのメモリマップドI/Oで、チップドライバの対象外。扱うならHW I/Fプラグイン側の部位ゲインとして実装する
-- 仕様は変更が続いている。仕様書が変わったら`chip-driver-architecture.md`4.5.3節を見直す
+- 仕様は変更が続いている。仕様書が変わったら`docs/design/chip-drivers.md`4.5.3節を見直す
 
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線
 - 内部用MIDIパイプ経由の音色試聴連携(GUIからのSysEx送出、パッチエディタ本体との結合)
-- `sf2_channel_windows`を一覧編集する専用ダイアログ(チャンネル単位の切替はCH設定ダイアログにある。`sf2-fluidsynth-integration.md`5節)
+- `sf2_channel_windows`を一覧編集する専用ダイアログ(チャンネル単位の切替はCH設定ダイアログにある。`docs/design/sf2-direct-path.md`5節)
 - チャンネルレベルメーターのサブデバイスの表示順(現状はConfig側の生成順)
 
 **記録・出力**
-- VGMレコーディング: 設計検討完了・実装未着手。`docs/vgm-recording.md`
+- VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`
 
 **プラグイン SDK**
 - `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す

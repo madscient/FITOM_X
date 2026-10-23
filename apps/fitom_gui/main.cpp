@@ -785,7 +785,7 @@ namespace
         ImGui::SameLine(C::fnumber);
         if (mon.isSf2Windowed)
         {
-            // SF2直行パス(docs/sf2-fluidsynth-integration.md参照、2026年8月
+            // SF2直行パス(docs/design/sf2-direct-path.md参照、2026年8月
             // 新設): block:fnumという概念自体が存在しないため、代わりに
             // fluidsynthへ実際に送出したNote Onの生バイト列(ステータス
             // バイトにはfluidsynth chan付け替え後の値を含む)を表示する。

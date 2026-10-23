@@ -1,6 +1,6 @@
 #pragma once
 // fitom/Sf2BankRegistry.h
-// SF2直行パス(docs/sf2-fluidsynth-integration.md参照)における、
+// SF2直行パス(docs/design/sf2-direct-path.md参照)における、
 // profile の banks.sf2_banks[] を1回だけ解析し、以下の2つの役割を
 // 単一クラスから導出するレジストリ。
 //   (a) 実行時のCC#32解決用 (CC#32値=bank) → {soundfont_index, sf2_bank}
@@ -29,7 +29,7 @@ struct Sf2Preset {
 };
 
 // SoundFont2(RIFF/sfbk)ファイルの`phdr`(プリセットヘッダ)サブチャンクだけを
-// 読み、プリセット名一覧を返す(docs/sf2-fluidsynth-integration.md ⑧節参照)。
+// 読み、プリセット名一覧を返す(docs/design/sf2-direct-path.md ⑧節参照)。
 // 実際の音声サンプル(LIST/sdta、ファイルサイズの大半を占めうる)はチャンク
 // サイズでシークして読み飛ばすため、ファイルが大きくても軽量に処理できる。
 // phdr末尾の終端レコード(慣習的に"EOP"、実プリセットではない)は結果に含めない。
@@ -41,7 +41,7 @@ class Sf2BankRegistry {
 public:
     // banks.sf2_banks配列をパースする。file の相対パスは baseDir を起点に
     // 絶対パス化する(他の banks.*[].file と同じ規約、
-    // docs/patch-structure-design.md「相対パスの解決基点」参照)。
+    // docs/design/patch-resolution.md「相対パスの解決基点」参照)。
     // 不正なエントリ(bank/sf2_bankが範囲外、fileが空)は警告して読み飛ばす。
     // 同一bankが複数回指定された場合は後勝ち(警告ログを出す)。
     // 新規に登場したfileごとに一度だけparseSf2PresetHeaders()を呼び、

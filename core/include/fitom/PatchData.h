@@ -128,7 +128,7 @@ struct HwPatch {
     // -1 = 参照なし(センチネル)。このHwPatch(音色データ)自身が
     // 「本来意図している演奏特性」のデフォルトを指す。DrumNote側に
     // 個別の上書き指定(swBank/swProg != -1)があれば、そちらが優先
-    // される (詳細は docs/terminology.md 参照)。
+    // される (詳細は docs/design/terminology.md 参照)。
     // 指定先が解決できなかった場合は、パフォーマンスパッチが
     // 適用されないだけで、HwPatch自体の発音は妨げられない
     // (ソフトな失敗、エラー扱いにしない)。
@@ -179,7 +179,7 @@ struct SwPatch {
     // レイヤー固有パラメータ、こちらはSwPatch=演奏特性の一部として、
     // 直接モード等でも効かせられる)。両方が有効な場合は加算する。
     // 適用時は「半音部分(ノート番号に加算)」と「セント端数部分
-    // (kfs単位に変換して加算。docs/terminology.mdの「kfs」参照)」に
+    // (kfs単位に変換して加算。docs/design/terminology.mdの「kfs」参照)」に
     // 分解される (MidiCh.cpp参照)。名前は DrumNote::fineTune と同じ
     // 命名スタイル (ToneLayer.transposeとの役割混同を避けるため
     // "fixed"ではなく"fine"を使う、2026年7月)。
@@ -402,13 +402,13 @@ struct SampleZone {
     // HwPatch::swBank/swProgと同じ意味・同じソフトフォールバック規約
     // (-1=参照なし、指定先が解決できなくてもゾーン自体の発音は妨げない)。
     // 2026年7月新設。DrumNote側に個別の上書き指定があれば、そちらが優先
-    // される(詳細はdocs/patch-structure-design.md参照)。
+    // される(詳細はdocs/design/patch-resolution.md参照)。
     // 【対応チップの制約】ADPCM-B/PCMD8は全機能(チャンネルLFO/トレモロ/
     // VTL感度/fine_transpose)が有効。ADPCM-Aはピッチ制御が無いため
     // VTL感度/トレモロのみ有効(チャンネルLFO/fine_transposeは無効)。
     // AWMは実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が
     // 別途必要なため、現状この参照は解決されるが音には反映されない
-    // (2026年7月時点、docs/patch-structure-design.md参照)。
+    // (2026年7月時点、docs/design/patch-resolution.md参照)。
     int8_t   swBank    = -1;
     int8_t   swProg    = -1;
 };

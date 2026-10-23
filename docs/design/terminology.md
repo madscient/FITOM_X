@@ -64,7 +64,7 @@ PatchBank/ToneLayerを一切経由しない、単層のパッチ。**ベロシ�
 DrumNote側にも`sw_bank`/`sw_prog`の個別上書きフィールドがあり、
 HwPatchが楽器を区別できないビルトインリズム音源でも、楽器ごとに
 異なるパフォーマンスパッチを指定できる。詳細は
-`docs/patch-structure-design.md`参照）。
+`docs/design/patch-resolution.md`参照）。
 
 ---
 
@@ -120,7 +120,7 @@ HwPatchが楽器を区別できないビルトインリズム音源でも、楽�
 維持するため無音にならない。確実に音を止めたい箇所、および
 `ToneLayer`/`DrumNote`のプレースホルダには、未定義の番号ではなく
 この値を使う。実装上の要点は
-`docs/midi-implementation-status.md`の「無音バンク」節を参照。
+`docs/design/midi-processing.md`の「無音バンク」節を参照。
 
 **SF2直行パスとの関係**: 外部のMIDIシーケンサー向けインストゥルメント
 定義ファイルには、SF2のバンク名/パッチ名をCC#0/CC#32空間の中で
@@ -128,7 +128,7 @@ HwPatchが楽器を区別できないビルトインリズム音源でも、楽�
 側の便宜的な割り当てで、FITOM_X側の実装は持たない。
 **FITOM_Xがこの値を受信してもSF2直行パスへは切り替わらない**——
 SF2直行パスとネイティブ経路の振り分けはMPU×chの窓テーブルへの所属
-だけで決まる(`docs/sf2-fluidsynth-integration.md`の③⑤参照)。窓に属する
+だけで決まる(`docs/design/sf2-direct-path.md`の③⑤参照)。窓に属する
 チャンネルではCC#0はfluidsynthへ転送されないため、この値が無音バンクと
 解釈されることもない(バンク選択は実際にはCC#32→`sf2_banks`のみで
 行われる)。窓に属さないチャンネルで受信した場合は上記の無音バンクと
@@ -181,7 +181,7 @@ BD(バスドラム、2op)以外は1オペレータのみの実際のFM音色パ�
 物理チャンネル向けか)は完全に独立した軸のため、同じ楽器(例:SD)に
 対して複数の音色バリエーションをHwBank内の別スロットに用意できる
 (HwPatch作成者が各スロットの`rhythm_ch`を正しく設定する責任を負う)。
-詳細は`docs/chip-driver-architecture.md`の「VoicePatchType対応表」参照。
+詳細は`docs/design/chip-drivers.md`の「VoicePatchType対応表」参照。
 
 **「楽器番号=物理チャンネル番号」というハードウェア上の制約があるため、
 `patch_prog`(hwProg)をそのままチャンネル番号として解釈する**

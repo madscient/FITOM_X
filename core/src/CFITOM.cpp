@@ -577,7 +577,7 @@ void CFITOM::initDevices()
         }
         if (deviceType == DEVICE_NONE) {
             if (config_->isSf2Device(i)) {
-                // SF2直行パス(docs/sf2-fluidsynth-integration.md参照)用の
+                // SF2直行パス(docs/design/sf2-direct-path.md参照)用の
                 // ラッパーデバイス。ISoundDevice生成は意図的にスキップし、
                 // MidiProcessor::processMessage()からの生MIDIバイト列転送
                 // 先としてIPortのみ記録する(プロファイル検証により
@@ -1182,7 +1182,7 @@ void CFITOM::resetAllCtrl()
 
 // ─── マスターピッチ ──────────────────────────────────────────────────────────
 
-// SF2直行パス(docs/sf2-fluidsynth-integration.md参照): マスターボリューム/
+// SF2直行パス(docs/design/sf2-direct-path.md参照): マスターボリューム/
 // マスターピッチも、新規プロトコルを設計せず既存のGM2 Universal Realtime
 // SysExをそのままHWPlugin_WriteBlock経由でSF2ラッパーへ転送するだけで
 // 済ませる(8.1節既存のマスターチューニングSysExと同じバイト列)。
@@ -1225,7 +1225,7 @@ void CFITOM::setMasterPitch(double pitchHz)
     }
 
     // SF2直行パス: 既存のGM2 Universal Realtime SysEx(マスターファイン
-    // チューニング)をそのまま転送する(docs/sf2-fluidsynth-integration.md参照)。
+    // チューニング)をそのまま転送する(docs/design/sf2-direct-path.md参照)。
     if (sf2Port_) {
         uint8_t buf[8];
         buildGm2MasterFineTuneSysEx(buf, pitchHz);
@@ -1309,7 +1309,7 @@ uint8_t CFITOM::getMasterVolume() const
     return config_ ? config_->getMasterVolume() : 100;
 }
 
-// ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+// ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設) ───
 
 bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t d1, uint8_t d2)
 {
@@ -1605,7 +1605,7 @@ void MidiProcessor::processMessage()
     uint8_t ch     = status & 0x0F;
     uint8_t type   = status & 0xF0;
 
-    // SF2直行パス(docs/sf2-fluidsynth-integration.md参照): 窓に含まれる
+    // SF2直行パス(docs/design/sf2-direct-path.md参照): 窓に含まれる
     // (mpuIndex_, ch)は、CInstCh/CRhythmChへのディスパッチ・PatchManagerに
     // よる音色解決を一切経由せず、SF2ラッパープラグインへ生MIDIバイト列
     // として直接転送する。内部用MIDIパイプ(mpuIndex_==-1)は対象外。
@@ -1865,7 +1865,7 @@ void MidiProcessor::processPrivateSysEx()
 
     // sub-cmd=0x04: SF2直行パス チャンネル窓の動的割り当て
     // (docs/manuals/midi-message-reference.md 8.2節、
-    //  docs/sf2-fluidsynth-integration.md ⑤節参照)。
+    //  docs/design/sf2-direct-path.md ⑤節参照)。
     //   F0 00 48 01 04 <mpu> <ch> <fluidsynth_chan|0x7F> F7
     //   <mpu>: 0-3=対象MPU番号 / 0x7E=このSysExを受信したMPU自身 /
     //          0x7F=すべてのMPU(ブロードキャスト)。
@@ -1933,7 +1933,7 @@ void MidiProcessor::processPrivateSysEx()
     // sub-cmd=0x06: レイヤードパッチ(Patch)直接編集。パッチエディタが
     // バンクファイルへの保存と対にして送る、永続化用のバンク確定専用
     // メッセージ(docs/manuals/midi-message-reference.md 8.1節、
-    // docs/plugin-midi-pipe.md「後片付け」節参照)。target-type/layerの
+    // docs/interfaces/plugin-midi-pipe.md「後片付け」節参照)。target-type/layerの
     // 枠組みは使わず(このPatch単位ではチャンネルスコープの一時上書きは
     // 既にNRPN97「ToneLayerオーバーライド」が担っているため、バンク直接
     // 編集の1系統のみでよい)、常にバンク直接編集として扱う。

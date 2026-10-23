@@ -1150,7 +1150,7 @@ CAdPcmBase : CSoundDevice               (PCMバンク管理・loadVoice純粋仮
 
 `Config::deviceTypeToVoicePatchType()`が`deviceType`(DEVICE_*)→`VoicePatchType`
 (VOICE_PATCH_*)を変換する。sub-device自動生成・同種デバイス束ねは全てこの値を
-基準に動作する。詳細は`patch-structure-design.md`参照。
+基準に動作する。詳細は`docs/design/patch-resolution.md`参照。
 
 | VoicePatchType | 対応する deviceType | 生成クラス | オペレータ数 |
 |---|---|---|---|

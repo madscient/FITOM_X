@@ -212,7 +212,7 @@ CC#0(MSB)の値が4種類の異なる意味を排他的に切り替える、統�
 | `0x00` | 通常モード | PatchBank番号 | 選択したPatchBank内のPatch番号 |
 | `0x01`-`0x6F` | 直接モード | この値自体が`VoicePatchType`(`VOICE_PATCH_*`)。値がそのチップを直接指定する | そのVoicePatchType用にプロファイル登録された`HwBank`のインデックス |
 | ~~`0x01`-`0x6F`(続き)~~ | ~~直接モード~~ | ~~上記~~ | 選択した`HwBank`内の`HwProg`番号 |
-| `0x70` | 内蔵リズム音源専用バンク(OPNA/OPLL、詳細は`docs/terminology.md`参照) | - | - |
+| `0x70` | 内蔵リズム音源専用バンク(OPNA/OPLL、詳細は`docs/design/terminology.md`参照) | - | - |
 | `0x71`-`0x77`, `0x7A`-`0x7E` | (将来予約) | - | - |
 | `0x78` (`DEVICE_RHYTHM`) | GM2: リズムチャンネルへ切替 | 使用しない | 使用しない |
 | `0x79` | GM2: メロディチャンネルへ切替 | 使用しない | 使用しない |
@@ -255,7 +255,7 @@ CC#0(MSB)の値が4種類の異なる意味を排他的に切り替える、統�
 Change受信時点で切り替わる、2段階方式)とは意図的に異なる設計判断
 である。** FITOM_XはGM2完全準拠を目指しておらず、固有の実装にする
 理由がない項目についてのみ緩くGM2に揃える方針のため、この差異は
-是正しない(2026年7月時点で確定)。詳細・理由は`docs/terminology.md`の
+是正しない(2026年7月時点で確定)。詳細・理由は`docs/design/terminology.md`の
 「GM2正式仕様との違い」を参照。
 
 **リズムチャンネル(`CRhythmCh`)はCC#0(`0x79`によるモード復帰を除く)/CC#32を
@@ -474,7 +474,7 @@ HWPort層(実際のプラグイン呼び出し)の両方のログを突き合わ
 | 120 | `forceDamp()`。sustainを無視し、RRを最大化（またはOPLL系はSUSビット解除）して急速減衰 |
 | 123 | 通常の`noteOff()`。sustain有効なら保持される |
 
-リズムチャンネル(`CRhythmCh`)も2026年8月に`allSoundOff()`を実装した(それ以前は`IMidiCh`の既定実装で`allNoteOff()`にフォールバックしていた)。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、既定実装のままではCC#120で鳴り止まなかった。両デバイスの`forceDamp()`(ダンプビット書き込み)も同時に実装している。詳細は`docs/patch-structure-design.md`の「チョークグループ」節を参照。
+リズムチャンネル(`CRhythmCh`)も2026年8月に`allSoundOff()`を実装した(それ以前は`IMidiCh`の既定実装で`allNoteOff()`にフォールバックしていた)。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、既定実装のままではCC#120で鳴り止まなかった。両デバイスの`forceDamp()`(ダンプビット書き込み)も同時に実装している。詳細は`docs/design/patch-resolution.md`の「チョークグループ」節を参照。
 
 ---
 

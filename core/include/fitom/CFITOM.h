@@ -42,7 +42,7 @@ namespace fitom {
 // ================================================================
 class MidiProcessor {
 public:
-    // mpuIndex: SF2直行パス(docs/sf2-fluidsynth-integration.md参照)の窓
+    // mpuIndex: SF2直行パス(docs/design/sf2-direct-path.md参照)の窓
     // テーブルが対象とするMPU番号(0-3)。窓の対象にならない系統
     // (内部用MIDIパイプ等)は既定値-1のままにし、SF2直行パスの判定自体を
     // 行わない(2026年7月新設)。
@@ -392,7 +392,7 @@ public:
         if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendNoteOff(ch, note);
     }
 
-    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設) ───
     // MidiProcessor::processMessage()から、生MIDI入力の(mpu, ch)が窓
     // テーブルに含まれるかどうかの判定・実際の転送処理を委譲される。
     // 窓に含まれていれば、CInstCh/CRhythmChへのディスパッチを行わず true
@@ -575,7 +575,7 @@ private:
     static uint16_t getHighBankOffset(uint32_t deviceType);
     IPort* resolveHighBankPort(uint32_t deviceType, IPort* port, IPort* configuredPort2);
 
-    // ─── SF2直行パス (docs/sf2-fluidsynth-integration.md参照、2026年7月新設) ───
+    // ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設) ───
     // chip:"SF2"のdevices[]エントリのIPort(HWPort)。initDevices()が
     // FITOMConfig::isSf2Device()で見つけて記録する。プロファイル検証
     // (FITOMConfig::buildFromProfile())により、devices[]内にchip:"SF2"は

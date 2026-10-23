@@ -122,7 +122,7 @@ exit()/init()の繰り返しに伴う`exited_`ガードの問題は発生しな�
   `MidiCh.cpp`)やソフトLFOのレート換算(`rateToTicks()`)は「1ティック
   =1ms」を前提に較正されているため、安全に可変化できない
 - `polling_interval_us`: HWポーリングの責務はHWプラグイン
-  (`fitom_fmhwif.dll`等)側に移管済み(`RtAudio削除`、`plugin-hwif.md`
+  (`fitom_fmhwif.dll`等)側に移管済み(`RtAudio削除`、`docs/interfaces/plugin-hwif.md`
   参照)であり、FITOM_X本体にポーリングスレッド自体が存在しない
 
 HW プラグイン (実機・エミュレータ問わず) はプロファイル側の `hw_plugins[]`
@@ -361,7 +361,7 @@ FITOM_X側が`resolveChipDeviceId()`に使うための情報であり、その�
 OPLL/OPL/PSG系のようにチップ自体がモノラル出力しか持たない音源で、
 **物理的にL/Rへ固定配線された同一チップ2台を1つのステレオデバイスとして
 束ね、等パワーパンニングでパンポットを表現する**ための指定
-(`CLinearPanDevice`。設計の詳細は`chip-driver-architecture.md`「3.1
+(`CLinearPanDevice`。設計の詳細は`docs/design/chip-drivers.md`「3.1
 リニアステレオ化」)。
 
 **自動検出は行わない。** L側・R側**両方**のエントリに`stereo_pair`を書く必要が
@@ -494,7 +494,7 @@ MPU1にUM-ONEを割り当てる)。GUIのMIDIポート設定ダイアログ(`app
 チップによっては、音を複数の端子から別々に出す(OPNAのFMとSSG等)。この出力の
 ひとつひとつを**部位**と呼ぶ。実機ではボード上の回路でミックスするので、音量の
 バランスは機種で違う。`part_gains`は、そのバランスをデバイスごとに持つ。
-部位を持つのは、部位ごとのゲインに対応したHWプラグイン(`plugin-hwif.md`
+部位を持つのは、部位ごとのゲインに対応したHWプラグイン(`docs/interfaces/plugin-hwif.md`
 「部位ごとのゲイン」参照)のデバイスだけである。
 
 `master_volume`等と同じく、GUIのシステム設定ダイアログ(`SystemSettingsDialog`)

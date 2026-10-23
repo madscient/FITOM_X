@@ -264,7 +264,7 @@ cmake --build --preset macos-release
 - `banks` には、外部のバンク定義ファイルへのパスを文字列で書くこともできます
 - `banks.*[].file` の相対パスは、プロファイルファイル自身が置かれているディレクトリを起点に解決されます(起動時のカレントディレクトリは無関係)
 
-すべての項目は `config_schema/profile.schema.json` と [config-design.md](docs/config-design.md) を参照してください。
+すべての項目は `config_schema/profile.schema.json` と [docs/design/config-loading.md](docs/design/config-loading.md) を参照してください。
 
 ---
 
@@ -272,9 +272,9 @@ cmake --build --preset macos-release
 
 `plugin_sdk/include/fitom/` の2つのヘッダが DLL プラグインの C API を定義します。
 
-**`IHWPlugin.h`** — HW I/F DLL。チップへのレジスタ書き込みを `HWPlugin_Write` / `HWPlugin_WriteBlock` としてフラット化した C API です。渡すレジスタアドレスは常に実チップのものです。実機用もエミュレータ用もこの同じ API を実装します。チップの出力ごとの音量(部位ごとのゲイン)を調整する関数は任意の実装です。詳細は [plugin-hwif.md](docs/plugin-hwif.md)。
+**`IHWPlugin.h`** — HW I/F DLL。チップへのレジスタ書き込みを `HWPlugin_Write` / `HWPlugin_WriteBlock` としてフラット化した C API です。渡すレジスタアドレスは常に実チップのものです。実機用もエミュレータ用もこの同じ API を実装します。チップの出力ごとの音量(部位ごとのゲイン)を調整する関数は任意の実装です。詳細は [docs/interfaces/plugin-hwif.md](docs/interfaces/plugin-hwif.md)。
 
-**`IMidiPlugin.h`** — MIDI バックエンド DLL。MIDI 1.0 のバイト列で統一したインターフェースです。詳細は [plugin-midi.md](docs/plugin-midi.md)、内部用 MIDI パイプは [plugin-midi-pipe.md](docs/plugin-midi-pipe.md)。
+**`IMidiPlugin.h`** — MIDI バックエンド DLL。MIDI 1.0 のバイト列で統一したインターフェースです。詳細は [docs/interfaces/plugin-midi.md](docs/interfaces/plugin-midi.md)、内部用 MIDI パイプは [docs/interfaces/plugin-midi-pipe.md](docs/interfaces/plugin-midi-pipe.md)。
 
 ---
 
@@ -291,13 +291,13 @@ cmake --build --preset macos-release
 ### 開発者向け (`docs/`)
 
 - `DESIGN.md` — アーキテクチャ全体像と設計方針
-- `chip-driver-architecture.md` — チップドライバの設計
-- `voice-data-design.md` — HwPatch / SwPatch / FmHwOp の設計
-- `patch-structure-design.md` — パッチ・バンク構造
-- `config-design.md` — 設定ファイル (`fitom.conf.json` / `*.profile.json`) の設計
-- `plugin-hwif.md` / `plugin-midi.md` / `plugin-midi-pipe.md` — 各プラグイン SDK の詳細
-- `sf2-fluidsynth-integration.md` — SoundFont 音源との連携
-- `terminology.md` — 用語
+- `docs/design/chip-drivers.md` — チップドライバの設計
+- `docs/design/voice-processor.md` — HwPatch / SwPatch / FmHwOp の設計
+- `docs/design/patch-resolution.md` — パッチ・バンク構造
+- `docs/design/config-loading.md` — 設定ファイル (`fitom.conf.json` / `*.profile.json`) の設計
+- `docs/interfaces/plugin-hwif.md` / `docs/interfaces/plugin-midi.md` / `docs/interfaces/plugin-midi-pipe.md` — 各プラグイン SDK の詳細
+- `docs/design/sf2-direct-path.md` — SoundFont 音源との連携
+- `docs/design/terminology.md` — 用語
 - `STATUS.md` — 実装状況と未確認事項
 - `spec/README.md` — 外部ツール向けの機械可読仕様
 

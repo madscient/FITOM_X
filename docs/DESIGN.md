@@ -100,7 +100,7 @@ MIDI メッセージは MIDI 1.0 バイト列で統一する。
 ## 設定ファイルの例
 
 システム設定(`fitom.conf.json`、省略可能)とプロファイル(`*.profile.json`)は
-別ファイルに分離されている。詳細は`docs/config-design.md`参照。
+別ファイルに分離されている。詳細は`docs/design/config-loading.md`参照。
 
 ```json
 // fitom.conf.json (省略可能)

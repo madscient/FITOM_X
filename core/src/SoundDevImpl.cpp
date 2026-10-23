@@ -243,7 +243,7 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
         // 呼ぶ際に必要、2026年7月新設。buildVoiceForCh()参照)。
         s.swPatch = swPatch ? *swPatch : SwPatch();
         // VoiceProcessor::onNoteOn()をupdateVoice()より前に呼ぶ
-        // (ドキュメント化された正しい設計、voice-data-design.mdの
+        // (ドキュメント化された正しい設計、docs/design/voice-processor.mdの
         // フェーズ6手順3参照。2026年7月訂正。以前はnoteOn()側で
         // 遅延して呼ばれており、updateVoice()内のキャリア側ベロシティ
         // 補正値が常に未計算のまま実機へ送信されるバグがあった)。
@@ -370,7 +370,7 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     ++s.noteOnSeq;
 
     // VoiceProcessor::onNoteOn()は、assignCh()内でupdateVoice()より前に
-    // 既に呼ばれている(2026年7月訂正、voice-data-design.mdのフェーズ6
+    // 既に呼ばれている(2026年7月訂正、docs/design/voice-processor.mdのフェーズ6
     // 手順3参照)。ここで再度呼ぶと、LFOリセット等が二重に走ってしまう
     // ため呼ばない。
 
