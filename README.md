@@ -290,7 +290,6 @@ cmake --build --preset macos-release
 
 ### 開発者向け (`docs/`)
 
-- `DESIGN.md` — アーキテクチャ全体像と設計方針
 - `docs/design/chip-drivers.md` — チップドライバの設計
 - `docs/design/voice-processor.md` — HwPatch / SwPatch / FmHwOp の設計
 - `docs/design/patch-resolution.md` — パッチ・バンク構造

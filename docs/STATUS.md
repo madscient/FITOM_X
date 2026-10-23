@@ -106,8 +106,6 @@
 | `hwbank.schema.json` | ✅ |
 | `swbank.schema.json` | ✅ |
 | `patchbank.schema.json` | ✅ |
-| `docs/DESIGN.md` | ✅ |
-| `docs/chip-driver-migration.md` | ✅ |
 | `docs/design/chip-drivers.md` | ✅ |
 | `docs/design/patch-resolution.md` | ✅ |
 | `docs/design/voice-processor.md` | ✅ |
@@ -211,6 +209,7 @@
 - CC#2/CC#4 の変数分離
 
 **チップドライバ**
+- OPK(YM7116)/OPK2(YM7129)のドライバ(旧実装は`legacy/src/OPK.cpp`にある。**確認済み**: `DeviceFactory.cpp`に生成処理が無く、`Config.cpp`に`chip`名の対応も無いことをgrepで確認)
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
 - VoicePatchType 完全一致以外へのフォールバック(旧FITOMの互換リスト相当)。OPLL系はROMプリセットがOPLLEXへ落ちるものだけがあり、標準OPLL系どうしの相互フォールバックは無い
 - OPM/OPZ ハードウェアLFO: 設計検討完了・実装未着手。`docs/proposals/opm-opz-hw-lfo.md`

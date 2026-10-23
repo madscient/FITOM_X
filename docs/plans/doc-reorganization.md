@@ -48,7 +48,6 @@
 | `docs/manuals/layered-patch-reference.md` | 利用者 | (据え置き) |
 | `docs/manuals/profile-reference.md` | 利用者(新設) | `config-design.md`の利用者向け部分 + `banks/README.md`の`banks`・`bank_overrides` |
 | `docs/manuals/bank-reference.md` | 利用者(新設) | `patch-structure-design.md`の利用者向け部分(ドラムキット、PCMバンク、builtin、PSG共有バンク等) |
-| `docs/design/architecture.md` | 本体の開発者・AI | `DESIGN.md`のうち現役の部分 |
 | `docs/design/chip-drivers.md` | 同上 | `chip-driver-architecture.md` + `voice-parameter-reference.md`の内部向け部分 |
 | `docs/design/patch-resolution.md` | 同上 | `patch-structure-design.md`の内部向け部分 |
 | `docs/design/voice-processor.md` | 同上 | `voice-data-design.md` |
@@ -63,6 +62,8 @@
 | `docs/proposals/vgm-recording.md` | 未実装の検討 | `vgm-recording.md` |
 | `docs/proposals/opm-opz-hw-lfo.md` | 未実装の検討 | `opm-opz-hw-lfo.md` |
 | (削除) | — | `DESIGN.md`、`chip-driver-migration.md`、`voice-parameter-reference.md`、`banks/sw/README.md` |
+
+`DESIGN.md`の現役の部分は README のアーキテクチャ概要・ビルド要件と`docs/interfaces/`で覆われていたため、`architecture.md`は作らなかった。
 
 `spec/`・`banks/README.md`・`legacy/README.md`は場所を変えない。
 
@@ -83,7 +84,7 @@
 ### 5.1 削除する文書
 
 - `chip-driver-migration.md`: 移行は完了。削除の前に、OPK/OPK2 が未移植であることを STATUS 4節へ移す(監査: DeviceFactory に生成処理が無い)
-- `DESIGN.md`: 移行計画で、全フェーズが終わっている。残す価値のある Boost とログの方針を`architecture.md`か README へ移す。古い記述: WMS バックエンド、boost::interprocess の使用(実際は不使用)、MFC shim/Qt、CMidiInst
+- `DESIGN.md`: 移行計画で、全フェーズが終わっている。削除済み
 - `voice-parameter-reference.md`: 利用者向け部分(レジスタイメージからの変換表、AWM の校正フィールド)を`hwpatch-reference.md`へ、内部向け部分を`chip-drivers.md`へ移してから削除。こちらの方が古い記述(ADPCM の`ops[0].WS`、OPLL の表、共通 ext)はマニュアル側を正とする
 - `banks/sw/README.md`: `banks/README.md`の1行と`swpatch-reference.md`へのリンクに畳む。VTL の式がコードと食い違う(監査: `VoiceProcessor.cpp`522-524)
 
@@ -115,7 +116,8 @@
 
 - STATUS: 「設定スキーマ・ドキュメント」の表を削除(文書一覧は README に一本化)。ファイル一覧の漏れ(DrumData.h、PcmBankData.h、SccWaveData.h、FITOMdefine.h、Fnum.h/.cpp、Sf2BankRegistry.h)。`AudioEngine`の廃止行を削除。RPN 2/7F7F は実装済み(監査)。疑似デチューンは DT2 ではなく PDT(監査)。GUI の現状を CLAUDE.md から寄せる
 - CLAUDE.md: ビルド手順のプリセット名(**確認済み**: `CMakePresets.json`を読み、build プリセットは`windows-release`等で configure プリセットと名前が違うことを確認)。ディレクトリ構成に`config_schema/`・`third_party/`が無い。「主要ドキュメント」表を地図に作り直す。利用者向け文書の規則・設計検討文書の扱いの規則を足す
-- README: 文書一覧を再編後の構成に合わせる
+- README: 文書一覧を再編後の構成に合わせる。ビルド要件の Boost の欄を直す(**確認済み**: コードが使うのは Boost.Log(と date_time)と format だけで、interprocess は使っていない。thread は CMake の必須コンポーネントに残っている)
+- ルートの`CMakeLists.txt`63行目付近の Boost の用途のコメント(named_mutex)が古い(P4)
 
 ## 6. 他のリポジトリの参照(P6)
 
