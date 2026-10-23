@@ -26,13 +26,13 @@ STATUS.md内の位置関係を指すため、別の件や別の月のファイ�
 | 記録の中の名前 | 現在の場所 |
 |---|---|
 | `chip-driver-architecture.md` | `docs/design/chip-drivers.md`(共通の仕組み)と`docs/design/chip-notes.md`(チップ別) |
-| `patch-structure-design.md` | `docs/design/patch-resolution.md` |
+| `patch-structure-design.md` | `docs/design/patch-resolution.md`(内部の解決)と`docs/manuals/bank-reference.md`(バンクファイルの書き方) |
 | `voice-data-design.md` | `docs/design/voice-processor.md` |
 | `midi-implementation-status.md` | `docs/design/midi-processing.md` |
-| `config-design.md` | `docs/design/config-loading.md` |
+| `config-design.md` | `docs/design/config-loading.md`(内部の読み込み)と`docs/manuals/profile-reference.md`(プロファイルの書き方) |
 | `sf2-fluidsynth-integration.md` | `docs/design/sf2-direct-path.md` |
 | `terminology.md` | `docs/design/terminology.md` |
 | `plugin-hwif.md` / `plugin-midi.md` / `plugin-midi-pipe.md` | `docs/interfaces/`の同名ファイル |
 | `vgm-recording.md` / `opm-opz-hw-lfo.md` | `docs/proposals/`の同名ファイル |
-| `voice-parameter-reference.md` | 削除。利用者向けの内容は`docs/manuals/hwpatch-reference.md`、チップごとのレジスタと内部処理は`docs/design/chip-drivers.md` |
+| `voice-parameter-reference.md` | 削除。利用者向けの内容は`docs/manuals/hwpatch-reference.md`、チップごとのレジスタと内部処理は`docs/design/chip-notes.md` |
 | `DESIGN.md` / `chip-driver-migration.md` | 削除(2026年10月の「`docs/DESIGN.md`と`docs/chip-driver-migration.md`を削除した」の件) |

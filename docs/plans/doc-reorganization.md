@@ -125,7 +125,7 @@
 
 2026年10月23日に grep で数えた(**確認済み**)。過去ログは除く。
 
-- FITOM_patch_editor: `apps/gui/`・`include/fpe/`・`src/`のコメント、`docs/ARCHITECTURE.md`、`CLAUDE.md`
+- FITOM_patch_editor: `apps/gui/`・`include/fpe/`・`src/`のコメント、`docs/ARCHITECTURE.md`、`CLAUDE.md`。**済み**(同リポジトリの`218eaa5`・`e2e0ecc`)。`CLAUDE.md`にFITOM_Xの文書への参照は無く、代わりに`docs/DECISIONS.md`と`tests/`にあった
 - FITOM_staging: `README.md`、`CLAUDE.md`、`tools/voice_convert/`、`config_schema/`(写し)、`config/profiles/hw_plugins/fitom_sf2if_profile.json`。`docs/voice-parameter-reference.md`という写しを持っている
 - FitomHwIF: `src/HWPluginImpl.cpp`
 - FitomEmuIF: `doc/plan.md`
