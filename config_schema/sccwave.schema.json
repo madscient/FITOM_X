@@ -16,7 +16,7 @@
         "properties": {
           "wave_no": {
             "type": "integer", "minimum": 0, "maximum": 127,
-            "description": "波形番号。HwPatch.hwOp[ch].WS で指定する値。"
+            "description": "波形番号。HwPatch.hwOp[0].WS で指定する値。"
           },
           "name": {
             "type": "string",

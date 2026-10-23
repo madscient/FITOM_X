@@ -42,8 +42,8 @@ TEST_CASE("FITOMConfig: load minimal profile", "[config]")
 
 TEST_CASE("FITOMConfig: audio_output field is ignored (obsolete, removed feature)", "[config]")
 {
-    // audio_output は廃止済み (FmEngine直接制御パス自体が廃止されたため)。
-    // 既存プロファイルにこのフィールドが残っていても単純に無視され、
+    // audio_output は現在のプロファイル仕様に無いフィールド。
+    // 古いプロファイルにこのフィールドが残っていても単純に無視され、
     // エラーにはならないことを確認する (後方互換性)。
     // 音声出力は HW プラグイン (FitomEmuIF/FitomHwIF 等) 自身の責務であり、
     // FITOM_X本体は一切関与しない。
@@ -64,8 +64,9 @@ TEST_CASE("FITOMConfig: audio_output field is ignored (obsolete, removed feature
 
 TEST_CASE("FITOMConfig: channel_map field is ignored (obsolete, removed feature)", "[config]")
 {
-    // channel_map は廃止済み。既存プロファイルにこのフィールドが残っていても
-    // 単純に無視され、エラーにはならないことを確認する (後方互換性)。
+    // channel_map は現在のプロファイル仕様に無いフィールド。古いプロファイルに
+    // このフィールドが残っていても単純に無視され、エラーにはならないことを
+    // 確認する (後方互換性)。
     // GM準拠の既定動作 (MIDI ch10固定リズム、ポリフォニーはデバイス依存で
     // 動的決定) は CFITOM/CInstCh 側の責務であり、Config自体はこの
     // フィールドを一切パースしない。
@@ -334,8 +335,8 @@ TEST_CASE("FITOMConfig: bank_overrides matches drum_banks by 'prog' (not 'bank',
     CHECK(std::string(kit1->name) == "added kit prog1");
 }
 
-// FITOMBridge::resolveChannelHwPatch()のkind="drum"対応(2026年7月、
-// リズムチャンネルの外部パッチエディタ起動)は、各progが自分自身の
+// FITOMBridge::resolveChannelHwPatch()のkind="drum"対応(リズムチャンネル
+// から外部パッチエディタを起動する経路)は、各progが自分自身の
 // 読み込み元ファイル(DrumPatch::filename)を正しく保持していることに
 // 依存する。DrumPatchBank::filename(バンク単位、複数progが共有し
 // 最後に読んだファイルで上書きされる)と混同していないことを検証する
@@ -454,12 +455,12 @@ TEST_CASE("FITOMConfig: pcm_banks[].group auto-routes the bank number and "
 TEST_CASE("SampleZoneBankRegistry: AWM hw_banks and PCM pcm_banks sharing the same "
           "bank number don't collide", "[config][pcm][samplezone]")
 {
-    // 実プロファイル(unified.bankset.json)でAWMのバンク0/1(hw_banks経由)と
-    // ADPCM-B/ADPCM-Aのバンク0/1(pcm_banks経由の自動合成)が番号衝突し、
-    // 後から読み込まれるpcm_banks側がAWMの登録を上書きしてパッチピッカーの
-    // AWMバンク一覧が常に空になる不具合があった(2026年7月)。
-    // SampleZoneBankRegistryのキーにvoicePatchTypeを含めることで、番号が
-    // 同じでもチップ族が違えば独立して共存できることを確認する。
+    // AWMのバンク(hw_banks経由)とADPCM-B/ADPCM-Aのバンク(pcm_banks経由の
+    // 自動合成)は同じバンク番号を使いうる。SampleZoneBankRegistryのキーに
+    // voicePatchTypeを含めることで、番号が同じでもチップ族が違えば独立して
+    // 共存できることを確認する。キーが番号だけだと、後から読み込まれる
+    // pcm_banks側がAWMの登録を上書きし、パッチピッカーのAWMバンク一覧が
+    // 空になる。
     fs::path dir = fs::temp_directory_path() / "fitom_test_samplezone_collision";
     fs::create_directories(dir);
 
@@ -524,9 +525,9 @@ TEST_CASE("SampleZoneBankRegistry: AWM hw_banks and PCM pcm_banks sharing the sa
 TEST_CASE("PatchManager: OPLL-family ROM voice accessors for the patch picker",
           "[patchdata][opll]")
 {
-    // パッチピッカーでOPLLビルトインROM音色(バンク0固定)が常に空欄に
-    // なる不具合(AWMと同種、HwBankRegistryに一切現れないバンクをGUIが
-    // 列挙できていなかった)の指摘を受けて追加(2026年8月)。
+    // OPLLビルトインROM音色(バンク0固定)はHwBankRegistryに現れないため、
+    // パッチピッカーはこの専用アクセサで列挙する。これが空を返すと
+    // パッチピッカーのOPLL ROM音色の一覧が空欄になる。
     fitom::PatchManager pm;
 
     const auto* opll  = pm.getOpllRomPatches(VOICE_PATCH_OPLL);
@@ -549,8 +550,7 @@ TEST_CASE("PatchManager: OPLL-family ROM voice accessors for the patch picker",
     // 【重要】各エントリのidはvariantSel<<4|instIndexでエンコードされて
     // いる(パッチピッカーがProgram Change値として送るべき値そのもの。
     // 配列添字[instIndexのみ]をそのまま送ると、OPLL以外のカテゴリで
-    // 誤ったチップの音色を選んでしまう実装バグが見つかったため、この
-    // エンコードを直接検証する)。
+    // 誤ったチップの音色を選んでしまうため、このエンコードを直接検証する)。
     CHECK((*opll)[3].id  == 0x03);
     CHECK((*opllx)[3].id == 0x13);
     CHECK((*opllp)[3].id == 0x23);
@@ -665,9 +665,8 @@ TEST_CASE("FITOMConfig: pcm_banks[] without group keeps legacy behavior "
 
 // OPNB(YM2610無印)はFM部がYM2612/YM2608と同じOPN2世代のコアを持つため、
 // OPN(YM2203)ではなくOPN2側のVoicePatchTypeに分類され、mergeSpannableDevices()
-// でOPN2/OPNA-FM/OPNBB-FMと束ねられる対象になるべき。(2026年7月、ステージング
-// 環境からの指摘で発覚した誤分類の修正: 以前はOPN(0x10)側に誤分類されており、
-// SSG/ADPCM-Aサブデバイスも自動生成されていなかった)
+// でOPN2/OPNA-FM/OPNBB-FMと束ねられる対象になるべき。OPN(0x10)側に誤分類
+// されると、OPN2系との束ねから外れる誤りを検出する。
 TEST_CASE("FITOMConfig: DEVICE_OPNB classifies as VOICE_PATCH_OPN2, not VOICE_PATCH_OPN",
           "[config]")
 {
@@ -703,8 +702,8 @@ TEST_CASE("FITOMConfig: DEVICE_OPNB and DEVICE_2610B composite specs are both "
 // port1/port2の2バンクを両方使うため usesExtraPort=true。AWM部はこの2ポート
 // モデルには乗らない3つ目のレジスタバンク(アドレス0x200以降、
 // CFITOM::resolveHighBankPort()がOffsetPort(port,0x200)で差し替える)を
-// 使うため usesExtraPort=false のままで正しい(2026年7月、ユーザー指摘で
-// 発覚したAWM部とFM部のレジスタアドレス衝突バグの回帰防止)。
+// 使うため usesExtraPort=false のままで正しい。AWM部がFM部と同じポートの
+// アドレスへ書き込み、レジスタが衝突する誤りを検出する。
 TEST_CASE("FITOMConfig: DEVICE_OPL4 composite spec is FM-4OP+FM-2OP+AWM+RHYTHM "
           "only when rhythm_mode is enabled for that instance, "
           "AWM does not share the FM subdevices' extraPort", "[config]")
@@ -756,7 +755,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPL/DEVICE_OPL2/DEVICE_OPL3 composite specs "
 
     // Y8950(MSX-AUDIO)はADPCM-Bを内蔵するため、OPL/OPL2と異なりFM本体+
     // ADPCM-Bの2つが常に生成され、rhythm_mode:trueの場合のみさらに
-    // リズムサブデバイスが加わる(2026年8月修正)。
+    // リズムサブデバイスが加わる。
     spec.clear();
     REQUIRE(fitom::FITOMConfig::resolveCompositeSpec(DEVICE_Y8950, true, spec));
     REQUIRE(spec.size() == 3);
@@ -898,10 +897,10 @@ TEST_CASE("FITOMConfig::pairStereoDevices: a single (non-composite) chip pair wi
 }
 
 // composite展開されたチップ(OPLL[rhythm_mode:true] = FM本体 + 内蔵リズム)でも
-// compositeGroup単位でまとめてペアリングされること。2026年8月まではここで
-// stereo_pairが無視されており、リニアステレオ化が一切発動しなかった。
-// 内蔵リズム(DEVICE_OPLL_RHY)はVOICE_PATCH_NONEのため、VoicePatchType基準の
-// 旧実装ではR側だけが孤立して残ってしまう点も同時に回帰防止する。
+// compositeGroup単位でまとめてペアリングされること。composite展開された
+// チップでstereo_pairが無視され、リニアステレオ化が発動しない誤りを検出する。
+// 内蔵リズム(DEVICE_OPLL_RHY)はVOICE_PATCH_NONEのため、VoicePatchType基準で
+// ペアリングするとR側だけが孤立して残る。この誤りも同時に検出する。
 TEST_CASE("FITOMConfig::pairStereoDevices: composite-expanded chips are paired as a "
           "whole compositeGroup, including VOICE_PATCH_NONE sub-devices",
           "[config][stereo]")
@@ -1049,7 +1048,7 @@ TEST_CASE("FITOMConfig::pairStereoDevices: two independent L/R pairs of the same
 }
 
 // ================================================================
-//  チップ内L/R分離方式 (stereo_pair:"L"/"R"、2026年8月新設)
+//  チップ内L/R分離方式 (stereo_pair:"L"/"R")
 // ================================================================
 
 // stereo_pair:"L"/"R" はL/R役割をpanから独立して宣言する。プラグイン側の
@@ -1059,7 +1058,7 @@ TEST_CASE("FITOMConfig::pairStereoDevices: explicit \"L\"/\"R\" pairs regardless
           "the plugin-side pan value and marks the pair as chip-level",
           "[config][stereo]")
 {
-    // pan=0 (Stereo): 従来方式ならL/R役割を判定できない値
+    // pan=0 (Stereo): pan由来の方式ではL/R役割を判定できない値
     auto portL = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
     auto portR = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
 
@@ -1075,7 +1074,7 @@ TEST_CASE("FITOMConfig::pairStereoDevices: explicit \"L\"/\"R\" pairs regardless
 }
 
 // stereo_pair:true (pan由来) のペアはチップ内分離フラグを立てない
-// (左右分離はプラグイン側のルーティングが行う従来方式)。
+// (左右分離はプラグイン側のルーティングが行う方式)。
 TEST_CASE("FITOMConfig::pairStereoDevices: pan-derived pairs are not chip-level",
           "[config][stereo]")
 {
@@ -1093,7 +1092,8 @@ TEST_CASE("FITOMConfig::pairStereoDevices: pan-derived pairs are not chip-level"
 }
 
 // 片側だけ "L"/"R"、もう片側は pan 由来という混在構成では、プラグイン側の
-// ルーティングが絡んで意図が確定しないため従来方式(チップ内分離なし)に倒す。
+// ルーティングが絡んで意図が確定しないため、プラグイン側ルーティングの方式
+// (チップ内分離なし)に倒す。
 TEST_CASE("FITOMConfig::pairStereoDevices: a mixed declaration (one explicit side, "
           "one pan-derived) falls back to the plugin-routed method",
           "[config][stereo]")
@@ -1134,9 +1134,9 @@ TEST_CASE("FITOMConfig::pairStereoDevices: explicit \"L\"/\"R\" works for "
     }
 }
 
-// チップ内L/R分離の可否は deviceType 側の索引で判定する。ユーザー指定の
-// 対象チップ(OPM/OPZ/OPL3/OPL4[FM部]/OPN2/OPNA/OPNB/OPNBB)が漏れなく
-// trueであること、モノラル出力チップがfalseであることの回帰防止。
+// チップ内L/R分離の可否は deviceType 側の索引で判定する。対象チップ
+// (OPM/OPZ/OPL3/OPL4[FM部]/OPN2/OPNA/OPNB/OPNBB)が漏れなくtrueであること、
+// モノラル出力チップがfalseであることを確認する。
 TEST_CASE("FITOMConfig::deviceHasChipLevelPanpot: chips with per-channel L/R output "
           "bits are recognized, mono-output chips are not", "[config][stereo]")
 {
@@ -1197,7 +1197,7 @@ TEST_CASE("FITOMConfig::getChipPanType: classifies three-way / continuous / mono
 }
 
 // ================================================================
-//  SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設)
+//  SF2直行パス (docs/design/sf2-direct-path.md参照)
 // ================================================================
 
 TEST_CASE("Sf2BankRegistry: resolves CC#32 to {soundfont_index, sf2_bank} and "
@@ -1743,7 +1743,7 @@ TEST_CASE("PatchManager::mergeDrumPatchFromJsonText: partial merge, skip, and \"
     CHECK(target.notes[35].playNote == 24); // 変更していないフィールドは維持される
 
     CHECK(target.notes[42].enabled == false); // removeされ、既定値にリセットされた
-    CHECK(target.notes[42].playNote == 60);   // DrumNoteの既定値(remove前は61だった)
+    CHECK(target.notes[42].playNote == 60);   // DrumNoteの既定値(remove前は61)
 
     CHECK(target.notes[46].enabled == true);
     CHECK(target.notes[46].playNote == 66);

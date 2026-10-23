@@ -1,13 +1,13 @@
 // tests/test_opl3_carrier.cpp
 // COPL3(OPL3 4OP)のキャリアオペレータ判定(carmsk[8])に関する回帰テスト。
 //
-// 2026年8月、ConnectionSEL無効時(hw.ALG bit2=0、前半・後半が独立した
-// 2OPペア×2)のcarmskエントリ(インデックス0-3)が、前半ペア単体または
-// 後半ペア単体のキャリアマスクしか持っておらず、もう一方のペアの
-// キャリアopがボリューム/ベロシティの影響を一切受けないバグがあった。
-// ConnectionSEL有効時(インデックス4-7、実際に全バンクが使用する値)は
-// Nuked-OPL3の実装と突き合わせて検証済みで、この回帰テストでも現状維持
-// (壊れていないこと)を確認する。
+// ConnectionSEL無効時(hw.ALG bit2=0、前半・後半が独立した2OPペア×2)の
+// carmskエントリ(インデックス0-3)は、両方のペアのキャリアを含まなければ
+// ならない。片方のペアのキャリアマスクしか持たず、もう一方のペアの
+// キャリアopがボリューム/ベロシティの影響を受けなくなる誤りを検出する。
+// ConnectionSEL有効時(インデックス4-7、実際に全バンクが使用する値)の
+// 期待値はNuked-OPL3の実装と突き合わせたもので、これが壊れていないことも
+// 確認する。
 //
 // 「キャリアである」ことは、setVolume()でTLレジスタが変化するかどうかで
 // 判定する(モジュレータはupdateVoice()内で固定TLを一度書くだけで、
@@ -104,8 +104,7 @@ TEST_CASE("COPL3 carmsk: with ConnectionSEL disabled (AL 0-3, two independent 2-
           "[sounddevice][opl3]")
 {
     // AL=0: 前半CON=0(直列、キャリア=op1) + 後半CON=0(直列、キャリア=op3)
-    // 旧実装は前半ペアのみ(0x2)を見ており、op3がキャリア扱いされず
-    // ボリュームが効かないバグがあった。
+    // 前半ペアのみ(0x2)を見ると、op3がキャリア扱いされずボリュームが効かない。
     CHECK_FALSE(isCarrierByObservation(0, 0));
     CHECK(isCarrierByObservation(0, 1));
     CHECK_FALSE(isCarrierByObservation(0, 2));
@@ -118,8 +117,7 @@ TEST_CASE("COPL3 carmsk: with ConnectionSEL disabled (AL 0-3, two independent 2-
     CHECK(isCarrierByObservation(1, 3));
 
     // AL=2: 前半CON=0(直列、キャリア=op1) + 後半CON=1(並列、キャリア=op2,op3)
-    // 旧実装は後半ペアのみ(0x8)を見ており、op1がキャリア扱いされない
-    // バグがあった。
+    // 後半ペアのみ(0x8)を見ると、op1がキャリア扱いされない。
     CHECK_FALSE(isCarrierByObservation(2, 0));
     CHECK(isCarrierByObservation(2, 1));
     CHECK(isCarrierByObservation(2, 2));

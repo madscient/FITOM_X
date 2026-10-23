@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fitom-drumbank",
   "title": "FITOM ドラムバンク (*.drumbank.json)",
-  "description": "[非推奨・後方互換のみ] ドラムチャンネルの旧来のバンク形式。1ファイルに全prog分のドラムキットを詰め込むため肥大化しやすい。新規プロファイルでは config_schema/drumkit.schema.json (*.drumkit.json、プログラムチェンジ1つごとに独立したファイル) を使うこと。ドラムチャンネルのプログラムチェンジ単位。ノート番号 0〜127 ごとに Patch 参照と発音定義を持つ。",
+  "description": "[非推奨] 1ファイルに全prog分のドラムキットを詰め込むバンク形式。プロファイルのdrum_banks[]からは読み込まれない(drum_banks[].fileは*.drumkit.json形式として読まれる)。ドラムキットは config_schema/drumkit.schema.json (*.drumkit.json、プログラムチェンジ1つごとに独立したファイル) で書くこと。ドラムチャンネルのプログラムチェンジ単位。ノート番号 0〜127 ごとに Patch 参照と発音定義を持つ。",
   "type": "object",
   "required": [
     "name",

@@ -641,8 +641,7 @@ TEST_CASE("CDSGRhythm scales the rhythm level with velocity, keeping LH=0",
 }
 
 // 最大ベロシティでは減衰0 (LV=0) でなければならない。
-// (COPLLRhythm で実際に起きた「ラウドネス空間の極性反転で強打ほど静かに
-//  なる」種のバグを直接押さえる)
+// (ラウドネス空間の極性が反転し、強打ほど静かになる誤りを直接検出する)
 TEST_CASE("CDSGRhythm plays at full level for maximum velocity", "[dsg][rhythm]")
 {
     RecordingPort port;
@@ -692,7 +691,7 @@ TEST_CASE("DSG does not share the PSG family bank namespace", "[dsg][patch]")
     CHECK(PatchManager::hwBankLookupVoicePatchType(VOICE_PATCH_DSG)
           == VOICE_PATCH_DSG);
 
-    // 共有名前空間を使う本来のPSG系は従来どおり0x40へ寄せられること
+    // 共有名前空間を使う本来のPSG系は0x40へ寄せられること
     for (int vpt : {VOICE_PATCH_SSG, VOICE_PATCH_EPSG, VOICE_PATCH_DCSG,
                     VOICE_PATCH_SAA, VOICE_PATCH_SCC}) {
         INFO("voicePatchType=" << vpt);

@@ -73,7 +73,7 @@
                 "minimum": -1200,
                 "maximum": 1200,
                 "default": 0,
-                "description": "LFO深さ[セント、-1200〜+1200]。旧実装はLDM/LDL(16bit値を2バイトに分割、MIDI CC制御を想定した設計)だったが、新実装ではMIDI CC制御の可否が未定のため1フィールドに統合した。ピッチLFOがドラム音の装飾に使われるケースを考慮し、±1オクターブまでの深いレンジを確保している。"
+                "description": "LFO深さ[セント、-1200〜+1200]。ピッチLFOがドラム音の装飾に使われるケースを考慮し、±1オクターブまでの深いレンジを確保している。"
               }
             }
           },
@@ -125,13 +125,13 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 127,
-                  "description": "ベロシティ→ソフトLFO Depth感度 (未実装・予約。値を設定しても現状は反映されない)"
+                  "description": "ベロシティ→ソフトLFO Depth感度 (予約。値を設定しても反映されない)"
                 },
                 "VLR": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 127,
-                  "description": "ベロシティ→ソフトLFO FadeIn感度 (未実装・予約。値を設定しても現状は反映されない)"
+                  "description": "ベロシティ→ソフトLFO FadeIn感度 (予約。値を設定しても反映されない)"
                 },
                 "SLW": {
                   "type": "integer",

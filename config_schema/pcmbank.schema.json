@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fitom-pcmbank",
   "title": "FITOM PCM バンク (*.pcmbank.json)",
-  "description": "ADPCM/PCM デバイス用バンクファイル。adpcm_packer の出力 JSON を参照する形式。HwPatch の WS フィールドでエントリ番号を選択する。",
+  "description": "ADPCM/PCM デバイス用バンクファイル。adpcm_packer の出力 JSON を参照する形式。エントリ番号は、音色(SampleZonePatch)のゾーンのwave_indexで選択する。",
   "type": "object",
   "required": ["name", "codec", "bin_file"],
   "properties": {
@@ -23,7 +23,7 @@
     "boundary": {
       "type": "integer",
       "enum": [32, 256],
-      "description": "バウンダリ境界 [byte]。adpcm_packer のパラメータと一致させること。情報欄であり、FITOM_X自体はこの値を読み込んで保持するのみで、発音経路(entries[].start_offset/padded_sizeのみ参照)や整合性検証には使用しない(2026年7月時点)。"
+      "description": "バウンダリ境界 [byte]。adpcm_packer のパラメータと一致させること。情報欄であり、FITOM_X自体はこの値を読み込んで保持するのみで、発音経路(entries[].start_offset/padded_sizeのみ参照)や整合性検証には使用しない。"
     },
     "bin_file": {
       "type": "string",
@@ -42,7 +42,7 @@
         "properties": {
           "entry_no": {
             "type": "integer", "minimum": 0, "maximum": 127,
-            "description": "エントリ番号。HwPatch.hwOp[0].WS で指定する値。codec=ssgs の場合はチップのボイス番号そのものになり、6bit(0-63)までしか指定できない(64以上のエントリはロード時に警告して無視される)。"
+            "description": "エントリ番号。音色(SampleZonePatch)のゾーンのwave_indexで指定する値。codec=ssgs の場合はチップのボイス番号そのものになり、6bit(0-63)までしか指定できない(64以上のエントリはロード時に警告して無視される)。"
           },
           "name": {
             "type": "string",
@@ -58,7 +58,7 @@
           },
           "size": {
             "type": "integer", "minimum": 0,
-            "description": "エンコード後の ADPCM データサイズ [byte] (パディング前)。表示・記録用の情報欄であり、FITOM_X自体の発音経路では参照しない(実際に使われるのはstart_offset/padded_sizeのみ、2026年7月時点)。"
+            "description": "エンコード後の ADPCM データサイズ [byte] (パディング前)。表示・記録用の情報欄であり、FITOM_X自体の発音経路では参照しない(実際に使われるのはstart_offset/padded_sizeのみ)。"
           },
           "padded_size": {
             "type": "integer", "minimum": 0,
@@ -69,7 +69,7 @@
     },
     "swpatches": {
       "type": "array",
-      "description": "entries[](adpcm_json由来・直接記述のいずれも)の各サンプルに1:1でパフォーマンスパッチ(SwPatch)を紐づける(2026年7月新設)。省略可。voicePatchType指定によりentries[]から自動合成されるSampleZonePatch(PatchManager::loadPcmBankJson参照)の各ゾーンへ、entry_noで対応づけてswBank/swProgが反映される。DrumNote側の個別上書きがあればそちらが優先される(既存のHwPatch.sw_bank/sw_progと同じソフトフォールバック規約)。**対応チップの制約(2026年7月時点)**: ADPCM-B/PCMD8はSwPatch全機能(チャンネルLFO/トレモロ/ベロシティ感度/fine_transpose)が有効。ADPCM-Aはピッチ制御ができないためベロシティ感度・トレモロのみ有効(チャンネルLFO/fine_transposeは無効)。",
+      "description": "entries[](adpcm_json由来・直接記述のいずれも)の各サンプルに1:1でパフォーマンスパッチ(SwPatch)を紐づける。省略可。voicePatchType指定によりentries[]から自動合成されるSampleZonePatch(PatchManager::loadPcmBankJson参照)の各ゾーンへ、entry_noで対応づけてswBank/swProgが反映される。DrumNote側の個別上書きがあればそちらが優先される(HwPatch.sw_bank/sw_progと同じソフトフォールバック規約)。**対応チップの制約**: ADPCM-B/PCMD8はSwPatch全機能(チャンネルLFO/トレモロ/ベロシティ感度/fine_transpose)が有効。ADPCM-Aはピッチ制御ができないためベロシティ感度・トレモロのみ有効(チャンネルLFO/fine_transposeは無効)。",
       "items": {
         "type": "object",
         "required": ["entry_no"],

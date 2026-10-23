@@ -87,8 +87,8 @@ std::unique_ptr<ISoundDevice> createCSCC(IPort* p, int sr, uint32_t deviceType);
 
 // SSGのトーン周期は実機式 period = master / (16 * freq) でなければならない。
 // 周期テーブル(FnumTableType::SSG)を基底のF-number用スケーリング
-// (fnum >> (block+3)) に通していたため、周期が128分の1(=約7オクターブ上の
-// 超音波)になり、SSGがまったく発音していないように聞こえていた。
+// (fnum >> (block+3)) に通すと、周期が128分の1(=約7オクターブ上の
+// 超音波)になり、SSGがまったく発音していないように聞こえる。
 TEST_CASE("CSSG tone period matches the AY-3-8910 formula master/(16*freq)",
           "[psg][ssg]")
 {
@@ -116,7 +116,7 @@ TEST_CASE("CSSG tone period matches the AY-3-8910 formula master/(16*freq)",
 // 実クロックを渡さなければならない。さらにOPN系(YM2608/YM2610系)に内蔵
 // されるSSG部はφM/4で動作するため、clockDivider=4 を適用する必要がある。
 // (この2点が無いと、SSGはサンプルレート44100Hzをマスタークロックとして
-//  扱い、トーン周期が2桁の値=可聴帯域外の超高音にしかならなかった)。
+//  扱い、トーン周期が2桁の値=可聴帯域外の超高音にしかならない)。
 TEST_CASE("DeviceFactory gives PSG chips the real chip clock, divided for "
           "OPN-embedded SSG", "[psg][ssg][clock]")
 {
@@ -159,7 +159,7 @@ TEST_CASE("DeviceFactory gives PSG chips the real chip clock, divided for "
         CHECK(std::abs(period - expected) <= 1.0);
     }
 
-    // クロックを報告しないポート(getClock()=0)では従来通りsampleRateへ
+    // クロックを報告しないポート(getClock()=0)ではsampleRateへ
     // フォールバックする。
     SECTION("getClock()=0 ならsampleRateへフォールバック") {
         RecordingPort port;
@@ -182,9 +182,9 @@ TEST_CASE("DeviceFactory gives PSG chips the real chip clock, divided for "
 // SCCのレジスタ配置は無印SCC(K051649)とSCC+(K052539)で異なる。無印は
 // ch3/ch4が波形メモリを共有して4ブロック(0x00-0x7F)しか持たないため、
 // それ以降の周波数・音量・チャンネル有効レジスタも位置が前へずれる。
-// (以前はSCC+の配置を無印にも流用し、さらに音量が2バイト手前にずれて
-//  いたため、音量書き込みがch4の周波数レジスタを、キーオンがch0の音量
-//  レジスタを破壊していた)。
+// (SCC+の配置を無印にも流用したり、音量の位置が2バイト手前にずれたり
+//  すると、音量書き込みがch4の周波数レジスタを、キーオンがch0の音量
+//  レジスタを破壊する。この誤りを検出する)。
 struct SccRegLayout { uint16_t waveform, frequency, amplitude, enable, deform; };
 // deformは実機では無印・SCC+とも0xC0(0xE0はエミュレータ固有で実機には無い)。
 static constexpr SccRegLayout kLayoutSCC  = {0x00, 0x80, 0x8A, 0x8F, 0xC0};
@@ -319,8 +319,8 @@ TEST_CASE("CDCSG tone period matches master/(32*freq)", "[psg][dcsg]")
 
 // 音量レジスタは、vol/exp/velocityが全て最大かつTL=0のとき、チップの
 // 最大音量値に到達しなければならない。linear2dB()にSTEP300DB(0x1F)を
-// 渡してラウドネスの上位2bitを落としていたため、最大でも15段中7までしか
-// 上がらず、ラウドネスが32の倍数付近では完全に無音になっていた。
+// 渡すとラウドネスの上位2bitが落ち、最大でも15段中7までしか上がらず、
+// ラウドネスが32の倍数付近では完全に無音になる。
 TEST_CASE("PSG family volume registers reach full scale at max loudness",
           "[psg][volume]")
 {
@@ -545,7 +545,7 @@ TEST_CASE("CEPSG emits a bank select before crossing banks", "[psg][epsg][bank]"
 
 // ラウドネスがどの値でも、音量レジスタが飛び飛びに0(無音)へ落ちてはならない
 // (STEP300DBマスクは0-127を0-31へ折り返し、32の倍数付近のラウドネスを
-//  すべて無音にしていた)。
+//  すべて無音にする)。
 TEST_CASE("CSSG volume decreases monotonically with MIDI volume, never "
           "silently wrapping to zero", "[psg][volume]")
 {

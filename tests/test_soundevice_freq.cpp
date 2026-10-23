@@ -92,7 +92,7 @@ TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]"
 // 別ownerが強制スティール(findBestCh score=1)した場合、奪われた側の
 // ownerがstale化した自分のブックキーピングでnoteOff()を呼んでも、
 // 奪った側の新しい発音を誤って止めてはならない
-// (isChOwnedBy()での事前確認が必要。CInstCh::noteOff()等の修正参照)。
+// (isChOwnedBy()での事前確認が必要。CInstCh::noteOff()等が行う)。
 TEST_CASE("Stolen channel is not owned by the original owner anymore", "[sounddevice]")
 {
     RecordingPort port;
@@ -136,12 +136,11 @@ TEST_CASE("Stolen channel is not owned by the original owner anymore", "[soundde
     CHECK(cs->isRunning()); // ownerBのノートは消音されず鳴り続けている
 }
 
-// 実機再現報告: 同一ノートをリリースホールド期間(kReleasingHoldMs)中に
-// チャンネル数以上連打し、その直後に別のノートを同じパターンで連打すると、
-// lastNote/lastFnumはソフトウェア側で正しく更新されているのに、実際に
-// チップへ書き込まれるレジスタ値が前のノートのままになる、という報告の再現を
-// 試みる。setReg()の「regBak_と同じ値なら書き込みスキップ」最適化
-// (forceWrite=false)が、書き込み漏れの原因になっていないかを検証する。
+// 同一ノートをリリースホールド期間(kReleasingHoldMs)中にチャンネル数以上
+// 連打し、その直後に別のノートを同じパターンで連打したとき、チップへ
+// 書き込まれるレジスタ値がlastNote/lastFnumと一致していること。
+// setReg()の「regBak_と同じ値なら書き込みスキップ」最適化
+// (forceWrite=false)が、書き込み漏れを起こしていないかを検証する。
 TEST_CASE("Rapid same-channel-count retrigger keeps register in sync with lastFnum", "[sounddevice]")
 {
     RecordingPort port;
@@ -201,8 +200,8 @@ TEST_CASE("Rapid same-channel-count retrigger keeps register in sync with lastFn
 }
 
 // 上と同じ再現手順を、CSpanDevice経由(OPNA/OPN2、2ポート6ch構成)で試す。
-// ポートオフセット/OPN2Port2(0x28インターセプト)を挟むぶん、単体OPN(3ch)
-// より実際のユーザー報告(チャンネル数以上での連打)に近い構成になる。
+// ポートオフセット/OPN2Port2(0x28インターセプト)を挟む経路を、単体OPN(3ch)
+// とは別に検証する。
 TEST_CASE("Rapid retrigger across CSpanDevice (OPNA 6ch) keeps registers in sync", "[sounddevice]")
 {
     RecordingPort port;
@@ -260,15 +259,14 @@ TEST_CASE("Rapid retrigger across CSpanDevice (OPNA 6ch) keeps registers in sync
     }
 }
 
-// 報告者の実プロファイル(emu_opn.profile.json)構成の再現。ログ上、
-// 実際に発音に使われるOPN2#1は「OPN2本体 + OPNA#2-FM + OPNB#3-FM + OPNBB#4-FM」
-// (VoicePatchType=0x11一致)が mergeSpannableDevices() で束ねられた、
+// OPN系を複数並べたプロファイルの構成。「OPN2本体 + OPNA-FM + OPNB-FM +
+// OPNBB-FM」(VoicePatchType=0x11一致)が mergeSpannableDevices() で束ねられた、
 // 4物理チップ・24ch(うちOPNB系はch0/3無効化で実質22ch有効)のCSpanDevice
-// である。COPNA/COPNBはそれ自体が内部で2つのCOPNを束ねるCSpanDeviceのため、
+// になる。COPNA/COPNBはそれ自体が内部で2つのCOPNを束ねるCSpanDeviceのため、
 // 「CSpanDeviceの要素としてCSpanDeviceが入れ子になる」構成になる。
-// 単純な単体OPN/2ポートOPNAでは再現しなかったため、この入れ子構成・
-// チャンネル数不均一(OPNB系は一部ch無効)な状態でチャンネル数超の連打を
-// 行った場合に、レジスタとlastFnumの乖離が起きないかを検証する。
+// この入れ子構成・チャンネル数不均一(OPNB系は一部ch無効)な状態で
+// チャンネル数超の連打を行った場合に、レジスタとlastFnumの乖離が
+// 起きないかを検証する。
 TEST_CASE("Rapid retrigger across nested multi-chip span (OPN2+OPNA+OPNB) keeps registers in sync", "[sounddevice]")
 {
     RecordingPort portA, portB, portC;
@@ -354,22 +352,16 @@ TEST_CASE("Rapid retrigger across nested multi-chip span (OPN2+OPNA+OPNB) keeps 
 }
 
 
-// 実機再現報告: モノフォニックにもレイヤードパッチにもしていない、
-// 高速に連続でノートオンが発生するトラック(ベースライン等)で、
-// ノートオンが取りこぼされている(または直前のノートオフが効いていない)
-// ように聞こえる、Fnumは更新されているという報告の再現を試みる。
-//
 // デバイスの全chが同一owner(同一MIDIチャンネル)のノートで埋まっている
 // 状態で、さらに新しいノートオンが来ると、findBestCh()はscore=1
 // (強制スティール、noteOnAge最大のchを選ぶ)で最古のchを選ぶ。この時
-// 選ばれたchがたまたま「同じowner」が使っていたchだった場合、
-// CSoundDevice::assignCh()の`s.owner != owner`ガードにより、本来
-// 呼ばれるべきnoteOff()(Key Offレジスタ書き込みを含む)がスキップされて
-// しまう。OPN系のKey On/Offレジスタ(0x28)はエッジトリガ(0→1で
-// アタック開始)のため、Key Offを挟まずKey On(1)を再度書いても実機では
-// エンベロープが再アタックせず、Fnumだけが新しいノートの値に変わって
-// 音程だけ滑らかに(まるでポルタメントのように)変化して聞こえる、と
-// いう症状に一致する。
+// 選ばれたchが「同じowner」が使っていたchでも、Key Offを書いてから
+// Key Onを書かなければならない。CSoundDevice::assignCh()がowner一致を
+// 理由にnoteOff()(Key Offレジスタ書き込みを含む)を省くと、OPN系の
+// Key On/Offレジスタ(0x28)はエッジトリガ(0→1でアタック開始)のため、
+// 実機ではエンベロープが再アタックせず、Fnumだけが新しいノートの値に
+// 変わって音程だけ滑らかに(まるでポルタメントのように)変化して聞こえる。
+// この誤りを検出する。
 TEST_CASE("Forced steal of a Running channel owned by the same owner still sends Key Off before Key On", "[sounddevice]")
 {
     RecordingPort port;
@@ -413,12 +405,10 @@ TEST_CASE("Forced steal of a Running channel owned by the same owner still sends
     CHECK(sawKeyOnCh0AfterOff);
 }
 
-// 上のテストは「デバイス全chが同一ownerで埋まっている(forceSteal)」という
-// やや特殊な状況を再現したものだったが、報告された「高速なベースライン」の
-// 症状はチャンネルに余裕がある通常のround-robin再利用(Releasing chの
-// score=4再利用、findBestCh参照)でも起きている可能性があるため、より
-// シンプルな「チャンネルに十分な余裕がある状態での通常の連続ノートオン/
-// オフ」でもKey Off→Key Onの順が保たれているかを別途検証する。
+// 上のテストの「デバイス全chが同一ownerで埋まっている(forceSteal)」状況とは
+// 別に、チャンネルに余裕がある通常のround-robin再利用(Releasing chの
+// score=4再利用、findBestCh参照)でもKey Off→Key Onの順が保たれているかを
+// 検証する。
 TEST_CASE("Normal round-robin reuse of a Releasing channel still sends Key Off before Key On", "[sounddevice]")
 {
     RecordingPort port;
@@ -463,18 +453,16 @@ TEST_CASE("Normal round-robin reuse of a Releasing channel still sends Key Off b
     CHECK(keyOffIdx < keyOnIdx);
 }
 
-// 実機再現報告: モノフォニックにもレイヤードパッチにもしていない通常の
-// ポリフォニックチャンネルで、高速な連続ノートオン(ベースライン等)の際、
-// リリース中の同一chを再利用して次のノートを鳴らすと、聴感上アタックが
-// 再トリガーされず音程だけ滑らかに変化して聞こえるという報告の再現を試みる。
+// 通常のポリフォニックチャンネルで、リリース中の同一chを再利用して次の
+// ノートを鳴らすとき、アタックが再トリガーされること。
 //
-// ChState::wasReleasing は本来「run()直前がReleasing状態だったか」を見て、
+// ChState::wasReleasing は「再利用前のchがReleasing状態だったか」を示し、
 // リリース中の同一chへの再ノートオン時にキャリアOPのRRを強制的に最大化
 // (急速ダンプ)してからKey Onする「リリース中再トリガー対策」を発動させる
-// フラグである。しかし通常のポリフォニック経路(CSoundDevice::assignCh()
-// 経由)では、assign()がstatusをReleasing→Assignedへ書き換えてから
-// run()が呼ばれるため、run()側の「status==Releasing」判定は常にfalseに
-// なり、この対策が事実上一度も発動していなかった(2026年7月発見)。
+// フラグである。通常のポリフォニック経路(CSoundDevice::assignCh()経由)では
+// assign()がstatusをReleasing→Assignedへ書き換えてからrun()が呼ばれるため、
+// run()側で「status==Releasing」を判定すると常にfalseになり、この対策が
+// 発動しない。この誤りを検出する。
 TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasReleasing and forces RR dump before Key On", "[sounddevice]")
 {
     RecordingPort port;
@@ -495,7 +483,7 @@ TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasRele
     dev->noteOff(ch1); // → Releasing
 
     // releaseTimerが満了する前に、同一owner+patchで即座に次のノートオン
-    // (実際のログでは前のnoteOffから数msという間隔だった)。
+    // (前のnoteOffから数msという間隔を想定)。
     uint8_t ch2 = dev->allocCh(&owner, &patch, 100);
     REQUIRE(ch2 == ch1); // score=4でRelesing中の同じchを再利用するはず
 
@@ -531,20 +519,17 @@ TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasRele
     CHECK(rrDumpIdx < keyOnIdx);
 }
 
-// 実機報告: CC#1(ソフトウェアLFO)を使った後、まったく別のMIDIチャンネルで
-// 発音した音にそのLFOが漏れて掛かることがある(2026年7月、[fb21e46]で
-// CInstCh::noteOn()がdev->setCC1Modulation(devCh, pmDepth_, ...)を毎ノート
-// オン強制pushするよう修正したはずだったが、後日同じ症状が再現すると
-// 報告された)。
-//
-// 再調査の結果、CInstCh::noteOn()がこの強制pushを呼ぶタイミングは、
-// dev->assignCh()(→ChState::status=Assigned)の直後・dev->noteOn()
-// (→status=Running)より前であるのに対し、CSoundDevice::setCC1Modulation()
-// 側のガードがisActive()(Running/Releasingのみtrue、Assignedはfalse)
-// だったため、devChを他のMIDIチャンネルから奪う通常の経路では常に
-// 早期returnし、強制pushが実質無効化されていたことが判明した(isAssigned()
-// をガードへ追加して修正)。このテストはassignCh()直後・noteOn()より前の
-// タイミングでsetCC1Modulation()を呼び、前の占有者(別owner)のソフトLFOが
+// CC#1(ソフトウェアLFO)を使ったMIDIチャンネルのdevChを別のMIDIチャンネルが
+// 奪ったとき、そのLFOが漏れて掛かってはならない。CInstCh::noteOn()は
+// dev->setCC1Modulation(devCh, pmDepth_, ...)を毎ノートオン強制pushして
+// 残留を上書きする。このpushのタイミングは、dev->assignCh()
+// (→ChState::status=Assigned)の直後・dev->noteOn()(→status=Running)より
+// 前である。CSoundDevice::setCC1Modulation()側のガードがisActive()
+// (Running/Releasingのみtrue、Assignedはfalse)だけだと、devChを他の
+// MIDIチャンネルから奪う通常の経路では常に早期returnし、強制pushが
+// 無効になる(そのためガードはisAssigned()も許可する)。
+// このテストはassignCh()直後・noteOn()より前のタイミングで
+// setCC1Modulation()を呼び、前の占有者(別owner)のソフトLFOが
 // 残っていないことを検証する。
 TEST_CASE("CC#1 soft LFO forced push during the Assigned window (after assignCh, "
           "before noteOn) actually takes effect on a channel stolen from another owner",
@@ -581,28 +566,23 @@ TEST_CASE("CC#1 soft LFO forced push during the Assigned window (after assignCh,
     dev->setNoteFine(chB, 72, 0, true);
     dev->noteOn(chB, 100);
 
-    // 修正前はここでstatus==Assignedのガードによりpushが無視され、
-    // ownerAの残留LFOがownerBへ漏れてchannelLfoActive()==trueのままに
-    // なっていた。
+    // ガードがAssignedを弾くと、ここでpushが無視され、ownerAの残留LFOが
+    // ownerBへ漏れてchannelLfoActive()==trueのままになる。
     CHECK_FALSE(dev->getChState(chB)->proc.channelLfoActive());
 }
 
-// 実機報告: ソフトウェアLFOを指定していない(sw.LFR=0、CC#1も送っていない)
-// チャンネル/パッチにソフトウェアLFOが掛かる不具合が再発(2026年8月)。
-// 上のテストで検証したCInstCh↔CInstCh間の漏れは修正済みだったが、今回は
-// メロディパートとドラム/リズムパートが同一チップを共有する構成で再現した。
+// メロディパートとドラム/リズムパートが同一チップを共有する構成で、
+// ソフトウェアLFOを指定していない(sw.LFR=0、CC#1も送っていない)
+// チャンネル/パッチにソフトウェアLFOが掛かってはならない。
 //
-// 原因はCRhythmCh::applyNoteOn()(MidiCh.cpp)が、CInstCh::noteOn()と違い
-// ISoundDevice::setCC1Modulation()/setLfoDepthOverride()を一切呼んでいな
-// かったこと。CRhythmChはCC#1/CC#77というコントローラ自体を扱わない設計
-// だが、そのせいで「CC#1でソフトLFOをかけたメロディch」→「そのdevChを
-// 奪うドラムノート(何もpushしないので素通りする)」→「同じdevChを奪う
-// 別のメロディch(CC#1未送信)」の順でdevChが使い回されると、
-// VoiceProcessor::cc1Value_の残留がドラムノートをすり抜けて2つ目の
-// メロディchまで生き残ってしまっていた。CRhythmCh::applyNoteOn()にも
-// CInstCh::noteOn()と同じ「毎ノートオン強制push」パターンを追加し(値は
-// 常に無効化: cc1=0, lfoDepthOverride=0[オフセットなし])、devChの
-// 使い回しでどんな経路を通っても残留状態が上書きされるよう修正した。
+// CRhythmChはCC#1/CC#77というコントローラ自体を扱わない設計だが、
+// 「CC#1でソフトLFOをかけたメロディch」→「そのdevChを奪うドラムノート」→
+// 「同じdevChを奪う別のメロディch(CC#1未送信)」の順でdevChが使い回される
+// ことがある。ドラムノートが何もpushしないと、VoiceProcessor::cc1Value_の
+// 残留がドラムノートをすり抜けて2つ目のメロディchまで生き残る。そのため
+// CRhythmCh::applyNoteOn()(MidiCh.cpp)もCInstCh::noteOn()と同じ
+// 「毎ノートオン強制push」を行う(値は常に無効化: cc1=0,
+// lfoDepthOverride=0[オフセットなし])。
 TEST_CASE("CC#1 residual survives an intervening drum note unless the drum "
           "note also force-pushes 'no software LFO' (CRhythmCh regression)",
           "[sounddevice]")
@@ -643,41 +623,34 @@ TEST_CASE("CC#1 residual survives an intervening drum note unless the drum "
 
     for (int t = 0; t < 50; ++t) dev->timerCallback(static_cast<uint32_t>(t));
 
-    // 修正前(drumがsetCC1Modulation/setLfoDepthOverrideを呼ばない場合)は
-    // ここでmelodyAのcc1Value_=100がdrumを素通りしてchannelLfoActive()==true
-    // のままになっていた。
+    // drumがsetCC1Modulation/setLfoDepthOverrideを呼ばないと、ここで
+    // melodyAのcc1Value_=100がdrumを素通りしてchannelLfoActive()==true
+    // のままになる。
     CHECK_FALSE(dev->getChState(chB)->proc.channelLfoActive());
 }
 
 // NOTE: CInstCh::noteOn()のmono_&&timbres_>0自己スティール分岐(devChを
-// assignCh()経由せず直接使い回す)が、新たに解決されたpatch/effSwPatchを
-// 一切deviceへ反映しない(dev->setVoice()もdev->assignCh()も呼ばれない)
-// ことを調査中に発見した。モノフォニックチャンネルでプログラムチェンジ
-// (LFR>0の音色→LFR=0の音色)を挟んですぐ次のノートを弾くと、旧音色の
-// chLfo_(音色固有LFO)がフェードアウト完了まで残ることを別途確認済み。
-// ただし現在調査中の実機報告はポリモードのチャンネルで発生しているため
-// これには該当せず、この件は別課題として扱う(このテストファイルには
-// 追加していない)。
+// assignCh()経由せず直接使い回す)は、新たに解決されたpatch/effSwPatchを
+// deviceへ反映しない(dev->setVoice()もdev->assignCh()も呼ばれない)。
+// モノフォニックチャンネルでプログラムチェンジ(LFR>0の音色→LFR=0の音色)を
+// 挟んですぐ次のノートを弾くと、旧音色のchLfo_(音色固有LFO)が
+// フェードアウト完了まで残る。この経路はこのファイルでは検証していない。
 
 // OPL4のAWM(PCM)部は実チップ上、FM部(port1/port2、addr 0x000-0x1FF)とは
 // 独立した3つ目のレジスタバンク(addr 0x200以降、a_high=2)に配置される。
 // CFITOM::resolveHighBankPort()はCOPL4AWMにOffsetPort(port,0x200)経由で
-// アクセスさせることでこれを実現する(2026年7月、ユーザー指摘で発覚:
-// 以前はAWM部がFM部と同じport1[a_high=0, addr 0x00-0xFF]にそのまま
-// 割り当てられており、waveform番号レジスタ0x08等がFM部のレジスタと
-// 衝突していた)。このテストはOffsetPort越しにCOPL4AWMを駆動し、実際に
-// 書き込まれるアドレスが全てa_high=2の範囲(0x200-0x2FF)に収まることを
-// 確認する回帰テスト。
-// ユーザー報告: OPL系のピッチLFO(ソフトウェアビブラート)が「大変不自然に
-// 聞こえる」、レジスタダンプ上KONビットも反転しているように見える、との
-// こと。調査の結果、KONビット自体はCOPL::updateFreq()がgetReg(0xB0+ch)から
-// 読み出したビットをOR合成して書き戻す設計になっており正しく保持されていた
-// (OPL_new.cpp参照)。実際の根本原因は別にあった: CSoundDevice::timerCallback()
-// がVoiceProcessor::onTick()へ渡すFmVoiceを手組みしており、hw/hwOpのみ埋めて
-// sw/swOpを埋め忘れていたため(buildVoiceForCh()と不整合)、tick毎に
-// recalcChLfo/recalcOpLfoが常にsw側デフォルト値(LFR=0/depthCents=0等)を
-// 参照し、音色固有のソフトウェアピッチLFO/トレモロが実質常にデプス0で
-// 無効化されていた(timerCallback()もbuildVoiceForCh()を使うことで解消)。
+// アクセスさせることでこれを実現する。AWM部がFM部と同じport1
+// [a_high=0, addr 0x00-0xFF]に割り当てられると、waveform番号レジスタ0x08等が
+// FM部のレジスタと衝突する。このテストはOffsetPort越しにCOPL4AWMを駆動し、
+// 実際に書き込まれるアドレスが全てa_high=2の範囲(0x200-0x2FF)に収まることを
+// 確認する。
+// OPL系のKONビットは、COPL::updateFreq()がgetReg(0xB0+ch)から読み出した
+// ビットをOR合成して書き戻すことで保持する(OPL_new.cpp参照)。
+// また、CSoundDevice::timerCallback()がVoiceProcessor::onTick()へ渡す
+// FmVoiceはbuildVoiceForCh()で組み立てる。hw/hwOpだけを埋めてsw/swOpを
+// 埋めないと、tick毎のrecalcChLfo/recalcOpLfoが常にsw側デフォルト値
+// (LFR=0/depthCents=0等)を参照し、音色固有のソフトウェアピッチLFO/
+// トレモロが常にデプス0で無効化される。
 // このテストは、ノートオン中にソフトウェアピッチLFOを
 // 回した場合に (1) tick毎のFnum再書き込みでKONビットが落ちないこと、
 // (2) LFOが実際にFnumへ反映されること、の両方を検証する。
@@ -758,8 +731,7 @@ TEST_CASE("COPL4AWM writes land in the 0x200 high bank via OffsetPort, "
 // 上位1bit)と組み合わせて9bit波形番号を確定させる。この順序を逆にする
 // (reg 0x08を先に書く)と、新しいノートのbit0が反映される前の(1つ前の
 // ノートの)bit0でロードがトリガーされ、意図した波形と256ずれた別の波形が
-// 鳴ってしまう(2026年7月、ユーザー報告「AWMの音は出るが意図した波形でない」
-// により発覚)。ALSAのopl4_synth.c(snd_opl4_note_on())でも
+// 鳴ってしまう。ALSAのopl4_synth.c(snd_opl4_note_on())でも
 // OPL4_REG_F_NUMBER(reg 0x20+ch)をOPL4_REG_TONE_NUMBER(reg 0x08+ch)より
 // 先に書いており、後者のコメントに明示的に「triggers header loading」と
 // 書かれている(実チップ・エミュレータ双方でこの順序が必須であることの
@@ -820,10 +792,8 @@ TEST_CASE("COPL4AWM writes the wave-number high bit (reg 0x20) before the "
 // 「符号付き4bit octave(-8〜+7) + 1024〜2047正規化fnum」形式に従う必要が
 // あり、かつ波形ごとの校正値(SampleZone::pitchOffset/keyScaling、ALSAの
 // sound/drivers/opl4/yrw801.cから移植)を反映しなければならない
-// (2026年8月、ユーザー報告「AWMは音は出るが意図した波形と異なる」の
-// 調査で発覚。以前はOPN用のgetFnumberFromHz()を誤用しており、波形ごとの
-// 校正が反映されず、octaveも0〜7にクランプされ負のoctaveを表現できて
-// いなかった)。
+// (OPN用のgetFnumberFromHz()を使うと、波形ごとの校正が反映されず、
+// octaveも0〜7にクランプされて負のoctaveを表現できない)。
 // ALSAのsnd_opl4_update_pitch()の基準点(note=60, pitch_offset=0,
 // key_scaling=100 → pitch=60*128=7680 → octave=7680/0x600-8=-3,
 // fnum=snd_opl4_pitch_map[0]=0)と一致することを、独立した手計算値で確認する。
@@ -877,15 +847,15 @@ TEST_CASE("COPL4AWM Fnumber/Octave matches the ALSA opl4_synth.c reference "
     CHECK(((port.regs[reg20_1] >> 1) & 0x7F) == 0);
 }
 
-// ユーザー報告(2026年8月)「OPL4AWMだけミックスレベルがかなり低い」の調査で
-// 判明: SampleZone::volumeFactor(254=無補正、GM移植データでは概ね140〜240)を
+// SampleZone::volumeFactor(254=無補正、GM移植データでは概ね140〜240)を
 // 適用すると、CC#7/CC#11/velocityを全て最大にしてもレジスタ上の最大音量
 // (TotalLevel=0)に到達できなくなる(volumeFactor=200なら127-(127-0)*200/254
 // =27が下限)。ALSAのsound/drivers/opl4/opl4_seq.cはこれを見込んで既定値8の
 // `volume_boost`を差し引いており(「Additional volume for OPL4 wavetable
 // sounds」)、COPL4AWM::updateVolExp()もこれと同じ固定値を適用する。
-// (reg 0xF8/0xF9[ミキサーレベル]はinit()以外どこからも書かれておらず
-// 既に最大値のままだったため、原因はvolumeFactorのヘッドルーム圧縮側にあった)。
+// (reg 0xF8/0xF9[ミキサーレベル]はinit()で最大値を書いた後は変えない。
+// ヘッドルーム圧縮による音量の不足は、ミキサーレベルではなくこの固定値で
+// 補う)。
 TEST_CASE("COPL4AWM subtracts the ALSA-equivalent fixed volume_boost(=8) so "
           "per-wave volumeFactor doesn't leave AWM permanently below max "
           "register level", "[sounddevice][opl4]")
@@ -922,11 +892,10 @@ TEST_CASE("COPL4AWM subtracts the ALSA-equivalent fixed volume_boost(=8) so "
 // 即座に反映せず最大78.2ms(最小→最大)/156.4ms(最大→最小)かけて補間する。
 // ALSAのsnd_opl4_note_on()はノートオン時の最初の音量セットだけ
 // level_direct=1(即時反映)にし、それ以降のCC由来の更新はlevel_direct=0
-// (補間)に戻す。COPL4AWM::updateVolExp()は従来常にLevelDirect=0で書いて
-// おり、チャンネル再利用時など直前のTotalLevelと新しいノートの目標値が
-// 離れていると音量が徐々にしか立ち上がらない不具合があった(2026年8月、
-// ユーザー報告「ラウンドロビンで1周すると音量・音色が変わる」の調査で
-// 発見)。reg 0x68のKEYONビット(bit7)がまだ立っていない間はLevelDirect=1、
+// (補間)に戻す。常にLevelDirect=0で書くと、チャンネル再利用時など直前の
+// TotalLevelと新しいノートの目標値が離れているとき、音量が徐々にしか
+// 立ち上がらない。COPL4AWM::updateVolExp()が、
+// reg 0x68のKEYONビット(bit7)がまだ立っていない間はLevelDirect=1、
 // 既に立っている(発音中のリアルタイムCC変化)間はLevelDirect=0になる
 // ことを確認する。
 TEST_CASE("COPL4AWM uses LevelDirect=1 before KEYON (note-on) and "
@@ -961,13 +930,12 @@ TEST_CASE("COPL4AWM uses LevelDirect=1 before KEYON (note-on) and "
     CHECK((port.regs[reg50] & 0x01) == 0);   // 発音中の変化はLevelDirect=0(補間)
 }
 
-// ユーザー報告(2026年7月): OPLビルトインリズムでバスドラム(BD)だけ発音せず、
-// 他4楽器(HH/SD/TOM/CYM)は正常に鳴る。COPLRhythm::writeOperatorRegs()が、
-// キャリア側のエンベロープ(AR/DR/SL/SR/RR)をVoiceProcessorから読む際、
-// 実際のオペレータ番号(velOpIdx)ではなく常にop0を参照していたバグ
-// (HH/SD/TOM/CYMは単一オペレータでhwOp[0]のみ使用するため偶然op0参照が
-// 正しく、BDだけ2オペレータでキャリアがop1のため誤ってop0[モジュレータ]側
-// の値を適用してしまっていた)。ベロシティ127(sens_vel=0)ならVAR等の感度
+// COPLRhythm::writeOperatorRegs()は、キャリア側のエンベロープ
+// (AR/DR/SL/SR/RR)をVoiceProcessorから読む際、常にop0ではなく実際の
+// オペレータ番号(velOpIdx)を参照しなければならない。HH/SD/TOM/CYMは
+// 単一オペレータでhwOp[0]のみ使用するためop0参照でも結果が同じだが、
+// BDだけは2オペレータでキャリアがop1のため、op0を参照するとモジュレータ側の
+// 値が適用され、BDだけ発音しなくなる。ベロシティ127(sens_vel=0)ならVAR等の感度
 // に関わらずvelAR(op)==hwOp[op].ARになる(VoiceProcessor::onNoteOn参照)ため、
 // hwOp[0].ARとhwOp[1].ARを大きく異なる値にしておけば、実際に書き込まれる
 // レジスタがどちらの値を反映しているか直接判別できる。
@@ -994,14 +962,14 @@ TEST_CASE("COPLRhythm BD (bass drum) carrier envelope uses operator 1's "
     // op1(キャリア)のAR/DRレジスタ: 0x60 + opIdx(1)*3 + slot(16) = 0x73
     uint16_t arDrReg = 0x73;
     uint8_t writtenAR = static_cast<uint8_t>(port.regs[arDrReg] >> 4); // 上位4bit
-    CHECK(writtenAR == (30 >> 1)); // ar4(30) = 15 (修正後、op1基準)
-    CHECK(writtenAR != (2 >> 1));  // ar4(2) = 1 (修正前のバグはこちらになっていた)
+    CHECK(writtenAR == (30 >> 1)); // ar4(30) = 15 (op1基準)
+    CHECK(writtenAR != (2 >> 1));  // ar4(2) = 1 (op0を参照するとこちらになる)
 }
 
-// ユーザー要望(2026年7月): OPL/OPLLビルトインリズムでFnumを共有する
-// チャンネル(ch7=HH/SD共有、ch8=CYM/TOM共有)のうち、HH・CYMはノイズ性の
-// 発振でFnumがほぼ発音に寄与しないため、この2チャンネルではFnum更新を
-// 無効化してほしい。ピッチ変化に意味のあるSD・TOM側と競合するため。
+// OPL/OPLLビルトインリズムでFnumを共有するチャンネル(ch7=HH/SD共有、
+// ch8=CYM/TOM共有)のうち、HH・CYMはノイズ性の発振でFnumがほぼ発音に
+// 寄与しないため、この2チャンネルではFnumを更新しない。ピッチ変化に
+// 意味のあるSD・TOM側が書いたFnumを上書きしないため。
 TEST_CASE("COPLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
           "to their shared physical channel (ch7)", "[sounddevice][opl][rhythm]")
 {
@@ -1060,16 +1028,13 @@ TEST_CASE("COPLLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
     CHECK((port.regs[blockReg] & 0x0F) == sdBlock);
 }
 
-// ユーザー報告(2026年8月、実機レジスタダンプ動画2本の比較で特定): OPLL
-// 内蔵リズムのスネアドラム(SD)が、起動直後は鳴るが途中から鳴らなくなる。
-// COPLLRhythm::updateVolExp()の`highNibble = (ch & 5) != 0`が、旧FITOM
-// (legacy/src/OPLL.cpp COPLLRhythm::UpdateVolExp、`mask = (ch&5) ? 0xf0 :
-// 0x0f`)と符号が逆転していた。SDは自分では$37下位に一度も書き込まれず
-// 起動直後は0(最大音量)のままだが、ハイハット(HH)を1回でも叩くと、本来
-// HH専用のはずの$37上位ではなく下位(=SDの音量欄)にHHの音量が誤って
-// 書き込まれ、以後SDの音量が固定的に(HHの音量のまま)変化しなくなって
-// いた。正しい対応は HH→$37上位 / CYM→$38下位 / TOM→$38上位 /
-// SD→$37下位 / BD→$36下位。
+// OPLL内蔵リズムの音量レジスタのnibble割り当ては、legacy/src/OPLL.cpp
+// (COPLLRhythm::UpdateVolExp、`mask = (ch&5) ? 0xf0 : 0x0f`)と同じで
+// なければならない。正しい対応は HH→$37上位 / CYM→$38下位 / TOM→$38上位 /
+// SD→$37下位 / BD→$36下位。COPLLRhythm::updateVolExp()の判定の符号が
+// 逆転すると、ハイハット(HH)を1回でも叩いた時点で、HH専用の$37上位では
+// なく下位(=SDの音量欄)にHHの音量が書き込まれ、以後スネアドラム(SD)の
+// 音量がHHの音量のまま変化しなくなる。この誤りを検出する。
 TEST_CASE("COPLLRhythm volume register nibble mapping matches legacy FITOM: "
           "HH/TOM->high nibble, CYM/SD/BD->low nibble", "[sounddevice][opll][rhythm]")
 {
@@ -1087,8 +1052,8 @@ TEST_CASE("COPLLRhythm volume register nibble mapping matches legacy FITOM: "
     uint8_t afterSD = port.regs[0x37];
 
     // HH(ch0)を書き込む。$37上位のみに影響し、SDが書いた下位nibbleは
-    // 変化しないはず(修正前バグでは、ここでSDの下位nibbleがHHの音量で
-    // 上書きされてしまっていた)。
+    // 変化しないはず(符号が逆転していると、ここでSDの下位nibbleがHHの音量で
+    // 上書きされる)。
     uint8_t hhCh = dev->assignCh(0, nullptr, &patch, 30); // SDと大きく異なるベロシティ
     REQUIRE(hhCh == 0);
     dev->noteOn(hhCh, 30);
@@ -1131,7 +1096,6 @@ TEST_CASE("COPLLRhythm volume register nibble mapping matches legacy FITOM: "
 //    ② 同一チャンネルを再割り当てするとき (CRhythmCh の同一ノート再打鍵)、
 //       前のサンプルがまだ再生中である可能性が常にあるため、キーオンの
 //       前にダンプを挟まないと確実な物理的リトリガーにならない。
-//  (2026年8月、ドラムのチョークグループが機能していなかった件の修正)
 // ================================================================
 
 TEST_CASE("CAdPcm2610A does not stop on NoteOff but forceDamp writes the dump bit",
@@ -1265,10 +1229,10 @@ std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
 }
 
 // CUnison::queryCh() の事後チェックは mode と同じ基準でなければならない。
-// 以前は mode に関わらず全チップに isEmpty() を要求していたため、
-// 減衰中(Releasing)や発音中(Running)のチャンネルしか残っていない状況で
-// 必ず割り当てに失敗し、allocCh() が「no channel available」を出して
-// ノートが落ちていた (2026年8月修正の回帰防止)。
+// mode に関わらず全チップに isEmpty() を要求すると、減衰中(Releasing)や
+// 発音中(Running)のチャンネルしか残っていない状況で必ず割り当てに失敗し、
+// allocCh() が「no channel available」を出してノートが落ちる。この誤りを
+// 検出する。
 TEST_CASE("CLinearPanDevice: allocCh keeps succeeding while channels are releasing "
           "or running (CUnison::queryCh must honor the alloc mode)",
           "[sounddevice][stereo][unison]")
@@ -1318,8 +1282,7 @@ TEST_CASE("CLinearPanDevice: allocCh keeps succeeding while channels are releasi
 
 // CLinearPanDevice は「同じ音を同じ音程で左右に鳴らす」構成のため、
 // CUnison のデチューンを適用してはならない。適用されると左右でうなりが
-// 生じるうえ、直前の setNoteFine() が書いた音色側のfine tuneが失われる
-// (2026年8月修正の回帰防止)。
+// 生じるうえ、直前の setNoteFine() が書いた音色側のfine tuneが失われる。
 TEST_CASE("CLinearPanDevice: noteOn must not detune the two chips nor clobber the "
           "fine tune set by setNoteFine", "[sounddevice][stereo][unison]")
 {

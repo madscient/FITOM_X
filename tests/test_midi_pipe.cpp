@@ -6,12 +6,11 @@
 //
 // 検証対象: パッチエディタが一度も接続しない状態(=acceptThreadが起動直後
 // からConnectNamedPipe()でブロックし続けている状態)でMidiInPortを破棄した
-// とき、シャットダウン処理がハングしないこと。2026年7月、内部パイプを
-// プロファイル設定と無関係に常時有効化する変更を行った直後、実機で
-// FITOM_X終了時にハングする不具合が発覚した(ブロッキングモードのハンドルは
-// 別スレッドからのCloseHandle()だけでは同期I/O呼び出し中のスレッドを
-// 確実には解放できないというWindowsの既知の制約が原因、
-// backends/midi_pipe/src/MidiPipe.cppのCancelSynchronousIo()追加で修正)。
+// とき、シャットダウン処理がハングしないこと。内部パイプはプロファイル設定と
+// 無関係に常時有効なので、パッチエディタを使わない通常の終了でもこの経路を
+// 通る。ブロッキングモードのハンドルは、別スレッドからのCloseHandle()だけでは
+// 同期I/O呼び出し中のスレッドを確実には解放できない(Windowsの制約)。
+// backends/midi_pipe/src/MidiPipe.cppはCancelSynchronousIo()で解放している。
 
 #include <catch2/catch_test_macros.hpp>
 

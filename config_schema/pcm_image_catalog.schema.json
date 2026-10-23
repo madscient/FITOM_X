@@ -30,11 +30,11 @@
         },
         "ADPCM-B": {
           "type": "string",
-          "description": "ADPCM-B(録音/PCM再生用サンプルメモリ)のイメージファイルへのパス。対応チップ例: YM2608(OPNA)、Y8950。OPNB/OPNBB(YM2610/YM2610B)のADPCM-Bはメモリのバウンダリ(アドレッシング境界)が異なり、ダンプイメージが厳密には同一にならない可能性があるため、共有せずOPNB_ADPCM-Bを別途使うこと(2026年7月〜)。"
+          "description": "ADPCM-B(録音/PCM再生用サンプルメモリ)のイメージファイルへのパス。対応チップ例: YM2608(OPNA)、Y8950。OPNB/OPNBB(YM2610/YM2610B)のADPCM-Bはメモリのバウンダリ(アドレッシング境界)が異なり、ダンプイメージが厳密には同一にならない可能性があるため、共有せずOPNB_ADPCM-Bを別途使うこと。"
         },
         "OPNB_ADPCM-B": {
           "type": "string",
-          "description": "OPNB/OPNBB(YM2610/YM2610B)専用のADPCM-Bイメージファイルへのパス。OPNA(YM2608)/Y8950とはメモリのバウンダリ(アドレッシング境界)が異なるため、通常のADPCM-Bとは別のイメージファイルを指定する必要がある(2026年7月〜)。"
+          "description": "OPNB/OPNBB(YM2610/YM2610B)専用のADPCM-Bイメージファイルへのパス。OPNA(YM2608)/Y8950とはメモリのバウンダリ(アドレッシング境界)が異なるため、通常のADPCM-Bとは別のイメージファイルを指定する必要がある。"
         },
         "OPNA_RHYTHM": {
           "type": "string",

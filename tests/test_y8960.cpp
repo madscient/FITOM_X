@@ -319,7 +319,7 @@ TEST_CASE("FITOMConfig::resolveCompositeSpec expands OPLLEX like the OPLL family
     // 内蔵リズムは定位レジスタを書くため、標準OPLLとは別のdeviceTypeになる。
     CHECK(spec[1].deviceType == DEVICE_OPLLEX_RHY);
 
-    // 標準OPLLの内蔵リズムは従来どおり。
+    // 標準OPLLの内蔵リズムはDEVICE_OPLL_RHYのまま。
     spec.clear();
     REQUIRE(FITOMConfig::resolveCompositeSpec(DEVICE_OPLL, true, spec));
     REQUIRE(spec.size() == 2);
@@ -353,14 +353,13 @@ TEST_CASE("FITOMConfig::resolveCompositeSpec expands OPL2EX into FM+ADPCM(+rhyth
 //  opllRomPatches_[variantSel][instIndex] は、要求元チップ
 //  (OPLL/OPLLX/OPLLP/VRC7)が未接続の場合にOPLLEXへフォールバックできる
 //  よう、生成時点でext.ALG_EXTのbit2-1にvariantSelをBANK値として
-//  焼き込んでおく設計になった(resolveOpllRomVoice()参照)。
+//  焼き込んでおく設計である(resolveOpllRomVoice()参照)。
 //  ここではFITOMConfig(実デバイス)を介さず、PatchManagerの読み取り
 //  専用アクセサ(getOpllRomPatches/getOpllRomPatchByProg)経由でこの
 //  データが正しく焼き込まれていることを確認する — resolveOpllRomVoice()
 //  自体のデバイス選択分岐(接続デバイス一覧が必要)はFITOMConfigに実機/
 //  プラグイン無しでデバイスを注入するテスト用の仕組みが無いため、
-//  このテストスイートでは直接検証できない(2026年8月時点の既知の
-//  カバレッジ上限)。
+//  このテストスイートでは直接検証できない(既知のカバレッジ上限)。
 // ================================================================
 TEST_CASE("OPLL ROM preset patches bake their source chip's BANK value into ALG_EXT",
           "[y8960][opllex][patchmanager]")
@@ -398,9 +397,9 @@ TEST_CASE("OPLL ROM preset patches bake their source chip's BANK value into ALG_
 // ================================================================
 //  CC#0=OPLLEXでの暗黙バンク0(ROMプリセット)直接解決
 //
-//  2026年8月〜、他のOPLLファミリー(OPLL/OPLLX/OPLLP/VRC7)と同様、
-//  OPLLEXも「hwBank==0固定・progだけで暗黙バンク内の音色を一意に
-//  解決する」経路(resolveOpllRomVoice())に参加するようになった。
+//  他のOPLLファミリー(OPLL/OPLLX/OPLLP/VRC7)と同様、OPLLEXも
+//  「hwBank==0固定・progだけで暗黙バンク内の音色を一意に解決する」
+//  経路(resolveOpllRomVoice())に参加する。
 //  resolveOpllRomVoice()自体はprivateで、かつ実際に接続された
 //  デバイス一覧(FITOMConfig::devices_)を必要とするが、このテスト
 //  スイートにはFITOMConfigへ実機/プラグイン無しでデバイスを注入する
@@ -731,7 +730,7 @@ TEST_CASE("FITOMConfig indexes the Y8960 blocks as continuous-pan devices",
         INFO("deviceType=" << t);
         CHECK_FALSE(FITOMConfig::subDeviceAcceptsStereoPair(t));
     }
-    // 標準のリズムは従来どおりモノラル扱い・束ね対象
+    // 標準のリズムはモノラル扱い・束ね対象のまま
     CHECK(FITOMConfig::getChipPanType(DEVICE_OPLL_RHY) == FITOMConfig::ChipPanType::Mono);
     CHECK(FITOMConfig::subDeviceAcceptsStereoPair(DEVICE_OPLL_RHY));
 }

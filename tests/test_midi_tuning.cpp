@@ -1,15 +1,12 @@
 // tests/test_midi_tuning.cpp
 // チューニング系(RPNデータエントリー ⇔ kfs単位のピッチオフセット)の回帰テスト。
 //
-// ユーザー報告(2026年8月): RPN#1(チャンネルファインチューニング)で
-// 指定した値と、実際に鳴るピッチが食い違う。
-//
-// 調査の結果、MidiProcessor::processControl()がData Entry MSB(CC#6)受信時
-// にしかRPNを適用しておらず、通常の送信順(CC#6 → CC#38)で送られた
-// Data Entry LSB(CC#38)が一切反映されていなかった(しかもCC#6適用時に
-// 参照されるLSBは「前回別のパラメータへ書いた際の残骸」だった)。
-// RPN#1は14bit全体を使うパラメータのため、この取りこぼしがそのまま
-// ピッチのずれとして出る。
+// RPN#1(チャンネルファインチューニング)は14bit全体を使うパラメータのため、
+// Data Entry LSB(CC#38)の取りこぼしや、別のパラメータへ書いたLSBの残骸の
+// 混入が、そのまま指定値と実際のピッチのずれとして出る。ここでは
+// MidiProcessor::processControl()が、通常の送信順(CC#6 → CC#38)で送られた
+// MSB/LSBの両方をRPNへ届けること、およびパラメータを選び直したときに
+// 前のLSBを引き継がないことを検出する。
 
 #include <catch2/catch_test_macros.hpp>
 #include "fitom/CFITOM.h"
@@ -81,7 +78,7 @@ std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
 //  MidiProcessor: データエントリー(CC#6/CC#38)の合成
 // ----------------------------------------------------------------
 
-// 本命の回帰テスト。CC#6 → CC#38 という通常の送信順で、最終的に
+// CC#6 → CC#38 という通常の送信順で、最終的に
 // 14bit値全体がRPNへ届いていること。
 TEST_CASE("RPN Data Entry LSB (CC#38) sent after MSB (CC#6) reaches the parameter",
           "[midi][rpn][tuning]")
@@ -95,15 +92,15 @@ TEST_CASE("RPN Data Entry LSB (CC#38) sent after MSB (CC#6) reaches the paramete
     // 1回目: MSBのみ(LSBはパラメータ選択時にクリアされているので0)
     CHECK(f.spy->rpnCalls[0].first  == 0x0001);
     CHECK(f.spy->rpnCalls[0].second == static_cast<uint16_t>(100 << 7));
-    // 2回目: MSB/LSB合成後の14bit値。修正前はこの呼び出し自体が無く、
-    // LSBは次のCC#6まで一切反映されなかった。
+    // 2回目: MSB/LSB合成後の14bit値。この呼び出しが無いと、LSBは次の
+    // CC#6まで一切反映されない。
     CHECK(f.spy->rpnCalls[1].first  == 0x0001);
     CHECK(f.spy->rpnCalls[1].second == static_cast<uint16_t>((100 << 7) | 42));
 }
 
 // パラメータ番号を選び直したら、前のパラメータへ書いたデータエントリーの
-// 残骸(特にLSB)を引き継いではならない。修正前は rpn_[ch].lsb が
-// クリアされず、直前のRPNのLSBが次のRPNのMSB適用時に紛れ込んでいた。
+// 残骸(特にLSB)を引き継いではならない。rpn_[ch].lsb がクリアされず、
+// 直前のRPNのLSBが次のRPNのMSB適用時に紛れ込む誤りを検出する。
 TEST_CASE("Selecting a new RPN clears the retained Data Entry LSB", "[midi][rpn][tuning]")
 {
     RpnFixture f;

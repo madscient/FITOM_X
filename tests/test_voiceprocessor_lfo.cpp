@@ -1,15 +1,13 @@
 // tests/test_voiceprocessor_lfo.cpp
 // LfoControl(fitom/VoiceProcessor.h)のワンショットLFO関連の回帰テスト。
 //
-// ユーザー報告: ソフトウェアピッチLFOにOneShotHoldを設定していても、
-// NoteOff時(fadeout()呼び出し)にLFOが最初から繰り返し再生されている
-// ように聞こえる。調査の結果、LfoControl::tick()のFadingOut分岐が
-// mode_を見ずに無条件でphase_tick_を回し続けており(コメント「波形が
-// 途切れないように」はRepeatモード前提の設計意図)、Held中(一周期完了・
-// 末尾値保持中)や一周期完了前にfadeout()が呼ばれた場合、NoteOff〜
-// kReleasingHoldMs(2000ms)の間ずっと位相が周期的に回り続けてしまう
-// バグがあった(2026年8月修正)。OneShot系はfadeout開始時点の位相で
-// 凍結し、デプス(fade_level_)だけを減衰させるのが正しい。
+// OneShot系のLFOは、fadeout開始時点の位相で凍結し、デプス(fade_level_)
+// だけを減衰させる。LfoControl::tick()のFadingOut分岐がmode_を見ずに
+// phase_tick_を回し続けると(「波形が途切れないように」はRepeatモード
+// 前提の設計意図)、Held中(一周期完了・末尾値保持中)や一周期完了前に
+// fadeout()が呼ばれた場合、NoteOff〜kReleasingHoldMs(2000ms)の間ずっと
+// 位相が周期的に回り続け、LFOが最初から繰り返し再生されているように
+// 聞こえる。この誤りを検出する。
 // このテストはchLfo_/opLfo_双方が共有するLfoControl本体を直接操作し、
 // フェードアウト中の波形出力の絶対値が単調減少すること(=位相が再び
 // 回り始めていないこと)を検証する。
@@ -37,8 +35,7 @@ TEST_CASE("LfoControl OneShotHold does not resume cycling during NoteOff fadeout
     REQUIRE(heldRaw != 0);
 
     // NoteOff相当: フェードアウト開始(周期(約20tick)をまたぐ長さにして、
-    // 修正前の「位相が回り続ける」挙動が再現すれば振幅が非単調になる
-    // ことを保証する)
+    // 「位相が回り続ける」誤りがあれば振幅が非単調になることを保証する)
     lfo.fadeout(20);
 
     int prevAbs = std::abs(static_cast<int>(heldRaw));
@@ -46,9 +43,9 @@ TEST_CASE("LfoControl OneShotHold does not resume cycling during NoteOff fadeout
         lfo.tick();
         REQUIRE(lfo.phase() == LfoControl::Phase::FadingOut);
         const int curAbs = std::abs(static_cast<int>(lfo.wave(waveform)));
-        // 修正前はphase_tick_が周期で折り返すため振幅が増減を繰り返し
-        // (=LFOが繰り返し再生されているように聞こえるバグ)、この
-        // 単調減少の検証に失敗していた。
+        // phase_tick_が周期で折り返すと振幅が増減を繰り返し
+        // (=LFOが繰り返し再生されているように聞こえる)、この
+        // 単調減少の検証に失敗する。
         REQUIRE(curAbs <= prevAbs);
         prevAbs = curAbs;
     }
@@ -60,7 +57,7 @@ TEST_CASE("LfoControl up-saw/down-saw start at zero and OneShotHold holds at max
     // up-saw(0)/down-sawはいきなり最大振幅から始まるのではなく、
     // t=0で変位0から立ち上がる/下がるようになっている。
     // 一方でOneShotHoldはt=0(=変位0)ではなく、各波形が向かう方向の
-    // 最大振幅側で保持する仕様(2026年8月)。
+    // 最大振幅側で保持する仕様。
     {
         LfoControl lfo;
         lfo.start(/*rate=*/127, /*delay_20ms=*/0, /*fadein=*/0, LfoMode::OneShotHold);
@@ -107,10 +104,10 @@ TEST_CASE("LfoControl up-saw/down-saw start at zero and OneShotHold holds at max
 TEST_CASE("LfoControl Repeat mode keeps cycling during fadeout as before",
           "[voiceprocessor][lfo]")
 {
-    // Repeatモードは従来通りフェードアウト中も波形が回り続ける
-    // (ビブラートが不自然に途切れないようにする既存の設計意図)ことを
-    // 確認する。今回の修正がOneShot系にのみ影響し、Repeatの挙動を
-    // 変えていないことの回帰テスト。
+    // Repeatモードはフェードアウト中も波形が回り続ける
+    // (ビブラートが不自然に途切れないようにする設計意図)ことを
+    // 確認する。OneShot系の位相凍結がRepeatに波及していないことの
+    // 回帰テスト。
     LfoControl lfo;
     lfo.start(/*rate=*/127, /*delay_20ms=*/0, /*fadein=*/0, LfoMode::Repeat);
 
@@ -127,17 +124,14 @@ TEST_CASE("LfoControl Repeat mode keeps cycling during fadeout as before",
     REQUIRE(sawRise); // 位相が周期を回っていれば振幅の増加が観測されるはず
 }
 
-// 実機報告(2026年8月): ソフトウェアLFOを一切使わない音色(sw.LFR=0)の
-// メロディパートに、送った覚えのないソフトウェアLFOが掛かる。調査の結果、
-// CC#76-78(ソフトウェアLFO Rate/Depth/Delay上書き)が「受信値をそのまま
-// 音色データの値に絶対上書きする」方式だったことが原因と判明。GM2準拠の
-// DAW/MIDIファイルはSound Controller群(CC#70-79)を既定値64へリセットする
-// 定型初期化をしばしば送るが、この絶対上書き方式だとCC#76=64を「Rateを
-// 64に強制設定」と解釈し、sw.LFR=0(LFO未使用)の音色にまでLFOが起動して
-// しまっていた。CC#77(Depth)についても同様の設計だったため、GM2規格の
-// Sound Controllerと同じ「値64=中央(補正なし)」というオフセット方式に
-// 変更した(VoiceProcessor::recalcChLfo()参照。Rate/Delayも同じ方式に
-// 変更したが、そちらはCInstCh::noteOn()内でSwPatchに焼き込む方式のため
+// CC#76-78(ソフトウェアLFO Rate/Depth/Delay上書き)は、GM2規格の
+// Sound Controllerと同じ「値64=中央(補正なし)」というオフセット方式で
+// 音色データの値に作用する(VoiceProcessor::recalcChLfo()参照)。
+// GM2準拠のDAW/MIDIファイルはSound Controller群(CC#70-79)を既定値64へ
+// リセットする定型初期化をしばしば送る。受信値で音色データの値を絶対上書き
+// すると、CC#76=64を「Rateを64に強制設定」と解釈し、sw.LFR=0(LFO未使用)の
+// 音色にまでLFOが起動してしまう。ここではDepth(CC#77)のオフセット方式を
+// 検証する(Rate/DelayはCInstCh::noteOn()内でSwPatchに焼き込む方式のため
 // ここでは検証できない)。
 TEST_CASE("VoiceProcessor::setLfoDepthOverride() applies as a GM2-style offset "
           "from the patch's own depthCents (0 = no change, matching CC value 64)",
@@ -158,8 +152,8 @@ TEST_CASE("VoiceProcessor::setLfoDepthOverride() applies as a GM2-style offset "
     REQUIRE(baseline != 0);
 
     // CC#77=64(GM2のSound Controllerにおける「中央値」)相当のオフセット0を
-    // 送っても、音色本来のデプスから変化しないこと(修正前の絶対上書き
-    // 方式では、これが「デプスを0[無効化]に上書き」されてしまっていた)。
+    // 送っても、音色本来のデプスから変化しないこと(絶対上書き方式だと、
+    // これが「デプスを0[無効化]に上書き」になる)。
     proc.setLfoDepthOverride(0);
     proc.onTick(voice);
     CHECK(proc.channelLfoValue() == baseline);

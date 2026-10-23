@@ -57,7 +57,7 @@
                   "PSG",
                   "PCM"
                 ],
-                "description": "このバンクが属するチップ種別。VoicePatchType(直接デバイス選択モードのCC#0値)に変換され、bankと合わせてHwBankRegistryの検索キーになる。バンク番号の名前空間はチップ種別ごとに独立しているため、同じバンク番号でgroupだけ異なるエントリを並べれば、同じバンクファイルを複数のチップから選択できる(PSG系[SSG/EPSG/DCSG/SAA/SCC]のみ例外で、族全体でSSGの名前空間を共有する)。FITOMConfig::stringToVoicePatchType(Config.cpp)が認識する全文字列を反映している。SD1/MA3/MA5/MA7系は現状チップドライバが未実装のため、stringToVoicePatchType自体は認識するが本enumには含めない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
+                "description": "このバンクが属するチップ種別。VoicePatchType(直接デバイス選択モードのCC#0値)に変換され、bankと合わせてHwBankRegistryの検索キーになる。バンク番号の名前空間はチップ種別ごとに独立しているため、同じバンク番号でgroupだけ異なるエントリを並べれば、同じバンクファイルを複数のチップから選択できる(PSG系[SSG/EPSG/DCSG/SAA/SCC]のみ例外で、族全体でSSGの名前空間を共有する)。FITOMConfig::stringToVoicePatchType(Config.cpp)が認識する文字列から選んでいる。SD1/MA3/MA5/MA7系はチップドライバが無いため、stringToVoicePatchType自体は認識するが本enumには含めない。別名のAY8930/SAA1099と、DSG/YM2163も本enumには含めていない。新しいVoicePatchType文字列をstringToVoicePatchTypeに追加する際は、本enumも合わせて更新すること。"
               },
               "bank": {
                 "type": "integer",
@@ -72,14 +72,14 @@
                 "enum": [
                   "builtin_swpatch_meta"
                 ],
-                "description": "このバンクエントリの特殊な役割(省略時は通常のHwBank、voice_patch_type/bank/prog経由で検索される)。\"builtin_swpatch_meta\": OPLL ROM音色(opllRomPatches_、PatchManager::resolveOpllRomVoice参照)にswPatchを紐づけるための専用メタデータバンク。通常のHwBankRegistry検索の対象にならず、専用の保持スロット(PatchManager::opllBuiltinMetaBank_)にルーティングされる。bankフィールドの値はこの場合意味を持たない(何番でもよい)が、スキーマ上は引き続き必須のままとする(既存のhw_banks[]エントリ形式との一貫性のため)。各パッチエントリはhwbank.schema.jsonのbuiltinフィールド(ops[]とは排他)で、対象のROM音色を指定する。2026年7月新設。詳細はdocs/design/patch-resolution.md参照。"
+                "description": "このバンクエントリの特殊な役割(省略時は通常のHwBank、voice_patch_type/bank/prog経由で検索される)。\"builtin_swpatch_meta\": OPLL系のROM音色とDSGのビルトイン音色(PatchManager::resolveOpllRomVoice / resolveDsgBuiltinVoice参照)にswPatchを紐づけるための専用メタデータバンク。通常のHwBankRegistry検索の対象にならず、専用の保持スロット(PatchManager::builtinMetaBank_)にルーティングされる。スロットは1つで、複数指定すると後勝ちになる。bankフィールドの値はこの場合意味を持たない(何番でもよい)が、スキーマ上は引き続き必須のままとする(既存のhw_banks[]エントリ形式との一貫性のため)。各パッチエントリはhwbank.schema.jsonのbuiltinフィールド(ops[]とは排他)で、対象のROM音色を指定する。詳細はdocs/design/patch-resolution.mdの「ROM/ビルトイン音色へのパフォーマンスパッチ紐づけ」参照。"
               }
             }
           }
         },
         "sf2_banks": {
           "type": "array",
-          "description": "SF2直行パス(docs/design/sf2-direct-path.md参照)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよく、その場合もHWプラグイン側でファイルパスをキーにキャッシュし、実体のロード(fluid_synth_sfload()相当)は1回だけ行う想定。2026年7月、FITOM_X本体側(Sf2BankRegistry、CC#32解決・devices[]のsoundfonts一覧自動生成)は実装済み。実際にSF2を鳴らすにはこのファイル一覧を受け取るhwifプラグイン(仮称FitomSf2IF、別リポジトリ)が別途必要で、そちらは未実装。",
+          "description": "SF2直行パス(docs/design/sf2-direct-path.md参照)で使うSoundFont(.sf2)ファイルのバンク定義。CC#32の値(bank)から、SF2ファイル(file)とそのファイル内部のネイティブbank番号(sf2_bank)への間接参照テーブルであり、CC#32の値をSF2内部のbank番号としてそのまま使うわけではない(1つのsf2ファイルが複数の内部bankを持ちうる、複数の異なるsf2ファイルを併用したい、という2つの理由による)。同一fileを複数エントリが参照してもよい(HWプラグインへ渡すSF2ファイルの一覧では、同じファイルは1つにまとめられる)。実際にSF2を鳴らすには、このファイル一覧を受け取るHWプラグイン(FitomSf2IF、別リポジトリ)が必要。",
           "items": {
             "type": "object",
             "required": [
@@ -210,7 +210,7 @@
         },
         "pcm_banks": {
           "type": "array",
-          "description": "PCM/ADPCM バンクファイル一覧。HwPatch の WS フィールドでエントリ番号を指定する。",
+          "description": "PCM/ADPCM バンクファイル一覧。エントリ番号は、音色(SampleZonePatch)のゾーンのwave_indexで指定する。",
           "items": {
             "type": "object",
             "required": [
@@ -236,7 +236,7 @@
                   "PCMD8",
                   "SSGS_ADPCM"
                 ],
-                "description": "任意。このPCMバンクが対象とするVoicePatchType。指定すると、①CFITOM::initDevices()が一致するVoicePatchTypeのPCMデバイスへこのバンク番号を自動的に割り当てるようになり(省略時は全PCMデバイスがbank0を共有する後方互換動作のまま)、②entries[]の各サンプルが、パッチピッカー等で選択可能なnamed patchとして自動的にHwBankRegistry側にも公開される(*.hwbank.jsonを別途手書きする必要はない、PatchManager::loadPcmBankJson()参照)。異なるコーデックのPCMバンクを複数併用する場合は指定必須(省略のままだと2つ目以降のバンクが無視される)。"
+                "description": "任意。このPCMバンクが対象とするVoicePatchType。指定すると、①CFITOM::initDevices()が一致するVoicePatchTypeのPCMデバイスへこのバンク番号を自動的に割り当てる(省略時は全PCMデバイスがbank0を共有する)。②entries[]の各サンプルから、パッチピッカー等で選択可能なnamed patch(SampleZonePatch)が自動合成され、サンプル系の音色バンク(SampleZoneBankRegistry)に登録される(*.samplezonebank.jsonを別途手書きする必要はない、PatchManager::loadPcmBankJson()参照)。異なるコーデックのPCMバンクを複数併用する場合は指定必須(省略のままだと2つ目以降のバンクが無視される)。"
               },
               "chip": {
                 "type": "string",
@@ -450,7 +450,7 @@
     },
     "midi_outputs": {
       "type": "array",
-      "description": "使用する MIDI 出力デバイス名の一覧（MIDI スルー等に使用）。省略可。",
+      "description": "MIDI 出力デバイス名の一覧。現在のバージョンでは使われない(書いても無視される)。省略可。",
       "items": {
         "type": "string"
       },
@@ -461,7 +461,7 @@
       ]
     },
     "banks": {
-      "description": "バンクファイルの読み込み設定。文字列を指定した場合は外部バンク定義ファイルへのパス(プロファイル自身のディレクトリからの相対パスまたは絶対パス)とみなし、参照先JSONオブジェクトの内容(hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)がこの位置にそのまま埋め込まれたものとして扱われる(下記のオブジェクト直書きと同一スキーマ)。パッチバンク構成はデバイス構成(devices/hw_plugins)に一切依存しないため、デバイス構成が異なる複数プロファイル間で同じプリセットバンク構成ファイルを使い回すことができる(デバイス構成に含まれないバンクエントリは単に発音しないだけであり、デバイス構成の一部変更がbank/prog番号の一貫性を崩すことはない)。2026年7月新設。",
+      "description": "バンクファイルの読み込み設定。文字列を指定した場合は外部バンク定義ファイルへのパス(プロファイル自身のディレクトリからの相対パスまたは絶対パス)とみなし、参照先JSONオブジェクトの内容(hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks)がこの位置にそのまま埋め込まれたものとして扱われる(下記のオブジェクト直書きと同一スキーマ)。パッチバンク構成はデバイス構成(devices/hw_plugins)に一切依存しないため、デバイス構成が異なる複数プロファイル間で同じプリセットバンク構成ファイルを使い回すことができる(デバイス構成に含まれないバンクエントリは単に発音しないだけであり、デバイス構成の一部変更がbank/prog番号の一貫性を崩すことはない)。",
       "oneOf": [
         {
           "type": "string",
@@ -476,7 +476,7 @@
       ]
     },
     "bank_overrides": {
-      "description": "banksに対する部分上書き・追加設定。banksと同一スキーマ(オブジェクト直書き、または外部参照ファイルパスの文字列のいずれか)で、hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banksの各配列について、識別キー(hw_banksは\"group\"+\"bank\"、drum_banksは\"prog\"、pcm_banksは\"bank\"+\"chip\"、その他は\"bank\")が一致するエントリはこちらの内容で置き換え、一致しなければ追加としてbanks側の配列に加えられる(削除はできない)。banksが外部参照ファイル(共通プリセットバンクセット)を指しているとき、プロファイルごとに一部のバンクだけを個別ファイルへ差し替えたり、共通セットに無いバンクを追加したりする用途を想定している。banks/bank_overrides両方を省略した場合は従来通りバンク未設定として扱われる。2026年7月新設。",
+      "description": "banksに対する部分上書き・追加設定。banksと同一スキーマ(オブジェクト直書き、または外部参照ファイルパスの文字列のいずれか)で、hw_banks/sf2_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banksの各配列について、識別キー(hw_banksは\"group\"+\"bank\"、drum_banksは\"prog\"、pcm_banksは\"bank\"+\"chip\"、その他は\"bank\")が一致するエントリはこちらの内容で置き換え、一致しなければ追加としてbanks側の配列に加えられる(削除はできない)。banksが外部参照ファイル(共通プリセットバンクセット)を指しているとき、プロファイルごとに一部のバンクだけを個別ファイルへ差し替えたり、共通セットに無いバンクを追加したりする用途を想定している。banks/bank_overrides両方を省略した場合はバンク未設定として扱われる。",
       "oneOf": [
         {
           "type": "string",
@@ -491,7 +491,7 @@
     },
     "sf2_channel_windows": {
       "type": "array",
-      "description": "SF2直行パス(docs/design/sf2-direct-path.md参照)における、MPU×chとfluidsynthの`chan`(0–15)の静的な対応表(「窓」)。ここに載っているMPU×chは、FITOM_Xのネイティブ処理(通常モード/直接デバイス選択モード/内蔵リズムバンク/役割切替/DVA/PatchManagerによるHwPatch解決)を一切経由せず、Note On/Off・CC(CC#0を除く)・プログラムチェンジをそのままfluidsynthエンジンへ素通しする経路になる。載っていないMPU×chは、これまでどおりネイティブ経路が適用される。banks(hw_banks等)がバンク内容の参照であるのに対し、これはMIDIチャンネルそのもののルーティング設定であるため、bank類とは別のトップレベルプロパティとした。演奏中に窓の割り当てを変更する場合は、プライベートSysEx(sub-cmd 0x04、docs/manuals/midi-message-reference.mdの8.2節参照)を使う。ここでのプロファイル設定は、その初期値に相当する。2026年7月、FITOM_X本体側(この読み込み・検証・MidiProcessorでの窓判定・SysEx sub-cmd 0x04受信)は実装済み。実際にSF2を鳴らすにはhwifプラグイン(仮称FitomSf2IF、別リポジトリ)が別途必要で、そちらは未実装。",
+      "description": "SF2直行パス(docs/design/sf2-direct-path.md参照)における、MPU×chとfluidsynthの`chan`(0–15)の静的な対応表(「窓」)。ここに載っているMPU×chは、FITOM_Xのネイティブ処理(通常モード/直接デバイス選択モード/内蔵リズムバンク/役割切替/DVA/PatchManagerによるHwPatch解決)を一切経由せず、Note On/Off・CC(CC#0を除く)・プログラムチェンジをそのままfluidsynthエンジンへ素通しする経路になる。載っていないMPU×chには、ネイティブ経路が適用される。banks(hw_banks等)がバンク内容の参照であるのに対し、これはMIDIチャンネルそのもののルーティング設定であるため、bank類とは別のトップレベルプロパティとした。演奏中に窓の割り当てを変更する場合は、プライベートSysEx(sub-cmd 0x04、docs/manuals/midi-message-reference.mdの8.2節参照)を使う。ここでのプロファイル設定は、その初期値に相当する。実際にSF2を鳴らすには、HWプラグイン(FitomSf2IF、別リポジトリ)が必要。",
       "items": {
         "type": "object",
         "required": [
@@ -504,7 +504,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 3,
-            "description": "対象MPU番号(0起算、現状MAX_MPUS=4)。"
+            "description": "対象MPU番号(0起算、0〜3)。"
           },
           "ch": {
             "type": "integer",
@@ -516,7 +516,7 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 15,
-            "description": "割り当て先のfluidsynth chan番号(0起算)。全エントリを通じて重複不可(スキーマでは表現できないため、ローダー側でのバリデーションが必要)。"
+            "description": "割り当て先のfluidsynth chan番号(0起算)。全エントリを通じて重複不可(スキーマでは表現できないため、読み込み時に検査し、重複があればエラーになる)。"
           }
         }
       }
@@ -572,7 +572,7 @@
           },
           "profile": {
             "type": "string",
-            "description": "HWPlugin_Init()に渡すプラグイン固有の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。DLLロード直後、他の全関数より前に自動的にHWPlugin_Init(path)として呼ばれる。省略時はnullptrが渡され、プラグイン自身のデフォルト探索ルールに従う。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。HWPlugin_Init()が失敗を返した場合、このプラグインは登録されない。 ADPCM/PCM系サンプルメモリを必要とするチップ(YM2608/YM2610/YM2610B/YMF278等)を扱う場合、このプラグイン固有の設定ファイル側から、PCMメモリイメージカタログ(pcm_image_catalog.schema.json参照)へのパスを参照させる想定(具体的な参照キー名・方法はプラグインの実装に委ねられ、FITOM_X本体は関知しない、2026年7月〜)。",
+            "description": "HWPlugin_Init()に渡すプラグイン固有の設定ファイルへのパス (例: FitomEmuIFのfmhwif_profile.json)。DLLロード直後、他の全関数より前に自動的にHWPlugin_Init(path)として呼ばれる。省略時はnullptrが渡され、プラグイン自身のデフォルト探索ルールに従う。FITOM_X本体はこのファイルの内容を一切解釈しない(エミュレータか実機かを区別しないという設計原則を保つ、プラグインへの単純な橋渡しのみ)。HWPlugin_Init()が失敗を返した場合、このプラグインは登録されない。 ADPCM/PCM系サンプルメモリを必要とするチップ(YM2608/YM2610/YM2610B/YMF278等)を扱う場合、このプラグイン固有の設定ファイル側から、PCMメモリイメージカタログ(pcm_image_catalog.schema.json参照)へのパスを参照させる想定(具体的な参照キー名・方法はプラグインの実装に委ねられ、FITOM_X本体は関知しない)。",
             "examples": [
               "fmhwif_profile.json",
               "profiles/fmhwif_studio.json"
@@ -588,7 +588,7 @@
             "items": {
               "type": "string"
             },
-            "description": "auto_devices:true時のみ有効。HWPlugin_Enumerate()自身はrhythm_mode(devices[]側の同名フィールドと同じ、チップ内蔵リズム音源[ch6-8]を有効化しFM本体側と切り離すFITOM_X固有の概念)を返さないため、列挙結果の\"chip\"名がここに列挙された文字列のいずれかと一致するエントリにだけ、自動生成後にrhythm_mode:trueを補って渡す(2026年7月新設)。OPL/Y8950/OPL2/OPL2EX/OPL3/OPL4/OPLL系(OPLLEX含む)でビルトインリズムを使う場合に指定する。",
+            "description": "auto_devices:true時のみ有効。HWPlugin_Enumerate()自身はrhythm_mode(devices[]側の同名フィールドと同じ、チップ内蔵リズム音源[ch6-8]を有効化しFM本体側と切り離すFITOM_X固有の概念)を返さないため、列挙結果の\"chip\"名がここに列挙された文字列のいずれかと一致するエントリにだけ、自動生成後にrhythm_mode:trueを補って渡す。OPL/Y8950/OPL2/OPL2EX/OPL3/OPL4/OPLL系(OPLLEX含む)でビルトインリズムを使う場合に指定する。",
             "examples": [
               [
                 "OPL",
@@ -631,14 +631,14 @@
         "SCC"
       ],
       "default": "SSG",
-      "description": "PSG系共有バンク(voice_patch_type=0x40、SSG/EPSG/DCSG/SAA/SCC全チップが同じCC#0/バンク名前空間を共有する、2026年7月〜)において、個々のHwPatchエントリの対象チップ指定(targetVoicePatchType)が未設定(0)の場合に、どのチップ向けとして解決するかを指定する。省略時は'SSG'。hw_patchごとに明示的な対象チップが指定されている場合は、この設定よりそちらが優先される。"
+      "description": "PSG系共有バンク(voice_patch_type=0x40、SSG/EPSG/DCSG/SAA/SCC全チップが同じCC#0/バンク名前空間を共有する)において、個々のHwPatchエントリの対象チップ指定(targetVoicePatchType)が未設定(0)の場合に、どのチップ向けとして解決するかを指定する。省略時は'SSG'。hw_patchごとに明示的な対象チップが指定されている場合は、この設定よりそちらが優先される。"
     },
     "master_volume": {
       "type": "integer",
       "minimum": 0,
       "maximum": 127,
       "default": 100,
-      "description": "マスターボリューム(全チャンネル共通の出力音量係数)。GUIのシステム設定ダイアログから変更可能。省略時は100。"
+      "description": "マスターボリューム。GUIのシステム設定ダイアログから変更可能。現在のバージョンでは、FM/PSGのチップの音量には反映されない(SF2直行パスにだけ転送される)。省略時は100。"
     },
     "master_pitch": {
       "type": "number",

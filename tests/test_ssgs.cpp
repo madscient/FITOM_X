@@ -511,7 +511,7 @@ TEST_CASE("CSSGS: HW envelope registers are per unit", "[ssgs]")
 
 TEST_CASE("CSSGS: standalone SSG (CSSG) keeps its own register layout", "[ssgs]")
 {
-    // ユニット索引の導入で CSSG (maxChs=3) のアドレスが1バイトも
+    // ユニット索引を経由しても、CSSG (maxChs=3) のアドレスが1バイトも
     // ずれていないことを確認する回帰テスト。
     RecordingPort port;
     port.clock = kSsgBlock;

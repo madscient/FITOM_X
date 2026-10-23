@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fitom-samplezonebank",
   "title": "FITOM SampleZoneBank (*.samplezonebank.json)",
-  "description": "サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM、isSampleBasedVoicePatchType対象)専用のパッチバンク。通常のHwPatch(FMオペレータ型、hwbank.schema.json)とは完全に独立した別スキーマ。1プログラム=複数キーゾーンへの波形マッピングという、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状のデータを持つ。プロファイル側ではhw_banks[].group(AWM等)経由で参照される(PatchManager::loadSampleZoneBankJson)。生成はプログラム実装と密接に関わるため通常は手作業では作られないが、バリデーション対象にはなるため定義しておく(2026年7月新設)。詳細はdocs/manuals/hwpatch-reference.mdの「OPL4 AWM」節参照。",
+  "description": "サンプルベース音源系(ADPCM-B/ADPCM-A/PCMD8/AWM、isSampleBasedVoicePatchType対象)専用のパッチバンク。通常のHwPatch(FMオペレータ型、hwbank.schema.json)とは完全に独立した別スキーマ。1プログラム=複数キーゾーンへの波形マッピングという、FMオペレータ型のパラメータ(AR/DR/SL/RR等)とは本質的に異なる形状のデータを持つ。プロファイル側ではhw_banks[]にgroup \"AWM\"で登録する(PatchManager::loadSampleZoneBankJson)。ADPCM-B/ADPCM-A/PCMD8の音色は、pcm_banks[]にgroupを指定すると*.pcmbank.jsonのentries[]から自動合成される(PatchManager::loadPcmBankJson)。生成はプログラム実装と密接に関わるため通常は手作業では作られないが、バリデーション対象にはなるため定義しておく。詳細はdocs/manuals/hwpatch-reference.mdの14節参照。",
   "type": "object",
   "required": ["patches"],
   "properties": {
@@ -74,14 +74,14 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 511,
-                  "description": "チップ側のROM/PCM波形番号(チップ依存の生値)。YRW801実機の波形総数を踏まえた安全マージンとしてmaximum=511としている(実データの最大観測値は324、2026年7月時点)。"
+                  "description": "チップ側のROM/PCM波形番号(チップ依存の生値)。YRW801実機の波形総数を踏まえた安全マージンとしてmaximum=511としている(config/profiles/のYRW801用データでの最大値は324)。"
                 },
                 "pitch_offset": {
                   "type": "integer",
                   "minimum": -32768,
                   "maximum": 32767,
                   "default": 0,
-                  "description": "OPL4AWM波形ごとのピッチ校正値(100/128セント単位、ALSA sound/drivers/opl4/yrw801.cのopl4_sound::pitch_offsetと同一規約)。ROM波形は実測でないと絶対ピッチが分からないため、この値が無いと(key_scalingと合わせて)正しい音高で鳴らせない。OPL4AWM以外のチップ(ADPCM-B/PCMD8等、root_noteベースでピッチを計算する)では未使用(2026年8月新設。ユーザー報告『AWMが意図した波形と違う音に聞こえる』の調査で、絶対Hz基準の汎用計算式では波形ごとの校正が反映できないと判明したため)。"
+                  "description": "OPL4AWM波形ごとのピッチ校正値(100/128セント単位、ALSA sound/drivers/opl4/yrw801.cのopl4_sound::pitch_offsetと同一規約)。ROM波形は実測でないと絶対ピッチが分からないため、この値が無いと(key_scalingと合わせて)正しい音高で鳴らせない。OPL4AWM以外のチップ(ADPCM-B/PCMD8等、root_noteベースでピッチを計算する)では未使用。"
                 },
                 "key_scaling": {
                   "type": "integer",
@@ -113,14 +113,14 @@
                 },
                 "name": {
                   "type": "string",
-                  "description": "ゾーンの表示名(任意、例: \"Acoustic Snare\")。エンジン本体は一切参照しない(発音処理には影響しない)。ドラムキット用SampleZonePatchの各ゾーンが、GM標準等の特定のドラムノートに対応する場合、プロファイル設計・将来のGUI実装で表示するために使う(2026年7月新設)。"
+                  "description": "ゾーンの表示名(任意、例: \"Acoustic Snare\")。エンジン本体は一切参照しない(発音処理には影響しない)。ドラムキット用SampleZonePatchの各ゾーンが、GM標準等の特定のドラムノートに対応する場合に、人が読むための目印として書く。"
                 },
                 "sw_bank": {
                   "type": "integer",
                   "minimum": -1,
                   "maximum": 127,
                   "default": -1,
-                  "description": "このゾーンが指定するパフォーマンスパッチ(SwPatch)の参照先バンク番号。-1(省略時のデフォルト)=参照なし。DrumNote側の個別上書き(swBank/swProg)が優先される。指定先が解決できない場合はパフォーマンスパッチが適用されないだけで、ゾーン自体の発音は妨げられない。**対応チップの制約(2026年7月時点)**: ADPCM-B/PCMD8は全機能(チャンネルLFO/トレモロ/ベロシティ感度/fine_transpose)が有効。ADPCM-Aはピッチ制御が無いためベロシティ感度・トレモロのみ有効。AWM(このスキーマの主な手書き用途)は実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が別途必要なため、現状この参照は解決されるが音には反映されない(将来の別タスク)。"
+                  "description": "このゾーンが指定するパフォーマンスパッチ(SwPatch)の参照先バンク番号。-1(省略時のデフォルト)=参照なし。DrumNote側の個別上書き(swBank/swProg)が優先される。指定先が解決できない場合はパフォーマンスパッチが適用されないだけで、ゾーン自体の発音は妨げられない。**対応チップの制約**: ADPCM-B/PCMD8は全機能(チャンネルLFO/トレモロ/ベロシティ感度/fine_transpose)が有効。ADPCM-Aはピッチ制御が無いためベロシティ感度・トレモロのみ有効。AWM(このスキーマの主な手書き用途)は実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が別途必要なため、この参照は解決されるが音には反映されない。"
                 },
                 "sw_prog": {
                   "type": "integer",
