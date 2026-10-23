@@ -185,7 +185,7 @@ public:
     // hwPatchとは排他 (通常のFMオペレータ系チップはnullptrのまま呼ぶ)。
     // vel/swPatch: 2026年7月追加。VoiceProcessor::onNoteOn()をupdateVoice()
     // より前に呼べるようにするため(ドキュメント化された正しい設計、
-    // docs/design/voice-processor.mdのフェーズ6手順3参照。以前はonNoteOn()が
+    // docs/design/voice-processor.md「呼び出しの順序」参照。以前はonNoteOn()が
     // noteOn()側に遅延しており、updateVoice()内のキャリア側ベロシティ
     // 補正値(velAR/velDR/velSL/velRR/velSR)が常に未計算のまま実機へ
     // 送信されるバグがあった)。pendingSwPatch機構はこれにより不要に

@@ -30,7 +30,7 @@
           },
           "sw": {
             "type": "object",
-            "description": "チャンネルソフトLFO(ビブラート)。F-numberインデックスを周期変調する(1unit≒1.5625cent)。HW LFO(OPM/OPN2内蔵)はボイスパラメータから切り離され、CC#1 Modulationとして別途実装されている(docs/design/voice-processor.md参照)。",
+            "description": "チャンネルソフトLFO(ビブラート)。F-numberインデックスを周期変調する(1unit≒1.5625cent)。HW LFO(OPM等のチップ内蔵LFO)の周波数・深さはボイスパラメータに持たず、CC#14/15で演奏中に送る(docs/design/voice-processor.md参照)。",
             "properties": {
               "LWF": {
                 "type": "integer",

@@ -1,67 +1,61 @@
-# FmVoice パラメータ分離設計書
+# 音色データと VoiceProcessor
 
-## 問題: 旧 FMVOICE の混在
-
-旧 `FMOP` / `FMVOICE` には異なる性質のパラメータが同一構造体に混在していた。
-
-| フィールド | 旧位置 | 処理タイミング | 使用箇所 |
-|---|---|---|---|
-| AR/DR/SL/SR/RR/TL/KSR/KSL/MUL/DT1/DT2/AM/VIB/EGT/WS | FMOP | UpdateVoice (即時) | チップドライバ |
-| FB/AL/AMS/PMS/NFQ | FMVOICE | UpdateVoice (即時) | チップドライバ |
-| SLF/SLW/SLD/SLY/SLR | FMOP | TimerCallBack (1ms) | SoundDev::UpdateOpLFO |
-| VTL/VAR/VDR/VSL/VSR/VRR/VLD/VLR | FMOP | NoteOn 時 | SoundDev::SetVelocity |
-| LFO/LWF/LFS/LFD/LFR/LDM/LDL | FMVOICE | TimerCallBack (1ms) | SoundDev::UpdateFnumber |
-| REV/EGS/FIX/DT3 | FMOP | UpdateVoice (OPZ のみ) | OPZ ドライバのみ |
+**対象読者**: FITOM_X本体の開発者・AI  
+**関連文書**:
+- 利用者向けの各パラメータの意味: `docs/manuals/hwpatch-reference.md`、`docs/manuals/swpatch-reference.md`
+- チップごとのレジスタへの書き方: `docs/design/chip-drivers.md`
 
 ---
 
-## 新設計: 4層分離
+## 音色データの構成
+
+音色のパラメータは、処理されるタイミングと処理する場所で2つに分かれる。
 
 ```
-FmVoice
-├── FmHwVoice   hw          チャンネル HW パラメータ (FB/ALG/AMS/PMS/NFQ)
-├── FmHwOp      hwOp[4]     オペレータ HW パラメータ (AR〜WS、REV/EGS/DT3含む。
-│                           REV/EGS/DT3は2026年7月にFmChipExtから移設。
-│                           実機OPZは各オペレータに個別設定できるため、
-│                           チャンネル単位の共通値に強制すると表現力が
-│                           失われる問題があった)
-├── FmSwVoice   sw          チャンネルソフト LFO (ピッチ変調)
-├── FmSwOp      swOp[4]     オペレータソフトパラメータ (ベロシティ感度 + トレモロLFO)
-└── FmChipExt   ext         チップ固有拡張 (OPZ: FIX, PSG: HWEP, 共用: ALG_EXT)
+HwPatch(PatchData.h)            チップドライバがレジスタへ書く値
+├── hw      FmHwVoice            チャンネル単位 (FB/ALG/AMS/PMS/NFQ/FB2)
+├── hwOp[4] FmHwOp               オペレータ単位 (AR〜WS、PDT、OPZのREV/EGS/DT3)
+├── ext     FmChipExt            特定のチップだけが使う値(下表)
+├── builtin                      ROM/ビルトイン音色への参照(builtin専用バンクのみ)
+└── swBank / swProg              パフォーマンスパッチ(SwPatch)への参照(-1=なし)
+
+SwPatch(PatchData.h)            VoiceProcessor がノートオン時と毎tickに使う値
+├── sw      FmSwVoice            チャンネルのソフトウェアLFO(ビブラート)
+├── swOp[4] FmSwOp               オペレータ単位のベロシティ感度とソフトウェアLFO(トレモロ)
+└── fineTranspose                固定トランスポーズ [セント]
 ```
 
----
+- `HwPatch`のパラメータは、音色を設定したときにチップドライバがそのままレジスタへ書く。TLだけは例外で、`VoiceProcessor`が補正した値(`effectiveTL(op)`)を書く
+- `SwPatch`のパラメータは、ノートオン時(ベロシティ感度)と1msごとのtick(ソフトウェアLFO)に`VoiceProcessor`が計算に使う。チップドライバはSwPatchを直接読まない
+- `HwPatch`が`SwPatch`への参照を持つので、レイヤードパッチ・直接モード・内蔵リズム等、HwPatchが発音されるすべての経路で同じSwPatchが効く(解決の規則は`docs/design/patch-resolution.md`)
 
-## 各層の責務
+### `FmHwOp::PDT` と `FmChipExt`
 
-### FmHwVoice / FmHwOp — チップドライバが直接参照
+チップごとに意味が違うフィールド。
 
-チップドライバの `UpdateVoice()` は `FmVoice::hw` / `FmVoice::hwOp[]` のみを参照する。
-ソフトパラメータ・拡張パラメータは参照しない。
+| フィールド | 使うチップ | 意味 |
+|---|---|---|
+| `hwOp[].PDT` | OPN(ch2のFXモード) | `ext.FIX`のモードに応じた疑似デチューン・倍率・固定周波数(`docs/design/chip-drivers.md`の「OPN FXモード」) |
+| `hwOp[].PDT` | OPL3(4OPモード) | 前半/後半の2opペアの疑似デチューン。`hwOp[0]`/`hwOp[2]`の値を使う。単位はkfs |
+| `hwOp[].REV`/`EGS`/`DT3` | OPZ | オペレータ単位。実機OPZは各オペレータに個別に設定できる |
+| `ext.FIX` | OPZ | Osc fixed freqフラグ |
+| `ext.FIX` | OPN(ch2) | FXモードの種別(0=通常/1=疑似デチューン/2=非整数倍率/3=固定周波数) |
+| `ext.ALG_EXT` | OPM / OPLL / OPLLEX | OPM: ノイズ(ch7)。OPLL: プリセット選択。OPLLEX: bit0はプリセット選択、bit2-1はチャンネル別のROMプリセットバンク |
+| `ext.HWEP` | SSG(AY-3-8910/YM2149) | ハードウェアエンベロープの周期(レジスタ0x0B+0x0Cの16bit値) |
+| `ext.targetVoicePatchType` | PSG系共有バンク | パッチが実際に対象とするチップ(`docs/design/patch-resolution.md`の「PSG系共有バンク」) |
+| `ext.rhythmCh` | OPL内蔵リズム(`VOICE_PATCH_OPL_RHY`) | 対象の楽器(0=HH/1=CYM/2=TOM/3=SD/4=BD、0xFF=未設定) |
 
-```cpp
-// OPN::UpdateVoice (移行後)
-void COPN::UpdateVoice(uint8_t ch)
-{
-    const FmVoice& voice = *GetChAttribute(ch)->GetVoice();
-    SetReg(0xb0 + ch, (voice.hw.FB << 3) | (voice.hw.ALG & 7));
-    for (int i = 0; i < 4; ++i) {
-        SetReg(0x30 + map[i] + ch,
-            ((voice.hwOp[i].DT1 & 7) << 4) | (voice.hwOp[i].MUL & 0xf));
-        SetReg(0x40 + map[i] + ch,
-            proc_->effectiveTL(i));   // ← VoiceProcessor が算出した値を参照
-        // ... AR/DR/SR/RR/SL/EGT
-    }
-}
-```
+これ以外の組み合わせでは、チップドライバは`ext`を読まない。
 
-**`DT2`のチップ依存の意味の転用**：`DT2`はOPM/OPZ(HW)では2bitのDetune値だが、
-OPN/OPL3(4OPモード)では未使用のため「疑似デチューン値」（符号付き8bit、
-`static_cast<int8_t>(DT2)`、単位=100/64セント）として転用している。フィールド
-幅・型は変更せず解釈のみで対応する。OPL3(`COPL3`)は`hwOp[0]`/`hwOp[2]`
-（前半/後半2opペアの先頭オペレータ）の値を使う。
+## VoiceProcessor
 
-### FmSwOp (ベロシティ感度 + ソフトLFO) — VoiceProcessor が処理
+デバイスチャンネルごとに1つあり(`ChState::proc`)、ノートオン時に`onNoteOn()`、1msごとに`onTick()`が呼ばれる。
+
+### 呼び出しの順序
+
+`onNoteOn()`は`CSoundDevice::assignCh()`の中で、`updateVoice()`より前に呼ぶ。`updateVoice()`はキャリアのベロシティ補正値(`velAR`〜`velRR`)とTLをレジスタへ書くので、その前に計算が済んでいなければならない。`CSoundDevice::noteOn()`では`onNoteOn()`を呼ばない(呼ぶとLFOのリセット等が二重に走る)。
+
+### キャリアの判定
 
 `VoiceProcessor`はチップ非依存の設計のため、どのopがキャリア(音を出す
 オペレータ)かを自力では判定できない(`hw.ALG`の意味・ビット幅・キャリア
@@ -79,6 +73,8 @@ FM音源のベロシティ表現(強く弾くほど明るい音)の本体だか�
 モジュレータに掛けると、マスターボリュームを絞っただけで変調指数が下がり
 音色そのものが変わってしまうため、volはキャリアに限定する。
 
+### TLの計算
+
 ```
 NoteOn 時:
   VoiceProcessor::onNoteOn(vol, exp, vel, voice, carrierMask)
@@ -86,11 +82,11 @@ NoteOn 時:
                   → さらに carrierMask の bit[i]=1 の op のみ calcLinearLevel(evol, TL)
     → 各 opLfo[i].start(swOp[i].SLY, swOp[i].SLR, swOp[i].SLI, swOp[i].SLM)
 
-TimerCallBack (1ms) 時:
+tick (1ms) 時:
   VoiceProcessor::onTick(voice)
     → opLfo[i].tick() → recalcOpLfo(i, voice)
       → effectiveTL[i] = getLfoWave(SLW, SLR) * level * SLD + baseTL[i]
-    → チップドライバ UpdateTL(ch, i, proc.effectiveTL(i)) を呼ぶ
+    → チップドライバが proc.effectiveTL(i) をTLレジスタへ書く
 ```
 
 `baseTL`/`effectiveTL`はキャリア・モジュレータを問わず**ラウドネス空間**
@@ -109,67 +105,20 @@ OPLLだけは制約がある。モジュレータTLはユーザー音色レジ�
 同じ共有レジスタへ書かれているのと同じ構造上の制約である。プリセット音色は
 音色パラメータ自体を持たないため対象外。
 
-### FmSwVoice (チャンネルLFO) — VoiceProcessor が処理
+### チャンネルのソフトウェアLFO(ビブラート)
 
 ```
 NoteOn 時:
   chLfo.start(sw.LFD, sw.LFR, sw.LFI, sw.LFM)
 
-TimerCallBack (1ms) 時:
+tick (1ms) 時:
   chLfo.tick() → recalcChLfo(voice)
-    → depthKfs = sw.depth_cents * 64 / 100
-    → chLfoValue = getLfoWave(LWF, LFR) * level * depthKfs
-  → チップドライバ UpdateFnumber(ch) を呼ぶ（周波数 offset に chLfoValue を加算）
+    → depthKfs = sw.depthCents * 64 / 100
+    → chLfoValue = getLfoWave(LWF, LFR) * depthKfs / 120
+  → チップドライバが周波数のオフセットに chLfoValue を加える
 ```
 
-### FmChipExt — 特定チップドライバのみ参照
-
-OPZドライバは `FmVoice::hwOp[i]` の `REV/EGS/DT3` (2026年7月にFmChipExt
-から移設、オペレータ単位) を参照する。
-PSG系ドライバ (CPSGBase) は `ext.HWEP` (HW Envelope Period, 16bit) を参照する
-（AY-3-8910/YM2149 のレジスタ0x0B+0x0C、HW EG使用時のみ）。
-OPN の `COPN` (ch2のみ) は `ext.FIX` を「FXモード選択」(0=通常/1=疑似デチューン/
-2=非整数倍率/3=固定周波数) として流用する（OPZの用途とは無関係、`FIX`の
-フィールド幅8bitの範囲で自由に解釈してよいという合意による）。
-OPN/OPM/OPL 等、上記以外の組み合わせでは `ext` を参照しない。
-
----
-
-## チップドライバの変更量
-
-`UpdateVoice` で `FMVOICE*` を `FmVoice*` に変更し、フィールドアクセスを置き換える。
-
-| 旧 | 新 |
-|---|---|
-| `voice->FB` | `voice->hw.FB` |
-| `voice->AL & 7` | `voice->hw.ALG` |
-| `voice->AMS` | `voice->hw.AMS` |
-| `voice->PMS` | `voice->hw.PMS` |
-| `voice->NFQ` | `voice->hw.NFQ` |
-| `voice->op[i].AR` | `voice->hwOp[i].AR` |
-| `voice->op[i].TL` | `proc->effectiveTL(i)` ← VoiceProcessor |
-| `voice->op[i].SLF` | 参照不要（VoiceProcessor が処理） |
-| `voice->op[i].VTL` | 参照不要（VoiceProcessor が処理） |
-| `voice->op[i].REV` | `voice->hwOp[i].REV` (OPZ のみ、オペレータ単位) |
-
----
-
-## 後方互換
-
-### バンクファイル (.ini / 既存 JSON)
-
-旧 `FMVOICE` 形式のバンクファイルは `FITOMCfg` の読み込み時に
-`fitom::legacy::fromLegacy()` で変換する。書き出し時は `toLegacy()` を使う。
-
-### GUI
-
-旧 `FMVOICE*` を返す `GetCurrentVoice()` は引き続き動作させるため、
-`CSoundDevice` 内で `FmVoice` ↔ `legacy::FMVOICE` の変換を挟む。
-GUI の声音エディタが `FmVoice` を直接扱うように移行できたら、この変換層を除去する。
-
----
-
-## ベロシティ感度パラメータの意味
+### ベロシティ感度
 
 すべて `VoiceProcessor::onNoteOn()` 内で NoteOn 時に計算され、
 `velAR(op)`〜`velRR(op)` / `effectiveTL(op)` としてチップドライバから参照される。
@@ -195,20 +144,18 @@ velParam = clamp(hwParam ± delta, min, max)
 `maxDelta` は各パラメータのレンジの1/4（AR/DR/SR=8、SL/RR=4）。
 AR の下限は1に固定（0はチップによって「発音しない」を意味するため）。
 
-**全チップドライバ（OPN/OPN2/OPM/OPL/OPLL）で実装済み**。
-ALGに基づくキャリアOP判定（`isCarrier()`）でキャリアのみに適用し、
-モジュレータOPには適用しない。PSG系（AY-3-8910/YM2149）はHW EG使用時、
-すべてのベロシティ感度が無効になる（チップ側の固定エンベロープ形状のため）。
+**適用範囲**: `VTL`は`VoiceProcessor`が全opに掛ける。`VAR`〜`VRR`は`VoiceProcessor`が全opについて補正値を計算し、どのopに使うかはチップドライバが決める。OPN/OPM/OPL/OPLLのドライバはキャリアにだけ使い、モジュレータには音色データの値を書く。PSG系はソフトウェアエンベロープに使う。PSG系(AY-3-8910/YM2149)でハードウェアエンベロープを使うときは、エンベロープの形がチップ側で決まるので、`VAR`〜`VRR`は効かない。
 
----
+## ソフトウェアLFO
 
-## ソフト LFO パラメータの意味（全面再設計版）
+`LfoControl`クラスが1つのLFOを表し、オペレータ単位(トレモロ)とチャンネル単位(ビブラート)の両方で使う。
 
-旧実装の rate 未使用バグ・フェードイン/周期の混在・triangle波形の誤りを
-修正し、`LfoControl` クラスとして全面再実装した。詳細設計は省略するが、
-主な変更点は以下の通り。
+- 周期は`rateToTicks(rate)`で決め、位相(`phase_tick_`)とフェードイン(`fade_tick_`)を別々に進める
+- 波形は上昇のこぎり/矩形/三角/S&H/下降のこぎり/デルタ/サイン。S&Hの乱数の種はインスタンスごとに持ち、チャンネル間で干渉しない
+- モード(`LfoMode`)は repeat / one-shot hold / one-shot zero
+- NoteOff後は`fadeout()`で自然に消え、`ChState::Releasing`(2000ms保持)と連動する
 
-### オペレータ単位 (FmSwOp) — トレモロ効果
+### オペレータ単位 (FmSwOp) — トレモロ
 
 | パラメータ | 意味 |
 |---|---|
@@ -220,9 +167,21 @@ ALGに基づくキャリアOP判定（`isCarrier()`）でキャリアのみに�
 | `SLR` | レート (0=LFO無効。1-127は対数カーブで0.5Hz〜50Hzに変換、rateToTicks()参照) |
 | `SLI` | フェードイン速度 (0=即フルデプス) |
 
-旧 `SLF`（波形速度インデックス）は廃止し `SLR` に統合。
+### チャンネル単位 (FmSwVoice) — ビブラート
 
-### のこぎり波の位相とモードの関係 (2026年8月確定)
+| パラメータ | 意味 |
+|---|---|
+| `LWF` | 波形種別（オペレータLFOと同じ） |
+| `LFS` | NoteOn でリセットするか |
+| `LFM` | モード (0=repeat/1=one-shot hold/2=one-shot zero) |
+| `LFD` | 遅延 [20ms 単位] |
+| `LFR` | レート (0=LFO 無効) |
+| `LFI` | フェードイン速度 |
+| `depthCents` | 深さ [セント、-1200〜+1200、0=無変調] |
+
+`depthCents`はセント単位で指定し、内部でkfs単位(`docs/design/terminology.md`参照)に変換して適用する(SLD(トレモロ深さ)と同じ計算パターン)。範囲を±1200セント(±1オクターブ)まで取るのは、ピッチLFOをドラム音の装飾(大きなピッチベンド効果等)にも使うため。
+
+### のこぎり波の位相とモードの関係
 
 上昇/下降のこぎり波(`SLW`/`LWF` = 0/4)は、いきなり最大振幅から始まって
 発音開始時にピッチ/音量が飛ぶのを避けるため、いずれのモードでも t=0 で
@@ -237,41 +196,18 @@ ALGに基づくキャリアOP判定（`isCarrier()`）でキャリアのみに�
 repeat では波形が回り続けるため、不連続点が周期境界にあっても中間に
 あっても聞こえ方は変わらない(位相オフセットの違いでしかない)。一方
 one-shot の1周期はそのままピッチ/音量エンベロープになるため、周期の
-途中に不連続点があってはならない。2026年8月、repeat 用の位相シフトを
-one-shot にも適用してしまっていたため、「下降 → 跳ね上がり → 下降」と
-なり、1周期しか鳴らないはずのLFOが2回繰り返して聞こえる不具合があった
-(ドラムノートのDrumLFOプリセットで発覚)。
+途中に不連続点があってはならない。
 
 one-shot hold のホールド値(周期完了後に保持する値)は、位相リセットで
 変位0(=無変調)に戻ってしまわないよう、傾斜が向かっていた側の最大振幅
 (上昇=+120 / 下降=-120)とする。片側傾斜の周期末尾の値と連続するため、
 ホールドへの移行でも変位は飛ばない。
 
-### LFOレート→周期変換 (対数カーブ方式、2026年7月に再設計)
+### レートから周期への変換
 
 `SLR`/`LFR`(レート、0=LFO無効、1〜127)は、`VoiceProcessor.cpp`の
 `rateToTicks()`関数で、対数(指数)カーブの数式により実際のLFO周期
 (tick、1tick=1ms)に変換される。
-
-#### 経緯: テーブル方式の廃止
-
-当初、旧FITOM(`ROM::speedstep[]`、`EnvLFO.cpp`)の値をそのまま移植した
-`kSpeedStep[21]`という固定テーブルを使っていたが、以下の問題が
-発覚し、数式ベースの対数カーブに再設計した。
-
-1. **tick間隔の違い**: 旧FITOMは10ms/tick、新実装は1ms/tickだが、
-   `speedstep[]`の生の数値をそのまま新実装の「周期のtick数」として
-   流用してしまっており、実際の周波数が意図と大きくずれていた
-   (さらに、旧FITOMのアルゴリズム自体が「位相への倍率」であり、
-   新実装の「周期のtick数」とは意味も逆転していたため、単純な
-   10倍換算でも解決しない、より深刻な移植ミスだった)。
-2. **低域の分解能問題**: `speedstep[]`は周波数にほぼ比例する値の
-   並びだったため、周波数の低い帯域(ビブラートとして最も使われる
-   帯域)ほど、隣接ステップ間の"比率"(人間の知覚に対応する尺度)が
-   大きくなり、分解能が実質的に悪化する構造だった
-   (例: 0.417→0.833Hzは2倍のジャンプ、33.3→50Hzは1.5倍のジャンプ)。
-
-#### 新設計: 対数カーブの数式
 
 ```cpp
 static uint16_t rateToTicks(uint8_t rate) noexcept
@@ -286,10 +222,9 @@ static uint16_t rateToTicks(uint8_t rate) noexcept
 ```
 
 rate値(1〜127)を1増やすごとに、周波数が一定比率(約3.7%)で変化する
-ため、低域・高域を問わず知覚的に均等なステップになる。周波数
-レンジ(0.5Hz〜50Hz)は、旧FITOMが実際に生成していたレンジ
-(0.417Hz〜50Hz、`EnvLFO.cpp`の`GetLFOWave`から逆算)に近い値
-(完全一致は求めず、概ね一致していればよいとの方針)。
+ため、低域・高域を問わず知覚的に均等なステップになる。周波数に比例する
+値のテーブルにすると、ビブラートで最もよく使う低い帯域ほど隣どうしの
+比率が大きくなり、分解能が粗くなる。
 
 | rate | 周期[tick=ms] | 周波数[Hz] | 備考 |
 |---|---|---|---|
@@ -298,7 +233,7 @@ rate値(1〜127)を1増やすごとに、周波数が一定比率(約3.7%)で変
 | 32 | 644 | 1.55 | |
 | 48 | 359 | 2.79 | |
 | 64 | 200 | 5.00 | |
-| 70 | 161 | 6.23 | CC#1デフォルトビブラート周期(旧6.25Hzに近似) |
+| 70 | 161 | 6.23 | CC#1のビブラートの周期 |
 | 80 | 111 | 8.97 | |
 | 96 | 62 | 16.10 | |
 | 112 | 35 | 28.90 | |
@@ -306,66 +241,13 @@ rate値(1〜127)を1増やすごとに、周波数が一定比率(約3.7%)で変
 
 レート0はLFO無効(関数呼び出し自体が行われない)。
 
-### チャンネル単位 (FmSwVoice) — ビブラート効果
-
-| パラメータ | 意味 |
-|---|---|
-| `LWF` | 波形種別（オペレータLFOと同じ） |
-| `LFS` | NoteOn でリセットするか |
-| `LFM` | モード (0=repeat/1=one-shot hold/2=one-shot zero) |
-| `LFD` | 遅延 [20ms 単位] |
-| `LFR` | レート (0=LFO 無効) |
-| `LFI` | フェードイン速度 |
-| `depth_cents` | 深さ [セント、-1200〜+1200、0=無変調] |
-
-`depth_cents`は旧`LDM/LDL`(16bit値を2バイトに分割)を1フィールドに
-統合したもの(2026年7月)。旧設計はMIDI CCによる制御(7bit×2バイト)を
-想定していたが、新実装ではパラメータのMIDI CC制御可否自体が未定
-(コア実装確定後に別途検討)のため、CC制御を前提とした分割構造を
-維持する理由が無くなった。値はセント単位で直接指定し、内部で
-kfs単位(docs/design/terminology.md参照)に変換して適用する
-(`chLfoValue_ = wav × depthKfs / 120`、SLD(トレモロ深さ)と同じ
-計算パターン)。範囲を±1200セント(±1オクターブ)まで拡張したのは、
-ピッチLFOがドラム音の装飾(大きなピッチベンド効果等)に使われる
-ケースを考慮したもの。旧レンジ(±8192kfs≈±200セント相当)では
-不足していた。
-
-旧 `LFO`（HW LFO周波数として使われる想定だったフィールド）は廃止。
-HW LFO（OPM/OPN2内蔵のLFOレジスタ）はマルチティンバー・ダイナミックボイス
-アサインと相性が悪いため、ボイスパラメータからは切り離し、
-CC#1 (Modulation) によるパフォーマンスパラメータとして別途実装した
-（後述「CC#1 Modulation」参照）。
-
-### LfoControl の主な改善点
-
-| 旧の問題 | 新実装 |
-|---|---|
-| `rate_` が速度制御に未使用（常に1msで更新） | `period_ = rateToTicks(rate)` で周期を直接管理（対数カーブ、2026年7月に再設計） |
-| フェードインと周期が混在 | `phase_tick_`（位相）と`fade_tick_`（フェードイン）を分離 |
-| triangle と sine が同じ波形 | triangleは線形往復の独立計算 |
-| S&H seed がグローバル static | インスタンスメンバーに変更（チャンネル間非干渉） |
-| one-shot（1周期のみ適用）機能なし | `LfoMode` enumで実装 |
-| NoteOff後に急に音が途切れる | `fadeout()`で自然にフェードアウト、`ChState::Releasing`(2000ms保持)と連動 |
-
-### CC#1 Modulation との関係
+### CC#1 との関係
 
 `LFR>0`（音色固有LFOが設定されている）音色では CC#1 は無視される。
-`LFR==0` の音色でのみ CC#1 が有効になり、sine波形固定・6.25Hz固定・
+`LFR==0` の音色でのみ CC#1 が有効になり、sine波形・rate=70(約6.23Hz)固定で、
 デプスは RPN#5 (Modulation Depth Range) で設定可能な範囲で CC#1 値に比例する。
 CC#1 の初期値は 0（GM2仕様通り、ビブラートなしがデフォルト）。
 
----
+### ハードウェアLFOを音色に持たない理由
 
----
-
-## IPort / チップドライバ側の変更手順
-
-フェーズ6（チップドライバ移行）の具体的な手順:
-
-1. `CSoundDevice::CHATTR` の `FMVOICE voice` → `FmVoice voice` に変更
-2. `CSoundDevice` に `VoiceProcessor proc_[MAX_CHS]` を追加
-3. `SetVoice()` で `proc_[ch].onNoteOn(...)` を呼ぶように変更
-4. `TimerCallBack()` で `proc_[ch].onTick(voice)` の結果を使う
-5. 各チップドライバの `UpdateVoice()` でフィールドアクセスを変換
-6. `UpdateVolExp()` を削除し、`proc_[ch].effectiveTL(op)` を参照するように変更
-7. `UpdateOpLFO()` を削除し、`TimerCallBack` の `tlUpdateMask` を使うように変更
+チップ内蔵のLFO(OPM等)の周波数・深さは、ボイスパラメータに持たない。チップ内蔵LFOはチップ全体で1系統の共有資源で、マルチティンバー・ダイナミックボイスアサインと相性が悪いため。音色が持つのはチャンネルごとの感度(`hw.AMS`/`hw.PMS`)とオペレータごとの`AM`だけで、周波数と深さはCC#14/15で演奏中に送る(`docs/design/midi-processing.md`の「ハードウェアLFO」)。
