@@ -1,8 +1,10 @@
 # MIDI プラグイン要件定義
 
-**対象ヘッダ**: `plugin_sdk/include/fitom/IMidiPlugin.h`  
-**実装**: RtMidi (`fitom_midi_rtmidi.dll` / `.so` / `.dylib`、Windows/Linux/macOS共通の単一実装)  
-**プラグイン種別**: MIDI 入出力（同時ロードは 1 DLL のみ）
+**対象読者**: MIDI バックエンド DLL を実装する開発者  
+**契約の正本**: `plugin_sdk/include/fitom/IMidiPlugin.h`  
+**同梱の実装**:
+- RtMidi (`fitom_midi_rtmidi.dll` / `.so` / `.dylib`、Windows/Linux/macOS共通)。プロファイルの`midi_backend`で指定する
+- 内部用MIDIパイプ (`fitom_midi_pipe`)。プロファイルとは無関係に、DLLがあれば追加でロードされる。仕様は[plugin-midi-pipe.md](plugin-midi-pipe.md)
 
 ---
 
@@ -10,15 +12,15 @@
 
 WinMM・ALSA・CoreMIDI などの MIDI 実装の差異を  
 FITOM コアから完全に隠蔽するプラグイン。  
-コアは MIDI 1.0 バイト列のみを扱う。実装は [RtMidi](https://github.com/thestk/rtmidi)
+コアは MIDI 1.0 バイト列のみを扱う。同梱の実装は [RtMidi](https://github.com/thestk/rtmidi)
 (`third_party/rtmidi`、git submodule)に委譲し、Windows/Linux/macOSを1つの
-DLLソースでカバーする(旧実装はWindows MIDI Services/WinMM/ALSAをそれぞれ
-個別のDLLとしてハンドロールしていたが、2026年7月にRtMidiベースの単一実装へ
-統合した)。
+DLLソースでカバーする。
 
 ---
 
 ## エクスポート関数一覧
+
+すべて必須。コアはロード時に全関数の存在を確かめ、1つでも欠けていればロードに失敗する。
 
 ### プラグイン情報
 
@@ -57,6 +59,8 @@ DLLソースでカバーする(旧実装はWindows MIDI Services/WinMM/ALSAを�
 | `MidiPlugin_CloseOut` | `void (MidiOutHandle)` | MIDI Out デバイスを閉じる |
 | `MidiPlugin_Send` | `MidiResult (MidiOutHandle, const uint8_t* data, size_t len, uint64_t timestamp_ns)` | MIDI メッセージを送信する |
 
+現在のコアは MIDI Out を使わない(ロード時に関数の存在を確かめるだけで、呼び出さない)。
+
 ---
 
 ## コールバック仕様
@@ -71,8 +75,7 @@ typedef void (*MidiInCallback)(
 ```
 
 - コールバックは DLL 内部のスレッドから呼ばれる
-- コールバック内での重い処理・ブロッキング呼び出しは禁止
-- FITOM コアはコールバック内で MIDI メッセージを内部キューに積む設計とする
+- FITOM コアはコールバックのスレッド上でロックを取り、受け取ったバイト列をその場で処理してから戻る。処理中はタイマー処理や他のポートからの入力と直列化されるため、コールバックの呼び出しが詰まるとMIDI処理全体が止まる。プラグイン側でコールバックを呼ぶスレッドに、他の重い処理を載せないこと
 - SysEx はひとまとまりで渡すこと（分割禁止）
 
 ---
@@ -151,4 +154,4 @@ typedef void (*MidiInCallback)(
 }
 ```
 
-使用するデバイス名はプロファイルの `midi_inputs` / `midi_outputs` セクションに記述する（後述）。
+開く MIDI In のデバイス名は、プロファイルの `midi_inputs` に書く。
