@@ -27,6 +27,7 @@
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
+#include "fitom/FnumUtils.h"
 #include "fitom/Log.h"
 #include "fitom/VolumeUtils.h"
 #include <cstring>
@@ -1205,7 +1206,7 @@ protected:
 class CSAA1099 : public CPSGBase {
 public:
     // masterClock: 実機は7.15909MHz(GameBlaster)〜8MHz程度が一般的
-    CSAA1099(IPort* port, int sampleRate, int masterClock = 8000000)
+    CSAA1099(IPort* port, int masterClock)
         : CPSGBase(DEVICE_SAA, port, 0x20, 6, masterClock, 1, 0, FnumTableType::None)
     {}
 
@@ -1313,27 +1314,47 @@ protected:
 
     // 周波数: 実機式 freq = (2×masterClock/512) × 2^octave / (511 - freqReg) を
     // freqReg について解き、0-255に収まるoctaveを探索する。
-    // (FnumTableType::None で構築しており、共有のFnum/周期テーブルは使わない)
-    void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
+    // (FnumTableType::None で構築しており、共有のFnum/周期テーブルは使わない。
+    //  音程の入力の扱いは CDSG::getFnumber() と同じ)
+    //
+    // ChState::Fnum へは block=octave / fnum=freqReg として詰める (GUIのFnumber
+    // 表示も実機レジスタと同じ値になる)。
+    ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
+        ChState::Fnum ret;
+        if (ch >= maxChs_) return ret;
         const auto& s = chState_[ch];
-        if (s.lastNote >= 128) return;
+        if (s.lastNote >= 128) return ret;
 
-        double semitone = static_cast<double>(s.lastNote) - 69.0
-                         + static_cast<double>(s.fineFreq) / 64.0 / 100.0 * 1.0;
-        double hz = 440.0 * std::pow(2.0, semitone / 12.0);
-        if (hz <= 0.0) return;
+        // kfs単位 (1半音=64ステップ)
+        const int16_t lfoOffset = s.proc.channelLfoActive() ? s.proc.channelLfoValue() : 0;
+        const double kfs = static_cast<double>(s.lastNote) * 64.0
+                         + static_cast<double>(s.fineFreq) + offset + lfoOffset;
+        const double semitones = kfs / 64.0 - 69.0;   // A4 (MIDIノート69) 基準
+        const double hz = FnumRegistry::instance().getMasterPitch()
+                        * std::pow(2.0, semitones / 12.0);
+        if (hz <= 0.0) return ret;
 
-        double base = 2.0 * fnumMaster_ / 512.0;
+        const double base = 2.0 * fnumMaster_ / 512.0;
         int oct = 0;
         double freqRegF = 0.0;
         for (oct = 0; oct <= 7; ++oct) {
             freqRegF = 511.0 - (base * std::pow(2.0, oct)) / hz;
             if (freqRegF >= 0.0 && freqRegF <= 255.0) break;
         }
+        oct = std::min(oct, 7);
         freqRegF = std::clamp(freqRegF, 0.0, 255.0);
-        uint8_t freqReg = static_cast<uint8_t>(std::lround(freqRegF));
 
-        setReg(static_cast<uint16_t>(0x08 + ch), freqReg, false);
+        ret.fnum  = static_cast<uint16_t>(std::lround(freqRegF));
+        ret.block = static_cast<uint8_t>(oct);
+        return ret;
+    }
+
+    void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
+        if (chState_[ch].lastNote >= 128) return;
+        ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        const uint8_t oct = static_cast<uint8_t>(fnum.block & 7);
+
+        setReg(static_cast<uint16_t>(0x08 + ch), static_cast<uint8_t>(fnum.fnum & 0xFF), false);
 
         uint16_t octReg = static_cast<uint16_t>(0x10 + ch / 2);
         bool highNibble = (ch % 2) == 1;

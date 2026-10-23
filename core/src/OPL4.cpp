@@ -107,12 +107,11 @@ protected:
         double keyScaling       = zone ? static_cast<double>(zone->keyScaling) / 100.0 : 1.0;
         double pitchOffset128th = zone ? static_cast<double>(zone->pitchOffset) : 0.0;
 
-        // s.fineFreq/offset/チャンネルLFOは「1/64セント」単位(他チップと共通の
-        // 規約)。ALSAと同じ「1/128半音」単位(100/128セント=0.78125セント)へ
-        // 変換する: (totalOffset/64セント) * (1半音/100セント) * 128 = totalOffset*128/6400。
+        // s.fineFreq/offset/チャンネルLFOはkfs単位(1半音=64、他チップと共通の
+        // 規約)。ALSAと同じ「1/128半音」単位へ変換する。
         int32_t totalOffset = static_cast<int32_t>(s.fineFreq) + offset
                              + (s.proc.channelLfoActive() ? s.proc.channelLfoValue() : 0);
-        double fineOffset128th = static_cast<double>(totalOffset) * 128.0 / 6400.0;
+        double fineOffset128th = static_cast<double>(totalOffset) * 128.0 / 64.0;
 
         // ALSA snd_opl4_update_pitch()と同じ基準点(note=60, offset=0 →
         // pitch=60*128=7680)からの計算式。

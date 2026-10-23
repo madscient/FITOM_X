@@ -567,6 +567,20 @@ TEST_CASE("PatchManager: OPLL-family ROM voice accessors for the patch picker",
         CHECK(pm.getOpllRomPatchByProg(0x10) == nullptr); // OPLLX inst0(無音)
         CHECK(pm.getOpllRomPatchByProg(0x41) == nullptr); // variantSel=4(未定義)
     }
+
+    // パッチピッカー・MIDIモニターが「バンク0はROM音色」と判断する条件は、
+    // 解決側(resolveTriple)がresolveOpllRomVoice()へ振り分ける条件と同じ。
+    // OPLLEXはgetOpllRomPatches()では扱わないが、ROM音色のバンクは持つ。
+    SECTION("hasOpllRomBankはOPLLEXを含むOPLL系だけを真とする") {
+        CHECK(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_OPLL));
+        CHECK(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_OPLLX));
+        CHECK(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_OPLLP));
+        CHECK(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_VRC7));
+        CHECK(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_OPLLEX));
+        CHECK_FALSE(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_OPN2));
+        CHECK_FALSE(fitom::PatchManager::hasOpllRomBank(VOICE_PATCH_DSG));
+        CHECK(pm.getOpllRomPatches(VOICE_PATCH_OPLLEX) == nullptr);
+    }
 }
 
 TEST_CASE("SampleZonePatch::resolveZone: key/velocity range matching with fallback",

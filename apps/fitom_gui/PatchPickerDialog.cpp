@@ -32,6 +32,7 @@ constexpr CategoryEntry kCategories[] = {
     { 0x29, "OPLLP" },
     { 0x2A, "OPLLX" },
     { 0x2B, "VRC7" },
+    { 0x2C, "OPLLEX" },
     { 0x30, "OPL3(4OP)" },
     { 0x40, "SSG" },
     { 0x41, "EPSG" },

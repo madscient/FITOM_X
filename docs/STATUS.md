@@ -162,6 +162,9 @@
 - `CSSGSAdPcm`: エミュレータ(EPSGemuEngine)はコーデックをYMZ280Bと同じ4bit ADPCMと仮定している。FitomEmuIFはSSGS/SSGS2の`PCM`へカタログ種別`SSGS_ADPCM`のイメージを渡す(**確認済み**: FitomEmuIF `2d0e443`のソースを読んで確認)。鳴ったとしても、コーデックが仮定のため実機と同じ音かは判断できない
 - DSG(YM2163)
 - SCC・DCSGの音量レジスタ変換則、AY8930拡張モードのバンク切り替え
+- OPL4 AWMのピッチベンド・ファインチューン・ソフトウェアLFOのビブラートの効き(kfs→1/128半音の換算を直した後)。テストはレジスタ値を見るだけ
+- OPLL・OPLLEXの内蔵リズムのSD/TOMのピッチ(F-numberを9bitへ落とすよう直した後)。テストはメロディ側と同じレジスタ値になることを見るだけ
+- SAA1099のピッチベンド・ファインチューン・ソフトウェアLFOのビブラート・マスターピッチ(DSGと同じ扱いに直した後)と、HWプラグインが報告するクロックでの音程(8MHz固定をやめた後)。テストはレジスタ値から周波数式で逆算して見るだけ。FitomEmuIFはプラグイン設定の`clock`をそのまま`GetClock()`で返し、`clock`の無い設定は開く時点で拒否する(**確認済み**: FitomEmuIF `87d0a6c`のソースを読んで確認)
 - HWプラグインの部位ごとのゲイン: 実物のFitomEmuIFと名前指定の部位ゲインに対応したエンジン(YMEngine/DSGemuEngine/DSAemuEngine)を組み合わせて鳴らしたことは無い。`CFITOM`/`FITOMBridge`層(物理チップの添字からポートへの対応とロック)はテストが通っておらず、`HWPlugin_Write`と並行しないことはロックを取る箇所を読んで判断しただけ
 
 **GUIの目視**
@@ -169,6 +172,8 @@
 - DSGのパッチピッカー・内蔵リズムの一覧
 - SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替
 - レジスタダンプモニターのスクロールバーの修正、チャンネルレベルメーターの束ねられたチップの表示の修正(いずれも修正後の再確認)
+- パッチピッカーのOPLLEX(CC#0=0x2C)のカテゴリ。バンク0に4テーブル分のROM音色が`OPLLX: `等の接頭辞つきで並び、選ぶとその音色で鳴ること。MIDIモニターのパッチ名も同じ表記になること。`FITOMBridge`にはテストが無く、ビルドが通ることまで確かめた
+- YM3526/Y8950のチャンネル名が`FM1`〜と表示されること(`fitom_cli`の一覧では`OPL`/`Y8950`)
 
 **外部との連携**
 - 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`Config::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
@@ -203,9 +208,7 @@
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
-- OPL4 AWMのピッチの微調整が、本来の1/100しか効かない。`COPL4AWM::getFnumber()`は`fineFreq`・オフセット・チャンネルLFO(いずれもkfs単位=1/64半音)を1/128半音単位へ換算する係数を`128/6400`としているが、正しくは2倍。ピッチベンド・ファインチューン・ソフトウェアLFOのビブラートがほとんど効かないはず。**確認済み**: コードの単位を読んで確認。音では確かめていない
-- OPLLの内蔵リズム(`COPLLRhythm::updateFreq()`)は、11bitのF-numberを9bitへ落とさずに下位8bitとbit8を書いている。メロディ側(`COPLL::updateFreq()`)は`>>2`で落としている。同じF-numberテーブル(`FnumTableType::Fnumber`、同じクロックと分周比)で構築しているので、SD/TOMのピッチがずれるはず。**確認済み**: コードを読んで確認。音では確かめていない
-- `createCOPL()`(`DEVICE_OPL`と`DEVICE_Y8950`の生成)がデバイス種別に`DEVICE_OPL2`を渡すため、YM3526/Y8950の`getDeviceType()`がOPL2を返し、`fitom_cli`とGUIのチャンネル名の表示がOPL2になる。**確認済み**: コードを読んで確認。表示以外への影響は調べていない
+- OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)が440Hz基準なら、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読んで確認。音では確かめていない
 - YMZ280B(`CAdPcmZ280::updateVolExp()`)は、ラウドネス空間の`effectiveTL(0)`を`127-`で反転してからTotal Levelへ書いている。他のADPCM(ADPCM-A/ADPCM-B)とOPLLは反転しない。YMZ280BのTotal Levelの向き(値が大きいほど大きい音か)を確かめていないため、誤りかどうかは**未確認の候補**。データシートのTotal Levelの定義か、エミュレータで最大音量時の出力を見れば決まる
 
 **HWプラグインの部位ごとのゲイン**
@@ -220,7 +223,6 @@
 
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線
-- パッチピッカーのカテゴリ(`PatchPickerDialog.cpp`の`kCategories`)にOPLLEX(CC#0=0x2C)が無く、利用者向けマニュアルの直接デバイス選択値の一覧と食い違う。**確認済み**: コードを読んで確認
 - 内部用MIDIパイプ経由の音色試聴連携(GUIからのSysEx送出、パッチエディタ本体との結合)
 - `sf2_channel_windows`を一覧編集する専用ダイアログ(チャンネル単位の切替はCH設定ダイアログにある。`docs/design/sf2-direct-path.md`「GUI」)
 - チャンネルレベルメーターのサブデバイスの表示順(現状はConfig側の生成順)
@@ -252,7 +254,7 @@
 | FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装) |
 | FitomSf2IF | `IHWPlugin.h`の写しに部位ゲインの節が無い。部位ゲインは任意の組なので、このままでもロードはできる |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決 |
+| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決。`emu_ibmpc`プロファイルの`_comment`に「SAAのclockはCSAA1099の既定値8MHz固定に合わせる必要がある」とあるが、SAA1099はプラグインが報告するクロックを使うようになったので古い(プラグイン設定の`clock`が8000000なので音程は変わらない) |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 

@@ -61,6 +61,14 @@ public:
         return isPsgFamilyVoicePatchType(voicePatchType)
             ? static_cast<uint8_t>(VOICE_PATCH_SSG) : voicePatchType;
     }
+    // バンク0がOPLL系ROM音色の予約領域になるチップ種別か。resolveTriple()が
+    // resolveOpllRomVoice()へ振り分ける条件そのもので、GUIの列挙・表示も
+    // これで判定する(getOpllRomPatches()はOPLLEXにnullptrを返すため判定に使えない)。
+    static bool hasOpllRomBank(uint8_t voicePatchType) noexcept {
+        return voicePatchType == VOICE_PATCH_OPLL  || voicePatchType == VOICE_PATCH_OPLLP
+            || voicePatchType == VOICE_PATCH_OPLLX || voicePatchType == VOICE_PATCH_VRC7
+            || voicePatchType == VOICE_PATCH_OPLLEX;
+    }
     // サンプルベース音源系 (VOICE_PATCH_AWM等) 専用。hwRegistry()とは
     // 完全に独立したレジストリ (HwPatch/HwBankには一切影響しない)。
     SampleZoneBankRegistry& sampleRegistry() { return sampleReg_; }

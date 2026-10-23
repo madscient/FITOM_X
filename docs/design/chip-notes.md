@@ -107,7 +107,8 @@ COPM : CSoundDevice                    (YM2151, 8ch)
 ## OPL系
 
 ```
-COPL : CSoundDevice                    (YM3526/YM3801(Y8950)のFM部, 9ch, 2OP)
+COPL : CSoundDevice                    (YM3526, 9ch, 2OP)
+  ├── C3801 : COPL                     (YM3801(Y8950)のFM部。COPLとの違いはデバイス種別と名前だけ)
   └── COPL2 : COPL                     (YM3812, 2OP)
         └── COPL2EX : COPL2            (Y8960の拡張OPL2部、chごとの定位つき)
 COPL3 : CSoundDevice                   (4OPモード専用, 6ch)
@@ -115,8 +116,6 @@ COPL3_2 : CSpanDevice                  (内部にCOPL2×2、2OP残余6ch)
 COPLRhythm : CSoundDevice              (OPL系内蔵リズム、5パート)
   └── COPL2EXRhythm : COPLRhythm       (Y8960の拡張OPL2部の内蔵リズム)
 ```
-
-`C3801 : COPL`(Y8950)はクラスとして定義されているが、`DeviceFactory`は`DEVICE_Y8950`のFM部を`COPL`で作るので使われていない。
 
 - 音色のフィールド: `hw.FB`(3bit)、`hw.ALG`(bit0のみ。0=FM/1=AM)、`hwOp[0-1]`のAR/DR/SL/SR/RR/TL/KSR/KSL/MUL/AM/VIB、`hwOp[i].WS`(OPL2以降、2bit)。`hwOp[i].EGT`はOPL系では使わない(実機のEGビットは`SR`から決まる)
 - **`TL`は等倍で書く**: `TL`の1段は全チップ共通で0.75dBで、OPL系の実機TLレジスタ(6bit、最大47.25dB)とOPN/OPM系(7bit、最大95.25dB)の違いはレンジだけ。OPL系へは縮めずにクランプして書く(`TL >> 1`にすると1段が1.5dBに読み替わり、減衰量が半分になる)
@@ -423,7 +422,7 @@ SSGと同じ`hw.ALG`/`hw.NFQ`の意味に加え、Expand Mode(Bank A/B切替、
 | `hw.NFQ` (下位2bit) | 0x16 (ch0-2→bit0-1、ch3-5→bit4-5の2系統) | ノイズパラメータ（2系統: ch0-2/ch3-5共有） |
 | `hwOp[0].EGT` (bit3) | — (フラグのみ) | 1=HWエンベロープ使用（ch0-2/ch3-5の3ch単位で共有） |
 | 音量(計算値、左右独立) | 0x00-0x05 (ch0-5、下位4bit=左/上位4bit=右) | パンポットから等パワーパンニング(cos/sin)で左右音量を算出 |
-| Fnum | 0x08-0x0D(周波数8bit、ch0-5) + 0x10-0x12(オクターブ3bit×2ch/レジスタ) | 実機固有の周波数式(`freqReg = 511 - base*2^oct/hz`)を直接計算。他PSG系のFnumTable機構(`FnumTableType`)は使わずNone指定 |
+| Fnum | 0x08-0x0D(周波数8bit、ch0-5) + 0x10-0x12(オクターブ3bit×2ch/レジスタ) | 実機固有の周波数式(`freqReg = 511 - base*2^oct/hz`)を直接計算。他PSG系のFnumTable機構(`FnumTableType`)は使わずNone指定。Hzの求め方(ノート・kfs単位のファインチューン・チャンネルLFOを足し、マスターピッチを基準にする)と`ChState::Fnum`への詰め方(`block=oct` / `fnum=freqReg`)は`CDSG::getFnumber()`と同じ |
 | 全チャンネル有効化 | 0x1C (bit0) | 初期化時に1回設定 |
 
 **HWエンベロープ（`EGT`bit3=1時）**: `ext.HWEP`の下位6bitを流用する。

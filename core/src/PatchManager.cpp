@@ -592,10 +592,7 @@ PatchManager::ResolvedTriple PatchManager::resolveTriple(
     // OPLLEXは標準4チップ分のROMテーブルを全て内蔵しているため、
     // 他の4値と全く同じhwProgエンコード(variantSel<<4|instIndex)で
     // どのバンクの何番の音色かを直接指定できる。
-    if (hwBank == 0 &&
-        (voicePatchType == VOICE_PATCH_OPLL || voicePatchType == VOICE_PATCH_OPLLP ||
-         voicePatchType == VOICE_PATCH_OPLLX || voicePatchType == VOICE_PATCH_VRC7 ||
-         voicePatchType == VOICE_PATCH_OPLLEX)) {
+    if (hwBank == 0 && hasOpllRomBank(voicePatchType)) {
         return resolveOpllRomVoice(voicePatchType, hwProg, config, logContext);
     }
 

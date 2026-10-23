@@ -157,6 +157,18 @@ constexpr const char* kDsgRhythmNames[] = {
     "Bass Drum", "Hi Conga", "Snare Drum", "Hi-Hat Open", "Hi-Hat Close"
 };
 
+// OPLL系ROM音色の表示名。OPLLEXのバンク0はOPLL/OPLLX/OPLLP/VRC7の4テーブルを
+// 1つのバンクに並べるので、同名の音色を区別できるようテーブル名を前に付ける
+// (並びはPatchManager::resolveOpllRomVoice()のvariantSelと同じ)。
+std::string opllRomPatchLabel(uint8_t voicePatchType, const fitom::HwPatch& p)
+{
+    static constexpr const char* kVariantLabels[] = { "OPLL", "OPLLX", "OPLLP", "VRC7" };
+    if (voicePatchType != VOICE_PATCH_OPLLEX) return p.name;
+    const uint32_t variantSel = (p.id >> 4) & 0x7;
+    if (variantSel >= std::size(kVariantLabels)) return p.name;
+    return std::string(kVariantLabels[variantSel]) + ": " + p.name;
+}
+
 // chipSel(kBuiltinRhythmChipsのいずれか)から、対応する内蔵リズム
 // パート名テーブルとその要素数を引く。該当なしならnullptr/0を返す。
 void getBuiltinRhythmNames(uint8_t chipSel, const char* const*& names, size_t& count)
@@ -777,19 +789,18 @@ std::vector<FITOMChannelMonitor> FITOMBridge::getChannelMonitors(int mpuIndex) c
                         pm.getDsgBuiltinPatchByProg(static_cast<uint8_t>(mon.progNo));
                     if (p) mon.progName = p->name;
                 }
-            } else if (mon.bankNo == 0 && pm.getOpllRomPatches(bankSelMSB) != nullptr) {
+            } else if (mon.bankNo == 0 && fitom::PatchManager::hasOpllRomBank(bankSelMSB)) {
                 // OPLL系ROM音色(バンク0固定、getHwBankList()/getHwBankPatches()
                 // と同じ理由)。JSON定義のバンクを一切
                 // 経由しないため、HwBankRegistryには現れない。
                 // 【注意】実際の解決(resolveOpllRomVoice)はCC#0の値
                 // (bankSelMSB)ではなくhwProg(mon.progNo)自身の上位3bitで
-                // チップ種別を決定するため、名前解決もgetOpllRomPatchByProg()
-                // でmon.progNoから直接行う(getOpllRomPatches(bankSelMSB)は
-                // ここでは「OPLL系バンク0か」の判定にのみ使う)。
+                // 音色テーブルを決定するため、名前解決もgetOpllRomPatchByProg()
+                // でmon.progNoから直接行う。
                 mon.bankName = "ROM Preset";
                 if (mon.progNo >= 0 && mon.progNo <= 0xFF) {
                     const fitom::HwPatch* p = pm.getOpllRomPatchByProg(static_cast<uint8_t>(mon.progNo));
-                    if (p) mon.progName = p->name;
+                    if (p) mon.progName = opllRomPatchLabel(bankSelMSB, *p);
                 }
             } else {
                 const auto* hwBank = pm.hwRegistry().find(
@@ -1201,7 +1212,7 @@ std::vector<FITOMBankInfo> FITOMBridge::getHwBankList(uint8_t voicePatchType) co
     // resolveTriple()側で常に無視される[docs/design/patch-resolution.mdの
     // 「OPLL系のROM音色」参照]のと同じ優先順位に揃えるため、hwRegistry側の
     // バンク0はスキップする)。
-    const bool hasOpllRom = (pm.getOpllRomPatches(voicePatchType) != nullptr);
+    const bool hasOpllRom = fitom::PatchManager::hasOpllRomBank(voicePatchType);
     if (hasOpllRom) {
         FITOMBankInfo info;
         info.bankNo = 0;
@@ -1286,9 +1297,18 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
     }
 
     // OPLL系ROM音色(バンク0固定): getHwBankList()と同じ理由。
-    if (hwBank == 0) {
-        const auto* patches = pm.getOpllRomPatches(voicePatchType);
-        if (patches) {
+    // OPLLEXは4チップ分のROMを内蔵するので、4テーブルをすべて並べる。
+    if (hwBank == 0 && fitom::PatchManager::hasOpllRomBank(voicePatchType)) {
+        std::vector<const std::array<fitom::HwPatch, 16>*> tables;
+        if (voicePatchType == VOICE_PATCH_OPLLEX) {
+            static constexpr uint8_t kVariants[] = {
+                VOICE_PATCH_OPLL, VOICE_PATCH_OPLLX, VOICE_PATCH_OPLLP, VOICE_PATCH_VRC7 };
+            for (uint8_t vpt : kVariants) tables.push_back(pm.getOpllRomPatches(vpt));
+        } else {
+            tables.push_back(pm.getOpllRomPatches(voicePatchType));
+        }
+        for (const auto* patches : tables) {
+            if (!patches) continue;
             for (size_t i = 0; i < patches->size(); ++i) {
                 if (i == 0) continue; // 下位4bit=0は無音として意図的に予約(resolveOpllRomVoice参照)
                 const auto& p = (*patches)[i];
@@ -1302,12 +1322,12 @@ std::vector<FITOMPatchInfo> FITOMBridge::getHwBankPatches(uint8_t voicePatchType
                 // 送るとOPLL以外のカテゴリ(OPLLX/OPLLP/VRC7、variantSel
                 // >0)で誤ったチップの音色が鳴ってしまう。
                 info.prog       = static_cast<int>(p.id);
-                info.name       = p.name;
+                info.name       = opllRomPatchLabel(voicePatchType, p);
                 info.layerCount = 1;
                 result.push_back(std::move(info));
             }
-            return result;
         }
+        return result;
     }
 
     const auto* bank = pm.hwRegistry().find(

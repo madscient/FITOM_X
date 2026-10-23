@@ -6,6 +6,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include "fitom/ISoundDevice.h"
+#include "fitom/CFITOM.h"
+#include "fitom/DeviceFactory.h"
 #include "fitom/IPort.h"
 #include "fitom/VoiceData.h"
 #include "fitom/MidiCh.h"
@@ -48,6 +50,7 @@ std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
 std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
@@ -701,6 +704,23 @@ TEST_CASE("OPL soft pitch LFO ticks keep the KON bit set in reg 0xB0 across Fnum
     CHECK(fnumChanged);
 }
 
+TEST_CASE("DeviceFactory keeps the requested device type for YM3526/Y8950/YM3812",
+          "[sounddevice][opl][factory]")
+{
+    RecordingPort port;
+    struct Expect { uint8_t type; const char* descriptor; };
+    for (const auto& e : {Expect{DEVICE_OPL,   "OPL (YM3526) 9ch"},
+                          Expect{DEVICE_Y8950, "Y8950 9ch"},
+                          Expect{DEVICE_OPL2,  "OPL2 (YM3812) 9ch"}}) {
+        auto dev = DeviceFactory::create(e.type, &port, 44100);
+        REQUIRE(dev != nullptr);
+        CHECK(dev->getDeviceType() == e.type);
+        CHECK(dev->getDescriptor() == e.descriptor);
+        CHECK(CFITOM::getDeviceNameFromId(dev->getDeviceType()) != "Unknown");
+        CHECK(CFITOM::getSubDeviceChannelName(dev->getDeviceType(), 0) == "FM1");
+    }
+}
+
 TEST_CASE("COPL4AWM writes land in the 0x200 high bank via OffsetPort, "
           "not the FM part's 0x000/0x100 banks", "[sounddevice][opl4]")
 {
@@ -845,6 +865,44 @@ TEST_CASE("COPL4AWM Fnumber/Octave matches the ALSA opl4_synth.c reference "
     CHECK(((port.regs[reg38_1] >> 4) & 0xF) == 0xE);      // octave=-2 (-3+1)
     CHECK((port.regs[reg38_1] & 0x07) == 0);
     CHECK(((port.regs[reg20_1] >> 1) & 0x7F) == 0);
+}
+
+// fineFreqはkfs単位(1半音=64)なので、fine=+64は1半音上のノートと同じ
+// Fnumber/Octaveにならなければならない。
+TEST_CASE("COPL4AWM treats fineFreq as kfs (64 per semitone): note 60 + 64 "
+          "equals note 61", "[sounddevice][opl4]")
+{
+    RecordingPort port;
+    OffsetPort awmPort(&port, 0x200);
+    auto dev = createCOPL4AWM(&awmPort, 44100);
+    dev->init();
+
+    SampleZonePatch patch;
+    patch.id = 1;
+    SampleZone zone{};
+    zone.keyMin = 0; zone.keyMax = 127;
+    zone.waveIndex = 300;
+    zone.keyScaling = 100;
+    patch.zones.push_back(zone);
+
+    uint8_t chA = dev->allocCh(nullptr, nullptr, 100, nullptr, &patch);
+    REQUIRE(chA != 0xFF);
+    dev->setNoteFine(chA, 61, 0, true);
+    dev->noteOn(chA, 100);
+
+    uint8_t chB = dev->allocCh(nullptr, nullptr, 100, nullptr, &patch);
+    REQUIRE(chB != 0xFF);
+    REQUIRE(chB != chA);
+    dev->setNoteFine(chB, 60, 64, true);
+    dev->noteOn(chB, 100);
+
+    const uint16_t reg20A = static_cast<uint16_t>(0x200 + 0x20 + chA);
+    const uint16_t reg38A = static_cast<uint16_t>(0x200 + 0x38 + chA);
+    const uint16_t reg20B = static_cast<uint16_t>(0x200 + 0x20 + chB);
+    const uint16_t reg38B = static_cast<uint16_t>(0x200 + 0x38 + chB);
+    REQUIRE(((port.regs[reg20A] >> 1) & 0x7F) != 0); // 基準点(fnum=0)から離れていること
+    CHECK((port.regs[reg20A] & 0xFE) == (port.regs[reg20B] & 0xFE));
+    CHECK(port.regs[reg38A] == port.regs[reg38B]);
 }
 
 // SampleZone::volumeFactor(254=無補正、GM移植データでは概ね140〜240)を
@@ -1026,6 +1084,35 @@ TEST_CASE("COPLLRhythm: HH (ch0) does not overwrite the Fnum SD (ch3) wrote "
 
     CHECK(port.regs[fnumLoReg] == sdFnumLo);
     CHECK((port.regs[blockReg] & 0x0F) == sdBlock);
+}
+
+// OPLL内蔵リズムはメロディ側と同じFnumテーブルから引くので、レジスタへ
+// 書く9bitのFnumberとblockはメロディ側の同じノートと一致しなければならない。
+TEST_CASE("COPLLRhythm writes the same 9-bit Fnumber/block as the OPLL melody "
+          "part for the same note", "[sounddevice][opll][rhythm]")
+{
+    HwPatch patch{};
+    patch.id = 1;
+
+    RecordingPort melPort;
+    auto mel = createCOPLL(&melPort, 3579545, 0);
+    mel->init();
+    uint8_t melCh = mel->assignCh(0, nullptr, &patch, 100);
+    REQUIRE(melCh == 0);
+    mel->setNoteFine(melCh, 50, 0, true);
+    mel->noteOn(melCh, 100);
+
+    RecordingPort rhyPort;
+    auto rhy = createCOPLLRhythm(&rhyPort, 3579545);
+    rhy->init();
+    uint8_t sdCh = rhy->assignCh(3, nullptr, &patch, 100); // SD → 物理ch7
+    REQUIRE(sdCh == 3);
+    rhy->setNoteFine(sdCh, 50, 0, true);
+    rhy->noteOn(sdCh, 100);
+
+    CHECK(rhyPort.regs[0x10 + 7] == melPort.regs[0x10 + 0]);
+    // block(bit3-1)+fnum bit8(bit0)。bit5-4=SUS/KEYは除外
+    CHECK((rhyPort.regs[0x20 + 7] & 0x0F) == (melPort.regs[0x20 + 0] & 0x0F));
 }
 
 // OPLL内蔵リズムの音量レジスタのnibble割り当ては、legacy/src/OPLL.cpp
@@ -1223,10 +1310,6 @@ TEST_CASE("COPNARhythm dumps the part before keying it on again",
 // ================================================================
 //  CUnison / CLinearPanDevice (リニアステレオ化) の動的ボイス割当
 // ================================================================
-
-namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
-}
 
 // CUnison::queryCh() の事後チェックは mode と同じ基準でなければならない。
 // mode に関わらず全チップに isEmpty() を要求すると、減衰中(Releasing)や

@@ -145,7 +145,7 @@ ROM音色はチップに固定された既知のデータ(プリセットフラ�
 - `hwProg`の上位3bitがチップ種別(0=OPLL/1=OPLLX/2=OPLLP/3=VRC7)、下位4bitがROM音色の番号(0=無音、1-15)。実際のチップ種別は上位3bitで決まり、CC#0の値には依存しない
 - 作る`HwPatch`は、`PatchManager`が持つ固定サイズのキャッシュ(`opllRomPatches_[4][16]`)を指す。各エントリは`ext.ALG_EXT`(bit2-1にROMバンクの値を焼き込み済み)・`hw.ALG`・`id`・`name`を持つ。音色名の出典は[plgDavid/misc wiki](https://github.com/plgDavid/misc/wiki/Copyright-free-OPLL(x)-ROM-patches)(耳コピによる非公式な近似データ。著作権フリーとして公開されているが、正確な公式名称ではない可能性がある。OPLLX/OPLLPは元資料に複数の情報が併記されているため、代表的な楽器名だけを採った)
 - 要求されたチップが無ければ、OPLLEXが接続されていればそちらで鳴らす(OPLLEXは4種類のROMをすべて持ち、キャッシュの`HwPatch`に既にROMバンクの値が入っているので、デバイスを差し替えるだけでよい)。それ以外のチップへは代わりに鳴らさない
-- **GUIのパッチピッカーでの列挙**: バンク0はHwBankRegistryを経由しないので、`PatchManager::getOpllRomPatches(voicePatchType)`(カテゴリ単位で16音色[添字0=無音]を返す)と`getOpllRomPatchByProg(hwProg)`(`resolveOpllRomVoice()`と同じ規則でhwProgから1件を返す、MIDIモニターのパッチ名表示用)を、`FITOMBridge::getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`が「ROM Preset」として合成表示する。ピッカーが送るProgram Changeの値は、配列の添字ではなく`HwPatch::id`(`variantSel<<4 | instIndex`)をそのまま使うこと(添字を使うと、OPLL以外のカテゴリで`variantSel`がずれて別のチップの音色が鳴る)
+- **GUIのパッチピッカーでの列挙**: バンク0はHwBankRegistryを経由しないので、`PatchManager::getOpllRomPatches(voicePatchType)`(カテゴリ単位で16音色[添字0=無音]を返す)と`getOpllRomPatchByProg(hwProg)`(`resolveOpllRomVoice()`と同じ規則でhwProgから1件を返す、MIDIモニターのパッチ名表示用)を、`FITOMBridge::getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`が「ROM Preset」として合成表示する。バンク0をROM音色として扱うかの判定は、解決側と同じ`PatchManager::hasOpllRomBank()`で行う(`getOpllRomPatches()`はOPLLEXに`nullptr`を返すので判定に使えない)。OPLLEXのカテゴリでは4テーブル分(15音色×4)を1つのバンクに並べ、同名の音色を区別するため表示名の前にテーブル名(`OPLLX: `等)を付ける。ピッカーが送るProgram Changeの値は、配列の添字ではなく`HwPatch::id`(`variantSel<<4 | instIndex`)をそのまま使うこと(添字を使うと、OPLL以外のカテゴリで`variantSel`がずれて別のチップの音色が鳴る)
 
 ## ROM/ビルトイン音色へのパフォーマンスパッチ紐づけ
 

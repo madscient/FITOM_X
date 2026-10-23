@@ -29,6 +29,7 @@ add_executable(fitom_tests
     test_voiceprocessor_tl.cpp
     test_psg_volume.cpp
     test_dsg.cpp
+    test_saa1099.cpp
     test_ssgs.cpp
     test_silence_bank.cpp
     test_y8960.cpp

@@ -35,7 +35,7 @@ public:
     // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
     // 専用として無効化する(COPLLと同じ設計、docs/design/chip-drivers.mdの
     // 「内蔵リズムのサブデバイスと rhythm_mode」参照)。
-    COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2,
+    COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL,
          bool rhythmMode = false)
         : CSoundDevice(devId, 9, port,
                        kMasterClock, 72,   // fnum master/divide
@@ -75,7 +75,7 @@ protected:
     bool rhythmMode_ = false;
 
     // 派生クラスがチップ名部分だけを差し替えるためのフック。
-    virtual std::string chipLabel() const { return "OPL2 (YM3812)"; }
+    virtual std::string chipLabel() const { return "OPL (YM3526)"; }
 
     // チャンネル → オペレータスロットのオフセット
     static const uint8_t kMap[9]; // {0,1,2,8,9,10,16,17,18}
@@ -327,8 +327,6 @@ protected:
 
 // ================================================================
 //  C3801 (Y8950) — OPL ベース
-//  DeviceFactory からは生成されない(DEVICE_Y8950 は createCOPL() の
-//  COPL で扱う)。
 // ================================================================
 class C3801 : public COPL {
 public:
@@ -993,7 +991,9 @@ protected:
 
 namespace fitom {
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode)
-    { return std::make_unique<COPL>(p, sr, DEVICE_OPL2, rhythmMode); }
+    { return std::make_unique<COPL>(p, sr, DEVICE_OPL, rhythmMode); }
+std::unique_ptr<ISoundDevice> createC3801(IPort* p, int sr, bool rhythmMode)
+    { return std::make_unique<C3801>(p, sr, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode)
     { return std::make_unique<COPL2>(p, sr, rhythmMode); }
 std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode)

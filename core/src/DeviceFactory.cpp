@@ -22,6 +22,7 @@ std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createC3801(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr);
@@ -142,8 +143,8 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_OPZ:
     case DEVICE_OPZ2:      return createCOPZ(port, sampleRate);
 
-    case DEVICE_OPL:
-    case DEVICE_Y8950:     return createCOPL(port, sampleRate, rhythmMode);
+    case DEVICE_OPL:       return createCOPL(port, sampleRate, rhythmMode);
+    case DEVICE_Y8950:     return createC3801(port, sampleRate, rhythmMode);
     case DEVICE_OPL2:      return createCOPL2(port, sampleRate, rhythmMode);
     case DEVICE_OPL2EX:    return createCOPL2EX(port, sampleRate, rhythmMode);
     case DEVICE_OPL3:
@@ -192,7 +193,7 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_SCCEX:     return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider),
                                               deviceType);
     // CSAA1099はマスタークロックをドライバ側の定数として持つため対象外。
-    case DEVICE_SAA:       return createCSAA1099(port, sampleRate);
+    case DEVICE_SAA:       return createCSAA1099(port, psgMasterClock(port, sampleRate, clockDivider));
 
     case DEVICE_ADPCMA:
     case DEVICE_ADPCMB:

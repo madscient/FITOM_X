@@ -9,7 +9,7 @@
 // ─── デバイス ID とチップドライバの対応 (主なもの。全体は create() 参照) ─────
 //   DEVICE_OPN / OPNA / OPN2   → COPN / COPNA / COPN2
 //   DEVICE_OPM / OPP / OPZ     → COPM / COPP / COPZ
-//   DEVICE_OPL / OPL2          → COPL / COPL2
+//   DEVICE_OPL / Y8950 / OPL2  → COPL / C3801 / COPL2
 //   DEVICE_OPL3                → COPL3
 //   DEVICE_OPLL / OPLL2 / OPLLP→ COPLL / COPLL2 / COPLLP
 //   DEVICE_SSG / PSG           → CSSG

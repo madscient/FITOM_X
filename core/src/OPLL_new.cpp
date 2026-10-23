@@ -417,11 +417,12 @@ protected:
         if (ch == 0 || ch == 1) return; // HH/CYM: Fnum更新を行わない(上記コメント参照)
         uint8_t vch = kRhythmMapCh[ch];
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
+        uint16_t fnum9 = static_cast<uint16_t>((fnum.fnum >> 2) & 0x1FF); // COPLL::updateFreq()と同じ11bit→9bit
         uint8_t b0cur = getReg(static_cast<uint16_t>(0x20 + vch)) & 0x30;
         setReg(static_cast<uint16_t>(0x10 + vch),
-               static_cast<uint8_t>(fnum.fnum & 0xFF), true);
+               static_cast<uint8_t>(fnum9 & 0xFF), true);
         setReg(static_cast<uint16_t>(0x20 + vch),
-               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 1) | ((fnum.fnum >> 8) & 1)), true);
+               static_cast<uint8_t>(b0cur | ((fnum.block & 7) << 1) | ((fnum9 >> 8) & 1)), true);
     }
     void updateSustain(uint8_t /*ch*/) override {}
     void updatePanpot(uint8_t /*ch*/) override {}
