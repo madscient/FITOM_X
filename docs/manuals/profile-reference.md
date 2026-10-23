@@ -1,524 +1,28 @@
 # FITOM_X プロファイル リファレンス
 
-`docs/design/config-loading.md`と`banks/README.md`から、プロファイルを書く人向けの節を写した(書き直す前の版)。
+FITOM_Xの設定ファイル(プロファイル`*.profile.json`と、システム設定`fitom.conf.json`)を書く人のためのリファレンスです。
+
+関連するリファレンス:
+- バンクファイルの書き方: [バンクファイル リファレンス](./bank-reference.md)
+- MIDIメッセージ: [MIDIメッセージリファレンスマニュアル](./midi-message-reference.md)
+
+設定ファイルの形式は`config_schema/`のJSONスキーマ(`profile.schema.json`、`fitom.conf.schema.json`)で検証できます。
 
 ---
 
-## ファイル構成と分離方針
+## 1. 2種類の設定ファイル
 
-FITOM の設定は **2 種類のファイル** に分離する。
-
-```
-fitom.conf.json        ← システム設定（管理者・開発者向け）
-profiles/
-  default.profile.json ← デフォルトプロファイル
-  studio.profile.json  ← ユーザーが作成した別プロファイル
-  ...
-```
-
-### 分離の基準
-
-| 項目 | fitom.conf.json | *.profile.json |
+| | `fitom.conf.json` | `*.profile.json` |
 |---|---|---|
-| 対象者 | 管理者・開発者 | エンドユーザー |
-| 変更頻度 | 初回セットアップ時のみ | 曲・現場に応じて切り替え |
-| GUI 公開 | しない（テキストエディタで編集） | GUI の「プロファイル設定」画面 |
-| 内容 | ログ設定のみ(現状) | デバイス構成・MIDI マッピング・音源設定 |
+| 内容 | ログの設定と、プロファイルを探すディレクトリ | 使う音源・MIDI入力・バンク・音量等 |
+| 置き場所 | 実行ファイルと同じディレクトリ。無くてもよい | 任意 |
+| 切り替え | しない | 曲や現場に応じて切り替える |
+
+音声出力の設定(サンプルレート・バッファサイズ等)は、FITOM_Xではなく、HWプラグイン(エミュレータ等)が自分の設定ファイルで持ちます。各プラグインのドキュメントを参照してください。
 
 ---
 
-## fitom.conf.json — システム設定
-
-**ファイル位置**: 実行ファイルと同ディレクトリ。省略可能(無ければ各アプリの
-既定値で動作する。`fitom_cli`: level=debug/file=fitom_cli.log、
-`fitom_gui`: level=info/file=なし。いずれも console=true が既定)。
-
-### ログ設定 (`log`)
-
-```json
-"log": {
-  "level":   "info",
-  "file":    "fitom.log",
-  "console": true
-}
-```
-
-| フィールド | デフォルト | 説明 |
-|---|---|---|
-| `level` | `"info"` | 最小ログレベル。`trace` / `debug` / `info` / `warning` / `error` / `fatal` |
-| `file` | `""` | ログファイルパス。空文字でコンソールのみ |
-| `console` | `true` | コンソール出力の有無 |
-
-
-### プロファイル選択 (`profiles.root`、2026年8月新設)
-
-```json
-"profiles": {
-  "root": "profiles"
-}
-```
-
-| フィールド | デフォルト | 説明 |
-|---|---|---|
-| `root` | `"."` | `*.profile.json` を探すディレクトリへの相対パス。相対パスの解決基点は**カレントワーキングディレクトリ**(実行ファイルのディレクトリではない。`log.file`等、他のfitom.conf.json内フィールドとは基点が異なるので注意) |
-
-`fitom_gui`をプロファイル未指定(コマンドライン引数省略)で起動した場合、
-ここで指定したディレクトリ直下(非再帰)の`*.profile.json`を一覧する
-選択画面を表示し、クリックで選んだプロファイルを読み込んで起動する
-(`FITOMBridge::listAvailableProfiles()`→`FITOMConfig::listProfiles()`)。
-各エントリの表示名は、プロファイル側の`profile_name`フィールド(前述の
-ファイル例参照)があればそれを、無ければファイル名(`.profile.json`を
-除いた部分)を使う。見つかったプロファイルが0件の場合はその旨を表示する
-のみで、それ以上の自動選択は行わない。
-
-**`fitom_cli`はこの機能の対象外。** 引数省略時は従来通りエラー終了する
-(選択画面はGUI専用)。
-
-HW プラグイン (実機・エミュレータ問わず) はプロファイル側の `hw_plugins[]`
-(後述) で指定する。実機かエミュレータかを FITOM 本体は一切区別しないため、
-システム設定 (`fitom.conf.json`) 側には置かない。
-
-音声出力設定 (サンプルレート・バッファサイズ等) もFITOM_X本体では
-一切管理しない。HWプラグイン (FitomEmuIF等) が自身の設定ファイル
-(例: FitomEmuIFなら `fmhwif_profile.json`、DLLと同じディレクトリまたは
-環境変数`FMHWIF_PROFILE`で指定) を独立して読み込み、音声出力まで
-内部で完結させる。詳細は各HWプラグインのドキュメントを参照すること。
-
-## *.profile.json — プロファイル（ユーザー設定）
-
-**ファイル位置**: `profiles/` ディレクトリ以下（パスは `fitom.conf.json` で設定可能）  
-**切り替え方法**: GUI のプロファイル選択、または CLI の `--profile` オプション
-
-### HW プラグイン設定 (`hw_plugins`) — 実機/エミュレータ共通、推奨経路
-
-**`devices[].if = "HW"` で使う。実機ハードウェア用プラグインと
-エミュレーター統合プラグイン(FitomEmuIF等)は、どちらも同じ `IHWPlugin`
-C APIを実装するため、FITOM本体は両者を一切区別しない。**
-
-```json
-"hw_plugins": [
-  { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
-    "profile": "fmhwif_profile.json" },
-  { "name": "FitomHwIF", "dll": "fitom_hw.dll",
-    "profile": "fitom_hw_profile.json" }
-]
-```
-
-| フィールド | 必須 | 説明 |
-|---|---|---|
-| `name` | ○ | `devices[].plugin` から参照される識別名 |
-| `dll` | ○ | IHWPlugin実装DLLのパス |
-| `profile` | - | プラグイン自身の設定ファイルへのパス (下記参照) |
-
-**`profile` について**: FITOM_XはDLLロード直後、他の全関数(Enumerate/Open等)
-より前に`HWPlugin_Init(profile)`を必ず呼ぶ(`IHWPlugin.h`参照。全プラグイン
-必須実装のAPI)。`profile`を省略した場合はnullptrを渡し、プラグイン自身の
-デフォルト探索ルール(DLLと同じディレクトリの既定ファイル名を探す等)に
-従わせる。
-
-**FITOM_X本体は`profile`が指すファイルの内容を一切解釈・検証しない**
-(エミュレータか実機かを区別しない設計原則を保つため)。ファイル内容が
-不正な場合、`HWPlugin_Init()`自体が`HW_ERR_INVALID_ARG`を返し、
-**そのプラグインは登録されない**(`hw_plugins[].name`で参照しても
-見つからない扱いになり、そのプラグインを使う`devices[]`は全て
-デバイス生成失敗としてエラーログが出る)。プロファイルの内容と
-`devices[]`側の記述(`engine`/`chip`/`index`等)が整合しない場合は、
-`HWPlugin_Init()`自体は成功するが、後続の`HWPlugin_Open()`が
-`HW_ERR_NOT_FOUND`を返す。
-
-これにより、FITOM_Xのプロファイルを切り替えると、対応するプラグイン側の
-設定ファイルも連動して切り替わり、再現性が保たれる。
-
-`devices[]` 側は `plugin` フィールドで名前を指定し、それ以外のフィールドは
-そのままプラグインの `HWPlugin_Open()` に渡す `params_json` として転送される。
-どんなフィールドが必要かはプラグインごとに異なる (下記例参照)。
-
-### `devices[]` の自動生成 (`hw_plugins[].auto_devices`) — 推奨・標準の使い方
-
-**チップ接続情報の管理は実機・エミュレータ問わずHWプラグイン側に
-完全に委譲する。** 実機であっても「どのスロットにどのチップが挿さって
-いるか」はハードウェア的に自動検出できないため、実機用プラグイン
-(FitomHwIF)もエミュレーター統合プラグイン(FitomEmuIF)と同様に、
-自分自身の設定ファイルでチップ構成を管理し、`HWPlugin_Enumerate()`
-はその設定内容をそのまま返す(ライブなハードウェア検出ではなく、
-設定の反映)。**この動作はFitomHwIF・FitomEmuIF両方の実装で確認済み。**
-
-`hw_plugins[]`側に`"auto_devices": true`を指定すると、
-`HWPlugin_Enumerate()` が返すJSON配列の各要素をそのまま`devices[]`
-エントリとして使う。これにより、FITOM_X側のプロファイルで
-チップ構成情報を重複して記述する必要がなくなり、一次情報は各プラグイン
-自身の設定ファイルに一元化される。
-
-```json
-"hw_plugins": [
-  {
-    "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
-    "profile": "fmhwif_profile.json",
-    "auto_devices": true
-  },
-  {
-    "name": "FitomHwIF", "dll": "fitom_hw.dll",
-    "profile": "fitom_hw_profile.json",
-    "auto_devices": true
-  }
-]
-```
-`devices[]` セクション自体は省略できる（通常はこれが標準形）。
-
-**動作の仕組み**: `HWPlugin_Enumerate()`が返すエントリ(例:
-`{"type":"RE1","serial":"ABCD1234","index":0,"slot":0,"chip":"OPN","clock":3993600,"pan":0}`)
-には、FITOM_Xが`resolveChipDeviceId()`で使う`chip`情報と、
-`HWPlugin_Open()`がスロット特定に使う`type`/`serial`(または`port`)/
-`index`/`slot`の両方が含まれる。このエントリ全体をそのまま
-`params_json`として`HWPlugin_Open()`に渡すため、`chip`/`clock`のような
-プラグイン側は無視する余分な情報が含まれていても問題ない
-(各プラグインの`HWPlugin_Open`実装は必要なフィールドのみ読み、
-残りは単に無視する)。
-
-**前提**:
-- 実際に動作するかは、使用するHWプラグインが`HWPlugin_Enumerate()`を
-  正しく実装しているかどうかに依存する。未実装 (`nullptr`返却)の
-  古いプラグインの場合、この機能は使えず、従来通り明示的な
-  `devices[]`記述が必要 (下記参照)。
-- `devices[]`側に同じ`plugin`を指定した追加エントリを手動で書くことも
-  でき、自動生成分と併用できる。
-
-**明示的な`devices[]`記述が必要な場合の例 (auto_devices未対応の古い
-プラグイン、またはプロファイルに無いスロットを開く場合):**
-
-FitomEmuIF向け:
-```json
-{
-  "if": "HW", "label": "OPN", "plugin": "FitomEmuIF",
-  "type": "FMHWIF", "engine": "YMEngine", "chip": "OPN",
-  "index": 0, "pan": 0
-}
-```
-
-FitomHwIF向け (`chip`/`clock`はプロファイル`fitom_hw_profile.json`側で
-既に確定しているため`HWPlugin_Open`には不要。`type`+`slot`が必須):
-```json
-{
-  "if": "HW", "label": "OPNA (RE1)", "plugin": "FitomHwIF",
-  "type": "RE1", "serial": "ABCD1234", "slot": 0, "pan": 0
-}
-```
-
-音声出力(RtAudio等)・FmEngineDLLのロードは全て `FitomEmuIF.dll` 内部が
-担う。FITOM_X本体のプロファイルには音声出力の設定を一切書く必要がない。
-`FitomEmuIF.dll` 自身の設定
-(サンプルレート・バッファサイズ・使用するチップ一覧) は、
-`FitomEmuIF.dll` と同じディレクトリに置く `fmhwif_profile.json`
-(別ファイル、FITOM_X本体のプロファイルとは独立) で管理する。
-詳細は [FitomEmuIF](https://github.com/madscient/FitomEmuIF) を参照。
-
-**実機ハードウェア (RE1/SPFM等、FitomHwIF) の例:**
-
-```json
-{
-  "if": "HW", "label": "OPM", "plugin": "FitomHwIF",
-  "type": "SPFM_TOWER", "port": "COM4", "slot": 0, "pan": 0
-}
-```
-(`chip`/`clock`は`fitom_hw_profile.json`側で確定済みのため`HWPlugin_Open`には
-不要。`type`+`port`(またはserial/index)+`slot`が必須)
-
-### デバイス構成 (`devices`)
-
-音源デバイスの一覧。実機ハードウェアとエミュレーターを、同じ`if: "HW"`で混在できる
-(FITOM本体は両者を区別しない)。**通常は`auto_devices`(前述)を使うため、
-`devices[]`を明示的に記述する機会は限定的**(auto_devices未対応の古い
-プラグインを使う場合、または特定スロットのみ追加で開きたい場合等)。
-
-```json
-"devices": [
-  {
-    "if": "HW", "label": "OPM", "plugin": "FitomEmuIF",
-    "type": "FMHWIF", "engine": "YMEngine", "chip": "OPM",
-    "index": 0, "pan": 0
-  },
-  {
-    "if":     "HW",
-    "label":  "OPNA (SPFM)",
-    "plugin": "FitomHwIF",
-    "type":   "SPFM_TOWER",
-    "port":   "COM3",
-    "slot":   0,
-    "pan":    0
-  }
-]
-```
-
-`if=HW` 固有フィールド:
-
-| フィールド | 必須 | 説明 |
-|---|---|---|
-| `plugin` | ○ | `hw_plugins[].name` への参照。実機・エミュレータ問わず同じフィールド |
-
-**`if` と `type` の役割の違いに注意**: `if`はFITOM_X内部の分岐キーであり
-(現在は`"HW"`のみ)、`params_json`には転送されない。一方`type`は
-**FITOM_X側では一切解釈されず**、`params_json`にそのまま転送される、
-完全にプラグイン依存の値である(例: FitomEmuIFは`"FMHWIF"`を要求する)。
-`type`の妥当な値・必要性はプラグインのドキュメントに従うこと。
-
-`plugin`以外のフィールド（`if`/`label`/`plugin`/`extra_slot`/
-`rhythm_mode`/`stereo_pair`を除く）は、**そのままJSON文字列化して
-プラグインの`HWPlugin_Open()`に渡される**。どんなフィールドが必要かは
-プラグインの実装に依存するため、プラグインのドキュメントを参照すること。
-FITOM本体はこれらのフィールドの意味を解釈しない（実機かエミュレータかを
-区別しないための設計）。
-
-**FitomEmuIF (エミュレーター統合プラグイン) が要求するフィールド例:**
-
-| フィールド | 説明 |
-|---|---|
-| `type` | `"FMHWIF"` 固定 |
-| `engine` | `FitomEmuIF.dll`自身の設定(`fmhwif_profile.json`)に登録されたFmEngine名 |
-| `chip` | チップ種別文字列 |
-| `index` | チップインスタンス番号 |
-| `pan` | 0=Stereo / 1=L / 2=R / 3=Mono |
-
-**FitomHwIF (実機ハードウェア用プラグイン) が要求するフィールド例:**
-
-| フィールド | 必須 | 説明 |
-|---|---|---|
-| `type` | ○ | `RE1` / `RE4` / `SPFM_TOWER` / `SPFM_LIGHT` |
-| `serial` | RE1/RE4: `index`未指定時に必須 | FT245R/FT2232H のシリアル番号 |
-| `port` | SPFM系: 必須 | COMポートまたは `/dev/ttyUSB*` |
-| `index` | `serial`/`port`未指定時 | 同種インターフェースの通し番号 |
-| `slot` | ○ | チップのスロット番号 |
-| `pan` | - | 上書き用。省略時はプロファイル(`fitom_hw_profile.json`)の値を使う |
-
-**注意**: `chip`/`clock`は`HWPlugin_Open()`には不要 (FitomHwIF自身の
-`fitom_hw_profile.json`側で確定済みのため)。`auto_devices`使用時は
-`HWPlugin_Enumerate()`の返り値に`chip`/`clock`も含まれるが、これは
-FITOM_X側が`resolveChipDeviceId()`に使うための情報であり、そのまま
-`params_json`として転送されても実機プラグイン側では単に無視される。
-
-`if` に関わらず共通のオプションフィールド:
-
-| フィールド | 必須 | 説明 |
-|---|---|---|
-| `rhythm_mode` | - | `true`でチップ内蔵リズム音源(ch6-8)を有効化し、そのインスタンスに限り`DEVICE_*_RHY`サブデバイスを追加生成した上でch6-8を専用に明け渡す（デフォルト`false`＝リズムサブデバイス無し、ch6-8は通常の楽音chのまま）。OPLL系（COPLL/COPLL2/COPLLP/COPLLX）・OPL系（OPL/Y8950/OPL2/OPL3/OPL4、`DEVICE_OPL_RHY`）双方で対応済み(2026年7月)。特定チップ専用の名前ではなく、内蔵リズム音源を持つチップ全般で共通のフィールド名とする。ビルトインリズムと通常の楽音chをまたいだDVA(動的ボイス割当)は実装されていないため、`DEVICE_*_RHY`サブデバイス自体を`rhythm_mode:true`のインスタンスに限定して生成するようにした(2026年7月修正。以前は`rhythm_mode`の値に関わらず常に`_RHY`サブデバイスが生成されており、`false`のままだとch6-8のレジスタがFM本体側と無調整で衝突していた)。同一チップ種別を複数`devices[]`エントリで持つ場合、`rhythm_mode:true`のインスタンスが1つも無ければビルトインリズムのドライバ自体が生成されない。OPNA系(`DEVICE_OPNA_RHY`)はFM本体と完全に独立したレジスタ空間を持つためこの制約の対象外で、常に生成される。`hw_plugins[].auto_devices`経由のプロファイル(`devices[]`を手書きせずHWPlugin_Enumerate()の結果をそのまま使う)では、列挙結果自体に`rhythm_mode`が含まれないため個別指定できなかったが、`hw_plugins[].auto_devices_rhythm_mode`(チップ名の配列、`profile.schema.json`参照)でチップ名指定によりrhythm_mode:trueを補えるようにした(2026年7月新設) |
-| `extra_slot` | - | 2ポートチップ（OPNA/OPN2/OPL3等）用、2番目のSPFMスロット番号 |
-| `stereo_pair` | - | `true`で**リニアステレオ化**(`CLinearPanDevice`)の対象として明示指定する。詳細は下記 |
-
-#### リニアステレオ化 (`stereo_pair`)
-
-OPLL/OPL/PSG系のようにチップ自体がモノラル出力しか持たない音源で、
-**物理的にL/Rへ固定配線された同一チップ2台を1つのステレオデバイスとして
-束ね、等パワーパンニングでパンポットを表現する**ための指定
-(`CLinearPanDevice`。設計の詳細は`docs/design/chip-drivers.md`「リニアステレオ化」)。
-
-**自動検出は行わない。** L側・R側**両方**のエントリに`stereo_pair`を書く必要が
-ある。`pan`だけを1/2に振り分けても束ねは発動せず、単に「左に固定された
-デバイス」と「右に固定されたデバイス」が独立して並ぶだけになるので注意。
-
-指定方法は2通りあり、**どちらを選ぶかで「左右の分離をどこで行うか」が
-決まる**。
-
-#### (1) `"stereo_pair": true` — プラグイン側で分離する
-
-L/R役割を`pan`(1=L / 2=R)から判定し、左右の分離はプラグインの出力
-ルーティングが行う。**OPLL系のようにモノラル出力しか持たないチップでも
-使える**汎用の方式。
-
-```json
-"devices": [
-  { "if": "HW", "label": "OPLL", "plugin": "FitomEmuIF", "type": "FMHWIF",
-    "engine": "engines/YMFMEngine", "chip": "OPLL", "index": 0,
-    "pan": 1, "rhythm_mode": true, "stereo_pair": true },
-  { "if": "HW", "label": "OPLL", "plugin": "FitomEmuIF", "type": "FMHWIF",
-    "engine": "engines/YMFMEngine", "chip": "OPLL", "index": 1,
-    "pan": 2, "rhythm_mode": true, "stereo_pair": true }
-]
-```
-
-#### (2) `"stereo_pair": "L"` / `"R"` — チップ自身のL/R出力ビットで分離する
-
-L/R役割をこの値で明示し、左右の分離はチップのチャンネルごとのL/R出力ビットで
-行う。**プラグイン側の`pan`は`0`(Stereo)のままでよい**。
-
-```json
-"devices": [
-  { "if": "HW", "label": "OPL4", "plugin": "FitomEmuIF", "type": "FMHWIF",
-    "engine": "engines/YMFMEngine", "chip": "OPL4", "index": 0,
-    "pan": 0, "stereo_pair": "L" },
-  { "if": "HW", "label": "OPL4", "plugin": "FitomEmuIF", "type": "FMHWIF",
-    "engine": "engines/YMFMEngine", "chip": "OPL4", "index": 1,
-    "pan": 0, "stereo_pair": "R" }
-]
-```
-
-**対応チップ**: OPM/OPP・OPZ/OPZ2・OPL3・OPL4(FM部)・OPN2/OPNA/OPNB/OPNBB系と
-そのADPCM-A/ADPCM-Bサブデバイス。非対応のチップ(OPLL系・OPL/OPL2・SSG/PSG系・
-YM2203)に指定した場合は、読み込み時に警告を出して知らせる。
-
-この方式の利点は、**プラグイン側の`pan`を`0`(Stereo)に保てる**ため、同一物理
-チップ上の他のサブデバイスが自前のハードウェアパンポットをフルに使えること。
-特にOPL4では、FM部をL/Rペアにしつつ**AWM部が15段のパンポットを完全に活用
-できる**（`pan: 1`/`2`方式ではチップ出力ごと左右に寄ってしまう）。
-
-制約として、OPNAのSSG部のようにチップ内にL/R分離手段が無いサブデバイスは、
-この方式でも左右に分かれない（パンを振っても定位ではなく音量だけが変化する。
-実機の制約）。
-
-なお、片側だけ`"L"`/`"R"`・もう片側は`true`という混在指定の場合は、意図が
-確定しないため(1)の従来方式として扱う。
-
-#### 共通の判定条件
-
-ペアと判定される条件は「同一`chip`(deviceType)・同一プラグイン(I/F)で、
-L側とR側の組になっていること」。`rhythm_mode:true`のOPLL/OPL系やOPNA系のように
-sub-device自動生成(composite展開)されるチップにも対応しており、その場合は
-サブデバイス群(FM本体・内蔵リズム・SSG・ADPCM等)がまとめて1対1で
-ペアリングされる(2026年8月対応)。
-
-ただし**OPL4のAWM/PCM部だけは`stereo_pair`の対象外**で、`stereo_pair:true`を
-指定したOPL4でも、AWM部は独立したモノラルデバイスとして残る。AWM部は
-チャンネルごとのパンポットをハードウェアで持っており、L/R2台の束ね
-(モノラル出力しか持たない音源に対する代替手段)を適用すると本来のパンポットを
-潰した上でチップを2倍消費することになるため。この仕様により
-**「OPL4のFM部」と「OPL3」をL/Rペアとしてステレオ化する**構成も可能
-(AWM部を除いたサブデバイス構成がどちらも`DEVICE_OPL3`+`DEVICE_OPL3_2`で
-一致するため)。
-
-統合が成功するとログに
-`mergeStereoPairDevices: '...' (R) merged into '...' (L) as CLinearPanDevice pair`
-が出力される(末尾に`[chip-level L/R]`または`[plugin-routed L/R]`が付き、
-どちらの方式で分離されているかが分かる)。
-
-なお、プラグイン側にもL/R2台分のチップインスタンスが存在する必要がある
-(FitomEmuIFなら`fmemuif_*.profile.json`の`engines[].chips[]`に2つ定義する。
-(1)の方式なら`pan:1`と`pan:2`を各1つずつ、(2)の方式なら`pan:0`を2つ)。
-
-### MIDI デバイス (`midi_inputs`, `midi_outputs`)
-
-```json
-"midi_inputs":  ["MIDI キーボード", "UM-ONE"],
-"midi_outputs": ["External Synth Out"]
-```
-
-デバイス名は `MidiPlugin_EnumerateIn()` / `MidiPlugin_EnumerateOut()` が返す文字列と一致させること。  
-GUI はこれらの関数を呼んで得たリストから選択できるようにすることが望ましい。
-
-`midi_inputs[i]` は `MidiProcessor(i)` に1対1で対応する。複数指定した場合、
-それぞれが独立した16 MIDIチャンネル分の状態を持つ（チャンネル1つ1つを
-共有するわけではない）。
-
-MPU(`MidiProcessor`)は`midi_inputs`の指定数に関わらず常にMAX_MPUS(4)個
-生成される(2026年7月〜)ため、`midi_inputs[i]`が空文字列の要素は「そのMPUには
-MIDI入力を割り当てない」ことを表せる(例: `["", "UM-ONE"]` はMPU0未割り当て・
-MPU1にUM-ONEを割り当てる)。GUIのMIDIポート設定ダイアログ(`apps/fitom_gui`の
-`MidiPortSettingsDialog`)は、OK確定時にこの配列をindexの空きを保ったまま
-書き戻す。
-
-
-### マスターボリューム・マスターピッチ (`master_volume`, `master_pitch`)
-
-```json
-"master_volume": 100,
-"master_pitch": 440.0
-```
-
-全チャンネル共通の出力音量係数(`master_volume`、0-127、省略時100)と、
-基準A音のHz(`master_pitch`、430.0-450.0、省略時440.0)。GUIのシステム設定
-ダイアログ(`apps/fitom_gui`の`SystemSettingsDialog`、2026年7月新設)から
-変更でき、OK確定時にプロファイルへ書き戻される。
-
-### 部位ごとのゲイン (`part_gains`)
-
-```json
-"part_gains": [
-  {
-    "plugin": "FitomEmuIF",
-    "params": { "type": "FMHWIF", "engine": "YMEngine", "chip": "OPNA", "index": 0 },
-    "gains":  { "SSG": [0.5, 0.5] }
-  }
-]
-```
-
-チップによっては、音を複数の端子から別々に出す(OPNAのFMとSSG等)。この出力の
-ひとつひとつを**部位**と呼ぶ。実機ではボード上の回路でミックスするので、音量の
-バランスは機種で違う。`part_gains`は、そのバランスをデバイスごとに持つ。
-部位を持つのは、部位ごとのゲインに対応したHWプラグイン(`docs/interfaces/plugin-hwif.md`
-「部位ごとのゲイン」参照)のデバイスだけである。
-
-`master_volume`等と同じく、GUIのシステム設定ダイアログ(`SystemSettingsDialog`)
-から変更し、OK確定時にプロファイルへ書き戻される設定である。
-
-| フィールド | 内容 |
-|---|---|
-| `plugin` | 対象デバイスのHWプラグイン名(`hw_plugins[].name`) |
-| `params` | 対象デバイスを特定する値。そのデバイスを開くときにHWプラグインへ渡すパラメータ一式(`HWPlugin_Open`のparams_json)と同じ内容 |
-| `gains` | 部位名 → `[L, R]`。線形の倍率で、1.0 = 0 dB |
-
-- **書かれるのは、プラグインの既定値から変えた部位だけ。** ここに無い部位は
-  既定値のまま鳴る。既定値はプラグインが決める値で、1.0とは限らない。GUIで
-  既定値と同じ値に戻した部位は、次の書き戻しで`part_gains`から消える。
-  どの部位も変えていなければ、`part_gains`自体を書かない。
-- **デバイスは`label`ではなく`plugin`+`params`で特定する。** `label`は省略でき、
-  同じ文字列を複数のデバイスに付けることもできるため、1台に決まらない。
-  `params`は、`devices[]`のエントリから制御用フィールド(`if`/`label`/`plugin`/
-  `extra_slot`/`rhythm_mode`/`stereo_pair`)を除いた残り。`auto_devices`のデバイスは、
-  プラグインが列挙したエントリそのもの。キーの並び順は問わないが、値は完全に
-  一致している必要がある。
-- **`devices[]`側の記述を変えると、対応していた`part_gains`のエントリは
-  掛からなくなる**(`params`が一致しなくなるため)。読み込み時に警告
-  `part_gains: 該当するデバイスがありません`が出る。該当デバイスが無いエントリも
-  捨てずに保持し、そのまま書き戻す。
-- 読み込み時、デバイスを開いた直後(MIDI処理が始まる前)に適用する。
-  デバイスが持たない部位名など、プラグインが受け付けなかった値は警告を出して
-  読み飛ばす。
-
-
-### MIDI バックエンド (`midi_backend`)
-
-```json
-"midi_backend": {
-  "dll": "fitom_midi_rtmidi.dll"
-}
-```
-
-MIDI入出力を実際に処理するバックエンドDLLを指定する。`hw_plugins[].dll`と
-同様、相対パスは実行ファイルのディレクトリを基点とする。
-
-**省略可能**。省略した場合、プラットフォーム既定のファイル名を実行ファイルと
-同じディレクトリから探索する。
-
-| プラットフォーム | 既定ファイル名 |
-|---|---|
-| Windows | `fitom_midi_rtmidi.dll`（RtMidi、WinMM API経由、追加ランタイム不要） |
-| Linux | `fitom_midi_rtmidi.so`（RtMidi、ALSAシーケンサAPI経由） |
-| macOS | `fitom_midi_rtmidi.dylib`（RtMidi、CoreMIDI経由） |
-
-`backends/midi_rtmidi/`が[RtMidi](https://github.com/thestk/rtmidi)を使い
-Windows/Linux/macOSを1つのDLLソースでカバーする（2026年7月、旧
-Windows MIDI Services/WinMM/ALSAの3個別実装から統合）。
-
-### MIDI チャンネルの既定動作（`channel_map`は廃止）
-
-`channel_map`フィールドは廃止した。既存プロファイルにこのフィールドが
-残っていても単純に読み飛ばされるだけで、エラーにはならない。
-
-現在の既定動作（GM規格準拠）:
-
-- **MIDI ch10（0-indexed: ch9）は固定でリズムチャンネル**として扱われる
-  （`CRhythmCh`が生成される）。他のチャンネルは全て通常の楽器パート
-  （`CInstCh`）になる。この割り当ては設定不可の固定仕様。
-- **各チャンネルのポリフォニー数はデバイス依存**で動的に決定される。
-  `ProgChange`受信時に解決されたパッチが使用するデバイス（複数レイヤーが
-  ある場合はその全て）のうち、最小のチャンネル数を持つデバイスがそのまま
-  ポリフォニー数の上限になる。固定設定値は存在しない。
-- 起動時、全MIDIチャンネルに対して暗黙的に`ProgChange(bank=0, prog=0)`が
-  適用される（GM準拠のデフォルト音色）。これにより、シーケンサーが
-  明示的にProgram Changeを送らずいきなりNote Onを送ってきた場合でも、
-  即座に発音できる。
-
-
-## ファイル例
-
-### fitom.conf.json（開発者環境）
+## 2. `fitom.conf.json`
 
 ```json
 {
@@ -533,12 +37,295 @@ Windows MIDI Services/WinMM/ALSAの3個別実装から統合）。
 }
 ```
 
-(HWプラグインDLL・MIDIバックエンドDLL・音声出力設定は、いずれもプロファイル
-側(`hw_plugins[]`/`midi_backend.dll`)またはHWプラグイン自身の設定ファイルで
-指定する。`fitom.conf.json`はログ設定と、GUI起動時のプロファイル選択画面が
-探すディレクトリ(`profiles.root`)のみを扱う。)
+| フィールド | 既定値 | 説明 |
+|---|---|---|
+| `log.level` | `"info"` | 出力する最小のログレベル。`trace` / `debug` / `info` / `warning` / `error` / `fatal` |
+| `log.file` | `""` | ログファイルのパス。空文字でファイルに出さない |
+| `log.console` | `true` | コンソールへ出すか |
+| `profiles.root` | `"."` | `fitom_gui`のプロファイル選択画面が`*.profile.json`を探すディレクトリ。相対パスは**カレントディレクトリ**を起点にする(実行ファイルのディレクトリではない) |
 
-### profiles/emulator_only.profile.json
+`fitom.conf.json`が無い場合は、各アプリの既定値で動きます(`fitom_cli`: level=debug・ファイル`fitom_cli.log`、`fitom_gui`: level=info・ファイルなし。どちらもコンソールに出す)。
+
+---
+
+## 3. プロファイルの読み込みと切り替え
+
+- **`fitom_cli`**: `fitom_cli <profile.json>`。プロファイルは省略できません
+- **`fitom_gui`**: `fitom_gui [<profile.json> [<予備のprofile.json>]]`
+  - プロファイルを省略すると、`profiles.root`のディレクトリ直下にある`*.profile.json`の一覧が出るので、選んで起動します。一覧に出る名前は、プロファイルの`profile_name`です(無ければファイル名)
+  - 2つ目の引数を指定すると、1つ目のプロファイルが読み込めなかった(存在しない・JSONの書式が誤っている等)ときに、代わりにそちらを読み込みます
+  - 起動後も、MIDIモニターの上部の「プロファイル切替」から別のプロファイルに切り替えられます。切り替えは`fitom_gui`をいったん終了し、選んだプロファイルで起動し直す形で行われます。選んだプロファイルが読み込めなければ、切り替える前のプロファイルで起動し直します
+- 次の項目は、`fitom_gui`の画面で変えてOKを押すと、プロファイルに書き戻されます。他の項目は書き戻しでも変わりません
+  - `midi_inputs`(MIDIポート設定ダイアログ)
+  - `master_volume`、`master_pitch`、`part_gains`(システム設定ダイアログ)
+
+---
+
+## 4. プロファイルの項目
+
+| 項目 | 必須 | 内容 | 節 |
+|---|---|---|---|
+| `profile_name` | ○ | プロファイルの表示名 | — |
+| `hw_plugins` | | 使うHWプラグイン | 5 |
+| `devices` | | 使う音源チップ | 6 |
+| `midi_backend` | | MIDI入力を処理するDLL | 7 |
+| `midi_inputs` | | 開くMIDI入力ポート | 7 |
+| `banks` / `bank_overrides` | | バンクファイル | 10 |
+| `psg_fallback_chip` | | PSG系の音色の既定のチップ | 10 |
+| `sf2_channel_windows` | | SF2直行パスに送るMIDIチャンネル | 10 |
+| `master_volume` / `master_pitch` | | 全体の音量・基準音程 | 9 |
+| `part_gains` | | チップの出力ごとの音量 | 9 |
+
+`midi_outputs`はスキーマにありますが、現在のバージョンでは使われません。
+
+---
+
+## 5. HWプラグイン(`hw_plugins`)
+
+FITOM_Xは、実機のチップもエミュレータも、同じ形式のHWプラグイン(DLL)を通して鳴らします。どちらであっても、プロファイルの書き方は同じです。
+
+```json
+"hw_plugins": [
+  { "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
+    "profile": "fmhwif_profile.json", "auto_devices": true },
+  { "name": "FitomHwIF", "dll": "fitom_hw.dll",
+    "profile": "fitom_hw_profile.json" }
+]
+```
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `name` | ○ | `devices[].plugin`から指す名前 |
+| `dll` | ○ | プラグインのDLLのパス。相対パスは実行ファイルのディレクトリを起点にする |
+| `profile` | | プラグイン自身の設定ファイルのパス。省略すると、プラグインが既定の場所を探す。中身はプラグインが読み、FITOM_Xは解釈しない |
+| `auto_devices` | | `true`にすると、プラグインが返すチップの一覧をそのまま`devices`として使う(下記) |
+| `auto_devices_rhythm_mode` | | `auto_devices`で作ったデバイスのうち、内蔵リズムを使うチップの名前(`chip`の値)の配列。該当するチップに`rhythm_mode: true`を付けたのと同じになる |
+
+**`auto_devices`**: プラグインが自分の設定ファイルでチップの構成を持ち、それを列挙して返すプラグイン(エミュレータ用のFitomEmuIF等)では、`devices`を書かずに済みます。プロファイルを切り替えると、プラグイン側の設定ファイルも一緒に切り替わります。挿さっているチップを判別できない実機用のプラグインでは使えないので、`devices`を書いてください。`auto_devices`と、同じプラグインを指す`devices`のエントリは併用できます。
+
+プラグインのDLLや設定ファイルが読めない場合、そのプラグインは登録されず、そのプラグインを使うデバイスはすべて使えなくなります(ログにエラーが出ます)。
+
+---
+
+## 6. デバイス(`devices`)
+
+使う音源チップを1つずつ並べます。
+
+```json
+"devices": [
+  { "if": "HW", "label": "OPM", "plugin": "FitomEmuIF",
+    "type": "FMHWIF", "engine": "YMEngine", "chip": "OPM", "index": 0, "pan": 0 },
+  { "if": "HW", "label": "OPNA (SPFM)", "plugin": "FitomHwIF",
+    "chip": "OPNA", "type": "SPFM_TOWER", "port": "COM3", "slot": 0, "pan": 0 }
+]
+```
+
+FITOM_X自身が読むフィールド:
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `if` | ○ | `"HW"`固定 |
+| `plugin` | ○ | 使うHWプラグイン(`hw_plugins[].name`) |
+| `chip` | | チップの種類。書ける値はREADMEの「対応チップ」の表。`devices`を手で書くときは必ず書く |
+| `label` | | 表示名 |
+| `rhythm_mode` | | 内蔵リズムを使うか(下記) |
+| `extra_slot` | | 2ポートのチップ(OPNA/OPN2/OPL3等)を、2つのスロットに分けて挿した場合の2つ目のスロット番号 |
+| `stereo_pair` | | 2台のチップをL/Rの組にする(下記) |
+
+これ以外のフィールドは、FITOM_Xは解釈せず、デバイスを開くときにプラグインへそのまま渡します。何が必要かはプラグインのドキュメントに従ってください。参考として、現在のプラグインが使う主なフィールドは次のとおりです。
+
+| プラグイン | フィールド |
+|---|---|
+| FitomEmuIF(エミュレータ) | `type`(`"FMHWIF"`固定)、`engine`(エンジン名)、`chip`、`index`(チップの番号)、`pan` |
+| FitomHwIF(実機) | `type`(`RE1`/`RE4`/`SPFM_TOWER`/`SPFM_LIGHT`)、`serial`(RE1/RE4)、`port`(SPFM系のCOMポート)、`index`、`slot`(チップのスロット)、`pan` |
+
+`pan`は0=ステレオ、1=Lのみ、2=Rのみ、3=モノラル。
+
+### 内蔵リズム(`rhythm_mode`)
+
+内蔵リズムを持つOPL系(OPL/Y8950/OPL2/OPL3/OPL4/OPL2EX)とOPLL系(OPLL/OPLL2/OPLLP/OPLLX/OPLLEX)のチップは、`"rhythm_mode": true`のときだけ内蔵リズムを使えます。このときチップのch6-8は内蔵リズムに明け渡され、通常の楽音には使われません。`false`(既定)なら、ch6-8は通常の楽音に使います。同じ種類のチップを複数使う場合、`rhythm_mode`はチップごとに指定できます。
+
+OPNA系とDSG(YM2163)の内蔵リズムは、楽音とは別の回路なので、`rhythm_mode`に関係なく常に使えます。
+
+### L/Rの組(`stereo_pair`)
+
+OPLL/OPL/PSG系のように、チップ自体がモノラル出力しか持たない音源で、L/Rに配線した同じチップ2台を1つのステレオの音源として使うための指定です。2台は常に同じ音を鳴らし、パン(CC#10)に応じて左右の音量を振り分けます。
+
+**L側とR側の両方のエントリに`stereo_pair`を書きます。** `pan`を1と2に振り分けるだけでは組にならず、「左に固定された音源」と「右に固定された音源」が別々に並ぶだけです。組になるのは、同じ`chip`・同じプラグインのL側とR側です。
+
+指定は2通りあり、左右をどこで分けるかが変わります。
+
+| 指定 | L/Rの決め方 | 左右を分ける場所 | `pan` |
+|---|---|---|---|
+| `"stereo_pair": true` | `pan`の1(L)/2(R) | プラグインの出力 | L側`1`、R側`2` |
+| `"stereo_pair": "L"` / `"R"` | この値 | チップ自身のL/R出力 | 両方`0` |
+
+```json
+"devices": [
+  { "if": "HW", "label": "OPLL", "plugin": "FitomEmuIF", "type": "FMHWIF",
+    "engine": "YMEngine", "chip": "OPLL", "index": 0,
+    "pan": 1, "rhythm_mode": true, "stereo_pair": true },
+  { "if": "HW", "label": "OPLL", "plugin": "FitomEmuIF", "type": "FMHWIF",
+    "engine": "YMEngine", "chip": "OPLL", "index": 1,
+    "pan": 2, "rhythm_mode": true, "stereo_pair": true }
+]
+```
+
+- `true`の方式は、モノラル出力しか持たないチップ(OPLL系等)でも使えます
+- `"L"`/`"R"`の方式は、チップ自身がL/R出力を持つものだけで使えます: OPM/OPP・OPZ/OPZ2・OPL3・OPL4(FM部)・OPN2/OPNA/OPNB/OPNBB系とそのADPCM-A/ADPCM-B。それ以外に指定すると、読み込み時に警告が出ます。プラグイン側の`pan`を0のままにできるので、同じチップの他の部分(OPL4のAWM部等)が自分のパンをそのまま使えます
+- OPNAのSSG部のように、チップの中にL/Rを分ける仕組みが無い部分は、`"L"`/`"R"`の方式でも左右に分かれません(パンを振ると、定位ではなく音量だけが変わります)
+- 片方が`"L"`/`"R"`、もう片方が`true`という混ぜた指定は、`true`の方式として扱います
+- 内蔵リズムやSSG等を持つチップも、まとめて組になります。チップごとのパンを持つ部分(OPL4のAWM部、YMZ705/YMZ732/YMZ771のSSG部・ADPCM部、Y8960の拡張OPL2部・拡張OPLL部)は組にならず、それぞれ独立した音源として残ります。このため、「OPL4のFM部」と「OPL3」を組にすることもできます
+- プラグイン側にも、L/R2台分のチップを用意してください
+- 組になると、ログに`mergeStereoPairDevices: '...' (R) merged into '...' (L) as CLinearPanDevice pair`が出ます(末尾の`[chip-level L/R]`/`[plugin-routed L/R]`で、どちらの方式かが分かります)
+
+---
+
+## 7. MIDI(`midi_backend` / `midi_inputs`)
+
+```json
+"midi_backend": { "dll": "fitom_midi_rtmidi.dll" },
+"midi_inputs":  ["MIDI キーボード", "UM-ONE"]
+```
+
+- **`midi_backend.dll`**: MIDI入力を処理するDLL。相対パスは実行ファイルのディレクトリを起点にします。省略すると、実行ファイルと同じディレクトリの`fitom_midi_rtmidi.dll`(Windows)/`.so`(Linux)/`.dylib`(macOS)を使います
+- **`midi_inputs`**: 開くMIDI入力ポートの名前。最大4つで、`i`番目のポートが「MPU i」になり、それぞれが独立した16チャンネルを持ちます。空文字列`""`は、そのMPUにポートを割り当てないことを表します(例: `["", "UM-ONE"]`はMPU0を空け、MPU1にUM-ONEを割り当てます)。名前はOSのMIDIポートの名前と一致させます。見つからないポートは警告を出して飛ばします
+
+---
+
+## 8. MIDIチャンネルの初期状態
+
+- 各MPUのMIDIチャンネル10はリズムチャンネル、他はメロディチャンネルとして始まります。演奏中にバンクセレクト(CC#0=0x78/0x79)で切り替えられます([MIDIメッセージリファレンスマニュアル](./midi-message-reference.md)の「4.1 チャンネルの役割切替」)。プロファイルで初期の割り当てを変えることはできません
+- 起動時、全チャンネルにバンク0・プログラム0が選ばれた状態になります。Program Changeを送らずにNote Onを送っても鳴ります
+- チャンネルごとの同時発音数は、選んだ音色が使うチップのチャンネル数で決まります
+
+以前のバージョンの`channel_map`は廃止されました。書いても読み込みでは無視されますが、スキーマの検証では誤りになります。
+
+---
+
+## 9. 音量と音程
+
+```json
+"master_volume": 100,
+"master_pitch": 440.0
+```
+
+| 項目 | 範囲 | 既定値 | 説明 |
+|---|---|---|---|
+| `master_volume` | 0–127 | 100 | 全体の音量。**現在のバージョンでは、FM/PSGのチップの音量には反映されません**(SF2直行パスの音量にだけ効きます) |
+| `master_pitch` | 430.0–450.0 | 440.0 | 基準となるA音の周波数(Hz) |
+
+### チップの出力ごとの音量(`part_gains`)
+
+チップによっては、音を複数の出力から別々に出します(OPNAのFMとSSG等)。この出力の1つ1つを**部位**と呼びます。実機ではボード上の回路で混ぜるので、音量のバランスは機種によって違います。`part_gains`は、そのバランスをデバイスごとに持ちます。部位を持つのは、部位ごとの音量に対応したHWプラグインのデバイスだけです。
+
+`fitom_gui`のシステム設定ダイアログで変えると書き戻される項目で、手で書く必要は通常ありません。
+
+```json
+"part_gains": [
+  {
+    "plugin": "FitomEmuIF",
+    "params": { "type": "FMHWIF", "engine": "YMEngine", "chip": "OPNA", "index": 0 },
+    "gains":  { "SSG": [0.5, 0.5] }
+  }
+]
+```
+
+| フィールド | 内容 |
+|---|---|
+| `plugin` | 対象デバイスのHWプラグイン(`hw_plugins[].name`) |
+| `params` | 対象デバイスを特定する値。`devices`のエントリから`if`/`label`/`plugin`/`extra_slot`/`rhythm_mode`/`stereo_pair`を除いた残り(`auto_devices`のデバイスは、プラグインが返したエントリそのもの)。キーの並び順は問いませんが、値は完全に一致する必要があります |
+| `gains` | 部位の名前 → `[L, R]`。倍率で、1.0 = 0 dB |
+
+- 書かれるのは、プラグインの既定値から変えた部位だけです。書かれていない部位は既定値のまま鳴ります(既定値はプラグインが決め、1.0とは限りません)。既定値に戻した部位は、次の書き戻しで消えます
+- デバイスは`label`ではなく`plugin`と`params`で特定します(`label`は同じものを複数のデバイスに付けられるため)
+- `devices`の書き方を変えると、`params`が一致しなくなり、そのエントリは効かなくなります。読み込み時に警告`part_gains: 該当するデバイスがありません`が出ます。該当するデバイスが無いエントリも、消さずにそのまま書き戻します
+
+---
+
+## 10. バンク
+
+### `banks`
+
+バンクファイルを並べます。各配列の書き方は[バンクファイル リファレンス](./bank-reference.md)の「1. バンクファイルの種類と読み込み」を参照してください。
+
+```json
+"banks": {
+  "hw_banks": [
+    { "group": "OPM", "bank": 0, "file": "banks/OPM/fb01/rom1.hwbank.json" }
+  ],
+  "sw_banks": [
+    { "bank": 0, "file": "banks/sw/default_32.swbank.json" }
+  ]
+}
+```
+
+**別のファイルに分ける**: `banks`に文字列を書くと、そのパスのファイルの中身(`hw_banks`等を持つオブジェクト)が、その位置に書かれたものとして読み込まれます。パスはプロファイルのディレクトリを起点にします。
+
+```json
+{ "banks": "common.bankset.json" }
+```
+
+バンクの構成(バンク・プログラムの番号の割り当て)はデバイスの構成に依存しないので、デバイスの構成が違う複数のプロファイルで同じバンクのファイルを共有できます。デバイスが無いチップ向けのバンクは、鳴らないだけです。
+
+### `bank_overrides`
+
+共有した`banks`のうち、一部のバンクだけをプロファイルごとに差し替えたり足したりするときは、トップレベルに`bank_overrides`を書きます。書き方は`banks`と同じです(オブジェクトでも、ファイルのパスの文字列でもよい)。各配列の要素は、次のキーが一致すれば`banks`側のエントリを置き換え、一致しなければ末尾に足します(消すことはできません)。
+
+| 配列 | 一致を見るキー |
+|---|---|
+| `hw_banks` | `group` + `bank` |
+| `drum_banks` | `prog` |
+| `pcm_banks` | `bank` + `chip` |
+| `sf2_banks` / `sw_banks` / `patch_banks` / `scc_wave_banks` | `bank` |
+
+```json
+{
+  "banks": "common.bankset.json",
+  "bank_overrides": {
+    "hw_banks": [
+      { "group": "OPN", "bank": 0, "file": "profile_specific/opn_bank0_variant.hwbank.json" }
+    ]
+  }
+}
+```
+
+この例では、`common.bankset.json`のOPNのバンク0だけをこのプロファイル用のファイルに差し替え、他のバンクは共有のまま使います。
+
+### `psg_fallback_chip`
+
+PSG系の共有バンクの音色のうち、鳴らすチップ(`ext.target_voice_patch_type`)を指定していないものを、どのチップで鳴らすか。`"SSG"`(既定) / `"EPSG"` / `"DCSG"` / `"SAA"` / `"SCC"`。
+
+### SF2直行パス(`banks.sf2_banks` / `sf2_channel_windows`)
+
+SoundFont音源(FitomSf2IFプラグイン)を使うときの設定です。仕組みは[MIDIメッセージリファレンスマニュアル](./midi-message-reference.md)の「2.6 SF2直行パス」を参照してください。
+
+- `devices`に`"chip": "SF2"`のデバイスを1つだけ置きます(SoundFontプラグインを指すもの)。SF2ファイルの一覧はFITOM_Xが`sf2_banks`から作ってプラグインへ渡すので、`devices`のエントリには書きません
+- **`banks.sf2_banks[]`**: `{ "bank": CC#32の値, "file": SF2ファイル, "sf2_bank": ファイル内のバンク番号(0–128) }`。3つとも必須です。同じファイルを複数のエントリから指してかまいません
+- **`sf2_channel_windows[]`**: `{ "mpu": 0–3, "ch": 0–15, "fluidsynth_chan": 0–15 }`。SF2へ送るMPU×チャンネルと、SoundFont音源側のチャンネルの対応です。16件まで、`fluidsynth_chan`の重複は不可。演奏中はプライベートSysExで変えられます
+
+---
+
+## 11. 読み込みで問題があったとき
+
+| 状況 | 扱い |
+|---|---|
+| プロファイルが見つからない、JSONの書式が誤っている | **読み込みを中止** |
+| `sf2_channel_windows`が16件を超える・重複・値が範囲外 | **読み込みを中止** |
+| `chip: "SF2"`のデバイスが2つ以上ある | **読み込みを中止** |
+| `sf2_banks`か`sf2_channel_windows`があるのに、`chip: "SF2"`のデバイスが無い | **読み込みを中止** |
+| `hw_plugins[]`のDLLや設定ファイルが読めない | エラーをログに出し、そのプラグインを使うデバイスを飛ばして続ける |
+| `devices[].plugin`が`hw_plugins[]`に無い | エラーをログに出し、そのデバイスを飛ばして続ける |
+| `midi_inputs[]`のポートが見つからない | 警告を出し、他のポートで続ける |
+| `midi_backend.dll`が読めない | エラーをログに出し、MIDI入力なしで続ける |
+| `part_gains[]`に該当するデバイスが無い | 警告を出し、エントリは消さずに書き戻す |
+| `part_gains[]`の書式が誤っている、プラグインが値を受け付けない | 警告を出し、その値だけ飛ばす |
+
+---
+
+## 12. 例
+
+エミュレータだけを使う(チップの構成はプラグインの設定ファイルで決める):
 
 ```json
 {
@@ -553,132 +340,26 @@ Windows MIDI Services/WinMM/ALSAの3個別実装から統合）。
   "midi_inputs": ["MIDI キーボード"]
 }
 ```
-(OPM/OPL3/SSGのチップ構成は`fmhwif_profile.json`側で定義する)
 
-### profiles/studio.profile.json
+実機とエミュレータを混ぜる:
 
 ```json
 {
-  "profile_name": "自宅スタジオ (SPFM/RE1/RE4 実機 + OPN2エミュ)",
+  "profile_name": "自宅スタジオ (SPFM 実機 + OPN2エミュ)",
   "hw_plugins": [
     {
       "name": "FitomEmuIF", "dll": "FitomEmuIF.dll",
       "profile": "fmhwif_profile.json",
       "auto_devices": true
     },
-    {
-      "name": "FitomHwIF", "dll": "fitom_hw.dll",
-      "profile": "fitom_hw_profile.json",
-      "auto_devices": true
-    }
+    { "name": "FitomHwIF", "dll": "fitom_hw.dll" }
+  ],
+  "devices": [
+    { "if": "HW", "label": "OPM", "plugin": "FitomHwIF",
+      "chip": "OPM", "type": "SPFM_TOWER", "port": "COM4", "slot": 0 }
   ],
   "midi_inputs": ["UM-ONE"]
 }
 ```
-(実機のスロット構成・OPN2エミュのチップ構成は、それぞれ`fitom_hw_profile.json`・
-`fmhwif_profile.json`側で定義する。FITOM_X側のプロファイルは「どのプラグインを
-使うか」のみを記述し、実際のチップ接続情報は一切持たない)
 
-## バリデーション規則
-
-| チェック | エラー / 警告 |
-|---|---|
-| `devices[].plugin` が `hw_plugins[]` に存在しない | **起動エラー** |
-| `midi_inputs[]` のデバイスが見つからない | **警告ログ**（他のデバイスで継続） |
-| `hw_plugins[].dll` が見つからない（HW デバイスあり） | **起動エラー** |
-| `midi_backend.dll` が見つからない | **警告ログ**（MIDI 入力なしで継続） |
-| `part_gains[]` のエントリに該当するデバイスが無い | **警告ログ**（エントリは保持し、そのまま書き戻す） |
-| `part_gains[]` の形式が不正、またはプラグインが値を受け付けない | **警告ログ**（その値だけ読み飛ばす） |
-| WMS Runtime 未インストール（WMS DLL 使用時） | **警告ログ**（MIDI 入力なしで継続） |
-
-
-## プロファイルからの参照方法
-
-`*.profile.json` の `banks` セクションでバンクファイルを指定します。
-パスはプロファイルファイルからの相対パスまたは絶対パスで指定します。
-
-```json
-{
-  "banks": {
-    "hw_banks": [
-      { "group": "OPM", "bank": 0, "file": "banks/OPM/fb01/rom1.hwbank.json" },
-      { "group": "OPZ", "bank": 0, "file": "banks/OPZ/tx81z/tx81z_1.hwbank.json" },
-      { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" },
-      { "group": "OPL2","bank": 0, "file": "banks/OPL2/alsa/std_opl2.hwbank.json" },
-      { "group": "OPL3","bank": 0, "file": "banks/OPL3/alsa/std_opl3.hwbank.json" },
-      { "group": "OPL2","bank": 1, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
-    ]
-  }
-}
-```
-
-`alsa_drums.hwbank.json` はドラム音色を集めた通常の HwBank で、`hw_banks` に登録して使います。
-ドラムチャンネルで鳴らす音色の割り当ては、`drum_banks` に1プログラム1ファイルで
-ドラムキット(`*.drumkit.json`)を並べて行います(書式の例は
-`config/profiles/opnAdpcm.drumkit.json`)。
-
-### banksセクションの外部ファイル分離
-
-`banks` に文字列を指定すると、外部ファイルへのパスとして扱われます。
-参照先JSONオブジェクト(`hw_banks`/`sw_banks`/`patch_banks`/`drum_banks`/
-`scc_wave_banks`/`pcm_banks`/`sf2_banks`を持つオブジェクト)が、その位置に
-そのまま埋め込まれたものとして読み込まれます(パス解決はプロファイル
-ファイル自身のディレクトリが基点、`banks.*[].file`と同じ規則)。
-
-```json
-{
-  "banks": "bank.profile.json"
-}
-```
-
-```json
-// bank.profile.json (上記から参照される側。中身は banks オブジェクトと同一形式)
-{
-  "hw_banks": [
-    { "group": "OPN", "bank": 0, "file": "banks/OPN/gm/necopn_gm.hwbank.json" },
-    { "group": "OPL2","bank": 1, "file": "banks/drums/OPL2/alsa_drums.hwbank.json" }
-  ]
-}
-```
-
-### bank_overrides による部分上書き・追加
-
-`banks`(共通プリセットバンクセット、外部参照でもインライン直書きでも可)
-に対し、プロファイルごとに一部のバンクだけを差し替えたり追加したりしたい
-場合は、`banks` と同じレベル(トップレベル)に `bank_overrides` を置きます。
-スキーマは `banks` と全く同一(オブジェクト直書き、または外部参照ファイル
-パスの文字列のいずれか)です。
-
-各配列の要素は、以下の「識別キー」が一致すれば`banks`側のエントリを置き
-換え、一致しなければ配列末尾へ追加されます(削除はできません)。
-
-| 配列 | 識別キー |
-|---|---|
-| `hw_banks` | `group` + `bank` (バンク番号はチップ種別ごとに独立した名前空間のため) |
-| `drum_banks` | `prog` (ドラムバンクは`bank`を持たず常に固定バンク0) |
-| `pcm_banks` | `bank` + `chip` (同一bank番号を複数の物理チップ向けに使い分けられるため) |
-| `sf2_banks` / `sw_banks` / `patch_banks` / `scc_wave_banks` | `bank` |
-
-```json
-{
-  "banks": "common.bankset.json",
-  "bank_overrides": {
-    "hw_banks": [
-      { "group": "OPN", "bank": 0, "file": "profile_specific/opn_bank0_variant.hwbank.json" }
-    ]
-  }
-}
-```
-
-上記の例では、`common.bankset.json` に定義された `OPN`/`bank 0` だけを
-このプロファイル専用のファイルへ差し替え、他のバンク(`OPM`等)は
-共通セットのまま使われます。デバイス構成に含まれないチップ向けの
-バンクエントリは単に発音しないだけなので、デバイス構成が異なる複数の
-プロファイル間でも `banks`/`bank_overrides` の組み合わせをそのまま
-使い回せます。
-
-パッチバンク構成(bank/prog番号の割り当て)はデバイス構成
-(`devices`/`hw_plugins`)に一切依存しないため、デバイス構成が異なる複数の
-プロファイル間で同じバンク構成ファイルを共有できます。デバイス構成に
-含まれないチップ向けのバンクエントリは単に発音しないだけであり、一部の
-デバイス構成が変わってもbank/prog番号の一貫性は保たれます。
+例示のプロファイルは`config/profiles/`にもあります。

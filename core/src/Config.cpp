@@ -644,7 +644,7 @@ void FITOMConfig::buildDevice(const json& dev)
             uint32_t deviceType = resolveChipDeviceId(dev.value("chip", ""));
             bool rhythmMode = dev.value("rhythm_mode", false);
             // stereo_pair: true (従来方式、pan:1/2からL/R役割を判定) または
-            // "L"/"R" (チップ内L/R分離方式)。docs/design/config-loading.md参照。
+            // "L"/"R" (チップ内L/R分離方式)。docs/design/chip-drivers.md「リニアステレオ化」参照。
             bool       stereoPair = false;
             StereoSide stereoSide = StereoSide::None;
             if (dev.contains("stereo_pair")) {

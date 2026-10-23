@@ -147,14 +147,14 @@
 | 無音バンク (CC#0=127、`VOICE_PATCH_SILENCE`) | ✅ | `docs/design/patch-resolution.md` |
 | PSGソフトウェアエンベロープ (SoftEnvelope, FM実機準拠ADSR) | ✅ | `docs/design/voice-processor.md` |
 | AY-3-8910 HW EG (ext.HWEP)、AY8930拡張モードのバンク切り替え | ✅ | `docs/design/chip-notes.md` |
-| リズムモード汎用フィールド (`rhythm_mode`)、ビルトインリズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `docs/design/config-loading.md` |
+| リズムモード汎用フィールド (`rhythm_mode`)、ビルトインリズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `docs/manuals/profile-reference.md` |
 | HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWPlugin_Shutdown (任意API、二重実行防止) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `docs/interfaces/plugin-hwif.md` |
-| HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `docs/interfaces/plugin-hwif.md`, `docs/design/config-loading.md` |
+| HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `docs/interfaces/plugin-hwif.md`, `docs/manuals/profile-reference.md` |
 | Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `docs/design/chip-drivers.md` |
 | 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `docs/design/chip-drivers.md` |
-| リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/design/config-loading.md` |
+| リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/manuals/profile-reference.md` |
 | OPL3 4OPモード (COPL3) + 疑似デチューン(`PDT`) | ✅ | `docs/design/chip-notes.md` |
 | OPN FXモード (3rd channel special mode、疑似デチューン/非整数倍率/固定周波数) | ✅ | `docs/design/chip-notes.md` |
 | 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-notes.md` |
@@ -164,7 +164,7 @@
 | ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
 | PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
 | pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
-| プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `docs/design/config-loading.md` |
+| プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `docs/manuals/profile-reference.md` |
 | SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `manuals/midi-message-reference.md` |
 | 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |
 | MIDIバックエンドのRtMidi単一実装 | ✅ | `docs/interfaces/plugin-midi.md` |

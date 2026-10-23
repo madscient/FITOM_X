@@ -278,7 +278,7 @@ void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
 
 - FITOM が保存するのは、既定値から変えた部位の値だけ。変えていない部位には
   `HWPlugin_SetPartGain` を呼ばず、プラグインの既定値のまま鳴らす
-  （プロファイル側の書式は `docs/design/config-loading.md`「部位ごとのゲイン」参照）。
+  （プロファイル側の書式は `docs/manuals/profile-reference.md`「チップの出力ごとの音量」参照）。
 - 組をエクスポートしないプラグインのデバイスには、4 関数のどれも呼ばない。
 
 ---
@@ -419,4 +419,4 @@ FITOM が送るメッセージ:
 ]
 ```
 
-プロファイルの書き方の詳細は `docs/design/config-loading.md` を参照。
+プロファイルの書き方の詳細は `docs/manuals/profile-reference.md` を参照。

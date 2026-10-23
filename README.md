@@ -264,7 +264,7 @@ cmake --build --preset macos-release
 - `banks` には、外部のバンク定義ファイルへのパスを文字列で書くこともできます
 - `banks.*[].file` の相対パスは、プロファイルファイル自身が置かれているディレクトリを起点に解決されます(起動時のカレントディレクトリは無関係)
 
-すべての項目は `config_schema/profile.schema.json` と [docs/design/config-loading.md](docs/design/config-loading.md) を参照してください。
+すべての項目は `config_schema/profile.schema.json` と [docs/manuals/profile-reference.md](docs/manuals/profile-reference.md) を参照してください。
 
 ---
 

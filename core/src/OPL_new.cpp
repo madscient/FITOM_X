@@ -34,8 +34,8 @@ public:
     static constexpr int kMasterClock = 3579545;
 
     // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
-    // 専用として無効化する(COPLLと同じ設計、docs/design/config-loading.mdの
-    // rhythm_modeフィールド参照。2026年7月、OPL系リズムモード対応で追加)。
+    // 専用として無効化する(COPLLと同じ設計、docs/design/chip-drivers.mdの
+    // 「内蔵リズムのサブデバイスと rhythm_mode」参照。2026年7月、OPL系リズムモード対応で追加)。
     COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2,
          bool rhythmMode = false)
         : CSoundDevice(devId, 9, port,
