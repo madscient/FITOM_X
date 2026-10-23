@@ -99,7 +99,7 @@ buildプリセットは無いので、`cmake --build build/windows-vs2026-x64-gu
 | `docs/design/` | 本体の開発者・AI | 内部の設計と、その理由 |
 | `docs/interfaces/` | 別リポジトリの開発者 | プラグイン・外部ツールとの契約 |
 | `docs/proposals/` | 開発者・AI | 未実装の設計検討 |
-| `docs/plans/` | AI・開発者 | 進行中の作業計画 |
+| `docs/plans/` | AI・開発者 | 進行中の作業計画。終わったら決定事項と見送った案を`docs/worklog/`へ移して消す |
 | `spec/chip-capabilities.json` | 外部ツール | `docs/manuals/hwpatch-reference.md`の機械可読版(チップ種別ごとの有効パラメータ・値域・実効解像度・排他条件) |
 
 文書を書くときの規則:
