@@ -1,65 +1,88 @@
 # HW I/F プラグイン要件定義
 
-**対象ヘッダ**: `plugin_sdk/include/fitom/IHWPlugin.h`  
-**実装リポジトリ**: FitomHwIF (物理HW) / fitom_fmhwif (FMエンジン内蔵)  
-**プラグイン種別**: ハードウェアインターフェース
+**対象読者**: HW I/F プラグイン DLL を実装する開発者  
+**契約の正本**: `plugin_sdk/include/fitom/IHWPlugin.h`  
+**実装リポジトリ**:
+- [FitomHwIF](https://github.com/madscient/FitomHwIF) (`fitom_hw.dll`) — 物理チップ (SPFM / RE1 / RE4)
+- [FitomEmuIF](https://github.com/madscient/FitomEmuIF) (`FitomEmuIF.dll`) — FM エンジン内蔵(エミュレータ)
+- [FitomSf2IF](https://github.com/madscient/FitomSf2IF) (`FitomSf2IF.dll`) — SoundFont 音源(fluidsynth)
 
 ---
 
 ## 概要
 
 FITOM コアは `IHWPlugin` C API を通じてすべてのオーディオデバイスを制御する。
-物理チップ（SPFM / RE1MB 等）と FM エンジンエミュレーターの両方が
+物理チップと FM エンジンエミュレーターの両方が
 この同一インターフェースを実装するため、FITOM コアからは区別なく扱える。
 
 ```
 FITOM core
   └── HWPort (IPort アダプター)
         └── IHWPlugin C API
-              ├── fitom_hw.dll       ← 物理チップ (FitomHwIF)
-              └── fitom_fmhwif.dll   ← FMエンジン内蔵 + RtAudio (実装: FitomEmuIF)
+              ├── fitom_hw.dll     ← 物理チップ (FitomHwIF)
+              ├── FitomEmuIF.dll   ← FMエンジン内蔵 + 音声出力 (FitomEmuIF)
+              └── FitomSf2IF.dll   ← SoundFont 音源 + 音声出力 (FitomSf2IF)
 ```
 
-### fitom_fmhwif について
-
-`fitom_fmhwif.dll` は複数の FM エンジン DLL を内部で束ね、
-PCM ミックスと RtAudio によるオーディオ出力まで完結させる hwif 互換 DLL。
-FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよい。
-
-**注**: 旧来の `FmEnginePort` + `AudioEngine` (FITOM_X本体側の直接制御)は廃止済み。
-実際の実装は [FitomEmuIF](https://github.com/madscient/FitomEmuIF) を参照。
-自身の設定 (使用するチップ一覧・サンプルレート等) は `fmhwif_profile.json`
-(FITOM_X本体のプロファイルとは独立したファイル) で管理する。
+FM エンジン内蔵のプラグインは、複数の FM エンジン DLL を内部で束ね、
+PCM ミックスと音声出力まで完結させる。FITOM コアは音声出力に依存せず、
+`HWPlugin_Write` を呼ぶだけでよい。使うチップの構成やサンプルレートなど、
+プラグイン自身の設定は、プラグイン固有の設定ファイルに持つ。そのパスは
+FITOM のプロファイルの `hw_plugins[].profile` に書き、`HWPlugin_Init` に渡される。
 
 ---
 
 ## エクスポート関数一覧
 
+| 区分 | 関数 | エクスポートしない場合 |
+|---|---|---|
+| 必須 | `GetName` / `Init` / `Enumerate` / `FreeString` / `Open` / `Close` / `Write` / `WriteBlock` / `Reset` / `GetClock` / `GetPanpot` / `IsOpen` | ロードに失敗する |
+| 任意 | `GetLatencySamples` / `SetDelaySamples` | `GetLatencySamples` が無ければレイテンシ 0 とみなす。`SetDelaySamples` が無ければ呼ばない |
+| 任意(強く推奨) | `Shutdown` | 呼ばない |
+| 任意(4関数の組) | `GetPartCount` / `GetPartName` / `SetPartGain` / `GetPartGain` | 「部位ごとのゲイン」節を参照 |
+
+関数名はいずれも `HWPlugin_` で始まる。
+
 ### プラグイン情報
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
-| `HWPlugin_GetName` | `const char* ()` | プラグイン名を返す（例: `"FitomHwIF"`, `"fitom_fmhwif"`） |
+| `HWPlugin_GetName` | `const char* ()` | プラグイン名を返す |
+
+### 初期化
+
+| 関数 | シグネチャ | 説明 |
+|---|---|---|
+| `HWPlugin_Init` | `HWResult (const char* profile_path)` | プラグインを初期化する |
+
+- FITOM は DLL をロードした直後、他のどの関数よりも先に一度だけ呼ぶ
+- `profile_path` はプロファイルの `hw_plugins[].profile` の値。省略されていれば `nullptr` を渡すので、プラグイン自身の既定の探索規則で設定ファイルを探すこと。FITOM はこのファイルの中身を解釈しない
+- `HW_OK` 以外を返すと、FITOM はそのプラグインを登録せず、以降どの関数も呼ばない
+- 初期化前に他の関数が呼ばれた場合は失敗を返すこと
 
 ### デバイス列挙
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
-| `HWPlugin_Enumerate` | `const char* ()` | 接続済みデバイスを JSON 配列で返す。呼び出し元が `HWPlugin_FreeString` で解放する |
+| `HWPlugin_Enumerate` | `const char* ()` | 開けるデバイスを JSON 配列で返す。呼び出し元が `HWPlugin_FreeString` で解放する。失敗時は `nullptr` |
 | `HWPlugin_FreeString` | `void (const char*)` | `HWPlugin_Enumerate` が返した文字列を解放する |
 
-**`HWPlugin_Enumerate` の返却フォーマット（物理 HW）:**
+プロファイルの `hw_plugins[].auto_devices` が `true` のとき、FITOM は `HWPlugin_Enumerate`
+が返した配列の各要素を、そのままプロファイルの `devices[]` の1件として扱う。つまり各要素は、
+次節の `params_json` としてそのまま `HWPlugin_Open` に渡せる形で、かつ FITOM が読む `chip`
+を含んでいる必要がある。物理チップは挿さっているチップを自動判別できないので、物理チップの
+プラグインは `chip` を返さなくてよい(その場合、利用者は `devices[]` を手で書く)。
+
+返却例(FitomHwIF):
 
 ```json
 [
   { "type": "RE1",        "serial": "ABCD1234", "index": 0 },
-  { "type": "RE4",        "serial": "EFGH5678", "index": 0 },
-  { "type": "SPFM_TOWER", "port":   "COM3",     "index": 0 },
-  { "type": "SPFM_LIGHT", "port":   "COM4",     "index": 0 }
+  { "type": "SPFM_TOWER", "port":   "COM3",     "index": 0 }
 ]
 ```
 
-**`HWPlugin_Enumerate` の返却フォーマット（fitom_fmhwif）:**
+返却例(FitomEmuIF。`auto_devices` で使う):
 
 ```json
 [
@@ -68,13 +91,6 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 ]
 ```
 
-| フィールド | 型 | 説明 |
-|---|---|---|
-| `type` | string | `FMHWIF` 固定 |
-| `engine` | string | FMエンジン DLL 名（`YMEngine`, `AYEngine` 等） |
-| `chip` | string | チップ種別（`OPM`, `OPNA`, `OPN2`, `OPL3` 等） |
-| `index` | number | 同種チップが複数ある場合のインデックス |
-
 ### デバイス開閉
 
 | 関数 | シグネチャ | 説明 |
@@ -82,7 +98,29 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 | `HWPlugin_Open` | `HWResult (const char* params_json, HWHandle* out)` | デバイスを開く |
 | `HWPlugin_Close` | `void (HWHandle)` | デバイスを閉じてリソースを解放する |
 
-### プラグイン全体のシャットダウン(2026年7月新設、任意実装だが強く推奨)
+**FITOM が渡す `params_json`**: プロファイルの `devices[]` の1件から、FITOM 自身が使う
+キー(`if` / `label` / `plugin` / `extra_slot` / `rhythm_mode` / `stereo_pair`)を
+取り除いた残りすべて。それ以外のキーの意味はプラグインが決める。
+
+FITOM が `params_json` に手を加えるのは次の2つだけ。
+
+- `extra_slot` が書かれたデバイスは、2ポート目として `slot` を `extra_slot` の値に置き換えた `params_json` でもう一度 `HWPlugin_Open` を呼ぶ
+- `chip` が `"SF2"` のデバイスには、`soundfonts` を足す(「SoundFont プラグインへの追加の約束」節を参照)
+
+`chip` は FITOM がチップの種類を決めるために読む。プラグインに渡す `params_json` にも残る。
+
+現在の実装が読むキー(参考。正本は各リポジトリ):
+
+| プラグイン | キー |
+|---|---|
+| FitomHwIF | `type`(RE1 / RE4 / SPFM_TOWER / SPFM_LIGHT) / `serial` / `port` / `slot` / `index` / `pan` / `sample_rate` |
+| FitomEmuIF | `type`(`"FMHWIF"`固定) / `engine` / `chip` / `index` / `pan` |
+| FitomSf2IF | `soundfonts` |
+
+`pan` の値は 0=ステレオ、1=L のみ、2=R のみ。FITOM は `HWPlugin_GetPanpot` でこの値を読み、
+L/R の組の判定に使う。
+
+### プラグイン全体のシャットダウン(任意実装、強く推奨)
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
@@ -101,6 +139,7 @@ FITOM コアは RtAudio に依存せず、`HWPlugin_Write` を呼ぶだけでよ
 - 呼び出しは通常のメインスレッドのコンテキストで行われます(`DllMain`/`DLL_PROCESS_DETACH`の中ではありません)。ロック取得やスレッドjoin等、`DllMain`内では避けるべき操作をこの関数の中では安全に行えます。
 - 冪等性は不要です(FITOM_X側で二重呼び出しをガードしています)。
 - **未実装でも動作します**(FITOM_X側は`GetProcAddress`/`dlsym`でこの関数を探し、見つからなければ何もせずスキップします)。ただし未実装のままだと、上記のフリーズ問題が解消されません。
+- この関数が呼ばれないまま終了する場合(この関数を呼ばない古いFITOM_X等)にも耐えられるよう、静的デストラクタでの停止処理は残しておくことを推奨します。
 
 **実装例(RtAudioを使う場合)**
 
@@ -121,47 +160,6 @@ FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Shutdown()
 
 **エクスポート**:他の`HWPlugin_*`関数と同様に、`.def`ファイル(または`__declspec(dllexport)`)でエクスポートしてください。
 
-**`params_json` フォーマット（物理 HW）:**
-
-```json
-{
-  "type":         "SPFM_TOWER",
-  "port":         "COM3",
-  "slot":         0,
-  "clock":        7987200,
-  "pan":          0,
-  "sample_rate":  44100
-}
-```
-
-**`params_json` フォーマット（fitom_fmhwif）:**
-
-```json
-{
-  "type":         "FMHWIF",
-  "engine":       "YMEngine",
-  "chip":         "OPM",
-  "clock":        3579545,
-  "sample_rate":  44100,
-  "buffer_frames": 512,
-  "audio_api":    "auto"
-}
-```
-
-| フィールド | 型 | 省略 | 説明 |
-|---|---|---|---|
-| `type` | string | 必須 | RE1 / RE4 / SPFM_TOWER / SPFM_LIGHT / FMHWIF |
-| `serial` | string | 省略時 index=0 | RE1/RE4: シリアル番号 |
-| `port` | string | 省略時 自動選択 | SPFM 系: COMポート |
-| `slot` | number | 省略時 0 | SPFM 系のスロット番号 |
-| `clock` | number | 省略時 0 | チップのマスタークロック [Hz] |
-| `pan` | number | 省略時 0 | パノラマ。0=Stereo, 1=L only, 2=R only |
-| `sample_rate` | number | 省略時 44100 | サンプルレート [Hz]。**物理HW・FMHWIF共通**。物理HWではキューイング遅延計算（レイテンシ同期）に使用する |
-| `engine` | string | FMHWIF必須 | FMエンジン DLL 名 |
-| `chip` | string | FMHWIF必須 | チップ種別 |
-| `buffer_frames` | number | 省略時 512 | バッファサイズ [samples]（FMHWIF のみ） |
-| `audio_api` | string | 省略時 "auto" | RtAudio API 名（FMHWIF のみ）|
-
 ### I/O
 
 | 関数 | シグネチャ | 説明 |
@@ -174,15 +172,15 @@ FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Shutdown()
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
-| `HWPlugin_GetClock` | `int (HWHandle)` | マスタークロック [Hz] を返す |
-| `HWPlugin_GetPanpot` | `int (HWHandle)` | パノラマ設定値を返す |
+| `HWPlugin_GetClock` | `int (HWHandle)` | チップのマスタークロック [Hz] を返す。FITOM は F-number やトーン周期の計算にこの値を使う |
+| `HWPlugin_GetPanpot` | `int (HWHandle)` | パノラマ設定値を返す(`pan` と同じ値域) |
 | `HWPlugin_IsOpen` | `bool (HWHandle)` | デバイスが使用可能か返す |
 
 ### レイテンシ同期（オプション）
 
 物理チップと FM エンジン内蔵 hwif を混在使用する場合、
 発音タイミングを揃えるためにレイテンシ同期が必要になる。
-以下の2関数は**実装任意**。未実装の場合 FITOM は旧 DLL と互換動作する。
+以下の2関数は**実装任意**。`HWPlugin_GetLatencySamples` が無いデバイスはレイテンシ 0(即時)とみなし、`HWPlugin_SetDelaySamples` が無いデバイスには遅延を設定しない。
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
@@ -192,16 +190,16 @@ FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Shutdown()
 **実装ガイド:**
 
 ```c
-// fitom_fmhwif: バッファサイズ = 自身のレイテンシ
+// FMエンジン内蔵: バッファサイズ = 自身のレイテンシ
 uint32_t HWPlugin_GetLatencySamples(HWHandle h) {
     return h->buffer_frames;   // 例: 512
 }
-// fitom_fmhwif: 自身のレイテンシと一致するため通常は何もしなくてよい
+// FMエンジン内蔵: 自身のレイテンシと一致するため通常は何もしなくてよい
 void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
     (void)delay;  // buffer_frames == delay になるよう設定済みのため no-op
 }
 
-// 物理チップ (fitom_hw): 即時デバイスなので 0 を返す
+// 物理チップ: 即時デバイスなので 0 を返す
 uint32_t HWPlugin_GetLatencySamples(HWHandle h) {
     return 0;
 }
@@ -215,7 +213,7 @@ void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
 
 **FITOM コア側の同期処理:**
 
-`CFITOM::initDevices()` が全デバイスに対して以下を実行する。
+デバイスをすべて開いた後、FITOM は全デバイスに対して以下を実行する。
 
 ```
 1. 全 HWPort の GetLatencySamples() を収集 → max_latency を決定
@@ -230,7 +228,8 @@ void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
 チップによっては、音を複数の端子から別々に出す（OPNA の FM と SSG など）。
 この出力のひとつひとつを**部位**と呼ぶ。実機ではボード上の回路でミックスするので、
 音量のバランスは機種で違う。FM エンジン内蔵 hwif が、そのバランスを FITOM から
-調整できるようにするための関数。物理チップの hwif は実装しなくてよい。
+調整できるようにするための関数。物理チップの hwif は実装しなくてよい
+(実装して、部位を 0 個返してもよい)。
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
@@ -293,9 +292,8 @@ addr 上位 8bit (addr >> 8)   → a_high（SPFM 拡張アドレス / OPL3 Array
 addr 下位 8bit (addr & 0xFF) → チップレジスタアドレス
 ```
 
-`SplitPort` が2ポートチップ（OPNA / OPN2 / OPL3）の
-`addr >= 0x100` を自動的に a_high=1 に変換するため、
-DLL は addr の解釈のみ実装すればよい。
+2ポートチップ（OPNA / OPN2 / OPL3）の `addr >= 0x100` は FITOM 側で a_high=1 に
+変換して渡すため、DLL は addr の解釈のみ実装すればよい。
 
 ### レジスタアドレスは常に実チップのもの（重要）
 
@@ -345,6 +343,29 @@ Y8960 カートリッジの拡張ブロックが FITOM から書かれる番地�
 
 ---
 
+## SoundFont プラグインへの追加の約束
+
+プロファイルで `chip: "SF2"` と書いたデバイスは、レジスタではなく MIDI バイト列を受け取る。
+SoundFont プラグインは、新しい関数を足さずに既存の関数だけでこれを受け取る。
+
+- **`HWPlugin_Open`**: `params_json` に、FITOM が `soundfonts`(SF2 ファイルの絶対パスの配列)を足して渡す。FITOM はプロファイルの `banks.sf2_banks[].file` から重複を除いてこの配列を作る。配列の0起算の位置を `soundfont_index` と呼ぶ。同じファイルは配列に1回しか現れないので、ファイルのロードは各要素につき1回でよい
+- **`HWPlugin_WriteBlock`**: `startAddr` は常に 0 で、`data` に MIDI バイト列が1メッセージずつ入る。FITOM は `HWPlugin_Write` を使わない
+- **チャンネル**: FITOM は、プロファイルの `sf2_channel_windows` で SF2 に割り当てた MIDI チャンネルのメッセージだけを、割り当て先の fluidsynth のチャンネル番号に書き換えて送る
+
+FITOM が送るメッセージ:
+
+| メッセージ | 内容 |
+|---|---|
+| ノートオン/オフ、CC、ピッチベンド、チャンネルプレッシャー等 | チャンネル番号だけを書き換えて、そのまま送る。CC#0 と CC#32 は送らない |
+| `F0 00 48 01 05 <chan> <soundfont_index> <bank_msb> <bank_lsb> <prog> F7` | プログラムチェンジの代わり。FITOM が CC#32 から SF2 ファイルとファイル内のバンク番号を解決したうえで送る。`<chan>` は fluidsynth のチャンネル、バンク番号は14bitを7bitずつに分けたもの。CC#32 が一度も解決されていないチャンネルでは送らない |
+| `F0 7F 7F 04 01 00 <vol> F7` | マスターボリュームの変更(GM2 Universal Realtime、7bit 精度) |
+| `F0 7F 7F 04 03 <ll> <mm> F7` | マスターピッチの変更(GM2 マスターファインチューニング。440Hz からのずれを ±100 セントの範囲で表す) |
+
+音声出力は他のプラグインと同じくプラグイン側で完結させる。FITOM はプラグイン間の音声を
+ミックスしない。
+
+---
+
 ## エラーコード
 
 | コード | 値 | 説明 |
@@ -361,7 +382,8 @@ Y8960 カートリッジの拡張ブロックが FITOM から書かれる番地�
 
 | 関数 | 要件 |
 |---|---|
-| `HWPlugin_Write`, `HWPlugin_WriteBlock` | **スレッドセーフ必須**。FITOM の MIDI 処理スレッドから並行呼び出しが発生する |
+| `HWPlugin_Init` | ロード直後に一度だけ呼ばれる。スレッドセーフ不要 |
+| `HWPlugin_Write`, `HWPlugin_WriteBlock` | **スレッドセーフ必須**。FITOM は MIDI 入力・タイマー・GUI 操作のそれぞれのスレッドから呼ぶ。現在の FITOM はこれらを1つのロックで直列化しているが、契約としては並行呼び出しを許容すること |
 | `HWPlugin_Open`, `HWPlugin_Close`, `HWPlugin_Reset` | 初期化・終了フェーズのみ。スレッドセーフ不要 |
 | `HWPlugin_GetLatencySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
 | `HWPlugin_SetDelaySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
@@ -371,121 +393,30 @@ Y8960 カートリッジの拡張ブロックが FITOM から書かれる番地�
 
 ---
 
-## fitom_hw.dll のビルド（FitomHwIF）
-
-既存のヘッダオンリーターゲット（RE1Controller 等）はそのまま残し、
-`IHWPlugin.h` を実装した共有ライブラリターゲットを追加する。
-
-**追加ファイル:** `FitomHwIF/src/HWPluginImpl.cpp`
-
-```cmake
-add_library(fitom_hw SHARED src/HWPluginImpl.cpp)
-target_compile_definitions(fitom_hw PRIVATE FITOM_HW_PLUGIN_EXPORTS)
-target_include_directories(fitom_hw PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    path/to/fitom/plugin_sdk/include
-)
-target_link_libraries(fitom_hw PRIVATE
-    RE1Controller RE4Controller SPFMController FTDIDeviceInfo
-    Boost::system nlohmann_json::nlohmann_json
-)
-```
-
-**実装する関数:**
-- `HWPlugin_GetName / Enumerate / FreeString / Open / Close`
-- `HWPlugin_Write / WriteBlock / Reset`
-- `HWPlugin_GetClock / GetPanpot / IsOpen`
-- `HWPlugin_GetLatencySamples` — `return 0;`（物理チップは即時）
-- `HWPlugin_SetDelaySamples` — キューイング遅延の実装
-
-部位ごとのゲインの 4 関数は実装しない（ミックスはボード上の回路が行う）。
-
----
-
-## fitom_fmhwif.dll のビルド（将来実装）
-
-FM エンジン DLL（YMEngine 等）を複数ロードし、PCM ミックスと
-RtAudio によるオーディオ出力を内部で完結させる hwif 互換 DLL。
-
-```cmake
-add_library(fitom_fmhwif SHARED src/FmHwIfImpl.cpp)
-target_compile_definitions(fitom_fmhwif PRIVATE FITOM_HW_PLUGIN_EXPORTS)
-target_link_libraries(fitom_fmhwif PRIVATE
-    rtaudio
-    nlohmann_json::nlohmann_json
-)
-```
-
-**実装する関数（物理HWと同じ IHWPlugin.h を実装）:**
-- `HWPlugin_GetLatencySamples` — `return buffer_frames;`
-- `HWPlugin_SetDelaySamples` — 通常 no-op（自身のバッファ=基準レイテンシ）
-- `HWPlugin_Write` — 内部の FM エンジンにレジスタ書き込みを転送
-- `HWPlugin_GetPartCount` / `GetPartName` / `SetPartGain` / `GetPartGain` — 内部の FM エンジンが
-  持つ部位ごとのゲインを中継する（「部位ごとのゲイン」節参照）
-
----
-
-## fitom_sf2if.dll のビルド（将来実装、設計検討段階）
-
-> **この節は設計検討の記録であり、現時点(2026年7月)では未実装。** 詳細な設計判断の経緯は`docs/design/sf2-direct-path.md`を参照。
-
-SoundFont(.sf2)ベースの音源(fluidsynthライブラリ)をラップし、`IHWPlugin`契約に**新規関数を一切追加せず**、既存のI/O系関数だけで実装するhwif互換DLL。他のhwifプラグイン(fitom_hw.dll/fitom_fmhwif.dll)と同様、FITOM本体からは区別なく扱われる1つのhwifインスタンスになる。
-
-**MIDI入力(`HWPlugin_WriteBlock`)**:`startAddr`は無視し、`data`に生のMIDIバイト列(Note On/Off・CC・プログラムチェンジ・SysEx)がそのまま渡される。DLL内部でこれを最小限パースし、`fluid_synth_noteon()`/`fluid_synth_cc()`/`fluid_synth_program_change()`等へ変換して`fluid_synth_t`へ渡す。バンク/プログラム選択(CC#32相当)は、FITOM_Xコア側が既にファイル/ネイティブbank番号を解決した状態のプライベートSysEx(マニュファクチャラID`00 48 01`、sub-cmd `0x05`、詳細は`docs/design/sf2-direct-path.md`4節④参照)として届くため、標準のCC#32バイトを直接解釈する必要はない。
-
-**音声出力**:他のhwifプラグインと同じく自己完結する。自前のオーディオコールバックで`fluid_synth_process()`をプルするか、fluidsynth自身の`fluid_audio_driver_t`をそのまま使うかは実装側の任意。FITOM本体は複数hwifプラグインインスタンスの音声出力をソフトウェアミックスしないため、他のプラグインの出力とは独立したストリームになる(組み合わせたい場合はユーザー側の外部ミキシングが必要)。
-
-**`params_json`フォーマット(案)**:
-
-```jsonc
-{
-  "soundfonts": ["<絶対パス1>.sf2", "<絶対パス2>.sf2"]
-}
-```
-
-配列順に0起算の`soundfont_index`が割り当てられ、`fluid_synth_sfload()`は各ファイルにつき1回だけ呼び出す(前述のsub-cmd 0x05はファイルパスではなくこの`soundfont_index`を使って対象を指定する)。
-
-```cmake
-add_library(fitom_sf2if SHARED src/Sf2HwIfImpl.cpp)
-target_compile_definitions(fitom_sf2if PRIVATE FITOM_HW_PLUGIN_EXPORTS)
-target_link_libraries(fitom_sf2if PRIVATE
-    fluidsynth
-    nlohmann_json::nlohmann_json
-)
-```
-
-**実装する関数（他のhwifプラグインと同じ IHWPlugin.h を実装、新規関数なし）:**
-- `HWPlugin_GetLatencySamples` / `HWPlugin_SetDelaySamples` — fitom_fmhwifと同様、自身のバッファサイズを基準レイテンシとして報告する
-- `HWPlugin_WriteBlock` — 生MIDIバイト列を受け取り内部でパース、`fluid_synth_*`へ変換
-- `HWPlugin_Write` — 単体では使わない想定(1バイトではMIDIメッセージを表現できないため、常に`HWPlugin_WriteBlock`を使う)
-
----
-
 ## ビルド要件
 
 | 項目 | 要件 |
 |---|---|
 | 言語 | C++17 以上 |
-| 依存（物理HW） | libftdi1（RE1/RE4）、Boost.Asio（SPFM 系） |
-| 依存（fmhwif） | RtAudio、FMエンジン DLL |
-| DLL 名 | 任意（`fitom.conf.json` の `hw_plugin.dll` で指定） |
-| エクスポート | `extern "C"` で C リンケージを保つこと |
+| DLL 名 | 任意（プロファイルの `hw_plugins[].dll` で指定） |
+| エクスポート | `extern "C"` で C リンケージを保つこと。`IHWPlugin.h` を取り込み、`FITOM_HW_PLUGIN_EXPORTS` を定義してビルドする |
 | プラットフォーム | Windows / Linux / macOS |
 
 ---
 
 ## config 記述例
 
-```json
-"hw_plugin": {
-  "dll": "fitom_hw.dll"
-}
-```
+プロファイル(`*.profile.json`)の `hw_plugins` に登録し、`devices` の `plugin` で名前を指す。
 
 ```json
-"hw_plugin": {
-  "dll": "fitom_fmhwif.dll"
-}
+"hw_plugins": [
+  { "name": "hw",  "dll": "fitom_hw.dll" },
+  { "name": "emu", "dll": "FitomEmuIF.dll", "profile": "fmhwif_profile.json", "auto_devices": true }
+],
+"devices": [
+  { "if": "HW", "plugin": "hw", "label": "OPNA", "chip": "OPNA",
+    "type": "SPFM_LIGHT", "port": "COM4", "slot": 0 }
+]
 ```
 
-デバイスの具体的な接続設定はプロファイルの `devices` セクションに記述する。
+プロファイルの書き方の詳細は `docs/design/config-loading.md` を参照。
