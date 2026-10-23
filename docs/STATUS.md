@@ -178,6 +178,7 @@
 ビルドとテストが通ることまでは確かめてある。
 
 **音(実機・エミュレータ)**
+- OPZの固定周波数モード(`ext.FIX`)。`COPM::updateVoice()`は`ext.FIX`が0でないとき実機のbit5を立てるが、固定周波数として働くかは確かめていない。利用者向けマニュアルは「未対応」としている
 - Y8960の拡張ブロック(OPLLEX/OPL2EX[内蔵ADPCM-B・リズムを含む]/SSGEX/SCCEX)とOPM。OPLLEXのリズムへのフォールバック(`resolveBuiltinRhythm()`)はコードを読んだだけ。OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)
 - SSGS/SSGS2/SSGS3のSSG部
 - `CSSGSAdPcm`: エミュレータ(EPSGemuEngine)はコーデックをYMZ280Bと同じ4bit ADPCMと仮定している。FitomEmuIFはSSGS/SSGS2の`PCM`へカタログ種別`SSGS_ADPCM`のイメージを渡す(**確認済み**: FitomEmuIF `2d0e443`のソースを読んで確認)。鳴ったとしても、コーデックが仮定のため実機と同じ音かは判断できない
