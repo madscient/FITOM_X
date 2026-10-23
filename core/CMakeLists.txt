@@ -56,12 +56,12 @@ target_include_directories(fitom_core
 
 target_compile_definitions(fitom_core PUBLIC BOOST_LOG_DYN_LINK)
 
-# Boost::format / Boost::interprocess はヘッダオンリーのため Boost::headers を使う
+# Boost::format はヘッダオンリーのため Boost::headers を使う
 # (vcpkg では独立した Boost::format ターゲットは存在しない)
 target_link_libraries(fitom_core
     PUBLIC
         nlohmann_json::nlohmann_json
-        Boost::headers      # boost-format / boost-interprocess 等のヘッダオンリー分を含む
+        Boost::headers      # boost-format 等のヘッダオンリー分を含む
         Boost::log
         Boost::log_setup
         Boost::thread

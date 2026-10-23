@@ -287,7 +287,7 @@ std::string HWPort::getPhysicalChipName() const
         std::string type = j.value("type", "");
 
         if (type == "FMHWIF") {
-            // fitom_fmhwif: {type:"FMHWIF", engine, chip, index, ...}
+            // FitomEmuIF: {type:"FMHWIF", engine, chip, index, ...}
             std::string engine = j.value("engine", "");
             std::string chip   = j.value("chip", "");
             std::string name = engine.empty() ? chip

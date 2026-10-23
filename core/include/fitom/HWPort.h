@@ -189,7 +189,7 @@ public:
 
     // ─── 物理チップ名 (レジスタダンプモニター用) ──────────────────────────
     // HWPlugin_Open() に渡したparams_json (docs/interfaces/plugin-hwif.md記載の
-    // フォーマット。物理HWなら{type,serial/port,slot,...}、fitom_fmhwifなら
+    // フォーマット。物理HWなら{type,serial/port,slot,...}、FitomEmuIFなら
     // {type:"FMHWIF",engine,chip,index,...})から、実際に接続されている
     // 物理チップ/エミュレーターチップを表す人間可読な名前を組み立てて返す。
     // これはプロファイルのdevices[].label(ユーザーが自由に付けたラベル)や

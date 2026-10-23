@@ -369,7 +369,7 @@
           "sample_rate": {
             "type": "integer",
             "default": 44100,
-            "description": "[if=HW のみ] サンプルレート [Hz]。fitom_fmhwif.dll および fitom_hw.dll の遅延キュー計算に使用する。省略時は 44100。",
+            "description": "[if=HW のみ] サンプルレート [Hz]。HWプラグインへそのまま渡され、FitomHwIF(fitom_hw.dll)が遅延キューの計算に使う。省略時は 44100。",
             "examples": [
               44100,
               48000

@@ -185,6 +185,8 @@
 - Poly Pressure / Channel Pressure
 - CC#67 Soft Pedal(FM音源に対応するパラメータが無いため意図的に非対応)
 - CC#2/CC#4 の変数分離
+- モノフォニックのチャンネルで、前のノートを押さえたままプログラムチェンジを受けると、次のノートは前の音色(ソフトウェアLFOを含む)で鳴る。`CInstCh::noteOn()`のモノの分岐が、前のノートのデバイスチャンネルを`assignCh()`を通さずに使い回し、新しい音色をデバイスへ渡さないため。`progChange()`は押さえているノートを解放しない。**確認済み**: コードを読んで確認。音では確かめていない
+- 外部MIDIクロック(0xF8)への同期は無い。コアには受け口(`MidiProcessor`の`clockEnabled_`→`CInstCh::midiClockCallback()`)があるが処理は空で、RtMidiバックエンドはTiming Clockを受信時に捨てている(`ignoreTypes`)。**確認済み**: コードを読んで確認
 
 **パッチの解決**
 - プロファイルの`hw_banks[]`で`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`を指定したバンクは、検索で見つからない。登録は`group`から決まるVoicePatchType(EPSGなら0x41)をキーにするが、検索は`PatchManager::hwBankLookupVoicePatchType()`がPSG系を常に0x40へ寄せるため。利用者向けマニュアルでは`group: "SSG"`で登録するよう案内している。**確認済み**: 登録(`loadHwBankJson()`)と検索(`resolveTriple()`)のコードを読んで確認。動かしては確かめていない
@@ -201,6 +203,10 @@
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
+- OPL4 AWMのピッチの微調整が、本来の1/100しか効かない。`COPL4AWM::getFnumber()`は`fineFreq`・オフセット・チャンネルLFO(いずれもkfs単位=1/64半音)を1/128半音単位へ換算する係数を`128/6400`としているが、正しくは2倍。ピッチベンド・ファインチューン・ソフトウェアLFOのビブラートがほとんど効かないはず。**確認済み**: コードの単位を読んで確認。音では確かめていない
+- OPLLの内蔵リズム(`COPLLRhythm::updateFreq()`)は、11bitのF-numberを9bitへ落とさずに下位8bitとbit8を書いている。メロディ側(`COPLL::updateFreq()`)は`>>2`で落としている。同じF-numberテーブル(`FnumTableType::Fnumber`、同じクロックと分周比)で構築しているので、SD/TOMのピッチがずれるはず。**確認済み**: コードを読んで確認。音では確かめていない
+- `createCOPL()`(`DEVICE_OPL`と`DEVICE_Y8950`の生成)がデバイス種別に`DEVICE_OPL2`を渡すため、YM3526/Y8950の`getDeviceType()`がOPL2を返し、`fitom_cli`とGUIのチャンネル名の表示がOPL2になる。**確認済み**: コードを読んで確認。表示以外への影響は調べていない
+- YMZ280B(`CAdPcmZ280::updateVolExp()`)は、ラウドネス空間の`effectiveTL(0)`を`127-`で反転してからTotal Levelへ書いている。他のADPCM(ADPCM-A/ADPCM-B)とOPLLは反転しない。YMZ280BのTotal Levelの向き(値が大きいほど大きい音か)を確かめていないため、誤りかどうかは**未確認の候補**。データシートのTotal Levelの定義か、エミュレータで最大音量時の出力を見れば決まる
 
 **HWプラグインの部位ごとのゲイン**
 - `devices[]`側の記述を変えると`params`が一致しなくなり、保存済みの`part_gains`が掛からなくなる(読み込み時に警告は出る)。GUIから付け替える手段は無い
@@ -214,6 +220,7 @@
 
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線
+- パッチピッカーのカテゴリ(`PatchPickerDialog.cpp`の`kCategories`)にOPLLEX(CC#0=0x2C)が無く、利用者向けマニュアルの直接デバイス選択値の一覧と食い違う。**確認済み**: コードを読んで確認
 - 内部用MIDIパイプ経由の音色試聴連携(GUIからのSysEx送出、パッチエディタ本体との結合)
 - `sf2_channel_windows`を一覧編集する専用ダイアログ(チャンネル単位の切替はCH設定ダイアログにある。`docs/design/sf2-direct-path.md`「GUI」)
 - チャンネルレベルメーターのサブデバイスの表示順(現状はConfig側の生成順)
@@ -222,6 +229,8 @@
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`
 
 **ビルド**
+- 呼び出し元の無いコード: `core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
+- `gui/mfc_shim/`はどの`CMakeLists.txt`からも`add_subdirectory`されておらず、ビルド対象外。中身は廃止済みの`FmEnginePort`等を参照していて古い。`CMakePresets.json`が設定する`FITOM_GUI_MFC`もどこからも読まれない。残すかは未決(**確認済み**: grep)
 - `vcpkg.json`の依存に`boost-interprocess`が残っているが、コードはBoost.Interprocessを使っていない(**確認済み**: `core`/`apps`/`gui`/`backends`で`boost/interprocess`のインクルードが無いことをgrepで確認)。依存を外すかは未決
 
 **プラグイン SDK**

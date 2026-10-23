@@ -18,7 +18,7 @@
 | ファイル | 中身 | プロファイルでの登録先 | 登録のキー |
 |---|---|---|---|
 | `*.hwbank.json` | 音色(HwPatch)最大128個 | `banks.hw_banks[]` | `group`(チップ種別)+`bank` |
-| `*.samplezonebank.json` | サンプル系チップ(ADPCM-B/ADPCM-A/PCM-D8/AWM等)の音色 | `banks.hw_banks[]` | `group`+`bank` |
+| `*.samplezonebank.json` | AWM(OPL4のPCM部)の音色 | `banks.hw_banks[]` | `group`(`"AWM"`)+`bank` |
 | `*.swbank.json` | 演奏特性(SwPatch)最大128個 | `banks.sw_banks[]` | `bank` |
 | `*.patchbank.json` | レイヤードパッチ最大128個 | `banks.patch_banks[]` | `bank` |
 | `*.drumkit.json` | ドラムキット1つ | `banks.drum_banks[]` | `prog` |
@@ -219,4 +219,4 @@ ADPCM-B・ADPCM-A・PCM-D8・SSGS-ADPCMの波形データの目録です。ど�
 
 SSGS-ADPCM(YMZ705/YMZ732)は、波形の開始/終了アドレスをチップ自身がメモリ先頭の表から読むため、`entries[]`のアドレスは音に関係しません(波形の有無と名前にだけ使われます)。音程は変えられず、`sample_rate`(4000/8000/16000/32000のいずれか)がそのままチップの再生レートになります。
 
-サンプル系チップの音色(`*.samplezonebank.json`)の書き方は、[HwPatch リファレンス](./hwpatch-reference.md)の「14. ADPCM-B / ADPCM-A / PCM-D8 / AWM」を参照してください。
+AWMの音色(`*.samplezonebank.json`)の書き方は、[HwPatch リファレンス](./hwpatch-reference.md)の「14. ADPCM-B / ADPCM-A / PCM-D8 / AWM」を参照してください。
