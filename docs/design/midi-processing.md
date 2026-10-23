@@ -1,102 +1,105 @@
-# MIDI メッセージ実装状況
+# MIDI処理の内部設計
 
-FITOM_X が実際に受信・処理する MIDI メッセージ／CC／RPN の対応表。
-GM2 規格を完全網羅するものではなく、意図的に対応範囲を絞っている項目がある。
+**対象読者**: FITOM_X本体の開発者・AI  
+**関連文書**:
+- 利用者向けの仕様: `docs/manuals/midi-message-reference.md`、対応状況の一覧: `docs/manuals/midi-implementation-chart.md`
+- SF2直行パス: `docs/design/sf2-direct-path.md`
+- パッチの解決: `docs/design/patch-resolution.md`
+
+この文書は、受信したMIDIメッセージがコードのどこでどう処理されるかと、その設計判断を書く。メッセージごとの利用者向けの意味は、上のマニュアルを正とする。
 
 ---
 
-## チャンネルメッセージ
+## 受信の流れ
 
-| メッセージ | 状態 | 備考 |
+```
+MIDIバックエンドDLLのコールバック(DLLのスレッド)
+  → CFITOM::receiveMpuByte(mpu, ...)        processMutex_ を取る
+      → MidiProcessor::receiveByte()        ランニングステータス・SysExの組み立て
+          → MidiProcessor::processMessage()
+              ├ SF2直行パスの窓に含まれる(mpu,ch) → CFITOM::routeSf2ChannelMessage()
+              ├ コントロールチェンジ → MidiProcessor::processControl()
+              └ それ以外 → channels_[ch](IMidiCh: CInstCh / CRhythmCh)
+```
+
+- MPU(実MIDI入力ポートの単位、最大4面)ごとに`MidiProcessor`と16ch分の`IMidiCh`がある。内部用MIDIパイプは、MPUとは別の専用の`MidiProcessor`と16chを持つ(`internalPipeProcessor_`/`internalPipeChannels_`。MIDIクロックは扱わない)
+- MIDI入力・タイマー・GUIからの送出(`MidiProcessor::sendControlChange()`等)は、すべて`CFITOM`の`processMutex_`で直列化される。GUIからの送出も、実MIDI入力と同じくSF2直行パスの窓を確かめてから振り分ける
+- SF2直行パスの窓はMPUに対してだけ設定する。内部用MIDIパイプのメッセージは窓の判定を通らない
+- 起動時、各`MidiProcessor`のch9(10チャンネル目)はリズムチャンネル(`CRhythmCh`)、それ以外はメロディチャンネル(`CInstCh`)として作られる
+
+## コントロールチェンジの配線
+
+`MidiProcessor::processControl()`が受け、多くは`IMidiCh`の対応するメソッドへそのまま渡す。
+
+| CC# | 処理 | 要点 |
 |---|---|---|
-| Note On (0x90) | ✅ | vel=0 は Note Off として処理 |
-| Note Off (0x80) | ✅ | Sostenuto保持時は`pendingRelease`で遅延 |
-| Poly Pressure (0xA0) | ⬜ 非対応（意図的） | |
-| Program Change (0xC0) | ✅ | 発音中ノートには作用しない（後述） |
-| Channel Pressure (0xD0) | ⬜ 非対応（意図的） | |
-| Pitch Bend (0xE0) | ✅ | Fnumテーブルステップ単位で実装（RPN#0参照） |
+| 0 | `bankSelMSB()` | 0x78/0x79はここで消費してチャンネルロールを切り替え、`bankSelMSB()`には渡さない(「Bank Select 方式」節) |
+| 1 | `setModulation()` | ソフトウェアLFO用。`sw.LFR=0`の音色だけに効く(「ソフトウェアLFO」節) |
+| 2, 4 | `setBreathCtrl()` / `setFootCtrl()` | 空実装。操作するパラメータが無い |
+| 5 | `setPortTime()` | 「レガートとポルタメント」節 |
+| 6, 38, 96, 97 | Data Entry MSB/LSB、Data Increment/Decrement | 選択中のRPN/NRPNへ。Increment/Decrementの刻みはレジスタごとに違う(MSBだけ有効なパラメータは128刻み、LSBだけ有効なパラメータは1刻み等。`dataIncrement()`) |
+| 7, 10, 11 | `setVolume()` / `setPanpot()` / `setExpression()` | パンはパンを持つデバイスでだけ効き、持たないデバイスでは無視される |
+| 14, 15 | `setHwLfoDepth()` / `setHwLfoRate()` | 非標準。チップ内蔵LFO(「ハードウェアLFO」節) |
+| 32 | `bankSelLSB()` | 意味はCC#0の値で変わる。リズムチャンネルでは無視 |
+| 64 | `setSustain()` | チップごとの実装(「サステイン」節) |
+| 65, 68, 84 | `setPortamento()` / `setLegato()` / `setPortamentoSource()` | モノフォニックのチャンネルでだけ効く |
+| 66 | `setSostenuto()` | 「ソステヌート」節 |
+| 76, 77, 78 | `setSoftLfoRate()` / `setSoftLfoDepth()` / `setSoftLfoDelay()` | GM2のSound Controller 7/8/9。ソフトウェアLFOへのオフセット |
+| 98–101 | NRPN/RPNの番号の選択 | |
+| 120 | `allSoundOff()` | 「CC#120とCC#123」節 |
+| 121 | `resetAllCtrl()` | ボリューム・エクスプレッション・パン・ピッチベンドとそのレンジ・RPN#1・ペダル類・ポルタメントとソース指定・ハードウェアLFO・ソフトウェアLFOのオフセットを初期値に戻す。HwPatch/SwPatch/ToneLayerのオーバーライドは消さない(プログラムチェンジで消える) |
+| 123 | `allNoteOff()` | 通常のnoteOff。サステイン中なら保持される |
+| 126, 127 | `setMonoMode()` / `setPolyMode()` | 「モノモードとボイス数上限」節 |
 
----
+これ以外のCC(CC#67 Soft Pedal、CC#122 Local Control、CC#124/125 Omni Off/On等)は無視する。
 
-## コントロールチェンジ
+## RPN と NRPN
 
-| CC# | 名称 | 状態 | 備考 |
-|---|---|---|---|
-| 0 | Bank Select MSB | ✅ | モード選択子 (下記「Bank Select 方式」参照)。0=通常モード、0x01-0x6F=直接モード(VoicePatchType指定)、0x78/0x79=GM2リズム/メロディ切替 |
-| 1 | Modulation | ✅ | ソフトウェアLFO専用(`pmDepth_`→`setCC1Modulation`)。`sw.LFR=0`の音色のみCC#1駆動LFOが作用。sine固定・6.25Hz固定。RPN#5でデプス変更可。2026年7月、ハードウェアLFO(CC#14/15)への関与を廃止して分離した。前の占有者(別MIDIチャンネル)の`VoiceProcessor::cc1Value_`が残留し、CC#1を一度も送っていないチャンネルにソフトLFOが誤って掛かる不具合があったため、CC#77と同様に毎ノートオンで現在値を必ずpushするよう修正(2026年7月)。**この修正は当初無効化されていた**: `CInstCh::noteOn()`が`ISoundDevice::setCC1Modulation()`を呼ぶのは`dev->assignCh()`(→`ChState::status = Assigned`)の直後・`dev->noteOn()`(→`status = Running`)より前だが、`CSoundDevice::setCC1Modulation()`側のガードが`ChState::isActive()`(`Running`/`Releasing`のみ true)だったため、通常の(devChを他chから奪う)経路では常に早期returnして不具合が再発していた。ガードに`isAssigned()`を追加して修正(2026年7月)。**さらに、`CRhythmCh`(ドラム/リズムパート)を経由する場合の別の抜け穴も判明**: `CRhythmCh::applyNoteOn()`は`CInstCh::noteOn()`と違い`setCC1Modulation()`/`setLfoDepthOverride()`を一切呼ばない(CC#1/CC#77というコントローラ自体を扱わない設計)ため、「CC#1でLFOをかけたメロディch」→「そのdevChを奪うドラムノート(何もpushしないので素通り)」→「同じdevChを奪う別のメロディch(CC#1未送信)」の順でdevChが使い回されると、残留した`cc1Value_`がドラムノートをすり抜けて2つ目のメロディchまで残ってしまっていた。`CRhythmCh::applyNoteOn()`にも毎ノートオンで`setCC1Modulation(devCh, 0, 0)`/`setLfoDepthOverride(devCh, -2000)`(常に無効値)を強制pushする処理を追加して解消(2026年8月) |
-| 2 | Breath Controller | ⬜ 非対応(2026年7月に無効化) | 旧`amDepth_`(ハードウェアAM用)を廃止したのに伴い、操作対象のパラメータが無くなったため`setBreathCtrl`は空実装にした。ソフトウェアAM(トレモロ)相当の仕組みは現状存在しない |
-| 4 | Foot Controller | ⬜ 非対応(2026年7月に無効化) | CC#2と同じ理由 |
-| 5 | Portamento Time | ✅ | GM2規格書の「Portamento Rate」グラフから区分指数関数で再構築した128要素テーブル(`kPortaSpeedTable`)を使用。1半音=64ステップ(100/64cent)単位で滑らかに遷移(`PortaCtrl::fine_`) |
-| 6 | Data Entry MSB | ✅ | RPN/NRPN経由でディスパッチ |
-| 7 | Channel Volume | ✅ | |
-| 10 | Pan | ✅ | 対応デバイス（VoicePatchType依存）でのみ効果あり。非対応デバイスは無視（ケイパビリティ判定なし、エンドユーザー責任） |
-| 11 | Expression | ✅ | |
-| 14 | HW LFO Depth(非標準) | ✅(2026年7月新設) | `CInstCh::hwLfoDepth_`→`ISoundDevice::setLFODepth()`。OPM/OPZ(`COPM`)のみ実装、他チップは基底クラスのno-opにフォールバック。チップ内蔵LFOは1系統のみの共有リソースのため全チャンネル共通(最後の送信値が勝つ)。`CSpanDevice`/`CUnison`にも転送(`SPAN_DELEGATE`/`UNISON_BROADCAST`)を追加済み |
-| 15 | HW LFO Rate(非標準) | ✅(2026年7月新設) | `CInstCh::hwLfoRate_`→`ISoundDevice::setLFORate()`。CC#14と同じ制約 |
-| 32 | Bank Select LSB | ✅ | CC#0の値によって意味が変わる (下記「Bank Select 方式」参照)。通常モード時=PatchBank番号、直接モード時=HwBankインデックス。リズムチャンネルでは常に無視 |
-| 64 | Sustain | ✅ | チップ依存実装（後述） |
-| 65 | Portamento On/Off | ✅ | **モノフォニックチャンネル専用**。ポリでは無効 |
-| 66 | Sostenuto | ✅ | ペダル押下時に鳴っていたノートのみホールド（NoteOff遅延方式） |
-| 67 | Soft Pedal | ⬜ 非対応（意図的） | FM音源に直接対応するパラメータがないため |
-| 68 | Legato | ✅ | **モノフォニックチャンネル専用**。ポリでは無効 |
-| 76 | Sound Controller 7 / Soft LFO Rateオフセット(非標準) | ✅(2026年7月新設、2026年8月に絶対上書き方式からGM2準拠のオフセット方式へ変更) | `CInstCh::lfoRateOverride_`。`assignCh()`内部で`VoiceProcessor::onNoteOn()`が呼ばれるタイミングの都合上、CInstCh側で`SwPatch`の一時コピー(`overriddenSw`)へ焼き込んでから渡す方式(devCh決定後にch単位でpushする方式では最初のノートに間に合わないため)。次のノートオンから反映。**2026年8月修正**: 当初は受信値(0-127)をそのまま`sw.LFR`へ絶対上書きする方式だったが、GM2準拠のDAW/MIDIファイルがSound Controller群(CC#70-79)を既定値64へリセットする定型初期化を送ると、この絶対上書き方式では「値64でLFO Rateを強制起動」と誤解釈され、`sw.LFR=0`(LFO未使用)の音色にまで意図せずLFOが掛かってしまう不具合があった(実機報告で発覚)。GM2のSound Controller本来の仕様(値64=中央/補正なしのオフセット方式)に合わせ、`lfoRateOverride_`は(受信値-64)を`sw.LFR`へ加算するオフセットとして扱うよう変更(0-127でclamp) |
-| 77 | Sound Controller 8 / Soft LFO Depthオフセット(非標準) | ✅(2026年7月新設、2026年8月に絶対上書き方式からGM2準拠のオフセット方式へ変更) | `CInstCh::lfoDepthOverrideCents_`。`VoiceProcessor::recalcChLfo()`が毎tick参照するため、`ISoundDevice::setLfoDepthOverride()`経由で発音中ノートにも即座に反映可能(`setCC1Modulation`と同じ配線パターン)。前の占有者(別MIDIチャンネル)の値が漏れ残らないよう、無効値(オフセット0)も含め毎ノートオンで必ずpushする。**この毎ノートオンpushは新設時から無効化されていた**: 呼び出しタイミング(`assignCh()`直後・`dev->noteOn()`より前、`ChState::status == Assigned`)と`CSoundDevice::setLfoDepthOverride()`側のガード(`isActive()`、`Running`/`Releasing`のみ true)が食い違っており、通常の(devChを他chから奪う)経路では常に早期returnしていた。CC#1(上記1番)と同時にガードへ`isAssigned()`を追加して修正(2026年7月)。**2026年8月、CC#76と同じ理由でGM2準拠のオフセット方式へ変更**: 受信値(0-127)を(値-64)×1200/64で±1200cents相当のオフセットへ変換し、`sw.depthCents`へ加算する(絶対上書きではなくなった)。`VoiceProcessor::recalcChLfo()`側も`sw.depthCents + lfoDepthOverrideCents_`をclampする方式に変更 |
-| 78 | Sound Controller 9 / Soft LFO Delayオフセット(非標準) | ✅(2026年7月新設、2026年8月に絶対上書き方式からGM2準拠のオフセット方式へ変更) | `CInstCh::lfoDelayOverride_`。CC#76と同じSwPatch焼き込み方式・同じ理由でオフセット方式に変更済み |
-| 84 | Portamento Control (Source Note) | ✅ | one-shot、次のNoteOnのグライド開始音を明示指定 |
-| 96 | Data Increment | ✅(2026年7月新設) | 選択中のRPN/NRPNレジスタの値を1ステップ増加。ステップ幅はレジスタごとに異なる(`dataIncrement()`実装参照。MSBのみ有効なパラメータは128刻み、LSBのみ有効なパラメータは1刻み等) |
-| 97 | Data Decrement | ✅(2026年7月新設) | 同上、減少方向 |
-| 98/99 | NRPN LSB/MSB | ✅ | |
-| 100/101 | RPN LSB/MSB | ✅ | |
-| 120 | All Sound Off | ✅ | `forceDamp`実装。RRを最大化し急速減衰（ALGキャリア判定込み） |
-| 121 | Reset All Controllers | ✅ | Sostenuto/Portamento保留状態のクリア、HW/Soft LFOオーバーライドの解除を含む |
-| 123 | All Notes Off | ✅ | 通常のnoteOff（sustain有効なら保持） |
-| 126 | Mono Mode On(非標準の値解釈) | ✅(2026年7月新設) | 値M。M=1: 真のモノ(`mono_=true`、既存のレガート/ポルタメント経路を使用)。M=0またはM≥2: ポリのまま`voiceLimit_`(ボイス数上限)を設定し、`stealOldestNoteIfNeeded()`でノート単位の最古スティールを行う。M=0は自動算出値(`poly_`)を使用 |
-| 127 | Poly Mode On | ✅(2026年7月新設) | `mono_=false`、`voiceLimit_`を`poly_`(自動算出値)に戻す |
-
----
-
-## RPN
-
-| RPN | 名称 | 状態 |
+| 番号 | 名称 | 実装の要点 |
 |---|---|---|
-| 0x0000 | Pitch Bend Range | ✅ |
-| 0x0001 | Fine Tuning | ✅ (14bit全体を使用、中央値8192で±100cents。実効分解能は1半音=64kfsの粒度が上限で約1.5625cents/step、丸めは四捨五入) |
-| 0x0002 | Coarse Tuning | ✅ MSBのみ有効、±64semitones |
-| 0x0005 | Modulation Depth Range | ✅ |
-| 0x7F7F | RPN Null | ✅ Data Entry無効化 |
+| RPN 0x0000 | Pitch Bend Range | |
+| RPN 0x0001 | Fine Tuning | 14bitを使い、中央8192で±100セント。実効分解能はkfs(約1.5625セント)で四捨五入 |
+| RPN 0x0002 | Coarse Tuning | MSBだけ有効、±64半音 |
+| RPN 0x0005 | Modulation Depth Range | CC#1のLFOの最大デプス |
+| RPN 0x7F7F | RPN Null | Data Entryを無効にする |
+| NRPN 96,1 (0x3001) | 物理チャンネル固定 | `CInstCh::applyPhyChOverride()`。Data EntryのMSBを使う。モノフォニックかつ直接モードで有効なデバイスを選んでいるときだけ効き、指定チャンネルがそのデバイスの`getChCount()`(スパン時は合算値)の範囲内かを確かめる。新たなNRPN・プログラムチェンジ・バンクセレクトのいずれかで解除 |
+| NRPN 96,2 (0x3002) | パフォーマンスバンクセレクト | `CInstCh::pendingSwBankOverride_`に置くだけ。96,3とセットで確定する |
+| NRPN 96,3 (0x3003) | パフォーマンスプログラムセレクト | `swBankOverride_`/`swProgOverride_`を確定させる。`noteOn()`は`rl->swPatch`の代わりに`patchMgr_->resolveSwPatch(swBankOverride_, swProgOverride_)`を基点にする(解決できなければ`rl->swPatch`へ戻す。DrumNoteの`swBank`/`swProg`と同じ規約)。CC#76/78のオフセットはこの基点の上に掛かる。プログラムチェンジで3つとも-1に戻る |
+| NRPN 24/26/28,nn (0x1800/0x1A00/0x1C00+nn) | ドラムのピッチ/レベル/パン | リズムチャンネル専用(GM2準拠)。`CRhythmCh::setNRPNRegister()`。Data EntryのMSBを使う |
+| NRPN 97,0–31 (0x3080–0x309F) | ToneLayerオーバーライド | `CInstCh::applyToneLayerOverride()`。下記 |
 
----
+**ToneLayerオーバーライド(NRPN 97)**: `reg-0x3080`を8で割った商がレイヤー番号(0-3)、余りがパラメータ番号(0-7: voice_patch_type/hwbank/hwprog/transpose/note_range_lo/note_range_hi/volume_offset/pan_offset)。直接モード(`bankSelM_!=0`)のチャンネルでは何もしない。パラメータ0/1は`pendingVoicePatchType`/`pendingHwBank`に置くだけで、パラメータ2(hwprog)を受けたときに、この2つと合わせて`patchMgr_->resolveDirect()`を呼び、`ToneLayerOverride::resolved`(単層の`ResolvedPatch`)を確定させる。`noteOn()`のレイヤーのループは`resolver_.layerCount()`ではなく`MAX_TONE_LAYERS`まで回し、レイヤードパッチが定義していないレイヤー番号にもオーバーライドを置けるようにしている。パラメータ3-7はそれぞれ独立したactiveフラグを持ち、有効ならToneLayer本来の値の代わりに使う。プログラムチェンジで全部消える(`clearToneLayerOverrides()`)。発音中のノートには反映せず、次のノートオンから効く。
 
-## NRPN
+## システムエクスクルーシブ
 
-| NRPN | 名称 | 状態 | 備考 |
+`MidiProcessor::processSysEx()`が受ける。
+
+### Universal Real Time (F0 7F)
+
+Device IDは見ず、常に自分宛として処理する。Universal Non-Realtime(0x7E)は扱わない。
+
+| Sub-ID1 | Sub-ID2 | 名称 | 実装の要点 |
 |---|---|---|---|
-| 0x3001 (96,1) | 物理チャンネル固定 | ✅(2026年7月に条件付き発動へ再設計) | `CInstCh::applyPhyChOverride()`。旧実装は`val & 0x7F`(LSB由来)を参照しており、DAWがMSBのみ送る一般的な使い方では常に`phyCh_=0`に固定されるバグがあった。修正して`val >> 7`(MSB由来)に変更。加えて「モノフォニックかつ直接モードで有効なデバイスを選択中」の場合のみ発動し、指定チャンネルがそのデバイスの`getChCount()`(スパン時は合算値)の範囲内であることを検証するよう仕様変更した。新たなNRPN受信・プログラムチェンジ・バンクセレクトのいずれかで都度クリアされる |
-| 0x3002 (96,2) | パフォーマンスバンクセレクト | ✅(2026年7月新設) | `CInstCh::pendingSwBankOverride_`。単体では確定しない、96,3とセットで使う一時保存用 |
-| 0x3003 (96,3) | パフォーマンスプログラムセレクト | ✅(2026年7月新設) | `CInstCh::swBankOverride_`/`swProgOverride_`。受信時点の`pendingSwBankOverride_`と自身のDE(MSB)値をセットで確定させる。`noteOn()`で`rl->swPatch`の代わりに`patchMgr_->resolveSwPatch(swBankOverride_, swProgOverride_)`を基点として使う(解決失敗時は`rl->swPatch`にソフトフォールバック、DrumNote::swBank/swProgと同じ規約)。CC#76/78のRate/Delay上書きは、この基点SwPatchの上にさらに適用される。`progChange()`で3メンバとも`-1`にクリアされる(次のプログラムチェンジまで有効) |
-| 0x1800/nn, 0x1A00/nn, 0x1C00/nn | Drum Instrument Pitch/TVA Level/Pan(GM2準拠、リズムチャンネル専用) | ✅(2026年7月にバグ修正) | `CRhythmCh::setNRPNRegister()`。旧実装は14bit合成値`val`をそのまま`val-64`していたため、LSB(CC#38)を送らない一般的な使い方ではオフセットが常に飽和していた(事実上機能していなかった)。`val >> 7`(MSBのみ)を使うよう修正 |
-| 0x3080-0x309F (97, 0-31) | ToneLayerオーバーライド | ✅(2026年7月新設) | `CInstCh::applyToneLayerOverride()`。`reg-0x3080`を8で割った商がレイヤー番号(0-3)、余りがパラメータ番号(0-7: voice_patch_type/hwbank/hwprog/transpose/note_range_lo/note_range_hi/volume_offset/pan_offset)。`bankSelM_!=0`(直接モード)のチャンネルでは即座にreturnし何もしない。パラメータ0/1は`pendingVoicePatchType`/`pendingHwBank`に保持するのみ。パラメータ2(hwprog)受信時に、この2つの保持値と併せて`patchMgr_->resolveDirect()`を呼び、`ToneLayerOverride::resolved`(単層`ResolvedPatch`、`resolveDirect()`と全く同じ経路)を確定させる。`noteOn()`のレイヤーループは`resolver_.layerCount()`ではなく`MAX_TONE_LAYERS`まで回すよう変更し(レイヤードパッチが定義していないレイヤー番号にも新規にオーバーライドを割り当てられるようにするため)、`patchActive`なレイヤーは`resolved.layers[0]`を`rl`として使う。パラメータ3-7は個別に独立したactiveフラグを持ち、有効ならToneLayer本来の値の代わりに使う(`noteOn()`内で`effRangeLo`/`effRangeHi`/`effTranspose`/`effVolumeOffset`/`effPanOffset`として計算)。全パラメータ`progChange()`で一括クリア(`clearToneLayerOverrides()`)。既に発音中のノートへの遡及反映は行わない(次のノートオンから反映) |
+| 0x04 | 0x01 | Master Volume | MSBだけ使う(7bit)。`CFITOM::setMasterVolume()`は値をプロファイル設定に保存し、SF2直行パスのデバイスへ転送するだけで、FM/PSGのチップの音量には反映しない(`CSoundDevice::setMasterVolume()`は呼ばれず、`masterVolume_`も読まれていない) |
+| 0x04 | 0x03 | Master Fine Tuning | 14bitを使う、±100セント |
+| 0x04 | 0x04 | Master Coarse Tuning | MSBだけ有効、±64半音 |
+| 0x08 | 0x08 | Scale/Octave Tuning(1byte形式) | 簡略実装(「ピッチの計算」節) |
 
----
+### プライベート (F0 00 48 01 ...)
 
-## Universal SysEx (Universal Real Time, F0 7F)
+`MidiProcessor::processPrivateSysEx()`が受ける。マニュファクチャラIDの次の1バイトがsub-cmd。
 
-`MidiProcessor::processSysEx()`で受信。Device ID判定は行わず常に自分宛として
-処理する。Universal Non-Realtime(0x7E)は非対応。
-
-| Sub-ID1 | Sub-ID2 | 名称 | 状態 |
+| sub-cmd | 用途 | 方向 | 詳細 |
 |---|---|---|---|
-| 0x04 | 0x01 | Master Volume | ✅ スタブ実装 (MSBのみ使用、7bit精度) |
-| 0x04 | 0x03 | Master Fine Tuning | ✅ 14bit全体使用、±100cents相当 |
-| 0x04 | 0x04 | Master Coarse Tuning | ✅ MSBのみ有効、±64semitones |
-| 0x08 | 0x08 | Scale/Octave Tuning (1byte形式) | ✅ 簡略実装 (下記注意点参照) |
-| 0x08 | 0x09 | Scale/Octave Tuning (2byte形式) | ⬜ 非対応 |
+| 0x01 | HwPatchパラメータオーバーライド | 受信 | 下記 |
+| 0x02 | SwPatchパラメータオーバーライド | 受信 | 下記 |
+| 0x03 | チャンネル割り当て通知 | 送信のみ(内部用MIDIパイプ) | `docs/interfaces/plugin-midi-pipe.md` |
+| 0x04 | SF2直行パスの窓の割り当て・解除 | 受信 | `docs/design/sf2-direct-path.md`「窓」 |
+| 0x05 | SF2のバンク・プログラム選択 | 送信のみ(SoundFontプラグイン) | `docs/interfaces/plugin-hwif.md` |
+| 0x06 | レイヤードパッチ(`Patch`)の直接編集 | 受信 | 下記 |
+| 0x07 | ドラムキット(`DrumPatch`)の直接編集 | 受信 | 下記 |
 
----
-
-## プライベートSysEx (manufacturer 00H 48H 01H) — HwPatch/SwPatchパラメータオーバーライド
-
-2026年7月新設。`MidiProcessor::processPrivateSysEx()`(以前はスタブのみ)に実装した。同年7月、当初HwPatch専用だったプロトコルをSwPatchにも拡張した(`sub-cmd`で切替)。
+**sub-cmd 0x01/0x02(HwPatch/SwPatchのオーバーライド)**
 
 ```
 [0..2] 00 48 01 (呼び出し元processSysEx()で確認済み)
@@ -113,21 +116,19 @@ GM2 規格を完全網羅するものではなく、意図的に対応範囲を�
 
 JSONのフィールドマージは`PatchManager::mergeHwPatchFromJsonText()`/`mergeSwPatchFromJsonText()`(内部的にはそれぞれ匿名名前空間の`mergeHwPatchFromJson()`/`mergeSwPatchFromJson()`に委譲)で行う。既存の`jsonToHwPatch()`/SwBank読み込みロジックと異なり、まっさらなインスタンスからではなく既存の`target`へ差分マージする点が違い。`"ops"`配列は`null`/`{}`要素をスキップとして扱う(疎な指定に対応)。`id`/`name`/`builtin`はこの経路では対象外。SwPatch側のJSONキー名は`saveSwBankJson()`が出力する形式(`"sw":{...}`・`"ops":[...]`・`"fine_transpose"`)に合わせている。
 
-**target-type=0x00(チャンネル)**:
+target-type=0x00(チャンネル):
 - HwPatch: `IMidiCh::mergeHwPatchOverride(layer, jsonText)` → `CInstCh`実装。`hwPatchOverride_[layer]`(`std::array<HwPatch, MAX_TONE_LAYERS>`)へマージし、`hwPatchOverrideActive_[layer]`を立てる。初回マージ時は`resolver_.layer(layer)->hwPatch`を起点にコピーする(2回目以降は前回のオーバーライド結果に積み上げる)。`noteOn()`で`rl->hwPatch`の代わりに使う(`patch`変数の決定ロジック)ほか、`ISoundDevice::setVoice(ch, patch, true)`で発音中の同レイヤーの全ノートへ即座に反映する。
-- SwPatch: `IMidiCh::mergeSwPatchOverride(layer, jsonText)` → `CInstCh`実装。`swPatchOverride_[layer]`へマージ、初回は`resolver_.layer(layer)->swPatch`を起点にコピー。`noteOn()`の`baseSwPatch`決定チェーン(NRPN96,2/3の直後、CC#76/78のRate/Delay上書きより前)に組み込む。**`ISoundDevice`側に相当するリアルタイムpush手段が無いため、発音中ノートへの即時反映は行わない(次のノートオンから反映、CC#76/78のRate/Delayと同じ制約)。**
+- SwPatch: `IMidiCh::mergeSwPatchOverride(layer, jsonText)` → `CInstCh`実装。`swPatchOverride_[layer]`へマージ、初回は`resolver_.layer(layer)->swPatch`を起点にコピー。`noteOn()`の`baseSwPatch`決定チェーン(NRPN96,2/3の直後、CC#76/78のオフセットより前)に組み込む。**`ISoundDevice`側に相当するリアルタイムpush手段が無いため、発音中ノートへの即時反映は行わない(次のノートオンから反映、CC#76/78と同じ制約)。**
 - 両者とも`progChange()`で全レイヤークリア。JSON本文が(空白を除いて)`"{}"`の場合は特別扱いし、通常のマージではなく該当レイヤーのオーバーライド解除として処理する。
 
-**target-type=0x01(プリセットバンク)**:
-- HwPatch: `HwBankRegistry::findMutable()`(2026年7月新設、既存の`find()`のconst版と対になる可変アクセサ)で対象`HwBank`を取得し、`bank->patches[hwProg]`へマージする。
-- SwPatch: `SwBankRegistry::findMutable()`(同、2026年7月新設)で対象`SwBank`を取得し、`bank->patches[swProg]`へマージする。
-- いずれも対象スロットが`isValid()==false`(未定義)の場合は無視する(このSysExは既存プリセットの編集専用、新規作成用途ではないため)。**メモリ上のみの変更で、ディスクへの永続化は行わない**(パッチエディタ側が別途バンクファイルへ書き込む前提。「プライベートSysEx — レイヤードパッチ/ドラムキット直接編集」節も参照)。
+target-type=0x01(プリセットバンク):
+- HwPatch: `HwBankRegistry::findMutable()`で対象`HwBank`を取得し、`bank->patches[hwProg]`へマージする。
+- SwPatch: `SwBankRegistry::findMutable()`で対象`SwBank`を取得し、`bank->patches[swProg]`へマージする。
+- いずれも対象スロットが`isValid()==false`(未定義)の場合は無視する(このSysExは既存プリセットの編集専用、新規作成用途ではないため)。**メモリ上のみの変更で、ディスクへの永続化は行わない**(パッチエディタ側が別途バンクファイルへ書き込む前提)。
 
----
+**sub-cmd 0x06/0x07(レイヤードパッチ・ドラムキットの直接編集)**
 
-## プライベートSysEx (manufacturer 00H 48H 01H) — レイヤードパッチ/ドラムキット直接編集
-
-2026年8月新設。外部パッチエディタ(別リポジトリ)がバンクファイルへの保存と対にして送る、パッチ編集結果の永続化用メッセージ。HwPatch/SwPatchの`target-type=0x01`(プリセットバンク直接編集)と同じ「メモリ上のバンク/プログラムデータを直接書き換える」性質を持つが、対象が`Patch`(レイヤードパッチ)/`DrumPatch`(ドラムキット)であるため、`target-type`/`layer`の枠組みは使わない(この単位のチャンネルスコープ一時上書きは、既存のNRPN97「ToneLayerオーバーライド」・NRPN24/26/28「ドラムインストゥルメント系」が既に担っているため、バンク直接編集の1系統のみでよい)。
+外部パッチエディタがバンクファイルへの保存と対にして送る、編集結果をメモリ上のバンクへ確定させるためのメッセージ。sub-cmd 0x01/0x02の`target-type=0x01`と同じ性質だが、対象が`Patch`/`DrumPatch`なので`target-type`/`layer`の枠組みは使わない(この単位のチャンネルスコープの一時上書きは、NRPN 97とドラム用NRPNが担う)。
 
 ```
 [0..2] 00 48 01
@@ -139,43 +140,16 @@ JSONのフィールドマージは`PatchManager::mergeHwPatchFromJsonText()`/`me
 
 JSONのフィールドマージは`PatchManager::mergePatchFromJsonText()`/`mergeDrumPatchFromJsonText()`(内部的にはそれぞれ匿名名前空間の`mergePatchFromJson()`/`mergeDrumPatchFromJson()`に委譲)で行う。既存プリセットの編集専用で、対象スロットが`isValid()==false`の場合は無視する点、メモリ上のみの変更でディスクへは保存しない点はHwPatch/SwPatchと同じ。
 
-**sub-cmd=0x06(Patch)**:
-- `PatchManager::findMutablePatchBank()`(2026年8月新設)で対象`PatchBank`を取得し、`bank->patches[prog]`へマージする。
-- JSONフィールド: `name`/`poly`/`layers`(0-4要素の可変長配列、`patchbank.schema.json`の`layers[]`と同じキー名で各`ToneLayer`へ差分マージ)。
-- `layers[]`の各要素は3通りの意味を持つ:
-  - `null` または `{}`: そのインデックスは変更しない(現状維持)
-  - 文字列 `"remove"`: そのインデックスのレイヤーを削除する(`ToneLayer`をデフォルト値へリセット、`enabled=false`になり事実上無音化する)
-  - オブジェクト: 既存の`ToneLayer`へ差分マージ
+- sub-cmd=0x06(Patch): `PatchManager::findMutablePatchBank()`で対象`PatchBank`を取得し、`bank->patches[prog]`へマージする。JSONフィールドは`name`/`poly`/`layers`(0-4要素の可変長配列、`patchbank.schema.json`の`layers[]`と同じキー名で各`ToneLayer`へ差分マージ)。`layers[]`の各要素は3通りの意味を持つ: `null`または`{}`=そのインデックスは変更しない、文字列`"remove"`=そのレイヤーを削除する(`ToneLayer`をデフォルト値へリセットし、`enabled=false`で事実上無音にする)、オブジェクト=既存の`ToneLayer`へ差分マージ。
+- sub-cmd=0x07(DrumPatch): `DrumBankRegistry::findMutable()`で対象`DrumPatchBank`を取得し、`bank->patches[prog]`へマージする。JSONフィールドは`name`/`choke_groups`(指定時は全置換)/`notes`(オブジェクト、キー=MIDIノート番号の文字列"0"-"127"、値は`drumkit.schema.json`の`notes[]`要素と同じキー名で各`DrumNote`へ差分マージ)。`notes{}`の各値は`layers[]`と同じ3通りの意味を持つ。
 
-**sub-cmd=0x07(DrumPatch)**:
-- `DrumBankRegistry::findMutable()`(2026年8月新設、`HwBankRegistry::findMutable()`等と同じ設計)で対象`DrumPatchBank`を取得し、`bank->patches[prog]`へマージする。
-- JSONフィールド: `name`/`choke_groups`(指定時は全置換)/`notes`(オブジェクト、キー=MIDIノート番号の文字列"0"-"127"、値は`drumkit.schema.json`の`notes[]`要素と同じキー名で各`DrumNote`へ差分マージ)。
-- `notes{}`の各値は`layers[]`と同じ3通りの意味を持つ(`null`/`{}`=現状維持、`"remove"`=`DrumNote`をデフォルト値へリセット、オブジェクト=差分マージ)。ノート単位の微調整もキット全体の一括反映も、この1つのメッセージ形式に収まる。
+## ピッチの計算
 
----
+**マスターチューニング**: `CFITOM::setMasterPitch()`(プロファイル設定の絶対Hz)とは別に、SysEx由来の相対オフセット(`masterFineTuneCents_`/`masterCoarseTuneSemitones_`)を持つ。`FnumRegistry`へ反映する実効ピッチは、両者を合成した`基準Hz × 2^((fineCents/100 + coarseSemitones)/12)`(430〜450Hzにクランプ)で、プロファイル設定の基準Hz自体は上書きしない。
 
-**Master Fine/Coarse Tuning の実現方式**: `CFITOM::setMasterPitch()`
-(ユーザー設定の絶対Hz基準、config由来)とは別に、SysEx由来の相対オフセット
-(`masterFineTuneCents_`/`masterCoarseTuneSemitones_`)を保持する。実際に
-`FnumRegistry`へ反映する実効ピッチは、両者を合成した
-`基準Hz × 2^((fineCents/100 + coarseSemitones)/12)`(430〜450Hzにクランプ)
-であり、ユーザー設定の基準Hz自体は上書きしない。
+**Scale/Octave Tuning(1byte形式)**: 本来は`F0 7F <devID> 08 08 <channel mask> <xx1>...<xx12> F7`のチャンネルマスクで対象chを絞れるが、**チャンネルマスクを読み飛ばし、常に全チャンネルへ適用する**簡略実装。12半音ごとのセントのオフセットは`CFITOM::scaleTuning_`にグローバルに持ち、各`CInstCh`の`scaleTuningKfs()`が「実際に鳴っているノート」(`NoteHist::devNote`。`ToneLayer.transpose`と`SwPatch.fineTranspose`の半音成分を適用済み)のmod 12で引く。`CRhythmCh`には適用しない。2byte形式は扱わない。
 
-**Scale/Octave Tuning の簡略実装について**: 本来の1byte形式は
-`F0 7F <devID> 08 08 <channel mask> <xx1>...<xx12> F7`で、チャンネルマスク
-により適用対象chを絞れる仕様だが、**現状はチャンネルマスクを読み飛ばし、
-常に全チャンネルへ適用する**簡略実装になっている。12半音(C,C#,D...B)ごとの
-centsオフセットは`CFITOM::scaleTuning_`にグローバル保持し、各`CInstCh`の
-`scaleTuningKfs()`が「実際に鳴っているノート」(`NoteHist::devNote`。
-`ToneLayer.transpose`と`SwPatch.fineTranspose`の半音成分を適用済み)の
-mod 12で引く。`CRhythmCh`(ドラムチャンネル)には未適用。2byte形式
-(より高精度)は非対応。
-
-**チャンネルのピッチオフセット計算の一元化**: `CInstCh`が`setNoteFine()`へ
-渡すfine値(kfs単位、1半音=64)は、以下の3経路すべてが同じ内訳で計算する。
-経路ごとに計算式が食い違っていると、「発音直後」と「その後CC/RPNを受けた後」
-「ポルタメント中」でピッチが変わってしまうため、共通部分は
-`CInstCh::commonFineKfs()`に集約してある(2026年8月)。
+**チャンネルのピッチオフセット**: `CInstCh`が`setNoteFine()`へ渡すfine値(kfs単位)は、`noteOn()`・`applyPitchBendToAll()`・`timerCallback()`のポルタメント更新の3経路すべてで同じ内訳で計算する。経路ごとに式が食い違うと、「発音直後」「その後CC/RPNを受けた後」「ポルタメント中」でピッチが変わってしまうため、共通部分を`CInstCh::commonFineKfs()`に集約している。
 
 | 成分 | 実装 | 単位 |
 |---|---|---|
@@ -185,57 +159,27 @@ mod 12で引く。`CRhythmCh`(ドラムチャンネル)には未適用。2byte�
 | Scale/Octave Tuning(ノート別) | `scaleTuningKfs(devNote)` | kfs |
 | `SwPatch.fineTranspose`の半音未満の端数 | `NoteHist::swFineKfs` | kfs |
 
-3経路とは`noteOn()`・`applyPitchBendToAll()`・`timerCallback()`の
-ポルタメント更新。また、`setNoteFine()`へ渡すノート番号は受信した
-MIDIノート(`NoteHist::note`、NoteOffの一致判定用)ではなく、必ず
-`NoteHist::devNote`(トランスポーズ適用後)を使う。
+`setNoteFine()`へ渡すノート番号は、受信したMIDIノート(`NoteHist::note`、NoteOffの一致判定用)ではなく、必ず`NoteHist::devNote`(トランスポーズ適用後)を使う。
 
-## Sustain (CC#64) のチップ依存実装
+## Bank Select 方式
 
-| チップ | 実装方式 |
-|---|---|
-| OPN/OPN2/OPM | キャリアOPのRRを4に固定 |
-| OPL/OPL3 | キャリアOPのRRを4に固定（`kFallbackRR`） |
-| OPLL系 | `0x20+ch`レジスタのSUSビット(bit5)を操作。ROM音色はEGパラメータ変更不可のため |
-| PSG系 | ソフトウェアエンベロープの`updateSustain`は空実装（EGなし） |
+CC#0(MSB)の値が、モードを排他的に切り替える選択子になっている。
 
-いずれもALGに基づくキャリアOP判定（`isCarrier()`）で、モジュレータOPには適用しない。
-
----
-
-## Bank Select 方式 (CC#0/CC#32) — 通常モード・直接モード・GM2切替の統合設計
-
-CC#0(MSB)の値が4種類の異なる意味を排他的に切り替える、統合されたモード選択子になっている。
-
-| CC#0(MSB)の値 | モード | CC#32(LSB)の意味 | Prog Chg.の意味 |
+| CC#0の値 | モード | CC#32の意味 | Program Changeの意味 |
 |---|---|---|---|
-| `0x00` | 通常モード | PatchBank番号 | 選択したPatchBank内のPatch番号 |
-| `0x01`-`0x6F` | 直接モード | この値自体が`VoicePatchType`(`VOICE_PATCH_*`)。値がそのチップを直接指定する | そのVoicePatchType用にプロファイル登録された`HwBank`のインデックス |
-| ~~`0x01`-`0x6F`(続き)~~ | ~~直接モード~~ | ~~上記~~ | 選択した`HwBank`内の`HwProg`番号 |
-| `0x70` | 内蔵リズム音源専用バンク(OPNA/OPLL、詳細は`docs/design/patch-resolution.md`参照) | - | - |
-| `0x71`-`0x77`, `0x7A`-`0x7E` | (将来予約) | - | - |
-| `0x78` (`DEVICE_RHYTHM`) | GM2: リズムチャンネルへ切替 | 使用しない | 使用しない |
-| `0x79` | GM2: メロディチャンネルへ切替 | 使用しない | 使用しない |
-| `0x7F` (`VOICE_PATCH_SILENCE`) | 無音バンク。必ず無音になる(下記参照) | 使用しない | 使用しない |
+| `0x00` | 通常モード | PatchBank番号 | PatchBank内のPatch番号 |
+| `0x01`-`0x6F` | 直接モード(この値がVoicePatchType) | そのVoicePatchType用のHwBankのインデックス | HwBank内のHwProg番号 |
+| `0x70` | 内蔵リズム音源専用バンク | 対象チップ(`VOICE_PATCH_OPN2`=OPNA、`VOICE_PATCH_OPLL`=OPLL等) | 楽器(=内蔵リズムのチャンネル番号) |
+| `0x78` (`DEVICE_RHYTHM`) | GM2: リズムチャンネルへ切替 | 使わない | ドラムキット(固定のドラムバンク0) |
+| `0x79` | GM2: メロディチャンネルへ切替 | — | — |
+| `0x7F` (`VOICE_PATCH_SILENCE`) | 無音バンク | 使わない | 使わない |
+| `0x71`-`0x77`, `0x7A`-`0x7E` | 予約 | — | — |
 
-**`VOICE_PATCH_*`の値は全て`0x01`-`0x6F`の範囲に収まるよう採番されている**
-(`FITOMdefine.h`参照)。これにより、CC#0の値だけで「通常/直接/GM2切替」の
-どのモードかを一意に判別できる。`0x70`-`0x7F`のうち特定チップを指さない
-モード選択子(`0x70`/`0x7F`)とGM2切替(`0x78`/`0x79`)以外は将来の拡張用に
-予約し、通常のVoicePatchType値としては使わない。
-
-### Bank Select MSB (CC#0) の値の意味
-
-| CC#0の値 | モード | CC#32(LSB)の意味 | Prog Chg.の意味 |
-|---|---|---|---|
-| `0x00` | 通常モード | PatchBank番号 | 選択したPatchBank内のPatch番号 |
-| `0x01`-`0x6F` | 直接モード | この値自体が`VOICE_PATCH_*`。値がそのチップを直接指定する | そのVoicePatchType用HwBankのインデックス→そのバンク内のHwProg番号 |
-| `0x70` | 内蔵リズム音源専用バンク | 対象チップ選択(`VOICE_PATCH_OPN2`=OPNA、`VOICE_PATCH_OPLL`=OPLL) | 楽器(チャンネル)番号をそのまま指定する |
-| `0x71`-`0x77` | (将来予約) | - | - |
-| `0x78` | GM2: リズムチャンネルへ切替 | 使用しない(無視) | ドラムキット選択(固定バンク0) |
-| `0x79` | GM2: メロディチャンネルへ切替 | 使用しない | 通常モードのProgram Change |
-| `0x7A`-`0x7E` | (将来予約) | - | - |
-| `0x7F` | 無音バンク(`VOICE_PATCH_SILENCE`) | 使用しない | 使用しない |
+- **`VOICE_PATCH_*`の値は全て`0x01`-`0x6F`の範囲に収まるよう採番されている**(`FITOMdefine.h`)。これにより、CC#0の値だけでモードを一意に判別できる
+- 内蔵リズム音源専用バンクの解決は`docs/design/patch-resolution.md`の「内蔵リズム音源専用バンク」節
+- **リズムチャンネル(`CRhythmCh`)はCC#0(`0x79`によるモード復帰を除く)/CC#32を一切使わない。** `bankSelMSB()`/`bankSelLSB()`は共にno-op。ドラムバンクは固定バンク番号(0)だけを使い、Program Changeがその中のドラムキット(`DrumPatch`)を選ぶ
+- **全モード共通で、Program Change は発音中のノートに作用しない。** 新しいパッチは次の NoteOn から適用され、既存の発音はそのまま元の音色で鳴り続ける(強制NoteOffもしない)
+- 無効なバンク/プログラム番号を受けた場合は、直前まで有効だったパッチを保つ(チャンネルが無音になるのを防ぐ)
 
 ### 無音バンク (`VOICE_PATCH_SILENCE` = `0x7F`)
 
@@ -270,24 +214,7 @@ SF2直行パスとネイティブ経路の振り分けはMPU×chの窓テーブ�
 行われる)。窓に属さないチャンネルで受信した場合は上記の無音バンクと
 して扱われ、そのチャンネルは無音になる。
 
-**GM2切替(`0x78`/`0x79`)は`MidiProcessor::processControl()`層で消費され、
-個々のチャンネルオブジェクト(`CInstCh`/`CRhythmCh`)の`bankSelMSB()`には
-一切転送されない。** そのチャンネルの役割(リズム/メロディ)自体が
-**受信の瞬間に即座に**切り替わる(内部的には`unique_ptr<IMidiCh>`の
-差し替え)。
-
-**この即時切替は、GM2正式仕様(Bank Select受信ではなく後続のProgram
-Change受信時点で切り替わる、2段階方式)とは意図的に異なる設計判断
-である。** FITOM_XはGM2完全準拠を目指しておらず、固有の実装にする
-理由がない項目についてのみ緩くGM2に揃える方針のため、この差異は
-是正しない(2026年7月時点で確定)。詳細・理由は下記「GM2正式仕様との違い」を参照。
-
-**リズムチャンネル(`CRhythmCh`)はCC#0(`0x79`によるモード復帰を除く)/CC#32を
-一切使わない。** `bankSelMSB()`/`bankSelLSB()`は共にno-op。ドラムバンクは
-固定バンク番号(0)のみを使い、MIDI経由でのドラムバンク切替はできない。
-Prog Chg.の値が、そのバンク内のドラムキット(`DrumPatch`)を選択する。
-
-### GM2 リズム/メロディ切替 (CC#0=0x78/0x79) の詳細挙動
+### GM2 リズム/メロディ切替 (CC#0=0x78/0x79)
 
 CC#0=0x78/0x79は`MidiProcessor::processControl()`層で消費され、個々の
 チャンネルオブジェクト(`CInstCh`/`CRhythmCh`)の`bankSelMSB()`には一切
@@ -308,15 +235,10 @@ CC#0=0x78/0x79は`MidiProcessor::processControl()`層で消費され、個々の
 | メロディチャンネル | CC#0=0x79 | **何もしない**。既に同じロールなので早期return。直前まで選択されていたバンク、CC#32、プログラムチェンジ、その他のコントローラー値も維持される |
 | リズムチャンネル | CC#0=0x79 | **再初期化**。新しい`CInstCh`を生成し`setup()`+`progChange(0)`を呼ぶ。CC#0/CC#32/プログラムチェンジ・その他の全コントローラーがデフォルト値にリセットされる |
 
-実装箇所: `CFITOM.cpp`の`MidiProcessor::processControl()`（分岐判定）、
-`MidiProcessor::switchChannelRole()`（実際の切替処理）。
+#### GM2正式仕様との違い(意図的な設計判断)
 
-#### GM2正式仕様との違い（意図的な設計判断）
-
-**FITOM_XはGM2完全準拠を目指していない。** 仕様決定の指針として、
-固有の実装にする理由がない項目については可能な範囲でGM2に揃える、
-という緩い参照に留めている。以下はその方針のもとで、意図的に
-GM2正式仕様とは異なる挙動を採用している箇所。
+**FITOM_XはGM2完全準拠を目指していない。** 固有の実装にする理由がない
+項目については可能な範囲でGM2に揃える、という緩い参照に留めている。
 
 GM2規格書（AMEI RP-024「3.3.1 cc#0/32：バンク・セレクト」）には
 以下の記述がある:
@@ -337,10 +259,7 @@ GM2規格書（AMEI RP-024「3.3.1 cc#0/32：バンク・セレクト」）に�
 **FITOM_Xは、この2段階方式を採用せず、CC#0=0x78/0x79を受信した
 瞬間に即座にチャンネルロールを切り替え、内部で自動的に
 `progChange(0)`を発行する、1段階の即時反映方式を採用している。**
-これは実装上の都合ではあるが、以下の理由から現在のFITOM_X
-アーキテクチャとして一貫性があり、固有の実装とする理由があると
-判断し、**GM2正式仕様に合わせる修正は行わない方針を確定した**
-（2026年7月時点）。
+GM2正式仕様に合わせる修正は行わない。理由:
 
 - FITOM_Xのチャンネルロールは`unique_ptr<IMidiCh>`の実体差し替え
   (`CInstCh`⇔`CRhythmCh`)という設計であり、「ペンディング状態を
@@ -350,24 +269,25 @@ GM2規格書（AMEI RP-024「3.3.1 cc#0/32：バンク・セレクト」）に�
   ほぼ同時に送出するため、2段階/1段階の違いが実際の演奏結果に
   与える影響は限定的
 
-エンドユーザー向けドキュメントでは、「FITOM_XはBank Select
-MSB=0x78/0x79受信の瞬間にチャンネルロールが切り替わる(GM2正式仕様の
-「Program Change受信まで待つ」という2段階方式とは異なる)」ことを
-明記すること。
+この違いは、利用者向けマニュアルにも書く。
 
+## サステイン (CC#64)
 
-**全モード共通で、Program Change は発音中のノートに一切作用しない。**
-新しいパッチは次の NoteOn から適用され、既存の発音はそのまま元の音色で
-鳴り続ける（強制NoteOffもしない）。
+チップごとに実装が違う。
 
-無効なバンク/プログラム番号を受信した場合、直前まで有効だったパッチを
-保持する（チャンネルが無音状態に陥ることを防ぐ）。
+| チップ | 実装方式 |
+|---|---|
+| OPN/OPN2/OPM | キャリアOPのRRを4に固定 |
+| OPL/OPL3 | キャリアOPのRRを4に固定（`kFallbackRR`） |
+| OPLL系 | `0x20+ch`レジスタのSUSビット(bit5)を操作。ROM音色はEGパラメータを変えられないため |
+| DSG (YM2163) | `0x88+ch`レジスタのSUSビット(bit4)を操作。EGパラメータを持たないため、OPLLと同じくSUSビットだけで制御する |
+| PSG系 | ソフトウェアエンベロープの`updateSustain`は空実装 |
 
----
+RRを変える方式では、ALGに基づくキャリアOP判定で、モジュレータOPには適用しない。
 
-## Sostenuto (CC#66) の実装方式
+## ソステヌート (CC#66)
 
-「NoteOff遅延保持」方式で実装（チップドライバへの変更は一切不要）。
+「NoteOff遅延保持」方式で実装している(チップドライバの変更は不要)。
 
 ```
 ペダルON:  現在発音中の全ノートに sostenutoHeld=true をスナップショット
@@ -377,32 +297,22 @@ NoteOff:   sostenutoHeld なノートは実際の noteOff() を呼ばず
            （まだ鍵盤が押されたままのノートは sostenutoHeld を落として発音継続）
 ```
 
-ボイススティールでチャンネルが別ノートに再利用されていないか
-`ISoundDevice::isChOwnedBy()` で確認してから解放する。
+解放するときは、次節のとおりデバイスチャンネルの所有権を確かめる。
 
----
+## デバイスチャンネルの所有権
 
-## ボイススティール後の devCh 所有権確認 (2026年7月修正)
+デバイス側のチャンネルはMIDIチャンネルをまたいで共有される(同一チップに複数MIDIチャンネルの音色を割り当てた場合等)。`findBestCh()`の強制奪取(allowSteal、score=1)は、元のownerに通知せずにチャンネルを奪う。このため、`notes_[]`/`noteSlots_[]`のエントリを持ったまま後から`noteOff()`する経路は、すべて`ISoundDevice::isChOwnedBy(devCh, this)`でそのチャンネルがまだ自分の発音のままかを確かめてから解放する。確かめずに呼ぶと、既に別のMIDIチャンネルや別のノートに奪われたチャンネルの発音を誤って止める。
 
-デバイス側のチャンネルはMIDIチャンネルをまたいで共有されるため(同一チップに
-複数MIDIチャンネルの音色を割り当てた場合等)、`findBestCh()`の強制奪取
-(allowSteal、score=1)は元のownerに通知せずチャンネルを奪う。このため、
-`notes_[]`/`noteSlots_[]`側のエントリを保持したまま後から`noteOff()`する
-経路は、全て`ISoundDevice::isChOwnedBy(devCh, this)`でそのチャンネルが
-まだ自分の発音のままかを確認してから解放する必要がある(確認せず呼ぶと、
-既に別MIDIチャンネル/別ノートに奪われたチャンネル上の発音を誤って
-停止させてしまう)。Sostenutoの`releaseSostenutoNotes()`は元々この
-チェックを行っていたが、通常の`CInstCh::noteOff()`/`allNoteOff()`/
-`allSoundOff()`/`stealOldestNoteIfNeeded()`/モノフォニックの
-同一レイヤー内スティール、および`CRhythmCh::NoteSlots::stopAll()`には
-このチェックが欠落しており、ラウンドロビンでチャンネルが別MIDIチャンネル
-に再利用された直後に元のチャンネルへNoteOffが来ると、奪った側の
-新しい発音を誤って止めてしまう欠陥があった。全経路に同じチェックを
-追加して統一した。
+該当する経路: `CInstCh::noteOff()`/`allNoteOff()`/`allSoundOff()`/`stealOldestNoteIfNeeded()`/モノフォニックの同一レイヤー内スティール、ソステヌートの`releaseSostenutoNotes()`、`CRhythmCh::NoteSlots::stopAll()`。
 
----
+## ノートオフとチャンネルの再利用の規則
 
-## Legato (CC#68) / Portamento (CC#65) の仕様
+- **`CInstCh::noteOff()`は、ノート番号が一致するエントリを全レイヤー分解放する。** `notes_[]`はレイヤー単位のエントリで、レイヤードパッチでは同じノート番号のエントリが複数ある。最初の1件で打ち切ると、残りのレイヤーのチャンネルが鳴り続ける
+- **レガート中でも`noteOff()`は通常どおり処理する。** レガートで前の音を奪うときは、`noteOn()`の`mono_ && timbres_>0`分岐が`leaveNote()`/`enterNote()`で`notes_[]`のノート番号を新しいノートへ差し替えているので、奪われた古いノート番号のnoteOffは一致判定で自然に無視される
+- **Running中のチャンネルを奪うときは、ownerが自分かどうかに関わらず必ず先に`noteOff()`する**(`CSoundDevice::assignCh()`)。OPN系等のKey On/Offはエッジトリガなので、Key Offを挟まずにKey Onを書くとエンベロープが再アタックしない
+- **`wasReleasing`は`ChState::assign()`で確定させる。** `assign()`がstatusをAssignedに書き換えるより前に判定する。`assign()`を経由しない経路(モノの自己スティール等)では、従来どおり`run()`が判定する。チップドライバのリリース中再トリガー対策(`updateKey()`の`if (keyOn && wasReleasing)`分岐)はこの値で発動する
+
+## レガートとポルタメント (CC#68 / CC#65)
 
 **両方ともモノフォニックチャンネル専用。ポリフォニックチャンネルでは無反応。**
 
@@ -420,200 +330,64 @@ Portamentoは `mono_ == true` かつ有効時のみ動作する。ポリで発�
 GM2規格書の「Portamento Rate」グラフ（Y軸: Pitch increment speed[cent/msec]、
 対数スケール／X軸: cc#5 0-127、線形スケール）を区分指数関数で近似し、
 128要素のテーブル`kPortaSpeedTable`(`MidiCh.cpp`)として実装している。
-旧FITOM(`ROM::portspeed[]`)と同じ、符号によって2つの速度域を切り替える
-エンコード方式を踏襲する:
+符号によって2つの速度域を切り替えるエンコード方式:
 - 正の値: 1tick(既定1ms)に`delta`ステップ進む(高速域)
 - 負の値: `-delta`ティックに1ステップ進む(低速域)
-- 1ステップ = 100/64 cent (`ChState::fineFreq`と同じ単位系。
-  `PortaCtrl::fine_`(0-63)が半音未満の端数を保持し、`current_`(半音)と
-  合成して滑らかな遷移を実現する)
+- 1ステップ = 1kfs (`PortaCtrl::fine_`(0-63)が半音未満の端数を保持し、
+  `current_`(半音)と合成して滑らかに遷移する)
 
-GM2グラフとの照合により全域で概ね良好な一致を確認済み。cc5=64-88付近
-(1tickあたり±1-2ステップしか取れない領域)でのみ最大約27%の量子化誤差が
-あるが、聴感上の影響は小さいと判断し許容している。
+GM2のグラフとは全域で概ね一致する。cc5=64-88付近(1tickあたり±1-2ステップしか取れない領域)でだけ最大約27%の量子化誤差があるが、聴感上の影響は小さいとして許容している。
 
-**NoteOffの扱い(2026年7月修正)**: `CInstCh::noteOff()`は、以前は
-`mono_ && legato_`のとき無条件で何もしない実装になっていた。これだと
-レガート演奏で最後の鍵盤を離した際に本来のnoteOff()が一切呼ばれず、
-チャンネルが永久にRunning状態のまま(CC#1ビブラート等のソフトウェアLFOも
-含め)鳴り続ける不具合があった(レジスタダンプモニターで無音時にも
-F-number/TLレジスタが更新され続ける形で発覚)。レガート中に新しいノート
-オンが前の音を奪う場合は`noteOn()`側の`mono_ && timbres_>0`分岐が
-`leaveNote()`/`enterNote()`で`notes_[]`のnote番号を新しいノートへ
-差し替え済みのため、奪われた古いノート番号のnoteOff()が後から来ても
-通常のnote番号一致判定で自然に無視される。よって`noteOff()`側で
-`mono_ && legato_`を特別扱いする必要はなく、当該早期returnを削除して
-通常のnoteOff処理(note番号一致→release)をそのまま通すよう修正した。
-
-**レイヤードパッチでのNoteOff取りこぼし(2026年7月修正、上記とは別件)**:
-上記のレガート修正後も、モノフォニックにしていない通常の(ポリフォニック)
-チャンネルで、演奏を止めても一部chのF-number/TLレジスタが更新され続ける
-という報告があり、再調査で発覚した別のバグ。`CInstCh::noteOn()`は
-アクティブな`ToneLayer`(レイヤードパッチ)の数だけ`notes_[]`へ**同じ
-note番号のエントリを複数(レイヤーごとに異なるdev/devCh)**生成する
-(`enterNote(li, devCh, note, dev, thisSeq)`を`li`ごとに呼ぶ)。ところが
-`noteOff(note)`は`notes_[]`を先頭から走査し、note番号が一致した**最初の
-1件を解放した時点で`break`**していたため、2レイヤー目以降の同じnote番号の
-エントリは一切解放されず、対応するチャンネルがRunning状態のまま
-(CC#1ビブラート等のソフトウェアLFOも含め)永久に鳴り続けていた。
-`stealOldestNoteIfNeeded()`(ボイス数上限によるスティール)は同じ
-「同一noteが複数レイヤーに跨る」前提を最初から正しく扱っており
-(コメント「notes_[]はレイヤー単位のエントリのため、note番号ごとに
-ユニークな1ボイスとして集計し直す」参照)、該当箇所は`break`せず全スロット
-を走査してnote一致する全エントリを解放している。`noteOff()`もこれに揃え、
-note一致時の`break`を削除して全レイヤー分のエントリを解放するよう修正した。
-レイヤードパッチを使わない(1レイヤーのみの)構成では従来通り1件しか
-一致しないため影響なし。
-
-**forceSteal(Running chの強制奪取)時、同一ownerだとKey Offが抜け落ちる
-バグ(2026年7月修正、上記2件とは別件)**: 上記2件を修正してもなお、
-モノフォニックにもレイヤードパッチにもしていない通常のポリフォニック
-チャンネルで「高速に連続でノートオンが発生するトラック(ベースライン等)で
-ノートオンを取りこぼしている(または直前のノートオフが効いていない)ように
-聞こえる、Fnumは更新されている」という報告があり、レジスタダンプモニターで
-「0xA0-0xA2の値が一定の値になると更新が停止する」という追加の観察も
-得られ、再調査で発覚した3件目の別バグ。`CSoundDevice::assignCh()`は
-「他のownerが使用中のchを奪う場合のみ事前にnoteOff()する」
-(`if (s.isActive() && s.owner && s.owner != owner) noteOff(ch);`)という
-条件になっていた。`findBestCh()`のscore=1(空き/Releasingが1つも無い場合の
-最終手段、Running chのうちnoteOnAgeが最大[最古]のものを強制奪取する)は
-奪う対象をowner一致かどうかで区別しない(単純に最古のRunning chを選ぶ)ため、
-高速に連続でノートオンするトラックがデバイスの全ch(他パートと共有する
-チップ構成等)を使い切っている状況では、選ばれた最古のRunning chが
-「自分自身(同一owner)の直前のノート」であるケースが普通に起こりうる。
-この場合、上記の条件式は`s.owner != owner`が偽になるためnoteOff()を
-スキップしてしまい、Key Off(OPN系ならレジスタ0x28)が一度も書かれないまま
-次のKey On(0x28)だけが書かれる。OPN系のKey On/Offはエッジトリガ(0→1で
-アタック開始)のため、Key Offを挟まずKey Onだけ再度書いてもエンベロープは
-再アタックせず、Fnumだけが新しいノートの値に変わって音程だけが滑らかに
-(ポルタメントのように)変化して聞こえる — これが報告された「ノートオンの
-取りこぼし」の正体だった。またこの「Fnumがポルタメントのように新しい
-ノートの値へ収束してから止まる」性質が、レジスタダンプモニターでの
-「0xA0-0xA2が一定値になると更新停止」という観察とも整合する(ソフトウェア
-ポルタメントが動いていたわけではなく、単に新しいノートのFnumへ切り替わった
-だけ)。`CSoundDevice::assignCh()`の条件を`s.isRunning()`のみへ変更し、
-owner の異同に関わらずRunning chを奪う場合は必ずnoteOff()するよう修正した
-(Releasing chの再利用は元々noteOff()済みで無害なため対象外のまま)。
-`tests/test_soundevice_freq.cpp`に、同一owner+patchでデバイス全chを埋めた
-状態からさらにallocCh()した場合に、奪われたchのレジスタ0x28へKey Off
-(0x00)がKey On(0xF0)より前に書かれることを検証する回帰テストを追加した
-(修正前のコードに対して実行し、Key Offが一切書かれないまま失敗することを
-確認した上で、修正適用後にPASSすることも確認済み)。
-
-**wasReleasingが通常のポリフォニック経路では常にfalseになるバグ(2026年7月修正、
-上記forceSteal修正後もユーザー実機での症状が解消せず、タイムスタンプ付き
-デバッグログ(`FITOM_LOG_DEBUG`、`CInstCh::noteOn/noteOff`・
-`CSoundDevice::noteOn/noteOff`・`timerCallback`のReleasing→Empty遷移に新設)
-を追加して実測した結果、判明した真因)**: 実測ログでは、前の音のnoteOff
-(Running→Releasing)からわずか数ms後に同一ch(同一owner+patch、通常の
-round-robin再利用)へ次のnoteOnが来ており、そのログに
-`wasReleasing=false`と出力されていた。`ChState::assign()`
-(`CSoundDevice::assignCh()`内で呼ばれる)がstatusをReleasing→Assignedへ
-無条件に書き換えてから、後で`ChState::run()`(`CSoundDevice::noteOn()`内で
-呼ばれる)が`status == Status::Releasing`を見て`wasReleasing`を判定していた
-ため、通常のポリフォニック経路(assignCh()を必ず経由する経路)では
-`run()`が判定する時点でstatusは既にAssignedに書き換わっており、
-**`wasReleasing`は原理的に常にfalseにしかならなかった**(モノフォニックの
-自己スティール経路[assignCh()を経由せずdevChを直接使い回す]でだけ、
-たまたま正しく動いていた)。「リリース中再トリガー対策」自体は
-OPM/OPN/OPL/OPL3全てのチップドライバに実装済みで(`updateKey()`内の
-`if (keyOn && wasReleasing)`分岐、キャリアOPのRRを一時的に最大化して
-残っていたリリース中のエンベロープを急速ダンプしてからKey Onする)、
-コード自体は正しかったが、発動条件が常にfalseのため通常の
-ポリフォニック演奏では一度も機能していなかった。この結果、高速な
-連続ノートオン(ベースライン等)でリリース中のchを再利用するたびに、
-前の音のエンベロープがリリース中のまま次のアタックが乗ることになり、
-聴感上「アタックが再トリガーされず、Fnumの変化だけが滑らかに聞こえる
-(ポルタメントのように聞こえる)」という症状として現れていた。
-`ChState::assign()`側でstatus書き換え前に`wasReleasing`を確定させ、
-`run()`は`status==Assigned`(=assign()経由)の場合はその値を信頼して
-上書きせず、assign()を経由しない経路(モノの自己スティール等)では
-従来通り`run()`側で直接判定するよう修正した。`tests/test_soundevice_freq.cpp`
-に、Releasing中の同一chへ即座に再ノートオンした場合、`wasReleasing`が
-trueになり、キャリアOPのRR強制ダンプがKey Onより前に書かれることを
-検証する回帰テストを追加した(修正前は`wasReleasing`が常にfalseのため
-RR強制ダンプの書き込み自体が無く失敗することを確認した上で、修正適用後に
-PASSすることも確認済み)。
-
-**(2026-07-28追記)上記修正では症状は解消しなかった**: 修正適用後の実測ログで
-`wasReleasing=true`(RR強制ダンプが発動)になっていることを確認できたにも
-かかわらず、「アタックが再トリガーされず音程だけ滑らかに変わって聞こえる」
-症状は解消しなかった。ユーザーからの指摘(音源設計の知見)で、そもそも
-「エンベロープがリリース中の残存レベルからノートオンした場合、そこから
-急激にアタックへ向かうためアタックが強く聞こえることはあっても、抜けて
-(無音に)聞こえる現象にはならない」ことが判明し、リリース残存レベル説
-自体を撤回した(この修正自体は`wasReleasing`が本来の設計通り機能するように
-なった点で正しいバグ修正であり、撤回したのは「これが今回の症状の原因」
-という因果関係の部分のみ)。あわせて、RR強制ダンプの実装自体にも
-「RRは今後の減衰の速さを決めるだけで現在のレベルを即座に下げるものでは
-ないため、ダンプ直後に間を置かずKey Onしても実質的な効果が無いのでは
-ないか」という設計上の疑問が浮上したが、上記の理由でこの経路自体が
-今回の症状の原因ではないと判断できたため、これ以上の追求はユーザーの
-判断で一旦保留とした。次の切り分けとして`HWPort::write()`
-(実際にプラグインDLL[`HWPlugin_Write`]へ渡す直前、FITOM_X側で観測できる
-最下層)にもタイミングログを追加し、CSoundDevice層(setReg呼び出し)と
-HWPort層(実際のプラグイン呼び出し)の両方のログを突き合わせることで、
-「ノートオンが抜けた」際に実際にKey On書き込みがプラグイン境界まで
-届いているか(FITOM_X側の問題)、届いているのに音が鳴らないか
-(エミュレータ/プラグイン側の問題)を切り分けられるようにした。
-
----
-
-## CC#120 (All Sound Off) vs CC#123 (All Notes Off)
+## CC#120 と CC#123
 
 | CC# | 動作 |
 |---|---|
-| 120 | `forceDamp()`。sustainを無視し、RRを最大化（またはOPLL系はSUSビット解除）して急速減衰 |
-| 123 | 通常の`noteOff()`。sustain有効なら保持される |
+| 120 | `forceDamp()`。サステインを無視し、RRを最大化(OPLL系はSUSビット解除)して急速に減衰させる。ALGでキャリアを判定する |
+| 123 | 通常の`noteOff()`。サステイン中なら保持される |
 
-リズムチャンネル(`CRhythmCh`)も2026年8月に`allSoundOff()`を実装した(それ以前は`IMidiCh`の既定実装で`allNoteOff()`にフォールバックしていた)。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、既定実装のままではCC#120で鳴り止まなかった。両デバイスの`forceDamp()`(ダンプビット書き込み)も同時に実装している。詳細は`docs/design/patch-resolution.md`の「チョークグループ」節を参照。
+リズムチャンネル(`CRhythmCh`)も`allSoundOff()`を持つ。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、`forceDamp()`でダンプビットを書く。詳細は`docs/design/patch-resolution.md`の「チョークグループ」節。
 
----
-
-## CC#126 (Mono Mode On) / CC#127 (Poly Mode On) とボイス数上限
-
-2026年7月新設。旧FITOM(`MIDI.cpp`、ビルド対象外)には存在したが、現行実装(`CFITOM.cpp`/`MidiCh.cpp`)には移植されていなかった。
+## モノモードとボイス数上限 (CC#126 / CC#127)
 
 CC#126の値M(`CInstCh::setMonoMode()`)による分岐:
-- **M=1**: `mono_=true`。既存のモノ専用経路(`noteOn()`内の`mono_ && timbres_>0`分岐、同一レイヤーの前ノートを奪う)を有効化する。レガート(CC#68)・ポルタメント(CC#5/#65/#84)はこのモードでのみ機能する
+- **M=1**: `mono_=true`。モノ専用の経路(`noteOn()`内の`mono_ && timbres_>0`分岐、同一レイヤーの前ノートを奪う)を使う。レガート(CC#68)・ポルタメント(CC#5/#65/#84)はこのモードでだけ働く
 - **M=0 または M≥2**: `mono_`はfalseのまま(レガート/ポルタメントとの整合性のため)。代わりに`voiceLimit_`(ボイス数上限)を設定する。M=0はパッチの自動算出値(`poly_`、デバイスのチャンネル数から算出)、M≥2はその値(MAX_NOTES=16でクランプ)を使う
 
-ボイス数上限のスティールアルゴリズム(`CInstCh::stealOldestNoteIfNeeded()`、`noteOn()`冒頭で呼ばれる):
-- `notes_[]`はレイヤー単位のエントリのため、`NoteHist::seq`(NoteOnイベントごとに採番する単調増加カウンタ、同一イベントの全レイヤーは同じ値)を使ってnote番号ごとにユニークな1ボイスとして再集計する
+ボイス数上限のスティール(`CInstCh::stealOldestNoteIfNeeded()`、`noteOn()`の冒頭で呼ぶ):
+- `notes_[]`はレイヤー単位のエントリのため、`NoteHist::seq`(NoteOnイベントごとに採番する単調増加カウンタ、同一イベントの全レイヤーは同じ値)を使ってノート番号ごとにユニークな1ボイスとして数え直す
 - 保持中のボイス数が上限に達していれば、seqが最小(発音順が最も古い)ノートを選び、そのノートが使う全レイヤーをまとめて解放する
 
-`voiceLimitOverride_`フラグにより、CC#126で明示指定した上限は、プログラムチェンジによる`poly_`再計算の影響を受けずに維持される(MIDI規格上、チャンネルモードメッセージはプログラムチェンジで暗黙にリセットされないため)。CC#127で解除され、`poly_`に戻る。
+`voiceLimitOverride_`フラグにより、CC#126で明示した上限は、プログラムチェンジによる`poly_`の再計算の影響を受けない(MIDI規格上、チャンネルモードメッセージはプログラムチェンジで暗黙にリセットされないため)。CC#127で解除され、`poly_`に戻る。
 
-副次的な修正: `enterNote()`の「空きスロットなし」フォールバックが、上書きされる側のデバイスチャンネルに`noteOff()`を呼ばずデバイスチャンネルが迷子になるバグがあったため修正した(スティール導入により通常はこのパスへ到達しない)。
+## ハードウェアLFO (CC#14 / CC#15)
 
----
+OPM/OPZ(`COPM`/`COPZ`)だけが実装し、他のチップは基底クラスのno-op。チップ内蔵LFOのRate/Depthレジスタ(0x18/0x19)はチップ全体で1系統の共有資源だが、チャンネルごとのAMS/PMS感度(reg 0x38+ch)は独立している。
 
-## HW LFO (CC#14/15) のリソース管理
+- `setLFODepth`/`setLFORate`はAM/PMの区別を持たない。AM/PMどちらとして効くかは、ボイス自身のAMS/PMSで決まる
+- 複数のチャンネルが同時にAMS/PMSを使うのは正当なので、チャンネル間の排他はしない
+- `enablePM`/`enableAM`は`noteOn()`で無条件にtrueを送る。AMS/PMS=0のボイスでは結果的に効果が無い
+- Depth/Rateは物理チップ単位でしか持てないので、同じチップを共有する複数のチャンネルが別々の値を送ると、最後に送った値が勝つ(実機の制約そのもの)
+- `CSpanDevice`/`CUnison`は`enablePM`/`enableAM`/`setLFODepth`/`setLFORate`を各チップへ転送する(`SPAN_DELEGATE`/`UNISON_BROADCAST`)
+- OPZの第2LFOには対応していない。対応の設計検討は`docs/proposals/opm-opz-hw-lfo.md`
 
-OPM/OPZ(`COPM`/`COPZ`)のみ実装。チップ内蔵LFOはRate/Depthレジスタ(0x18/0x19)がチップ全体で1系統のみの共有リソースだが、チャンネルごとのAMS/PMS感度(reg 0x38+ch)は独立している。
+## ソフトウェアLFO (CC#1 / CC#76 / CC#77 / CC#78)
 
-- `setPMDepth`/`setAMDepth`・`setPMRate`/`setAMRate`は、AM/PMどちらとして効くかがボイス自身のAMS/PMSで決まるだけで実装上の違いが無いため、`setLFODepth`/`setLFORate`に統合した(`ISoundDevice`インターフェース変更)
-- 旧`lfoOwner_`/`lfoUsed_`による排他制御(後着MIDIチャンネルが他チャンネルのAMS/PMSビットを強制クリアする)を撤廃した。複数チャンネルが同時にAMS/PMSを使うのは正当なケースであり、誤って阻害していたため
-- `enablePM`/`enableAM`は`noteOn()`で無条件にtrueを送るだけにし、AMS/PMS=0のボイスでは各デバイス実装が結果的に無効果にする設計に統一した
-- **既知の制限**: Depth/Rateは物理チップ単位でしか持てないため、同一チップを共有する複数チャンネルが異なるDepth/Rateを同時に要求した場合、最後に送信したCCが勝つ(実機のハードウェア制約そのもの)
-- **スパニング対応**: `CMultiDevice`/`CSpanDevice`/`CUnison`が`enablePM`/`enableAM`/`setLFODepth`/`setLFORate`を一切オーバーライドしておらず、スパン構成では常に無効化されていたバグを修正した(`SPAN_DELEGATE`/`UNISON_BROADCAST`で転送)
-- OPZの第2LFO系統には未対応(前述の「既知の非対応項目」参照)
+**CC#1**: `sw.LFR=0`(音色がLFOを持たない)の音色にだけ効くビブラート。波形はsine、周期は`kCC1DefaultRate`(rate=70、約6.23Hz)、最大デプスはRPN#5で変えられる(`VoiceProcessor`)。`sw.LFR>0`の音色では、音色自身のLFOが優先されCC#1は無視される。
 
-## Soft LFO (CC#76/77/78) の実現方式
+**CC#76/77/78**: GM2のSound Controllerに合わせ、値64を「補正なし」とするオフセット方式。
 
-`VoiceProcessor::onNoteOn()`は`ISoundDevice::assignCh()`の内部で、呼び出し元(`CInstCh`)が`devCh`を受け取るより前に呼ばれる。このため、Rate/Delay(LFO再始動時にしか意味を持たないパラメータ)は、ch単位で後からpushする方式では最初のノートに間に合わない。
+`VoiceProcessor::onNoteOn()`は`ISoundDevice::assignCh()`の内部で、呼び出し元(`CInstCh`)が`devCh`を受け取るより前に呼ばれる。このため、Rate/Delay(LFOを始めるときにしか意味を持たないパラメータ)は、ch単位で後からpushする方式では最初のノートに間に合わない。
 
-- **Rate(CC#76)/Delay(CC#78)**: `CInstCh::noteOn()`が`SwPatch`の一時コピー(`overriddenSw`)を作り、`sw.LFR`/`sw.LFD`を上書きした上で`assignCh`/`allocCh`へ渡す。元の`rl->swPatch`(共有パッチデータ)は直接書き換えない
-- **Depth(CC#77)**: `VoiceProcessor::recalcChLfo()`が毎tick再計算するため、`lfoDepthOverrideCents_`メンバへの上書きが即座に反映される。`ISoundDevice::setLfoDepthOverride()`(`setCC1Modulation`と同じ配線パターン)経由で発音中の全ノートへpush可能
-- 前の占有者(別MIDIチャンネル)のDepthオーバーライドがデバイスチャンネルに残留しないよう、無効値(-2000)も含め毎ノートオンで必ず`setLfoDepthOverride`を送る
+- **Rate(CC#76)/Delay(CC#78)**: `CInstCh::noteOn()`が`SwPatch`の一時コピー(`overriddenSw`)を作り、`sw.LFR`/`sw.LFD`に(受信値-64)を加えて0〜127に収めてから`assignCh`/`allocCh`へ渡す。元の`rl->swPatch`(共有パッチデータ)は書き換えない。次のノートオンから効く
+- **Depth(CC#77)**: (受信値-64)を±1200セント相当のオフセット(`lfoDepthOverrideCents_`)に換算する。`VoiceProcessor::recalcChLfo()`が毎tick`sw.depthCents`にこのオフセットを加えて計算し直すので、`ISoundDevice::setLfoDepthOverride()`で発音中のノートにもすぐ反映できる
 
----
+**デバイスチャンネルに値を残さない**: CC#1の値とCC#77のオフセットはデバイスチャンネル側(`VoiceProcessor`)に持つので、前にそのチャンネルを使っていた別のMIDIチャンネルの値が残りうる。これを防ぐため、`CInstCh::noteOn()`は毎ノートオンで現在の値を必ずpushし、`CRhythmCh::applyNoteOn()`も毎ノートオンで`setCC1Modulation(devCh, 0, 0)`と`setLfoDepthOverride(devCh, 0)`(補正なし)をpushする。pushは`assignCh()`の直後、`noteOn()`より前(`ChState::status == Assigned`)に行うので、`CSoundDevice`側のガードは`isActive()`に加えて`isAssigned()`も通す。
 
-## 既知の非対応項目（今回のスコープ外として確定）
+## 対応しないもの
 
-- Poly Pressure / Channel Pressure
-- CC#67 Soft Pedal
-- CC#2(Breath Controller)/CC#4(Foot Controller): 2026年7月にハードウェアAM用の`amDepth_`を廃止して以降、対応するパラメータが無く無効化したまま。ソフトウェアAM(トレモロ)相当の仕組みを新設する場合の割り当て候補
-- CC#124/125(Omni Off/On): 受信しても状態変化なし。常にOmni Offとして動作
-- CC#122(Local Control): 非対応
-- OPZの第2LFO系統: `COPZ`は`COPM`を継承しているのみで、実機が持つとされる2系統目のLFOには未対応(2026年7月時点でレジスタ仕様が未確認のため保留)
+- Poly Pressure / Channel Pressure(SF2直行パスの窓では、そのまま転送する)
+- CC#2(Breath Controller)/CC#4(Foot Controller): 操作するパラメータが無く空実装。ソフトウェアAM(トレモロ)相当の仕組みを作るなら、割り当ての候補
+- CC#67 Soft Pedal(FM音源に対応するパラメータが無い)
+- CC#122 Local Control、CC#124/125 Omni Off/On(受けても状態は変わらない。常にOmni Offとして動く)
+- Scale/Octave Tuningの2byte形式、Universal Non-Realtime SysEx
+- OPZの第2LFO

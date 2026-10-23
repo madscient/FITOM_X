@@ -203,9 +203,9 @@
 ## 4. 既知の未対応・将来課題
 
 **MIDI**
+- マスターボリューム(GUIのシステム設定ダイアログ、Universal SysEx `04 01`)がFM/PSGのチップの音量に反映されない。`CFITOM::setMasterVolume()`はプロファイル設定への保存とSF2直行パスへの転送しかせず、`CSoundDevice::setMasterVolume()`は呼ばれず、`CSoundDevice::masterVolume_`も読まれていない(**確認済み**: grepで確認。音では確かめていない)
 - Poly Pressure / Channel Pressure
 - CC#67 Soft Pedal(FM音源に対応するパラメータが無いため意図的に非対応)
-- RPN 0x0002 Coarse Tuning、RPN 0x7F7F Null
 - CC#2/CC#4 の変数分離
 
 **チップドライバ**
