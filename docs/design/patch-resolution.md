@@ -217,7 +217,7 @@ PatchManager::resolveDirect(voicePatchType, hwBank, hwProg, config, storage)
 ```
 
 `VOICE_PATCH_*`の値は全て`0x01`-`0x6F`の範囲に収まるよう採番されている
-(`0x70`は内蔵リズム音源専用バンク(詳細は`docs/design/terminology.md`参照)、
+(`0x70`は内蔵リズム音源専用バンク(下記「内蔵リズム音源専用バンク」節)、
 `0x71`-`0x7F`はGM2リズム/メロディ切替(`0x78`/`0x79`)専用および将来予約)。
 `bankSelM_==0`は通常モードのトリガーであり、直接モードには使えない。
 

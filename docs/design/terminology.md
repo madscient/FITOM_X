@@ -1,8 +1,8 @@
 # FITOM_X 用語集
 
-このドキュメントは、FITOM_Xプロジェクトの開発セッションおよび将来の
-エンドユーザー向けマニュアル作成の両方から参照される、独立した用語集。
-各用語の定義は実装コードと照合済み。
+**対象読者**: FITOM_X本体の開発者・AI、利用者向けマニュアルを書く人
+
+FITOM_Xの文書とコードで使う用語の定義。仕様の詳細は、各項目に挙げた文書に書く。
 
 ---
 
@@ -20,9 +20,8 @@ OPM(YM2151)のKF(Key Fraction)レジスタの分解能に由来する。
 **既存の変数名は、単位を偽っていない限りリネームしない**(例:
 `fineFreq`/`fine`は単に「微細な値」を意味するだけで、誤った単位を
 主張していないため、そのままでよい。宣言部にkfs単位である旨のコメント
-を付す程度で十分)。一方、`bendCents`/`tuneCents`のように、実際には
-kfs単位の値を**誤って**"Cents"(プレーンなセント)と命名していた変数は、
-実体に合わせて`bendKfs`/`tuneKfs`にリネーム済み(2026年7月)。
+を付す程度で十分)。一方、kfs単位の値に"Cents"(プレーンなセント)のような
+別の単位を名乗る名前を付けてはならない。
 
 ---
 
@@ -32,39 +31,34 @@ kfs単位の値を**誤って**"Cents"(プレーンなセント)と命名して�
 
 CC#0(Bank Select MSB)=0（通常モード）でCC#32が選択するPatchBankに
 含まれる`Patch`。複数の`ToneLayer`（各々が独立した`voice_patch_type`/
-`hw_bank`/`hw_prog`を持てる）、`SwPatch`（ベロシティ感度・LFO変調）を
-組み合わせて構成される、FITOM_X独自の多層パッチ形式。
+`hw_bank`/`hw_prog`を持てる）を組み合わせて構成される、FITOM_X独自の
+多層パッチ形式。
 
 ### ハードウェアパッチ / デバイスパッチ (Hardware Patch / Device Patch)
 
-CC#0=**0x01-0x6F**（直接モード）で選択されるHwBankに含まれる`HwPatch`。
-CC#0の値そのものが`VOICE_PATCH_*`（対象チップ種別）を直接指定し、
-CC#32がそのチップ種別用に登録されたHwBankのインデックスを、Program
-Changeがそのバンク内のプログラム番号を選択する。
+チップのレジスタに書く音色パラメータ(`HwPatch`)。HwBankに入っている。
+レイヤードパッチの各`ToneLayer`から参照されるほか、CC#0=**0x01-0x6F**
+（直接モード）で直接選ぶこともできる。直接モードでは、CC#0の値そのものが
+`VOICE_PATCH_*`（対象チップ種別）を指定し、CC#32がそのチップ種別用に
+登録されたHwBankのインデックスを、Program Changeがそのバンク内の
+プログラム番号を選択する。PatchBank/ToneLayerを経由しない、単層のパッチ
+として鳴る。
 
-**`0x70`-`0x7F`は将来の拡張用に予約されており、現状は`0x01`-`0x6F`のみ
-有効**（`0x78`/`0x79`はGM2のリズム/メロディ切替専用、後述）。
-
-PatchBank/ToneLayerを一切経由しない、単層のパッチ。**ベロシティ感度・
-ソフトLFO変調(SwPatch)は、HwPatch自身が`sw_bank`/`sw_prog`を持って
-いれば適用される**（2026年7月〜。以前は直接モードでは常に無効
-だったが、SwPatch参照がPatch単位からHwPatch単位に変更されたことで、
-直接モードでも効くようになった）。
+CC#0の値の割り当て全体は`docs/design/midi-processing.md`の
+「Bank Select 方式」節を参照。
 
 ### ソフトウェアパッチ / パフォーマンスパッチ (Software Patch / Performance Patch)
 
 `HwPatch`が持つ`sw_bank`/`sw_prog`(-1=参照なし)で選択される
-`SwPatch`。ベロシティ感度カーブ、CC#1駆動LFOの変調パラメータ、
+`SwPatch`。ベロシティ感度カーブ、ソフトウェアLFOの変調パラメータ、
 固定トランスポーズなど、「演奏表現」に関わるソフトウェア的な
-パラメータ群を保持する。**2026年7月〜、SwPatchへの参照はHwPatch
-自身が持つ設計に変更された**（以前はレイヤードパッチ(`Patch`)単位で
-1つだけ、全ToneLayerが共有していたが、この変更によりレイヤーごとに
-異なるSwPatchを持てるようになり、また直接モードやビルトインリズム
-音源等、HwPatchが実際に発音される全ての経路で一貫して適用可能になった。
+パラメータ群を保持する。参照をHwPatchが持つので、レイヤードパッチの
+レイヤーごと、直接モード、内蔵リズム音源など、HwPatchが発音される
+すべての経路で同じように効く。
 DrumNote側にも`sw_bank`/`sw_prog`の個別上書きフィールドがあり、
 HwPatchが楽器を区別できないビルトインリズム音源でも、楽器ごとに
 異なるパフォーマンスパッチを指定できる。詳細は
-`docs/design/patch-resolution.md`参照）。
+`docs/design/patch-resolution.md`参照。
 
 ---
 
@@ -91,9 +85,18 @@ HwPatchが楽器を区別できないビルトインリズム音源でも、楽�
 - `"direct"`: 単一のPatch(bank/prog)への圧縮パススルー形式
   (OPL4 AWM等、チップ自身が内蔵のキーゾーン切り替えを持つ場合に使う)。
 
+### チャンネルロール (メロディチャンネル / リズムチャンネル)
+
+MIDIチャンネルごとの役割。メロディチャンネルはバンクとプログラムで音色を
+選び(`CInstCh`)、リズムチャンネルはドラムキットのドラムマップで
+ノートごとに音色を選ぶ(`CRhythmCh`)。CC#0=0x78/0x79で切り替える。
+詳細は`docs/design/midi-processing.md`の「GM2 リズム/メロディ切替」節を参照。
+
 ---
 
-## 無音バンク (CC#0=0x7F)
+## 特別なバンク選択値
+
+### 無音バンク (CC#0=0x7F)
 
 `PatchManager::resolveTriple()`が、`hwBank`/`hwProg`もデバイスリストも
 一切参照せずに「解決成功・ただし発音しない」を返す唯一の経路。
@@ -107,13 +110,19 @@ HwPatchが楽器を区別できないビルトインリズム音源でも、楽�
 この値を使う。実装上の要点は
 `docs/design/midi-processing.md`の「無音バンク」節を参照。
 
-## 内蔵リズム音源専用バンク (CC#0=0x70)
+### 内蔵リズム音源専用バンク (CC#0=0x70)
 
-OPNA(YM2608)/OPLL(YM2413)は、通常のFM/PSGチャンネルとは別に、専用の
-固定ドラム音を持つ内蔵リズムユニットを持つ(`COPNARhythm`/
-`COPLLRhythm`)。これらのデバイスは`deviceTypeToVoicePatchType()`が
-`VOICE_PATCH_NONE`を返す特殊デバイスであり、通常のVoicePatchTypeベース
-ルーティング(`resolve()`/`resolveDirect()`)では到達できない。
+OPNA(YM2608)/OPLL(YM2413)などが持つ、ROM固定のドラム音を鳴らす内蔵リズム
+ユニット(`COPNARhythm`/`COPLLRhythm`等)へのアクセス経路。CC#32で対象の
+チップを、Program Changeで楽器(=内蔵リズムのチャンネル番号)を選ぶ。
+OPL系の内蔵リズム(`COPLRhythm`)はこの経路を使わず、通常の
+VoicePatchType(`VOICE_PATCH_OPL_RHY`)を持つ。
+詳細は`docs/design/patch-resolution.md`の「内蔵リズム音源専用バンク」節を参照。
 
-CC#0=`0x70`は、この内蔵リズムユニットへの専用アクセス経路として予約
-されている。
+---
+
+## SF2直行パスと窓
+
+一部のMIDIチャンネルを、FITOM_XのFM/PSG向けの処理を通さずにSoundFont音源へ
+送る経路を**SF2直行パス**と呼ぶ。どのMPU×chをこの経路に送るかの対応表を
+**窓**と呼ぶ。詳細は`docs/design/sf2-direct-path.md`を参照。
