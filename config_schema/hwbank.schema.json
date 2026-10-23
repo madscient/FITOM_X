@@ -167,7 +167,7 @@
                 }
               }
             },
-            "description": "オペレータパラメータの配列。要素数はチップのオペレータ数に応じて1〜4で可変(1=SSG/DCSG/SAA/SCC等、2=OPL/OPL2/OPL3_2/OPLL系、4=OPN/OPN2/OPM/OPZ/OPZ2/OPL3(4opモード))。正確な対応はdocs/design/chip-drivers.mdの「5. VoicePatchType 対応表」参照。指定した要素数分だけ読み込まれ、残りはデフォルト値のまま扱われる(PatchManager::jsonToHwPatch参照)。ADPCM/AWM系はHwPatchを使わない(SampleZonePatchを使う別スキーマ)ため対象外。"
+            "description": "オペレータパラメータの配列。要素数はチップのオペレータ数に応じて1〜4で可変(1=SSG/DCSG/SAA/SCC等、2=OPL/OPL2/OPL3_2/OPLL系、4=OPN/OPN2/OPM/OPZ/OPZ2/OPL3(4opモード))。正確な対応はdocs/design/chip-drivers.mdの「VoicePatchType 対応表」参照。指定した要素数分だけ読み込まれ、残りはデフォルト値のまま扱われる(PatchManager::jsonToHwPatch参照)。ADPCM/AWM系はHwPatchを使わない(SampleZonePatchを使う別スキーマ)ため対象外。"
           },
           "ext": {
             "type": "object",

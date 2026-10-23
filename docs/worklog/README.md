@@ -25,7 +25,7 @@ STATUS.md内の位置関係を指すため、別の件や別の月のファイ�
 
 | 記録の中の名前 | 現在の場所 |
 |---|---|
-| `chip-driver-architecture.md` | `docs/design/chip-drivers.md` |
+| `chip-driver-architecture.md` | `docs/design/chip-drivers.md`(共通の仕組み)と`docs/design/chip-notes.md`(チップ別) |
 | `patch-structure-design.md` | `docs/design/patch-resolution.md` |
 | `voice-data-design.md` | `docs/design/voice-processor.md` |
 | `midi-implementation-status.md` | `docs/design/midi-processing.md` |

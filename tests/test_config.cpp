@@ -816,7 +816,7 @@ TEST_CASE("FITOMConfig: DEVICE_OPLL composite spec adds DEVICE_OPLL_RHY only "
 
 // ================================================================
 //  リニアステレオ化 (CLinearPanDevice、stereo_pair:true の明示指定)
-//  docs/design/chip-drivers.md「3.1 リニアステレオ化」参照
+//  docs/design/chip-drivers.md「リニアステレオ化」参照
 // ================================================================
 
 namespace {

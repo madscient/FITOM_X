@@ -49,7 +49,8 @@
 | `docs/manuals/layered-patch-reference.md` | 利用者 | (据え置き) |
 | `docs/manuals/profile-reference.md` | 利用者(新設) | `config-design.md`の利用者向け部分 + `banks/README.md`の`banks`・`bank_overrides` |
 | `docs/manuals/bank-reference.md` | 利用者(新設) | `patch-structure-design.md`の利用者向け部分(ドラムキット、PCMバンク、builtin、PSG共有バンク等) |
-| `docs/design/chip-drivers.md` | 同上 | `chip-driver-architecture.md` + `voice-parameter-reference.md`の内部向け部分 |
+| `docs/design/chip-drivers.md` | 同上 | `chip-driver-architecture.md`のうち全チップに共通する仕組み |
+| `docs/design/chip-notes.md` | 同上 | `chip-driver-architecture.md`のチップ別の節 + `voice-parameter-reference.md`の内部向け部分 + `voice-data-design.md`のPSGエンベロープとOPN FXモード |
 | `docs/design/patch-resolution.md` | 同上 | `patch-structure-design.md`の内部向け部分 |
 | `docs/design/voice-processor.md` | 同上 | `voice-data-design.md` |
 | `docs/design/midi-processing.md` | 同上 | `midi-implementation-status.md` |

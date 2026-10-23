@@ -762,7 +762,7 @@ TEST_CASE("SSGS3: no composite expansion since the AMM part is unsupported", "[s
 TEST_CASE("SSGS/SSGS2/SSGS3: in mixed setups the SSG and ADPCM parts are each spanned", "[ssgs]")
 {
     // CSpanDeviceの束ねのグループ化キーはVoicePatchType
-    // (mergeSpannableDevices、docs/design/chip-drivers.md 3節)。
+    // (mergeSpannableDevices、docs/design/chip-drivers.md「同種デバイスの束ね」)。
     // deviceTypeはサブチップごとに独立して保持されるため、分周比や
     // レジスタ配置の違いは束ねの妨げにならない。
     CHECK(FITOMConfig::deviceTypeToVoicePatchType(DEVICE_SSGS)

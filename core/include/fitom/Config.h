@@ -27,7 +27,7 @@ class PatchManager; // 前方宣言 (loadDrumBanks の引数用)
 class ISoundDevice;
 
 // リニアステレオ化 (CLinearPanDevice) におけるL/R役割の宣言方法。
-// docs/design/chip-drivers.md「3.1 リニアステレオ化」参照。
+// docs/design/chip-drivers.md「リニアステレオ化」参照。
 enum class StereoSide : uint8_t {
     None = 0,  // 未指定 (プロファイルの stereo_pair:true)。IPort::getPanpot()
                // の 1(L)/2(R) から役割を判定する = プラグイン側の出力

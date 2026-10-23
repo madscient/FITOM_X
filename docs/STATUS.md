@@ -40,7 +40,7 @@
 | `include/fitom/PatchManager.h` / `.cpp` | ✅ | バンク管理・JSON I/O |
 
 #### 音源デバイス
-設計は`docs/design/chip-drivers.md`、Y8960の拡張ブロックは同4.5.3節。
+設計は`docs/design/chip-drivers.md`(共通の仕組み)と`docs/design/chip-notes.md`(チップ別)。
 
 | ファイル | 状態 | 内容 |
 |---|---|---|
@@ -107,6 +107,7 @@
 | `swbank.schema.json` | ✅ |
 | `patchbank.schema.json` | ✅ |
 | `docs/design/chip-drivers.md` | ✅ |
+| `docs/design/chip-notes.md` | ✅ |
 | `docs/design/patch-resolution.md` | ✅ |
 | `docs/design/voice-processor.md` | ✅ |
 | `docs/design/config-loading.md` | ✅ |
@@ -145,7 +146,7 @@
 | バンクセレクトLSB直接指定モード | ✅ | `docs/design/patch-resolution.md` |
 | 無音バンク (CC#0=127、`VOICE_PATCH_SILENCE`) | ✅ | `docs/design/patch-resolution.md` |
 | PSGソフトウェアエンベロープ (SoftEnvelope, FM実機準拠ADSR) | ✅ | `docs/design/voice-processor.md` |
-| AY-3-8910 HW EG (ext.HWEP)、AY8930拡張モードのバンク切り替え | ✅ | `docs/design/voice-processor.md`, `docs/design/chip-drivers.md` |
+| AY-3-8910 HW EG (ext.HWEP)、AY8930拡張モードのバンク切り替え | ✅ | `docs/design/chip-notes.md` |
 | リズムモード汎用フィールド (`rhythm_mode`)、ビルトインリズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `docs/design/config-loading.md` |
 | HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWPlugin_Shutdown (任意API、二重実行防止) | ✅ | `docs/interfaces/plugin-hwif.md` |
@@ -154,12 +155,12 @@
 | Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `docs/design/chip-drivers.md` |
 | 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `docs/design/chip-drivers.md` |
 | リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/design/config-loading.md` |
-| OPL3 4OPモード (COPL3) + 疑似デチューン(DT2転用) | ✅ | `docs/design/chip-drivers.md` |
-| OPN FXモード (3rd channel special mode、疑似デチューン/非整数倍率/固定周波数) | ✅ | `docs/design/chip-drivers.md`, `docs/design/voice-processor.md` |
-| 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-drivers.md` |
+| OPL3 4OPモード (COPL3) + 疑似デチューン(`PDT`) | ✅ | `docs/design/chip-notes.md` |
+| OPN FXモード (3rd channel special mode、疑似デチューン/非整数倍率/固定周波数) | ✅ | `docs/design/chip-notes.md` |
+| 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-notes.md` |
 | リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `docs/design/chip-drivers.md` |
-| ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-drivers.md` |
-| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-drivers.md`, `manuals/hwpatch-reference.md` |
+| ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-notes.md` |
+| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-notes.md`, `manuals/hwpatch-reference.md` |
 | ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
 | PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
 | pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `manuals/hwpatch-reference.md` |
@@ -167,7 +168,7 @@
 | SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `manuals/midi-message-reference.md` |
 | 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |
 | MIDIバックエンドのRtMidi単一実装 | ✅ | `docs/interfaces/plugin-midi.md` |
-| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書10月20日版に追従) | 🚧 | `docs/design/chip-drivers.md` 4.5.3節 |
+| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書10月20日版に追従) | 🚧 | `docs/design/chip-notes.md`「Y8960 の拡張ブロック」 |
 | テストケース名はASCIIに限定 (`tests/test_test_names.cpp`が検査する) | ✅ | — |
 
 ---
@@ -211,7 +212,7 @@
 **チップドライバ**
 - OPK(YM7116)/OPK2(YM7129)のドライバ(旧実装は`legacy/src/OPK.cpp`にある。**確認済み**: `DeviceFactory.cpp`に生成処理が無く、`Config.cpp`に`chip`名の対応も無いことをgrepで確認)
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
-- VoicePatchType 完全一致以外へのフォールバック(旧FITOMの互換リスト相当)。OPLL系はROMプリセットがOPLLEXへ落ちるものだけがあり、標準OPLL系どうしの相互フォールバックは無い
+- チップファミリーをまたぐフォールバック(旧FITOMの互換リスト相当)。ファミリー内のフォールバックは`acceptsFallback`で実装済み(`docs/design/chip-drivers.md`「フォールバック」)。OPLL系のROMプリセットは、OPLLEXへ落ちるもの以外はチップ間でフォールバックしない(ROMの中身が実機ごとに違うため)
 - OPM/OPZ ハードウェアLFO: 設計検討完了・実装未着手。`docs/proposals/opm-opz-hw-lfo.md`
 - OPM/OPZ の既存の不具合2つ(`docs/proposals/opm-opz-hw-lfo.md`「着手前に修正が必要な既存の不具合」)。(1) `COPM::reset()`がLFOのレジスタ`$18`/`$19`をクリアしないのに`lfoDepth_`/`lfoRate_`のキャッシュは0に戻すので、リセット後にCC#14/#15で0を送っても同じ値として書き込みが省かれ、チップに古い値が残る。(2) `enablePM`/`enableAM`が`$38+ch`をシャドウ1バイトで読み書きするため、OPZの第2LFOのセレクタ(b7/b2)を扱えない。いずれもコードを読んで確かめた。音での影響は未検証
 - SCCの波形バンク番号が常に0: `CSCC::setWaveBankNo()`がどこからも呼ばれておらず、複数の`sccwave`バンクを音色データ側から使い分ける経路が無い。バンク0だけなら動作する
@@ -228,7 +229,7 @@
 
 **Y8960**
 - カートリッジ側のミキサー(ブロックごとの音量 0x7FF7-0x7FFE)はカートリッジのメモリマップドI/Oで、チップドライバの対象外。扱うならHW I/Fプラグイン側の部位ゲインとして実装する
-- 仕様は変更が続いている。仕様書が変わったら`docs/design/chip-drivers.md`4.5.3節を見直す
+- 仕様は変更が続いている。仕様書が変わったら`docs/design/chip-notes.md`「Y8960 の拡張ブロック」を見直す
 
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線

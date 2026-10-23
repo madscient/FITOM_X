@@ -910,7 +910,7 @@ protected:
 
         // FB/ALG/Panは物理ch単位のレジスタ(0xC0+physCh)。ch7(HH/SD)・
         // ch8(TOM/CYM)は共有するため、後着優先で上書きされる(仕様として
-        // 許容、docs/design/chip-drivers.md「OPLL系」参照)。
+        // 許容、docs/design/chip-notes.md「内蔵リズム」参照)。
         setReg(static_cast<uint16_t>(0xC0 + physCh),
                static_cast<uint8_t>(0x30 | ((p.hw.FB & 7) << 1) | (p.hw.ALG & 1)));
 

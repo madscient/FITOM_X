@@ -361,8 +361,7 @@ FITOM_X側が`resolveChipDeviceId()`に使うための情報であり、その�
 OPLL/OPL/PSG系のようにチップ自体がモノラル出力しか持たない音源で、
 **物理的にL/Rへ固定配線された同一チップ2台を1つのステレオデバイスとして
 束ね、等パワーパンニングでパンポットを表現する**ための指定
-(`CLinearPanDevice`。設計の詳細は`docs/design/chip-drivers.md`「3.1
-リニアステレオ化」)。
+(`CLinearPanDevice`。設計の詳細は`docs/design/chip-drivers.md`「リニアステレオ化」)。
 
 **自動検出は行わない。** L側・R側**両方**のエントリに`stereo_pair`を書く必要が
 ある。`pan`だけを1/2に振り分けても束ねは発動せず、単に「左に固定された

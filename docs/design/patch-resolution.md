@@ -560,8 +560,7 @@ Top Cymbal/Tom/Snare Drum/Bass Drumの5パート)を列挙するよう
 (`resolveTriple`→`HwBankRegistry`)でパッチを解決する。「音色データが
 標準の`HwPatch`形状でソフトウェア管理されているかどうか」が、特殊
 ルーティングの要否を分ける基準になっている
-(`docs/design/chip-drivers.md`の「デバイスに特殊ルーティングが
-必要かどうかの判断基準」参照)。
+(`docs/design/chip-drivers.md`の「特殊ルーティングの判断基準」参照)。
 
 ただし「チャンネル番号=楽器」というハードウェア制約自体は`0x70`と
 共通のため、`resolveTriple()`はチャンネルを別途解決する。ただし
@@ -599,7 +598,7 @@ BD(バスドラム、2op)以外は1オペレータのみの実際のFM音色パ�
 物理チャンネル向けか)は完全に独立した軸のため、同じ楽器(例:SD)に
 対して複数の音色バリエーションをHwBank内の別スロットに用意できる
 (HwPatch作成者が各スロットの`rhythm_ch`を正しく設定する責任を負う)。
-詳細は`docs/design/chip-drivers.md`の「VoicePatchType対応表」参照。
+詳細は`docs/design/chip-drivers.md`の「VoicePatchType 対応表」参照。
 
 ### チョークグループ（ハイハット等の相互ダンプ、2026年7月新設）
 

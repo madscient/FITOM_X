@@ -3,7 +3,7 @@
 **対象読者**: FITOM_X本体の開発者・AI  
 **関連文書**:
 - 利用者向けの各パラメータの意味: `docs/manuals/hwpatch-reference.md`、`docs/manuals/swpatch-reference.md`
-- チップごとのレジスタへの書き方: `docs/design/chip-drivers.md`
+- チップごとのレジスタへの書き方: `docs/design/chip-notes.md`
 
 ---
 
@@ -35,7 +35,7 @@ SwPatch(PatchData.h)            VoiceProcessor がノートオン時と毎tick�
 
 | フィールド | 使うチップ | 意味 |
 |---|---|---|
-| `hwOp[].PDT` | OPN(ch2のFXモード) | `ext.FIX`のモードに応じた疑似デチューン・倍率・固定周波数(`docs/design/chip-drivers.md`の「OPN FXモード」) |
+| `hwOp[].PDT` | OPN(ch2のFXモード) | `ext.FIX`のモードに応じた疑似デチューン・倍率・固定周波数(`docs/design/chip-notes.md`の「OPN FXモード」) |
 | `hwOp[].PDT` | OPL3(4OPモード) | 前半/後半の2opペアの疑似デチューン。`hwOp[0]`/`hwOp[2]`の値を使う。単位はkfs |
 | `hwOp[].REV`/`EGS`/`DT3` | OPZ | オペレータ単位。実機OPZは各オペレータに個別に設定できる |
 | `ext.FIX` | OPZ | Osc fixed freqフラグ |

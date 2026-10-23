@@ -806,7 +806,7 @@ void jsonToHwOp(const json& j, FmHwOp& op) {
 }
 
 // voicePatchTypeから、そのチップが使うオペレータ数(1/2/4)を判定する。
-// docs/design/chip-drivers.mdの「5. VoicePatchType 対応表」参照。
+// docs/design/chip-drivers.mdの「VoicePatchType 対応表」参照。
 // HwBank保存時(hwPatchToJson)に、実際に意味のあるオペレータ数分だけ
 // JSON出力するために使う(2026年7月〜。以前は常に4要素固定で出力して
 // おり、2op/1opチップでも無意味なダミーデータが書き出されていた)。
