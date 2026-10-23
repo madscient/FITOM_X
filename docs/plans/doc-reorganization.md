@@ -77,7 +77,7 @@
 - [x] P3 文書ごとに分割・経緯の移動・誤りの修正(5節の一覧)
 - [x] P4 コードコメントとスキーマの description の経緯・古い記述(D4)
 - [x] P5 CLAUDE.md・README・STATUS の文書一覧を一本化し、規則を足す
-- [ ] P6 他のリポジトリの参照を直す(D2)
+- [x] P6 他のリポジトリの参照を直す(D2)
 
 ## 5. 文書ごとの作業一覧
 
@@ -128,7 +128,7 @@
 - FITOM_patch_editor: `apps/gui/`・`include/fpe/`・`src/`のコメント、`docs/ARCHITECTURE.md`、`CLAUDE.md`。**済み**(同リポジトリの`218eaa5`・`e2e0ecc`)。`CLAUDE.md`にFITOM_Xの文書への参照は無く、代わりに`docs/DECISIONS.md`と`tests/`にあった
 - FITOM_staging: `README.md`、`CLAUDE.md`、`tools/voice_convert/`、`config_schema/`(写し)、`config/profiles/hw_plugins/fitom_sf2if_profile.json`。`docs/voice-parameter-reference.md`という写しを持っている。**済み**(同リポジトリの`6a21263`)。`README.md`と`tools/voice_convert/`の大半の参照は、FITOM_stagingの写しの`docs/voice-parameter-reference.md`を指していて壊れていなかった。写しを残すかは同リポジトリのSTATUSで未決とした
 - FitomHwIF: `src/HWPluginImpl.cpp`。**直すものは無かった**(**確認済み**: 旧パスの名前、`docs/`全般、`FITOM_X`への言及をgrepし、履歴も`git log -S`で探した。`src/HWPluginImpl.cpp`には「FITOM_X 本体」という言及があるだけで、文書のパスは無い。FITOM_Xのファイルを指すのは`pcm_image_catalog.schema.json`だけで、パスは変わっていない)
-- FitomEmuIF: `doc/plan.md`
+- FitomEmuIF: `doc/plan.md`。**済み**(同リポジトリの`87d0a6c`、未push)。同ファイルの作業記録の節にある参照は記録なので直していない
 
 ## 7. 見送った案
 
