@@ -11,7 +11,7 @@
 namespace fitom {
 
 // ================================================================
-//  波形テーブル・速度テーブル (旧 EnvLFO.cpp から移植)
+//  波形テーブル・レート変換
 // ================================================================
 
 namespace {
@@ -36,16 +36,13 @@ static const int8_t kSinTable[240] = {
 };
 
 // LFOレート(1〜127)→周期[tick](1tick=1ms)への変換。
-// テーブル方式(旧kSpeedStep)を廃止し、対数(指数)カーブの数式に
-// 変更した(2026年7月)。理由: 線形に近い値を直接周期として使う
-// 旧方式では、低域(ビブラートとして最も使われる帯域)ほど隣接ステップ
-// 間の比率(知覚的な尺度)が大きくなり、分解能が悪化する問題があった
-// (docs/design/voice-processor.md参照)。対数カーブなら、rate値を1増やす
-// ごとに周波数が一定比率(約3.7%)で変化するため、低域・高域を問わず
-// 均等なステップになる。
+// 対数(指数)カーブにすることで、rate値を1増やすごとに周波数が一定比率
+// (約3.7%)で変化し、低域・高域を問わず均等なステップになる。線形に近い
+// 値を直接周期として使うと、低域(ビブラートとして最も使われる帯域)ほど
+// 隣接ステップ間の比率(知覚的な尺度)が大きくなり、分解能が悪化する
+// (docs/design/voice-processor.md「レートから周期への変換」参照)。
 // 周波数レンジ0.5Hz〜50Hzは、旧FITOM(ROM::speedstep[]、10ms tick)が
-// 実際に生成していたレンジ(0.417Hz〜50Hz)に近い値(完全一致は不要、
-// 概ね一致していればよいとの方針、2026年7月)。
+// 生成していたレンジ(0.417Hz〜50Hz)に概ね合わせたもの。
 static uint16_t rateToTicks(uint8_t rate) noexcept
 {
     if (rate == 0) return 0; // LFO無効 (呼び出し元でもチェック済み)
@@ -58,16 +55,12 @@ static uint16_t rateToTicks(uint8_t rate) noexcept
 }
 
 // CC#1 ビブラートのデフォルトパラメータ
-// 波形: sine (LWF=6), 周期: rate=70 (≈6.23Hz、旧デフォルトの6.25Hzに近似)
+// 波形: sine (LWF=6), 周期: rate=70 (≈6.23Hz、旧FITOMの既定値6.25Hzに近似)
 // デプス最大: 32 steps ≈ 50 cent (RPN#5 で変更可能)
 static constexpr uint8_t  kCC1DefaultRate     = 70;
 static constexpr int16_t  kCC1DefaultMaxDepth = 32;  // steps (≈50cent @ CC#1=127)
 
 } // anonymous namespace
-
-// ================================================================
-//  ユーティリティ関数 (旧 SoundDev.cpp 相当)
-// ================================================================
 
 // ================================================================
 //  LfoControl 実装
@@ -140,7 +133,7 @@ bool LfoControl::tick() noexcept
         // (一周期完了・末尾値保持中)や一周期完了前にfadeout()が呼ばれた
         // 場合に位相が回り続け、ワンショットのはずのLFOがフェードアウト
         // 期間中(NoteOff〜kReleasingHoldMs)ずっと繰り返し再生されて
-        // しまうバグがあった。
+        // しまう。
         if (mode_ == LfoMode::Repeat) {
             ++phase_tick_;
             if (phase_tick_ >= period_) {
@@ -221,8 +214,7 @@ int8_t LfoControl::wave(uint8_t waveform) const noexcept
     //  OneShot: 1周期がそのままピッチ/音量エンベロープになるため、周期内に
     //           不連続点があってはならない。Repeatと同じ位相シフトを適用
     //           すると「変位0→-120→(跳ね上がり)+120→変位0」となり、1周期
-    //           しか鳴らないはずの波形が2回繰り返して聞こえてしまう
-    //           (2026年8月、ドラムノートのDrumLFOで発覚した不具合)。
+    //           しか鳴らないはずの波形が2回繰り返して聞こえてしまう。
     //           0 から ±120 へ単調に振れる片側傾斜として扱い、周期末尾の
     //           ±120 をそのまま one_shot_done_ 時のホールド値へ繋げる。
     const bool oneShot = (mode_ != LfoMode::Repeat);
@@ -289,27 +281,18 @@ int8_t LfoControl::wave(uint8_t waveform) const noexcept
         static_cast<int32_t>(raw) * fade_level_ / 127);
 }
 
-// vol × exp × vel → 実効レベル (0〜127)
-// 旧 CalcVolExpVel
-// calcEffectiveLevel / calcLinearLevel は VolumeUtils.h の
-// fitom::calcVolExpVel / fitom::calcLinearLevel に統合済み。
-// ここでは使用しない。
+// VoiceProcessor.h で宣言している calcEffectiveLevel は定義を持たない。
+// calcLinearLevel の実体は VolumeUtils.h の fitom::calcLinearLevel。
 
-// 線形 TL → dB TL (チップドライバが呼ぶ)
-// 旧 Linear2dB
+// 線形 TL → dB TL。range/step/bw を無視して素通しする
+// (チップドライバは VolumeUtils.h の linear2dB を使う)。
 uint8_t linearToDb(uint8_t linearTL, int range, int step, int bw) noexcept
 {
     // range: RANGE96DB=0, RANGE48DB=1, RANGE24DB=2, RANGE12DB=3
     // bw: bit width (7 for OPN/OPM, 6 for OPL)
     (void)range; (void)step; (void)bw;
-    return linearTL; // 既存の実装は概ねそのまま通す（正確な変換は旧実装を参照）
+    return linearTL;
 }
-
-// ================================================================
-//  LfoControl
-// ================================================================
-
-// LfoControl の実装は getLfoWave 置き換え箇所にまとめた
 
 // ================================================================
 //  VoiceProcessor
@@ -423,10 +406,8 @@ void VoiceProcessor::onNoteOff() noexcept
 void VoiceProcessor::setCC1Modulation(uint8_t cc1, int16_t maxDepth) noexcept
 {
     // CC1 LFO のデプスを更新する
-    // voice_ のキャッシュがないため LFR は chLfo_ の状態で判断する
-    // (LFR>0 の音色は NoteOn 時に chLfo_.start() しているため active かつ
-    //  期間パラメータが kCC1DefaultRate 以外になっている)
-    // → cc1LfoActive_ フラグで管理する
+    // voice のキャッシュを持たないため、LFR>0 かどうかは onNoteOn() で
+    // 設定した cc1LfoMode_ で判断する
     cc1LfoMaxDepth_ = maxDepth;
     cc1Value_       = cc1;
 
@@ -492,10 +473,8 @@ void VoiceProcessor::recalcBaseTL(uint8_t vol, uint8_t exp, uint8_t vel,
 {
     // vol のみを常時反映するマスターボリューム扱いとする (exp/vel は
     // 含めない、いずれも 127 固定で 0dB寄与のダミー値を渡す) — exp/vel
-    // → 音量への反映は下の VTL 補正のみが担う設計 (2026年7月、vel に
-    // 続き exp もここで常時フル感度で加算していたため、VTL=0 の音色でも
-    // expressionが効いてしまっていたのを、velと同じくVTLゲート付き
-    // 補正の対象に統合した)。
+    // → 音量への反映は下の VTL 補正のみが担う設計 (VTL=0 の音色では
+    // exp/vel とも効かない)。
     const uint8_t evol = fitom::calcVolExpVel(vol, 127, 127);
 
     // carrierMask: 呼び出し元 (CSoundDevice::computeCarrierMask()) がチップ
@@ -587,15 +566,14 @@ void VoiceProcessor::recalcChLfo(const FmVoice& voice) noexcept
     const int16_t wav = static_cast<int16_t>(chLfo_.wave(sw.LWF));
 
     // depthCents[セント、-1200〜+1200] をkfs単位に変換
-    // (docs/design/terminology.mdの「kfs」参照)。SLD(トレモロ深さ)と同じ設計
+    // (docs/design/terminology.mdの「単位: kfs (KF Step)」参照)。SLD(トレモロ深さ)と同じ設計
     // パターン: 波形が最大振幅(±120)のとき、変調量はdepthKfsそのもの
     // (=ユーザー指定の深さ)になる。
     // CC#77(Depth)はGM2規格のSound Controller同様、値64を中央(補正なし)
-    // とするオフセット方式(2026年8月、絶対上書き方式から変更。GM2準拠の
-    // DAWがSound Controllerを既定値64にリセットする定型初期化を送ると、
-    // 絶対上書き方式では音色が想定していないLFOが誤って起動してしまう
-    // 不具合があった)。lfoDepthOverrideCents_は音色自身のdepthCentsに
-    // 加算するオフセット値(0=補正なし)として扱う。
+    // とするオフセット方式。GM2準拠のDAWはSound Controllerを既定値64に
+    // リセットする定型初期化を送るため、絶対値で上書きする方式だと音色が
+    // 想定していないLFOが起動してしまう。lfoDepthOverrideCents_は音色自身の
+    // depthCentsに加算するオフセット値(0=補正なし)として扱う。
     int32_t depthCents = clamp(static_cast<int>(sw.depthCents) + lfoDepthOverrideCents_, -1200, 1200);
     int32_t depthKfs = depthCents * 64 / 100;
     int32_t val = static_cast<int32_t>(wav) * depthKfs / 120;

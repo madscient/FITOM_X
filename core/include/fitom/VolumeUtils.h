@@ -2,9 +2,6 @@
 // fitom/VolumeUtils.h
 // 音量・dB 変換ユーティリティ
 //
-// 旧 EnvLFO.cpp のグローバル関数を fitom 名前空間に収めた版。
-// インターフェース互換を保ちつつ extern → inline で変換コストを削減する。
-//
 // ─── 定数 ───────────────────────────────────────────────────────────────────
 //   RANGE96DB  : 127段階で -96dB (OPM / OPN TL 7bit)
 //   RANGE48DB  : 127段階で -48dB (OPL TL 6bit)
@@ -17,7 +14,7 @@
 #include <cmath>
 #include <algorithm>
 
-// 後方互換: 旧コードからそのまま使えるようにマクロも定義する
+// チップドライバが名前空間なしで使うためマクロで定義する
 #define RANGE96DB 0
 #define RANGE48DB 1
 #define RANGE24DB 2
@@ -31,7 +28,7 @@ namespace fitom {
 
 // ================================================================
 //  GM dB テーブル (volume_manager を使わない版)
-//  MIDI volume 0-127 → dB 変換。ROM::GM2dB と同一データ。
+//  MIDI volume 0-127 → dB 変換。
 // ================================================================
 extern const double kGM2dB[128];
 
@@ -111,9 +108,8 @@ inline uint8_t y8960PanValue(int8_t panpot) noexcept
 } // namespace fitom
 
 // ================================================================
-//  後方互換: グローバル関数シム (旧 EnvLFO.cpp と同じシグネチャ)
-//  チップドライバが #include "VolumeUtils.h" するだけで動くよう
-//  旧名の extern 宣言を using 宣言で転送する
+//  グローバル関数シム: チップドライバが名前空間なしで呼ぶ名前を
+//  fitom:: 版へ転送する
 // ================================================================
 inline uint8_t CalcVolExpVel(int vol, int exp, int vel) noexcept {
     return fitom::calcVolExpVel(

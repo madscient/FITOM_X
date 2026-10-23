@@ -65,7 +65,7 @@ const uint8_t kVolCurveInv[128] = {
 } // namespace fitom
 
 // ================================================================
-//  後方互換エイリアス (ROM::VolCurveLin / VolCurveInv)
+//  ROM::VolCurveLin / VolCurveInv (fitom::kVolCurveLin / kVolCurveInv と同じ値)
 // ================================================================
 namespace ROM {
     const uint8_t VolCurveLin[] = {

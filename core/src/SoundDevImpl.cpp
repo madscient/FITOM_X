@@ -1,12 +1,5 @@
 // fitom/SoundDevImpl.cpp
 // CSoundDevice 共通実装
-//
-// 旧 SoundDev.cpp からの移行ポイント:
-//   CHATTR       → ChState  (VoiceProcessor 内包)
-//   FMVOICE*     → HwPatch* / VoiceProcessor
-//   UpdateOpLFO  → VoiceProcessor::onTick() の tlUpdateMask で代替
-//   UpdateVolExp → VoiceProcessor::effectiveTL() で代替
-//   CLFOControl  → LfoControl (VoiceProcessor.h)
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/Log.h"
@@ -16,7 +9,6 @@
 #include <cmath>
 
 // F-number テーブルは FnumRegistry が動的生成して返す
-// (旧 Fnum.cpp の静的配列 FnumTable[] は使用しない)
 #include "fitom/FnumUtils.h"
 
 namespace fitom {
@@ -157,7 +149,8 @@ uint8_t CSoundDevice::findBestCh(IMidiCh* owner, const HwPatch* patch,
     return bestCh;
 }
 
-// ─── queryCh: 後方互換ラッパー ───────────────────────────────────────────────
+// ─── queryCh: findBestCh の仮想ラッパー ──────────────────────────────────────
+// 派生クラスはこれをオーバーライドしてデバイス固有のチャンネル制約を課す。
 uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
 {
     // mode=1: 空き/Releasing のみ (allowSteal=false)
@@ -171,20 +164,15 @@ uint8_t CSoundDevice::queryCh(IMidiCh* owner, const HwPatch* patch, int mode)
 uint8_t CSoundDevice::allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
                                const SwPatch* swPatch, const SampleZonePatch* samplePatch)
 {
-    // 仮想関数 queryCh() 経由でチャンネルを選択する。
-    // (修正前は findBestCh() を直接呼んでいたため、派生クラスが queryCh()
-    //  をオーバーライドしてデバイス制約 (例: OPMノイズ→ch7固定、
-    //  SSGノイズ→ch2固定) を課していても、allocCh() 経由の発音では
-    //  その制約が仮想ディスパッチされず完全に無視される重大なバグがあった。
-    //  CSpanDevice/CUnison 経由 (複数チップ束ね時) は queryCh() を正しく
-    //  呼んでいたため制約が効いていたが、単体チップ構成では effectively
-    //  死んでいた。)
+    // 仮想関数 queryCh() 経由でチャンネルを選択する。findBestCh() を直接
+    // 呼ぶと、派生クラスが queryCh() で課すデバイス制約 (例: OPMノイズ→
+    // ch7固定、SSGノイズ→ch2固定) が単体チップ構成で効かなくなる。
     //
     // mode=1(奪取なし)→mode=0(奪取あり)の2段階で試す。
     // findBestCh(allowSteal=false) は score 2-4 (空き/Releasing) のみを
-    // 評価し、score 1 (強制奪取候補) の判定を完全にスキップする設計のため、
+    // 評価し、score 1 (強制奪取候補) の判定をスキップするため、
     // 空き/Releasingのchが1つでもあれば1回目(mode=1)で必ず見つかり、
-    // 元の「1回のfindBestCh(allowSteal=true)呼び出し」と全く同じ結果になる
+    // findBestCh(allowSteal=true) を1回呼ぶのと同じ結果になる
     // (1パスのまま、コスト増加なし)。全ch使用中の場合のみ2回目(mode=0)が
     // 走り、最古ノートの強制奪取が行われる。
     uint8_t ret = 0xFF;
@@ -218,13 +206,10 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
     // 必ず先にnoteOff()する(noteOff()がKey Offレジスタ書き込み+release()を
     // 内包)。OPN系等のKey On/Offレジスタはエッジトリガ(0→1でアタック開始)
     // のため、Key Offを挟まずKey Onだけを再度書いても実機ではエンベロープが
-    // 再アタックしない。以前はowner不一致の場合のみnoteOff()していたため、
-    // findBestCh()のscore=1(強制スティール、Running chの奪取)で選ばれた
-    // chがたまたま同一owner(同一MIDIチャンネル)の古いノートだった場合に
-    // Key Offが抜け落ち、Fnumは新しいノートの値に変わるのにアタックが
-    // 再トリガーされない(音程だけ滑らかに変化して聞こえる)不具合があった
-    // (2026年7月修正。高速に連続でノートオンが発生するベースライン等で、
-    // ノートオンの取りこぼしのように聞こえると報告され発覚)。
+    // 再アタックしない。owner一致(同一MIDIチャンネルの古いノートを
+    // 強制スティールした場合)でもnoteOff()を省くと、Fnumだけが新しい
+    // ノートの値に変わってアタックが再トリガーされず、音程だけ滑らかに
+    // 変化して聞こえる。
     // 一方、Releasing chの再利用(score 2-4の通常の round-robin)は既に
     // noteOff()済みで無害なため、ここで再度呼ぶ必要はない(isRunning()の
     // みをチェックし、isReleasing()は対象外のままにする)。
@@ -240,13 +225,12 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
         s.samplePatch = nullptr;
         // swPatchはChStateにキャッシュしておく(setVolume/setExpressionが
         // 発音中にFmVoiceを再構築してVoiceProcessor::onVolumeChange()を
-        // 呼ぶ際に必要、2026年7月新設。buildVoiceForCh()参照)。
+        // 呼ぶ際に必要。buildVoiceForCh()参照)。
         s.swPatch = swPatch ? *swPatch : SwPatch();
-        // VoiceProcessor::onNoteOn()をupdateVoice()より前に呼ぶ
-        // (docs/design/voice-processor.md「呼び出しの順序」
-        // 参照。2026年7月訂正。以前はnoteOn()側で
-        // 遅延して呼ばれており、updateVoice()内のキャリア側ベロシティ
-        // 補正値が常に未計算のまま実機へ送信されるバグがあった)。
+        // VoiceProcessor::onNoteOn()をupdateVoice()より前に呼ぶ。
+        // updateVoice()はキャリア側ベロシティ補正値を書くので、その前に
+        // 計算が済んでいなければならない
+        // (docs/design/voice-processor.md「呼び出しの順序」参照)。
         s.proc.onNoteOn(s.volume, s.expression, vel, buildVoiceForCh(ch), computeCarrierMask(ch));
         updateVoice(ch);
     } else if (samplePatch) {
@@ -256,9 +240,8 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
         // usesVoiceProcessorForSamplePatch()がtrueのチップ(音量計算が
         // effectiveTL()経由の設計)のみ、patch分岐と同様にonNoteOn()を
         // 呼んでSwPatch(トレモロ/VTL感度/チャンネルLFO)を有効化する
-        // (2026年7月新設。以前はswPatch引数が完全に無視されており、
-        // 該当チップの音量がVolume/Expression/Velocityを無視して常に
-        // 最大になる既存バグもあった、ISoundDevice.hのコメント参照)。
+        // (呼ばないと該当チップの音量にVolume/Expression/Velocityが
+        // 反映されない。docs/design/patch-resolution.md「サンプル系」参照)。
         if (usesVoiceProcessorForSamplePatch()) {
             s.proc.onNoteOn(sampleVoiceProcessorVolume(ch), s.expression, vel,
                              buildVoiceForCh(ch), computeCarrierMask(ch));
@@ -268,18 +251,14 @@ uint8_t CSoundDevice::assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch,
     return ch;
 }
 
-// releaseCh: 後方互換ラッパー。noteOff が release() を内包するため
-// 呼び出し不要になったが、外部から呼ばれる場合のために残す。
+// releaseCh: noteOff() が release() を内包するため、noteOff() の後に
+// 呼んでも何もしない(状態は既に Releasing)。
 void CSoundDevice::releaseCh(uint8_t ch)
 {
     if (ch < maxChs_ && chState_[ch].isRunning())
         chState_[ch].release();
 }
 
-// ─── マスターピッチ変更 ────────────────────────────────────────────────────
-// デフォルト実装: FnumRegistry のキャッシュを更新し、
-// 発音中チャンネルの F-number を即時再計算して書き込む。
-// OPM のようにチップ固有の計算が必要な場合はオーバーライドする。
 bool CSoundDevice::isChOwnedBy(uint8_t ch, const IMidiCh* owner) const
 {
     if (ch >= maxChs_) return false;
@@ -294,10 +273,9 @@ void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
     // isActive()(Running/Releasing)だけでなくisAssigned()も許可する。
     // CInstCh::noteOn()はassignCh()(→status=Assigned)の直後、まだ
     // dev->noteOn()(→status=Running)を呼ぶ前にこの関数を呼んで直前の
-    // 別MIDIチャンネルのCC#1残留値を上書きする(devChの使い回し対策、
-    // 2026年7月修正[fb21e46]参照)。isActive()のみで判定すると、この
-    // 呼び出し時点ではまだstatus==Assignedのため常に早期returnし、
-    // 当の修正が実質無効化されていた(2026年7月再修正)。
+    // 別MIDIチャンネルのCC#1残留値を上書きする(devChの使い回し対策)。
+    // isActive()のみで判定すると、この
+    // 呼び出し時点ではまだstatus==Assignedのため常に早期returnしてしまう。
     if (!s.isActive() && !s.isAssigned()) return;
     s.proc.setCC1Modulation(cc1, maxDepth);
     // デプスが変わったので F-number を再計算
@@ -305,7 +283,7 @@ void CSoundDevice::setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth)
         updateFnumber(ch, true);
 }
 
-// CC#77: ソフトウェアLFO Depthの演奏時上書き。
+// CC#77: ソフトウェアLFO Depthの演奏時補正(音色の depthCents に加算するオフセット)。
 void CSoundDevice::setLfoDepthOverride(uint8_t ch, int16_t cents)
 {
     if (ch >= maxChs_) return;
@@ -319,6 +297,10 @@ void CSoundDevice::setLfoDepthOverride(uint8_t ch, int16_t cents)
         updateFnumber(ch, true);
 }
 
+// ─── マスターピッチ変更 ────────────────────────────────────────────────────
+// デフォルト実装: FnumRegistry のキャッシュを更新し、
+// 発音中チャンネルの F-number を即時再計算して書き込む。
+// OPM のようにチップ固有の計算が必要な場合はオーバーライドする。
 void CSoundDevice::onMasterPitchChanged(double pitchHz)
 {
     // FnumRegistry のキャッシュはセッター側でクリア済み (呼び出し元責務)
@@ -370,8 +352,8 @@ void CSoundDevice::noteOn(uint8_t ch, uint8_t vel)
     ++s.noteOnSeq;
 
     // VoiceProcessor::onNoteOn()は、assignCh()内でupdateVoice()より前に
-    // 既に呼ばれている(2026年7月訂正、docs/design/voice-processor.md
-    // 「呼び出しの順序」参照)。ここで再度呼ぶと、LFOリセット等が二重に走ってしまう
+    // 既に呼ばれている(docs/design/voice-processor.md「呼び出しの順序」
+    // 参照)。ここで再度呼ぶと、LFOリセット等が二重に走ってしまう
     // ため呼ばない。
 
     // CInstCh::noteOn は volume/expression/sustain/panpot を update=false で
@@ -430,9 +412,8 @@ void CSoundDevice::setNoteFine(uint8_t ch, uint8_t note, int16_t fine, bool upda
         // assignCh()内のupdateVoice()呼び出しは、この関数が呼ばれる前の
         // 段階(=s.lastNoteがまだ正しいノートに更新されていない段階)で
         // 実行されるため、正しいノートが確定したこの時点で改めて
-        // 呼び直す必要がある(2026年7月、この再呼び出しが無く常に
-        // 1つ前のノート、または初回は0xFFでゾーンが決まっていた
-        // 既存バグを修正)。
+        // 呼び直す必要がある(呼び直さないと、1つ前のノート、初回は0xFFで
+        // ゾーンが決まってしまう)。
         if (s.samplePatch) updateVoice(ch);
     }
 }
@@ -528,12 +509,11 @@ void CSoundDevice::timerCallback(uint32_t tick)
             ++s.noteOnAge;
         }
 
-        // FmVoice を組み立てて VoiceProcessor に渡す。sw/swOp
-        // (LFR/LWF/depthCents等、ソフトウェアLFOのパラメータ)を含めず
-        // hw/hwOpのみ埋めていたため、onTick()内のrecalcChLfo/recalcOpLfoが
-        // 常にsw側デフォルト値(LFR=0等)を参照し、音色固有のソフトウェア
-        // ピッチLFO/トレモロが実質常にデプス0で無効化されていたバグを修正
-        // (buildVoiceForCh()と同じ組み立てに統一)。
+        // FmVoice を組み立てて VoiceProcessor に渡す。hw/hwOpだけでなく
+        // sw/swOp(LFR/LWF/depthCents等、ソフトウェアLFOのパラメータ)も
+        // 埋める必要がある。欠けるとonTick()内のrecalcChLfo/recalcOpLfoが
+        // sw側デフォルト値(LFR=0等)を参照し、音色固有のソフトウェア
+        // ピッチLFO/トレモロがデプス0になる。
         FmVoice fv = buildVoiceForCh(static_cast<uint8_t>(ch));
 
         auto result = s.proc.onTick(fv);
@@ -576,7 +556,7 @@ ChState::Fnum CSoundDevice::getFnumber(uint8_t ch, int16_t offset) const
     // noteOffset_ は fnumTable_ 生成時 (コンストラクタの
     // FnumRegistry::getTable(..., noteOffset_) 呼び出し) で既に
     // テーブル自体へ焼き込み済みなので、ここで再度加算してはならない
-    // (二重適用によりオクターブ/blockが大きくずれるバグがあった)。
+    // (二重に適用するとオクターブ/blockが大きくずれる)。
     int32_t index = static_cast<int32_t>(s.lastNote) * 64
                     + totalOffset;
     int oct = 0;

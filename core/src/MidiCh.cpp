@@ -314,7 +314,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // 分からずゾーンを特定できないため)。ここでノート・ベロシティが
         // 確定した時点で、実際に一致するゾーン自身のswBank/swProgを
         // HwPatchの「自身の参照」層と同じ位置づけで解決する
-        // (2026年7月新設。SampleZone::swBank/swProgのチップ別対応制約は
+        // (SampleZone::swBank/swProgのチップ別対応制約は
         // PatchData.h参照)。
         if (!baseSwPatch && samplePatch && patchMgr_) {
             if (const SampleZone* zone = samplePatch->resolveZone(
@@ -342,7 +342,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // 必要がある(詳細はlfoRateOverride_のコメント参照)。元の
         // SwPatch(共有パッチデータ)は直接書き換えない。GM2規格の
         // Sound Controllerに合わせ、音色データの値へ加算するオフセット
-        // として適用する(0=補正なし、2026年8月、絶対上書き方式から変更)。
+        // として適用する(0=補正なし)。
         SwPatch overriddenSw{};
         const SwPatch* effSwPatch = baseSwPatch;
         if (lfoRateOverride_ != 0 || lfoDelayOverride_ != 0) {
@@ -446,8 +446,8 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         dev->setLFORate(devCh, hwLfoRate_);
 
         // ソフトウェアLFO Depth(CC#77)。このデバイスチャンネルを直前に
-        // 使っていた別のMIDIチャンネル/ノートのオーバーライド値が
-        // 残っていないよう、上書きが無効(-2000)の場合も含め毎ノート
+        // 使っていた別のMIDIチャンネル/ノートのオフセット値が
+        // 残っていないよう、補正なし(0)の場合も含め毎ノート
         // 必ず送る。
         dev->setLfoDepthOverride(devCh, lfoDepthOverrideCents_);
 
@@ -501,11 +501,8 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         if (!portaActive) {
             // ピッチベンド + RPN#1ファインチューニング + RPN#2コース
             // チューニングはapplyPitchBendToAll()と共通の実装を使う
-            // (2026年8月修正。以前はここだけ独自に計算しており、
-            //  ファインチューニングをMSBのみで扱って下位7bitを捨て、
-            //  さらにコースチューニングとスケールチューニングを一切
-            //  加算していなかったため、発音直後と「その後CC/ベンドを
-            //  受けた後」でピッチが食い違っていた)。
+            // (別々に計算すると、発音直後と「その後CC/ベンドを
+            //  受けた後」でピッチが食い違う)。
             fine = static_cast<int16_t>(
                 commonFineKfs()
                 + scaleTuningKfs(static_cast<uint8_t>(transposed))
@@ -514,10 +511,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         dev->setNoteFine(devCh, static_cast<uint8_t>(transposed), fine, !portaActive);
 
         // SwPatch(パフォーマンスパッチ)は、上記のassignCh/allocChWithFallback
-        // 呼び出し時に直接渡し済み(2026年7月、pendingSwPatch機構を廃止して
-        // 単純化。旧設計はVoiceProcessor::onNoteOn()がupdateVoice()より
-        // 後に呼ばれていたための回避策だったが、根本原因(呼び出し順序)を
-        // 修正したため不要になった)。
+        // 呼び出し時に直接渡し済み。
 
         // NoteOn
         if (!mono_ || !legato_) {
@@ -538,10 +532,9 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
 // ----------------------------------------------------------------
 void CInstCh::noteOff(uint8_t note)
 {
-    // 以前は mono_&&legato_ のとき無条件で何もしない実装になっていたが、
-    // これだとレガート演奏で最後の鍵盤を離した際に本来のnoteOff()が一切
-    // 呼ばれず、そのチャンネルが永久にRunning状態のまま(ビブラート等の
-    // ソフトウェアLFOも含め)鳴り続けるバグがあった。レガート中に新しい
+    // mono_&&legato_ でも特別扱いしない(何もしないと、レガート演奏で最後の
+    // 鍵盤を離した際にnoteOff()が呼ばれず、そのチャンネルがRunning状態の
+    // まま鳴り続ける)。レガート中に新しい
     // ノートオンで前の音を奪う場合はnoteOn()側のmono_&&timbres_>0分岐が
     // leaveNote()/enterNote()でnotes_[]のnote番号を差し替え済みのため、
     // 奪われた古いノート番号のnoteOff()が後から来ても下のh.note!=noteの
@@ -568,11 +561,8 @@ void CInstCh::noteOff(uint8_t note)
         // ここでbreakしない: notes_[]はレイヤー単位のエントリのため、
         // レイヤードパッチ(ToneLayer複数)では同一noteが複数hiスロットに
         // またがって存在しうる(stealOldestNoteIfNeeded()の同種コメント
-        // 参照)。以前はnote一致した時点でbreakしており、2レイヤー目以降の
-        // 同一noteエントリが解放されないまま、対応するチャンネルが永久に
-        // Running状態(ビブラート等のソフトウェアLFOも含め)で鳴り続ける
-        // バグがあった(2026年7月修正、レジスタダンプモニターで演奏停止後も
-        // 一部chのF-number/TLレジスタが更新され続けると報告され発覚)。
+        // 参照)。breakすると2レイヤー目以降の同一noteエントリが解放されず、
+        // 対応するチャンネルがRunning状態のまま鳴り続ける。
     }
 }
 
@@ -695,16 +685,15 @@ void CInstCh::setModulation(uint8_t dep)
     }
 }
 
-// CC#4(フットコントローラー)。以前はハードウェアLFOのAMデプスに
-// 間接的に使われていたが、2026年7月にAM/PMの有効化をボイス自身の
-// AMS/PMSへ一本化したのに伴い、フットコントローラーが操作すべき
-// パラメータが無くなった。ソフトウェアAM(トレモロ)相当の仕組みは
-// 現状存在しないため、当面は無効(受信するが何もしない)。
+// CC#4(フットコントローラー)。ハードウェアLFOのAM/PMの有効化は
+// ボイス自身のAMS/PMSで決まるため、フットコントローラーが操作すべき
+// パラメータが無い。CCで駆動するソフトウェアAM(トレモロ)の仕組みも
+// 無いため、受信するが何もしない。
 void CInstCh::setFootCtrl(uint8_t /*dep*/)
 {
 }
 
-// CC#2(ブレスコントローラー)。CC#4と同じ理由で当面は無効。
+// CC#2(ブレスコントローラー)。CC#4と同じ理由で受信するが何もしない。
 void CInstCh::setBreathCtrl(uint8_t /*dep*/)
 {
 }
@@ -786,8 +775,7 @@ void CInstCh::bankSelMSB(uint8_t msb)
     // NRPN 96,1による物理チャンネル固定は、バンクセレクト受信で
     // 都度解除される(applyPhyChOverride参照)。
     phyCh_ = 127;
-    // MSB が変わったら prog を再ロード (旧挙動)
-    // progChange(programNo_);  // 必要に応じて有効化
+    // MSB を受けても prog は再ロードしない (次の Program Change から適用)。
 }
 
 void CInstCh::bankSelLSB(uint8_t lsb)
@@ -856,9 +844,7 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
     switch (reg) {
     case 0x3001:
         // valはCC#6(Data Entry MSB)<<7 | CC#38(Data Entry LSB)。
-        // このNRPNはMSBのみを使う(2026年7月、条件付き発動へ再設計。
-        // 以前はLSB側を参照していたが、DAW等が通常MSBのみを送るため
-        // 事実上機能していなかった)。
+        // このNRPNはMSBのみを使う(DAW等は通常MSBのみを送るため)。
         applyPhyChOverride(static_cast<uint8_t>(val >> 7));
         break;
     case 0x3002: // NRPN 96,2: パフォーマンスバンクセレクト
@@ -878,7 +864,7 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
 
 // NRPN 97,n (0x3080-0x309F): ToneLayerオーバーライド。
 // layer = (reg-0x3080)/8、param = (reg-0x3080)%8。
-// 詳細な仕様はMidiCh.hのToneLayerOverrideコメント参照。
+// 詳細な仕様はMidiCh.hのToneLayerOverrideのコメント参照。
 void CInstCh::applyToneLayerOverride(uint16_t reg, uint16_t val)
 {
     // レイヤードパッチバンクが選択されていないチャンネルでは何もしない。
@@ -1059,7 +1045,7 @@ void CInstCh::dataDecrement(uint16_t reg, bool isNrpn)
 // ----------------------------------------------------------------
 void CInstCh::setMonoMode(uint8_t voices)
 {
-    allNoteOff();   // モード切替時は発音中のノートを一旦整理する(旧実装と同じ方針)
+    allNoteOff();   // モード切替時は発音中のノートを一旦整理する
     if (voices == 1) {
         mono_ = true;
     } else {
@@ -1094,8 +1080,6 @@ void CInstCh::timerCallback(uint32_t tick)
         // グライド途中のピッチにも、チャンネル共通のオフセット
         // (ピッチベンド/RPN#1/RPN#2)とノート別のオフセット
         // (スケールチューニング/SwPatchの端数)を加算する。
-        // 2026年8月まではグライド分だけを書いており、ポルタメント中は
-        // これらのチューニングが丸ごと無視されていた。
         const int16_t commonFine = commonFineKfs();
         const uint8_t portaNote  = portamento_.getCurrentNote();
         for (int hi = 0; hi < MAX_NOTES; ++hi) {
@@ -1210,8 +1194,8 @@ void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, uint8_t devNo
     // noteOn()の先頭で毎回ボイス数上限を強制しているため、通常は
     // ここに到達しない。万一到達した場合に備え、最も古いエントリ
     // (notes_[0])が使っていたデバイスチャンネルを正しく解放してから
-    // 上書きする(2026年7月修正: 以前はnoteOff()を呼ばずに上書きして
-    // おり、デバイスチャンネルが解放されないまま迷子になっていた)。
+    // 上書きする(noteOff()を呼ばずに上書きすると、デバイスチャンネルが
+    // 解放されないまま残る)。
     if (notes_[0].dev && notes_[0].dev->isChOwnedBy(notes_[0].devCh, this))
         notes_[0].dev->noteOff(notes_[0].devCh);
     notes_[0].layerIdx = static_cast<uint8_t>(layerIdx);
@@ -1315,9 +1299,9 @@ int16_t CInstCh::commonFineKfs() const
     // RPN#1 Channel Fine Tuning: 14bit全体(LSBまで)を使う。中心0x2000(8192)。
     // MIDI規格上の範囲は±100cents(=1半音=64ステップ)。
     // 分解能はkfsの粒度(1ステップ=100/64≒1.5625cents)が上限のため、
-    // 切り捨てではなく四捨五入で最も近いステップへ丸める(2026年8月修正。
-    // 以前は0方向への切り捨てで、指定値に対し常に最大1.56cents手前へ
-    // 寄る系統誤差があった)。
+    // 切り捨てではなく四捨五入で最も近いステップへ丸める(0方向への
+    // 切り捨てだと、指定値に対し常に最大1.56cents手前へ寄る系統誤差が
+    // 出る)。
     int32_t fineNum = (static_cast<int32_t>(tuning_) - 8192) * 64;
     int32_t fineTuneSteps = (fineNum >= 0 ? (fineNum + 4096) : (fineNum - 4096)) / 8192;
     // RPN#2 Channel Coarse Tuning: MSBのみ有効。中心0x40(64)。
@@ -1382,11 +1366,10 @@ void CInstCh::setHwLfoRate(uint8_t rate)
 
 // CC#76(Sound Controller 7 / Vibrato Rate): ソフトウェアLFOのRateへの
 // オフセット。GM2規格のSound Controller群と同じく、値64を中央(補正なし)
-// とする(2026年8月、絶対上書き方式から変更。GM2準拠のDAWがSound
-// Controller群を既定値64へリセットする定型初期化を送ると、絶対上書き
-// 方式では音色データがLFOを使わない設定[sw.LFR=0]でも誤ってLFOが
-// 起動してしまう不具合があったため)。sw.LFRへ加算する形でnoteOn()側が
-// 適用する(即時反映はできない、次のノートオンから反映)。
+// とする。GM2準拠のDAWはSound Controller群を既定値64へリセットする
+// 定型初期化を送るため、絶対値で上書きする方式だと、音色データがLFOを
+// 使わない設定[sw.LFR=0]でもLFOが起動してしまう。sw.LFRへ加算する形で
+// noteOn()側が適用する(即時反映はできない、次のノートオンから反映)。
 void CInstCh::setSoftLfoRate(uint8_t rate)
 {
     lfoRateOverride_ = static_cast<int16_t>(static_cast<int>(rate) - 64);
@@ -1394,8 +1377,8 @@ void CInstCh::setSoftLfoRate(uint8_t rate)
 
 // CC#77(Sound Controller 8 / Vibrato Depth): ソフトウェアLFOのDepthへの
 // オフセット。値64を中央(補正なし)とし、0-127の全域を±1200セントの
-// オフセットへ線形マッピングする(2026年8月、絶対上書き方式から変更。
-// 理由はsetSoftLfoRate()のコメント参照)。VoiceProcessor側で毎tick、
+// オフセットへ線形マッピングする(オフセット方式の理由は
+// setSoftLfoRate()のコメント参照)。VoiceProcessor側で毎tick、
 // 音色データ(sw.depthCents)へこのオフセットを加算して再計算するため、
 // 発音中のノートにも即座に反映される。
 void CInstCh::setSoftLfoDepth(uint8_t depth)
@@ -1523,7 +1506,7 @@ bool CInstCh::mergeSwPatchOverride(uint8_t layer, const std::string& jsonText)
     }
     swPatchOverrideActive_[layer] = true;
     // 発音中のノートへの即時反映手段が無いため、次のノートオンから
-    // 反映される(CC#76/78のRate/Delay上書きと同じ制約)。
+    // 反映される(CC#76/78のRate/Delayオフセットと同じ制約)。
     return true;
 }
 
@@ -1546,9 +1529,6 @@ CRhythmCh::CRhythmCh(uint8_t ch, CFITOM* parent)
 
 CRhythmCh::~CRhythmCh() { allNoteOff(); }
 
-// ----------------------------------------------------------------
-//  ProgChange: DrumPatch を選択してキャッシュをクリア
-// ----------------------------------------------------------------
 // ----------------------------------------------------------------
 //  ProgChange: ドラムバンクは固定バンク番号(0)を使う。CC#0/CC#32は
 //  無視されるため、MIDI経由でのドラムバンク切替はできない仕様。
@@ -1649,8 +1629,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         const HwPatch* patch = rl->hwPatch;
         // サンプルベース音源系 (VOICE_PATCH_AWM等) の場合のみ非nullptr。
         // patchとは排他 (PatchManager::resolve()が保証する)。
-        // 以前はpatch==nullptrで即座にレイヤーをスキップしていたため、
-        // AWM系のドラム音色が一切発音されなかった (未解決の欠陥)。
+        // patch==nullptrでもsamplePatchがあれば発音する(AWM系のドラム音色)。
         const SampleZonePatch* samplePatch = rl->samplePatch;
         if (!patch && !samplePatch) continue;
 
@@ -1670,8 +1649,8 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         // ノート: DrumNote.playNote を絶対指定、ToneLayer.transpose は無視
         // (ドラムはトランスポーズより play_note の絶対指定が自然)。
         // SwPatch.fineTransposeも同じ理由で、ここでは意図的に適用しない。
-        // (2026年7月、下のsamplePatchゾーン解決がnote/velを必要とする
-        // ため、assignCh呼び出しより前に計算するよう前倒しした)
+        // 下のsamplePatchゾーン解決がnote/velを必要とするため、
+        // assignCh呼び出しより前に計算する。
         int playNote = static_cast<int>(dn.playNote) + adj.pitch;
         playNote = std::clamp(playNote, 0, 127);
         int16_t fine = static_cast<int16_t>(dn.fineTune);
@@ -1681,8 +1660,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         // resolveNote()内で事前に解決・キャッシュ済み
         // (noteCache_[midiNote].effectiveSwPatch0)。layer[0]以外は、
         // そのレイヤーが参照するHwPatch自身のswPatchをそのまま使う。
-        // assignCh/allocCh呼び出し時に直接渡す(2026年7月、
-        // pendingSwPatch機構を廃止して単純化)。
+        // assignCh/allocCh呼び出し時に直接渡す。
         const SwPatch* effectiveSwPatch =
             (li == 0) ? noteCache_[midiNote].effectiveSwPatch0 : rl->swPatch;
         // サンプルベース音源系(samplePatch経由)は、上記までの解決が
@@ -1690,7 +1668,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         // Program Change相当のタイミングで走るため、ゾーンを特定できない)。
         // ここでplayNote/adjVelが確定した時点で、実際に一致するゾーン
         // 自身のswBank/swProgを解決する(HwPatch側の「自身の参照」層と
-        // 同じ位置づけ。2026年7月新設)。
+        // 同じ位置づけ)。
         if (!effectiveSwPatch && samplePatch) {
             if (const SampleZone* zone = samplePatch->resolveZone(
                     static_cast<uint8_t>(playNote), static_cast<uint8_t>(adjVel))) {
@@ -1709,8 +1687,7 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
             // 直す。assignCh()がKey Off(+各ドライバのwasReleasing事前
             // ダンプ)を挟んでから再アタックするため、前の音は物理的な
             // リトリガーで自然に切れる — 同一ノートに対して明示的な強制
-            // ダンプを行う必要がない(旧fixed_ch方式の「1ノート=1ボイス」
-            // と同じ挙動になる)。参照が既に別の発音へ再利用されている、
+            // ダンプを行う必要がない。参照が既に別の発音へ再利用されている、
             // あるいはレイヤー構成が変わって別デバイスになった場合は
             // 通常のチャンネル割り当てにフォールバックする。
             const LayerSlot& prev = slots.layers[li];
@@ -1741,15 +1718,15 @@ void CRhythmCh::applyNoteOn(uint8_t midiNote, uint8_t vel, const DrumNote& dn)
         // ノート/ファインチューン設定(playNote/fineは上で計算済み)。
         dev->setNoteFine(devCh, static_cast<uint8_t>(playNote), fine, true);
 
-        // CRhythmChはCC#1(ソフトウェアLFO)/CC#77(Depth上書き)を一切扱わない
+        // CRhythmChはCC#1(ソフトウェアLFO)/CC#77(Depth補正)を一切扱わない
         // (GM2リズムパートにこれらのコントローラという概念自体が無い)ため、
-        // 常に「無効」を毎ノートオン強制pushして、このdevChを直前に使っていた
+        // 常に「補正なし」を毎ノートオン強制pushして、このdevChを直前に使っていた
         // 別のMIDIチャンネル(CInstCh)のVoiceProcessor::cc1Value_/
         // lfoDepthOverrideCents_残留を上書きする。CInstCh::noteOn()と同じ
-        // devChの使い回し対策だが、CRhythmCh側にこれが無かったため、
+        // devChの使い回し対策で、これが無いと
         // 「CC#1でLFOをかけたメロディch」→「ドラムノート(素通り)」→
-        // 「CC#1を送っていない別のメロディch」の順でdevChを使い回すと、
-        // ドラムノートを経由して残留LFOがすり抜けてしまっていた(2026年8月)。
+        // 「CC#1を送っていない別のメロディch」の順でdevChを使い回したとき、
+        // ドラムノートを経由して残留LFOがすり抜ける。
         dev->setCC1Modulation(devCh, 0, 0);
         dev->setLfoDepthOverride(devCh, 0); // オフセット解除(補正なし)
 
@@ -1905,18 +1882,11 @@ std::vector<ActiveNoteInfo> CRhythmCh::getActiveNotes() const
 //  ソフトLFO/トレモロ(VoiceProcessor::onTick)はここでは回さない。
 //  CFITOM::timerCallback()はMIDIプロセッサ(=このメソッド)とデバイスの
 //  両方を毎tick呼ぶため、ここでも回すと同じChState::procに二重にtickが
-//  掛かる。CSoundDevice::timerCallback()がChStateにキャッシュ済みの
+//  掛かり、ドラムノートのソフトLFOだけが2倍速になる。
+//  CSoundDevice::timerCallback()がChStateにキャッシュ済みの
 //  hwPatch/swPatch(buildVoiceForCh())からFmVoiceを組み立てて
 //  onTick()→updateFnumber()/updateTL()まで面倒を見るので、CInstChと
 //  同じくそれに一本化する。
-//  (2026年8月修正。以前はここで独自にonTick()を回しており、
-//   [1] ドラムノートのソフトLFOだけが2倍速になる
-//   [2] setNoteFine()でChState::fineFreqをLFO値で上書きしていたため、
-//       DrumNote.fineTune(微調整)が最初のtickで失われ、さらに
-//       CSoundDevice::getFnumber()が fineFreq + channelLfoValue() を
-//       足すためLFOのデプスが2倍になる
-//   という不具合があった。ChStateへのswPatchキャッシュ[2026年7月新設]
-//   が入った時点で、この独自ループは冗長になっていた。)
 // ----------------------------------------------------------------
 void CRhythmCh::timerCallback(uint32_t /*tick*/)
 {
@@ -1938,9 +1908,8 @@ void CRhythmCh::setNRPNRegister(uint16_t reg, uint16_t val)
 {
     // GM2 Drum Per-Part NRPN。GM2規格上、Pitch/TVA Level/Panのいずれも
     // Data Entry MSB(0-127、中央値64)のみを使う仕様のため、valの上位
-    // 7bit(MSB)を取り出す(2026年7月、下位7bitを取り違えていたバグを
-    // 修正。合成後の14bit値をそのまま使っていたため、LSB(CC#38)を
-    // 明示的に送らない一般的なDAWでは事実上機能していなかった)。
+    // 7bit(MSB)を取り出す(合成後の14bit値をそのまま使うと、LSB(CC#38)を
+    // 明示的に送らない一般的なDAWでは機能しない)。
     uint8_t note = static_cast<uint8_t>(reg & 0x7F);
     if (note >= 128) return;
     const int16_t msb = static_cast<int16_t>(val >> 7);

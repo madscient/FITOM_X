@@ -1,13 +1,6 @@
 #pragma once
 // fitom/MidiCh.h
-// MIDI チャンネル処理クラス (モダナイズ版)
-//
-// 旧 MIDI.h からの変更点:
-//   - FMVOICE* → PatchResolver (マルチレイヤー対応)
-//   - CSoundDevice* Device → 複数デバイス (layers 経由)
-//   - TCHAR → std::string
-//   - BOOL → bool
-//   - BOOST 依存なし
+// MIDI チャンネル処理クラス
 
 #include "fitom/FITOMdefine.h"
 #include "fitom/PatchData.h"
@@ -34,7 +27,7 @@ struct ActiveNoteInfo {
 };
 
 // ================================================================
-//  IMidiCh: MIDI チャンネルインターフェース (旧 CMidiCh)
+//  IMidiCh: MIDI チャンネルインターフェース
 // ================================================================
 class IMidiCh {
 public:
@@ -81,7 +74,7 @@ public:
 
     // CC#76/77/78(GM2 Sound Controller 7/8/9): ソフトウェアLFO
     // (音色固有LFO、sw.LFR>0のケース)のRate/Depth/Delayを演奏時に
-    // 上書きする。詳細はCInstCh::lfoRateOverride_のコメント参照。
+    // 補正する。詳細はCInstCh::lfoRateOverride_のコメント参照。
     virtual void setSoftLfoRate(uint8_t rate)      {}
     virtual void setSoftLfoDepth(uint8_t depth)    {}
     virtual void setSoftLfoDelay(uint8_t delay)    {}
@@ -148,7 +141,7 @@ public:
     // CC#126(M=1)による真のモノフォニックモード中かどうか。
     // getPoly()(パッチ由来のボイス数上限)とは独立した、CC#126/127
     // による実行時モード切替の状態そのもの(GUI等で現在値を表示する
-    // 用途向け、2026年7月新設)。デフォルトはfalse(CRhythmCh等、
+    // 用途向け)。デフォルトはfalse(CRhythmCh等、
     // モノ/ポリの概念を持たないチャンネル種別向け)。
     virtual bool     isMonoMode()     const { return false; }
     // 直近に発音したノートが使用した devices[] インデックス / デバイス側ch。
@@ -167,7 +160,7 @@ public:
 };
 
 // ================================================================
-//  PortaCtrl: ポルタメント制御 (旧 CPortaCtrl 相当)
+//  PortaCtrl: ポルタメント制御
 // ================================================================
 class PortaCtrl {
 public:
@@ -200,7 +193,7 @@ private:
 };
 
 // ================================================================
-//  CInstCh: 通常音色チャンネル (旧 CInstCh 相当)
+//  CInstCh: 通常音色チャンネル
 //  マルチレイヤーパッチ対応版
 // ================================================================
 class CInstCh : public IMidiCh {
@@ -209,7 +202,6 @@ public:
     ~CInstCh() override;
 
     // ─── チャンネル割り当て ─────────────────────────────────────────
-    // 旧 Assign(CSoundDevice*, poly) の後継。
     // ポリフォニー数(poly_)はここでは設定せず、progChange()実行時に
     // 解決されたパッチのデバイスチャンネル数から動的に決定される。
     void setup(PatchManager* pm, CFITOM* fitom);
@@ -293,9 +285,8 @@ private:
         // 実際にデバイスへ渡した(=鳴っている)ノート番号。ToneLayer.transpose
         // とSwPatch.fineTransposeの半音成分を反映済みで、noteとは異なりうる。
         // ピッチ再計算(applyPitchBendToAll)はこちらを使わなければならない
-        // (2026年8月、noteの方を渡していたため、トランスポーズを持つ
-        //  レイヤー/音色でピッチベンドやRPN受信の瞬間に音程が飛んでいた
-        //  バグの修正)。
+        // (noteの方を渡すと、トランスポーズを持つレイヤー/音色で
+        //  ピッチベンドやRPN受信の瞬間に音程が飛ぶ)。
         uint8_t        devNote = 0xFF;
         ISoundDevice*  dev     = nullptr;
         // Sostenuto (CC#66): ペダル押下時に鳴っていたノートに立つフラグ。
@@ -311,8 +302,7 @@ private:
         // SwPatch.fineTransposeの半音未満の端数(kfs単位)。レイヤーごとに
         // 異なりうるためノートごとに保持する。noteOn()以降にピッチベンド
         // やRPNで再計算(applyPitchBendToAll)が走った際、この端数を
-        // 取りこぼさないために必要(2026年8月、再計算のたびに端数が
-        // 消えていたバグの修正)。
+        // 取りこぼさないために必要。
         int16_t swFineKfs = 0;
         bool isValid() const { return devCh != 0xFF; }
     };
@@ -346,7 +336,7 @@ private:
     // のいずれかで都度クリアされる(呼び出し元がクリアする)。
     void applyPhyChOverride(uint8_t requestedCh);
     // NRPN 97,n (0x3080-0x309F): ToneLayerオーバーライド。
-    // 詳細はMidiCh.hのToneLayerOverrideコメント参照。
+    // 詳細は下記ToneLayerOverrideのコメント参照。
     void applyToneLayerOverride(uint16_t reg, uint16_t val);
     // Sostenuto OFF 時: pendingRelease 中のノートを実際に noteOff() する。
     // ボイススティールで devCh が別の発音に再利用されていないか
@@ -361,12 +351,11 @@ private:
     void applyPitchBendToAll();
     void applyLFOToAll();
     // チャンネル全体に共通のピッチオフセット(kfs単位、1半音=64)。
-    // ピッチベンド(CC#0のセンシティビティ込み)+ RPN#1チャンネル
+    // ピッチベンド(RPN#0のセンシティビティ込み)+ RPN#1チャンネル
     // ファインチューニング + RPN#2チャンネルコースチューニングの合計。
     // ノートごとに異なる成分(スケールチューニング・SwPatchの端数)は
     // 含まないため、呼び出し側で加算する。noteOn()・applyPitchBendToAll()・
-    // ポルタメント更新の3経路が同じ値を使うための共通実装
-    // (2026年8月、3経路の計算式が食い違っていたバグの修正)。
+    // ポルタメント更新の3経路が同じ値を使うための共通実装。
     int16_t commonFineKfs() const;
     // Scale/Octave Tuning (Universal SysEx) のノート別オフセット(kfs単位)。
     int16_t scaleTuningKfs(uint8_t note) const;
@@ -412,8 +401,8 @@ private:
     bool     voiceLimitOverride_ = false;
     bool     mono_       = false;
     // CC#1(モジュレーション)。ソフトウェアLFO(setCC1Modulation経由の
-    // ピッチ揺れ)専用。2026年7月、ハードウェアLFO(HW LFO搭載チップの
-    // enablePM/setLFODepth等)への関与を廃止し独立させた。
+    // ピッチ揺れ)専用。ハードウェアLFO(HW LFO搭載チップの
+    // enablePM/setLFODepth等、CC#14/#15)には関与しない。
     uint8_t  pmDepth_        = 0;
     int16_t  modDepthRange_  = 32; // RPN#5: CC#1=127 時の最大デプス [Fnum steps]
     // CC#14/#15(非標準)。HW LFO搭載チップ(OPM/OPZ等)のDepth/Rateを
@@ -425,12 +414,12 @@ private:
     uint8_t  hwLfoRate_  = 0;
 
     // CC#76/78(ソフトウェアLFO Rate/Delay)。GM2規格のSound Controller
-    // 同様、値64を中央(補正なし)とするオフセット方式(2026年8月、絶対
-    // 上書き方式から変更。GM2準拠のDAWがSound Controller群を既定値64へ
-    // リセットする定型初期化を送ると、絶対上書き方式では音色データが
-    // LFOを使わない設定[sw.LFR=0]でも誤ってLFOが起動してしまう不具合が
-    // あった)。0=補正なし、音色データ(sw.LFR/LFD)にこの値を加算した
-    // ものを実際に使う(clampして0-127に収める)。LFO(再)始動時にしか
+    // 同様、値64を中央(補正なし)とするオフセット方式(GM2準拠のDAWは
+    // Sound Controller群を既定値64へリセットする定型初期化を送るため、
+    // 絶対値で上書きする方式だと、音色データがLFOを使わない設定
+    // [sw.LFR=0]でもLFOが起動してしまう)。0=補正なし、音色データ
+    // (sw.LFR/LFD)にこの値を加算したものを実際に使う(clampして0-127に
+    // 収める)。LFO(再)始動時にしか
     // 意味を持たない(=次のノートオンから反映される)ため、Depthのように
     // CC受信時に発音中のノートへ即座にpushする経路は持たない。noteOn()側で
     // SwPatchの一時コピーへ焼き込んでからassignCh/allocChへ渡す
@@ -440,8 +429,8 @@ private:
     int16_t  lfoRateOverride_  = 0;
     int16_t  lfoDelayOverride_ = 0;
     // CC#77(ソフトウェアLFO Depth)。GM2規格のSound Controller同様、値64を
-    // 中央(補正なし)とするオフセット方式(2026年8月、絶対上書き方式から
-    // 変更。理由はlfoRateOverride_のコメント参照)。0=補正なし、音色データ
+    // 中央(補正なし)とするオフセット方式(理由はlfoRateOverride_の
+    // コメント参照)。0=補正なし、音色データ
     // (sw.depthCents)に加算するオフセット値[セント]として扱う。
     // VoiceProcessor側で毎tick再計算されるため、こちらはCC受信時に発音中の
     // 全ノートへ即座にpushできる(setLfoDepthOverride参照)。
@@ -479,11 +468,11 @@ private:
     // チェンジまで有効)。ただしHwPatchと異なり、発音中ノートへの
     // 即時プッシュ手段(ISoundDevice::setVoice()相当)を持たないため、
     // 反映は次のノートオンから(noteOn()のbaseSwPatch決定チェーンに
-    // 組み込む、CC#76/78のRate/Delay上書きと同じ制約)。
+    // 組み込む、CC#76/78のRate/Delayオフセットと同じ制約)。
     std::array<SwPatch, MAX_TONE_LAYERS> swPatchOverride_{};
     std::array<bool, MAX_TONE_LAYERS>    swPatchOverrideActive_{};
 
-    // NRPN 97,*(ToneLayerオーバーライド、2026年7月新設)。
+    // NRPN 97,*(ToneLayerオーバーライド)。
     // 「レイヤードパッチバンクが選択されているチャンネル」(bankSelM_==0)
     // でのみ有効。直接モード(bankSelM_!=0)のチャンネルでは、
     // setNRPNRegister()内で全て無視する(何もしない)。
@@ -588,8 +577,8 @@ private:
     // ノートオフ/ゲートタイム満了の後も『直前の発音への参照』として残す。
     // ドラムのゲートタイムはごく短く、ゲート満了時点ではチップ側でまだ
     // 音が鳴っている(FM のリリース中 / ADPCM のサンプル再生中)のが普通
-    // なので、ここで参照を捨ててしまうと後から止める手段が無くなるため
-    // (2026年8月。チョークグループが事実上機能していなかった原因)。
+    // なので、ここで参照を捨ててしまうと後から止める手段が無くなる
+    // (チョークグループが機能しなくなる)ため。
     // 保持した参照は次の 2 つの用途に使う:
     //   ① 同一ノートの再打鍵時に同じ物理チャンネルを取り直す
     //      (assignCh() が Key Off + 各ドライバの wasReleasing 事前ダンプを
@@ -693,7 +682,7 @@ private:
     uint8_t  volume_    = 100;
     uint8_t  programNo_ = 0;
     // bankSelM_/bankSelL_ は未使用 (CC#0/CC#32 はリズムチャンネルでは
-    // 完全に無視する仕様に変更済み。bankSelMSB()/bankSelLSB()は共に
+    // 無視する。bankSelMSB()/bankSelLSB()は共に
     // no-op。ドラムバンクは固定バンク番号(0)を使い、Prog Chg.のみで
     // ドラムキット(DrumPatch)を選択する)。フィールド自体は将来の
     // 拡張に備えて残す。

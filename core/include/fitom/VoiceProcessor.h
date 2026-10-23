@@ -7,13 +7,13 @@
 //
 // ─── 責務の分離 ──────────────────────────────────────────────────────────────
 //
-//   チップドライバ (UpdateVoice):
+//   チップドライバ (updateVoice):
 //     FmVoice::hw / FmVoice::hwOp → レジスタへ直接書き込む
 //
 //   VoiceProcessor:
 //     FmVoice::sw / FmVoice::swOp + MIDI 状態 → 実効 HW パラメータを計算
-//     計算結果を RuntimeOp::effectiveTL 等として持ち、
-//     チップドライバが UpdateVolExp / UpdateOpLFO の代わりに参照する
+//     計算結果を effectiveTL() / velAR() 等として持ち、
+//     チップドライバの updateVoice / updateVolExp / updateTL が参照する
 //
 // ─── 呼び出しフロー ──────────────────────────────────────────────────────────
 //
@@ -23,12 +23,12 @@
 //       → velocityTL = velocity 感度補正を加算
 //       → ソフト LFO の遅延・レートタイマーをリセット
 //
-//   TimerCallBack (1ms ごと):
+//   CSoundDevice::timerCallback (1ms ごと):
 //     VoiceProcessor::onTick()
-//       → チャンネル LFO カウンタ更新 → UpdateFnumber 要求フラグ
+//       → チャンネル LFO カウンタ更新 → updateFnumber 要求フラグ
 //       → オペレータ LFO カウンタ更新 → effectiveTL を更新
 //
-//   チップドライバ UpdateVolExp:
+//   チップドライバ updateVolExp:
 //     チップドライバが VoiceProcessor::effectiveTL(op) を読む
 
 #include "fitom/VoiceData.h"
@@ -47,12 +47,13 @@ enum class LfoMode : uint8_t {
 };
 
 // ================================================================
-//  LFO コントローラ (全面再実装)
+//  LFO コントローラ
 //
 //  設計:
 //    - delay / 波形位相 / フェードインを完全に分離
 //    - rate: 波形の周期 (rateToTicks(rate)、対数カーブで0.5Hz〜50Hzに
-//            マッピングする数式。0=無効。docs/design/voice-processor.md参照)
+//            マッピングする数式。0=無効。docs/design/voice-processor.md
+//            「レートから周期への変換」参照)
 //    - fadein: フェードイン速度 (0=即フルデプス, 1〜127 tick でフル到達)
 //    - mode: Repeat / OneShotHold / OneShotZero
 //    - S&H seed はインスタンス固有 (チャンネル間非共有)
@@ -144,7 +145,7 @@ public:
 
     // ─── CC#77: ソフトウェアLFO Depthの演奏時上書き ────────────────
     // GM2規格のSound Controller同様、値64を中央(補正なし)とするオフセット
-    // 方式(2026年8月、絶対上書き方式から変更)。音色データ(sw.depthCents)
+    // 方式。音色データ(sw.depthCents)
     // に加算するオフセット値[セント]として扱う(0=補正なし)。次のtickから
     // 即座に反映される(発音中のノートにも効く)。Rate(CC#76)/Delay(CC#78)は
     // 呼び出し元(CInstCh)がSwPatch自体を書き換えてassignCh/allocChへ
@@ -168,7 +169,7 @@ public:
     TickResult onTick(const FmVoice& voice) noexcept;
 
     // ─── 実効パラメータ取得 ───────────────────────────────────────
-    // チップドライバが UpdateVolExp / UpdateOpLFO の代わりに参照する。
+    // チップドライバの updateVoice / updateVolExp / updateTL が参照する。
 
     // 実効 TL (dB 変換前の線形値, 0〜127)
     uint8_t effectiveTL(int op) const noexcept {
@@ -201,11 +202,10 @@ private:
     uint8_t  cc1Value_        = 0;     // 現在の CC#1 値 (0-127)
     int16_t  cc1LfoMaxDepth_  = 32;   // CC#1=127 時の最大デプス [steps]
 
-    // CC#77によるソフトウェアLFO Depthの演奏時上書き。
-    // 音色データ(voice.sw.depthCents)より優先される。毎tick再計算される
-    // ため、発音中のノートにも即座に反映できる(recalcChLfo参照)。
-    // -2000(センチネル、depthCentsの正当範囲±1200の外側)=上書きなし。
-    // Rate(CC#76)/Delay(CC#77)はLFO(再)始動時にしか意味を持たない
+    // CC#77によるソフトウェアLFO Depthの演奏時補正。
+    // 音色データ(voice.sw.depthCents)に加算するオフセット。毎tick再計算
+    // されるため、発音中のノートにも即座に反映できる(recalcChLfo参照)。
+    // Rate(CC#76)/Delay(CC#78)はLFO(再)始動時にしか意味を持たない
     // ため、こちらはVoiceProcessorではなくCInstCh側でSwPatchに焼き
     // 込んでからassignCh/allocChへ渡す方式にしている
     // (VoiceProcessor::onNoteOn()がassignCh()内部で、CInstChがdevChを
@@ -238,8 +238,10 @@ private:
 };
 
 // ================================================================
-//  ベロシティ・ボリューム計算ユーティリティ (旧 SoundDev.cpp の関数群)
-//  チップドライバや VoiceProcessor から利用する。
+//  ベロシティ・ボリューム計算ユーティリティ
+//  calcLinearLevel の実体は VolumeUtils.h の fitom::calcLinearLevel。
+//  calcEffectiveLevel は定義を持たず、linearToDb は値を素通しする
+//  (チップドライバは VolumeUtils.h の calcVolExpVel / linear2dB を使う)。
 // ================================================================
 
 // vol × exp × vel → 0〜127 の実効レベル
@@ -250,7 +252,5 @@ uint8_t calcLinearLevel(uint8_t effectiveLevel, uint8_t tl) noexcept;
 
 // 線形 TL → dB TL 変換 (range/step/bw で各チップのスケールに対応)
 uint8_t linearToDb(uint8_t linearTL, int range, int step, int bw) noexcept;
-
-// (getLfoWave は LfoControl::wave() に統合済み)
 
 } // namespace fitom

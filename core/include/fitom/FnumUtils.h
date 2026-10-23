@@ -2,15 +2,14 @@
 // fitom/FnumUtils.h
 // F-number テーブル管理ユーティリティ
 //
-// 旧 CFnumTable クラスをモダナイズ:
-//   - グローバルシングルトン (theFnum) を廃止
-//   - 各チップドライバが FnumUtils::getTable() で必要なテーブルを取得
+//   - 各チップドライバが FnumRegistry::instance().getTable() で必要なテーブルを取得
 //   - マスターピッチは FnumRegistry で一元管理
 //   - テーブルはキャッシュされ、同一パラメータで共有される
 //
 // ─── テーブルサイズ ──────────────────────────────────────────────────────────
-//   768 エントリ = 12 半音 × 64 セント/半音 (1セント = 1/100半音)
-//   チップドライバは note * 64 + centOffset でインデックスを計算する
+//   768 エントリ = 12 半音 × 64 kfs/半音 (1オクターブ分)
+//   CSoundDevice::getFnumber() は note * 64 + kfs単位のオフセットでインデックスを計算し、
+//   768 で折り畳んだ商をオクターブ(block)にする
 
 #include "fitom/Fnum.h"
 #include <cstdint>
@@ -47,7 +46,7 @@ public:
 
     // F-number テーブルを取得 (キャッシュ済みなら再利用)
     // master, divide: チップのマスタークロックと分周比
-    // offset: ノートオフセット (OPN: 0, OPM: -61 相当のセント値)
+    // offset: kfs単位のノートオフセット (OPN 等: FNUM_OFFSET、OPM: -61)
     const uint16_t* getTable(FnumTableType type, int master, int divide, int offset) {
         std::lock_guard<std::mutex> lk(mutex_);
         uint64_t key = makeKey(type, master, divide, offset);
@@ -60,7 +59,7 @@ public:
         return tbl.data();
     }
 
-    // OPM マスターオフセット計算 (旧 GetOPMMasterOffset 相当)
+    // OPM マスターオフセット計算
     int16_t getOpmMasterOffset(int sampleRate) const {
         double ret = 768.0 * std::log2(
             (3579545.0 * masterPitch_) / (static_cast<double>(sampleRate) * 440.0));
@@ -98,26 +97,19 @@ private:
             case FnumTableType::DeltaN: {
                 // 実チップのDelta-N式: delta_n = round(2^16 * freq * divide / master)
                 // (master=マスタークロック[Hz]、divide=ADPCM内部クロック分周比。
-                //  YM2608/YM2610は144)。Fnumberケースと同様にdivideを掛ける必要が
-                //  あったが、この乗算が丸ごと欠落していた(2026-07-24、ADPCM-B
-                //  再生レート異常の実機調査で発覚)。
+                //  YM2608/YM2610は144)。
                 //
-                //  さらに、ここで使う"freq"の基準周波数は他の型(Fnumber/
-                //  TonePeriod)と違いmasterPitch_(A440チューニング基準、
-                //  デフォルト440Hz)ではなく、旧FITOM(現在は未使用の
-                //  Fnum.cpp::CFnumTable::GetDeltaNが実装していた式)が使っていた
-                //  固定16000Hz基準でなければならない。CYmDelta(ADPCM_new.cpp)の
-                //  kNoteOffset=448・kPitchOrigin=-57は「旧実装のまま変更しない」
-                //  前提でこの16000Hz基準にキャリブレーションされた定数であり、
-                //  ここでmasterPitch_(440Hz)を使うと基準周波数が16000/440≈36.4倍
-                //  食い違い、DeltaNが常に約1/36というかなり遅い再生レートになって
-                //  いた(2026-07-24、C4(MIDIノート60)で実測: 誤り690→正しくは
-                //  約25085相当と判明)。旧式のtuningoffset(マスターチューニングを
-                //  加算オフセットとして反映)と等価になるよう、
-                //  freq*(16000/440)*(masterPitch_/440ではなくmasterPitch_そのもの
-                //  が既にfreqに掛かっているため、16000/440倍するだけでよい)。
+                //  ここで使う"freq"の基準周波数は他の型(Fnumber/TonePeriod)と
+                //  違いmasterPitch_(A440チューニング基準)ではなく、固定16000Hz
+                //  基準でなければならない。CYmDelta(ADPCM_new.cpp)の
+                //  kNoteOffset=448・kPitchOrigin=-57は旧FITOMの
+                //  CFnumTable::GetDeltaN(Fnum.cpp)と同じ16000Hz基準に合わせた
+                //  定数であり、masterPitch_を基準にすると基準周波数が
+                //  16000/440≈36.4倍食い違い、再生レートが約1/36になる。
+                //  freqには既にmasterPitch_が掛かっているので、16000/440倍する
+                //  だけでマスターチューニングも反映される。
                 constexpr double kDeltaNBaseFreq = 16000.0;
-                constexpr double kDeltaNBaseRef  = 440.0; // 旧式のTuningFrequencyデフォルト
+                constexpr double kDeltaNBaseRef  = 440.0; // 16000Hz基準が対応するA4の周波数
                 double freqDeltaN = freq * (kDeltaNBaseFreq / kDeltaNBaseRef);
                 val = std::round(65536.0 * freqDeltaN * divide / master);
                 break;

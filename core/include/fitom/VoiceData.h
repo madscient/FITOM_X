@@ -4,24 +4,25 @@
 //
 // ─── 設計方針 ────────────────────────────────────────────────────────────────
 //
-//   従来の FMVOICE / FMOP は以下の異なる性質のパラメータが混在していた:
+//   ボイスデータは以下の異なる性質のパラメータを含むため、性質ごとに
+//   構造体を分ける:
 //
 //     (A) HW パラメータ  … チップのレジスタに直接書き込む値
-//                          チップドライバ (UpdateVoice) が使う
+//                          チップドライバ (updateVoice) が使う
 //
 //     (B) ベロシティ感度 … NoteOn 時に (A) のパラメータを補正する係数
-//                          SoundDev::SetVelocity / UpdateVolExp が使う
+//                          VoiceProcessor::onNoteOn が使う
 //
 //     (C) ソフト LFO    … タイマーコールバックで TL を周期変調する
-//                          SoundDev::TimerCallBack / UpdateOpLFO が使う
+//                          VoiceProcessor::onTick → updateTL が使う
 //
 //     (D) チャンネル LFO … タイマーコールバックでピッチを周期変調する
-//                           SoundDev::TimerCallBack / UpdateFnumber が使う
+//                           VoiceProcessor::onTick → updateFnumber が使う
 //
-//     (E) チップ拡張    … OPZ/OPP 固有の追加パラメータ (REV, EGS, FIX 等)
+//     (E) チップ拡張    … チャンネル単位のチップ固有パラメータ (FIX, ALG_EXT 等)
 //                          特定チップのドライバのみが使う
 //
-//   新設計:
+//   構造体:
 //     FmHwOp     … (A) オペレータ HW パラメータのみ。チップドライバが直接参照。
 //     FmHwVoice  … (A) チャンネル HW パラメータのみ。
 //     FmSwOp     … (B)(C) オペレータ単位のソフト処理パラメータ。
@@ -29,9 +30,8 @@
 //     FmChipExt  … (E) チップ固有拡張パラメータ。
 //     FmVoice    … 上記をまとめたトップレベル構造体。
 //
-//   後方互換:
-//     旧 FMVOICE との互換レイアウトは保証しない。
-//     既存バンクファイルの読み込みは FITOMCfg の変換関数で吸収する。
+//   旧FITOMの FMVOICE とのレイアウト互換は無い。相互変換は
+//   legacy::fromLegacy / toLegacy で行う。
 //
 // ─── チップ別 HW パラメータ対応表 ────────────────────────────────────────────
 //
@@ -78,7 +78,7 @@ namespace fitom {
 // ----------------------------------------------------------------
 //  FmHwOp: オペレータ HW パラメータ
 //  全チップ共通の上位ビット表現で保持する。
-//  チップドライバが GET_AR 等のマクロで必要なビット幅に切り出す。
+//  チップドライバが必要なビット幅に切り出す。
 // ----------------------------------------------------------------
 struct FmHwOp {
     // ─── エンベロープジェネレータ ─────────────────────────────────
@@ -91,12 +91,11 @@ struct FmHwOp {
                   // 通常のADSR。RRはキーオフ時にのみ適用)を表す。
                   // OPL/OPL2/OPL3/OPLL共通: パーカッシブモード時、
                   // 実機RRレジスタにはRRの代わりにSRの値(4bit変換)を
-                  // 書く。OPL/OPL2/OPL3/OPLLいずれも updateKey(キーオン/
-                  // キーオフ毎)で動的に切り替える(updateVoice側の初期
-                  // 書き込みは、直後のkeyOn/keyOff処理で即座に上書きされる
-                  // 暫定値に過ぎない。2026年7月、「OPLLのみupdateKey」という
-                  // 誤った記述を訂正)。詳細はdocs/design/chip-notes.md
-                  // 「OPL系」参照。
+                  // 書く。OPL系は updateKey(キーオン/キーオフ毎)で動的に
+                  // 切り替える(updateVoice側の書き込みは直後のupdateKeyで
+                  // 上書きされる暫定値)。OPLL系は updateVoice で静的に
+                  // 変換し、updateKey はキーオンビットだけを操作する。
+                  // 詳細はdocs/design/chip-notes.md「OPL系」「OPLL系」参照。
     uint8_t RR;   // Release Rate:   4bit
     uint8_t TL;   // Total Level:    7bit (OPL は6bit / 上位1bit無視)
 
@@ -107,11 +106,8 @@ struct FmHwOp {
     // ─── 発振器 ───────────────────────────────────────────────────
     uint8_t MUL;  // Multiple:  4bit
     uint8_t DT1;  // Detune 1:  3bit (OPN/OPM のみ / OPL: 0固定)
-    // Detune 2: OPM/OPZ (HW): 2bit (0-3)。
-    // OPN/OPL3(4OPモード)では未使用のため、疑似デチューン値として転用する。
-    // op[0]/op[2] (各2OPペアの先頭オペレータ) の値を、符号付き8bit
-    // (int8_t、-128〜127、単位=100/64セント) として再解釈して使う。
-    // フィールド幅は変更せず、解釈のみで対応する。0=デチューンなし。
+    // Detune 2: OPM/OPZ (HW): 2bit (0-3)。他のチップでは使わない
+    // (疑似デチューンは下記 PDT を使う)。
     uint8_t DT2;
 
     // 疑似デチューン/拡張周波数オフセット用パラメータ (PDT = Pseudo DeTune。
@@ -122,11 +118,9 @@ struct FmHwOp {
     //   3=固定周波数)でモードを選択し、本フィールドの解釈が変わる。
     //     モード1/2: 100/64セント単位の符号付きオフセット (getFnumber(ch,PDT))
     //     モード3  : 0.1Hz単位の絶対周波数 (getFnumberFromHz(PDT/10.0))
-    //   OPL3(COPL3)の4OP疑似デチューン(op[0]/op[2]、2026年7月〜)。
-    //     旧FITOMはDT1(<<7)+DT2をビット合成した14bit値(±8192)を
-    //     使っていたが、PDTは元々16bit(±32767)でより広いレンジを持ち、
-    //     ビット合成も不要なためこちらに統一した(OPNのFXモードと同じ
-    //     フィールド・同じ計算式を共有する)。
+    //   OPL3(COPL3)の4OP疑似デチューン(op[0]/op[2])。OPNのFXモードと
+    //     同じフィールド・同じ計算式を共有する(docs/design/chip-notes.md
+    //     「疑似デチューン」参照)。
     // 上記以外のチップ/チャンネルでは無視される。0=無効。
     int16_t PDT;
 
@@ -139,17 +133,15 @@ struct FmHwOp {
                   // 使用 / SSG: bit3=HWエンベロープ使用フラグ、下位4bit=
                   // 波形シェイプとしてビットフィールド的に共用 / 他: 0固定)
     uint8_t WS;   // Wave Select: チップにより意味・値域が異なる (型は共通の
-                  // 7bit幅、2026年7月にスキーマ側maximumを7→127へ拡大)。
+                  // 7bit幅、スキーマ側maximumも127)。
                   // OPL2: 2bit / OPL3/OPZ: 3bit / OPM: 0固定 /
                   // SCC/SCC+: 7bit(波形メモリへの直接インデックス) /
                   // AY8930(EPSG): 4bit(デューティ比として転用、波形メモリ
                   // とは無関係)。
 
     // ─── OPZ (YM2414) 固有、オペレータ単位 ─────────────────────────
-    // 2026年7月、FmChipExt(チャンネル単位)から移設。実機OPZは各オペレータ
-    // に個別のREV/EGS/DT3を設定できるため、チャンネル単位の共通値に
-    // 強制すると表現力が失われる(旧実装は4オペレータの値を1つに
-    // 上書きして潰していた、既存の不具合だった)。
+    // 実機OPZは各オペレータに個別のREV/EGS/DT3を設定できるため、
+    // チャンネル単位(FmChipExt)ではなくオペレータ単位で持つ。
     uint8_t REV;  // Reverberation: 3bit (OPZ のみ)
     uint8_t EGS;  // EG bias:       2bit (OPZ のみ)
     uint8_t DT3;  // Fine frequency: 4bit OPZ ratio mode (OPZ のみ)
@@ -169,14 +161,10 @@ struct FmHwVoice {
     uint8_t ALG;  // Algorithm: 3bit (OPN/OPM: 3bit / OPL: 1bit /
                   // OPL3: bit0=CON1(前半ペア接続)/bit1=CON2(後半ペア接続)/
                   // bit2=ConnectionSEL(4OP結合有効化)。3bit全体を1つの
-                  // パック値として扱う(2026年7月、パッチエディタでの
-                  // ALGビジュアル化(接続図)を単一パラメータに一元化する
-                  // ため、ConnectionSELをext.ALG_EXTへ分離していたのを
-                  // 再度hw.ALGへ統合。分離していた間、COPL3::
-                  // updateVoice()の0x104レジスタ書き込み・carmsk[8]
-                  // テーブルは既にhw.ALG bit2をConnectionSELとして
-                  // 参照し続けており、COPL3::updateKeyだけがext.ALG_EXT
-                  // を見るという内部不整合が生じていた)。
+                  // パック値として扱う(パッチエディタでのALGの接続図を
+                  // 単一パラメータで表すため。COPL3のupdateVoice()の0x104
+                  // レジスタ書き込み・carmsk[8]・updateKeyはいずれも
+                  // hw.ALG bit2をConnectionSELとして参照する)。
                   //
                   // 【重要】ConnectionSEL=1(4OP結合)の間、実機YMF262は
                   // 後半チャンネル自身のBxレジスタ(Key-On/Block/F-Number
@@ -186,8 +174,7 @@ struct FmHwVoice {
                   // regardless whether it is a two- or four-operator
                   // channel")。したがってCOPL3::updateKeyが後半ペアへも
                   // Key-Onを送る必要があるのはConnectionSEL=0(独立2OP×2)
-                  // の場合のみであり、1の場合ではない(2026年7月、この
-                  // 条件が実機仕様と逆になっていたバグを発見・修正)。
+                  // の場合のみであり、1の場合ではない。
     // HW LFO感度。OPM/OPZに加えOPNA/OPN2系でも有効 (上記対応表の*1参照)。
     // OPN(YM2203)およびOPL系では0固定。
     uint8_t AMS;  // AM Sensitivity:  2bit
@@ -208,9 +195,9 @@ struct FmHwVoice {
 //  特定チップのドライバのみが参照する。不要なチップでは全フィールド0。
 // ================================================================
 struct FmChipExt {
-    // OPZ (YM2414) / OPN (ch2 FXモード) 共用。REV/EGS/DT3は2026年7月に
-    // FmHwOp(オペレータ単位)へ移設した(この4番目のフィールドのみ
-    // チャンネル単位で正しいため、こちらは残す)。FIX = Fixed frequency
+    // OPZ (YM2414) / OPN (ch2 FXモード) 共用。OPZのREV/EGS/DT3は
+    // オペレータ単位なのでFmHwOp側にあり、FIXだけがチャンネル単位。
+    // FIX = Fixed frequency
     // (OPNの用途に由来する名称。OPZ側は流用のため必ずしも「固定周波数」を
     // 意味しないが、フィールド自体を分けるほどの独立性はない)。
     // OPZ: Osc fixed freq flag (ノイズORフラグ、1bit)。
@@ -221,9 +208,8 @@ struct FmChipExt {
     // OPZ: 2OP 拡張アルゴリズムフラグ (AL の bit3)
     uint8_t ALG_EXT;  // ALG 拡張ビット (OPM noise(ch7専用) / OPLL preset選択)。
                       // OPL3のConnectionSEL(4OP結合有効化)はhw.ALG bit2に
-                      // 統合済みのため、OPL3はこのフィールドを参照しない
-                      // (2026年7月、一時的にここへ分離していたのをhw.ALG
-                      // へ戻した。上記hw.ALGのコメント参照)。
+                      // あるため、OPL3はこのフィールドを参照しない
+                      // (上記hw.ALGのコメント参照)。
                       // OPLLEX(Y8960拡張OPLL部、DEVICE_OPLLEX)専用: bit0は
                       // 標準OPLLと同じプリセット選択フラグ、bit2-1(値0-3)は
                       // チャンネル別ROMプリセットバンク選択
@@ -238,20 +224,20 @@ struct FmChipExt {
     // ここでは1つの16bitフィールドとして保持する。
     uint16_t HWEP;
 
-    // PSG系共有バンク専用(2026年7月新設)。SSG/EPSG/DCSG/SAA/SCCは
+    // PSG系共有バンク専用。SSG/EPSG/DCSG/SAA/SCCは
     // ハードウェアケーパビリティの差が大きい一方、音色定義の幅が狭く
     // 単独チップでバンクの名前空間を埋めにくいため、全チップが共通の
-    // CC#0(VOICE_PATCH_SSG=0x40固定)/HwBank名前空間を共有する設計に
-    // 変更した。本フィールドには、このパッチが実際に対象とする
+    // CC#0(VOICE_PATCH_SSG=0x40固定)/HwBank名前空間を共有する。
+    // 本フィールドには、このパッチが実際に対象とする
     // VoicePatchType(VOICE_PATCH_SSG/EPSG/DCSG/SAA/SCCのいずれかの
     // 実際の値)を埋め込む。「音色がデバイスを選択する」原則を、
     // バンクの検索(常に0x40)とデバイス解決(パッチごとに異なる)の
     // 2段階に分離することで維持している。0=未設定
     // (profile.schema.jsonのpsg_fallback_chipで指定されたチップに
-    // フォールバックする)。詳細はdocs/design/patch-resolution.md参照。
+    // フォールバックする)。詳細はdocs/design/patch-resolution.md「PSG系共有バンク」参照。
     uint8_t targetVoicePatchType;
 
-    // VOICE_PATCH_OPL_RHY(COPLRhythm)専用(2026年7月新設)。このHwPatchが
+    // VOICE_PATCH_OPL_RHY(COPLRhythm)専用。このHwPatchが
     // 対象とする物理チャンネル(=楽器)番号を指定する。0=HH, 1=CYM,
     // 2=TOM, 3=SD, 4=BD(COPLRhythmの論理ch順序、OPL_new.cppのクラス
     // コメント参照)。0xFF=未設定(VOICE_PATCH_OPL_RHYで使う場合は必須。
@@ -320,13 +306,9 @@ struct FmSwVoice {
     uint8_t LFR;  // LFO rate:  0〜127 (0=LFO無効。1-127は対数カーブで0.5Hz〜50Hzに変換、rateToTicks()参照)
     uint8_t LFI;  // LFO fade-in: 0=即フルデプス / 1〜127=フェードイン速度
 
-    // LFO深さ [セント、-1200〜+1200]。旧実装はLDM/LDL(16bit値を2バイトに
-    // 分割)だったが、これはMIDI CCによる制御を想定した設計だった。
-    // 新実装ではパラメータのMIDI CC制御可否は未定(コア実装確定後に別途
-    // 検討)のため、1フィールドに統合し、直感的なセント単位で直接指定
-    // する形に変更した(2026年7月)。ピッチLFOがドラム音の装飾に使われる
-    // ケースを考慮し、±200セント(旧LDM/LDLの実質上限)より広い、
-    // ±1オクターブ(±1200セント)までのレンジを確保している。
+    // LFO深さ [セント、-1200〜+1200]。ピッチLFOがドラム音の装飾に
+    // 使われるケースを考慮し、±1オクターブ(±1200セント)までの
+    // レンジを持つ。
     int16_t depthCents = 0;
 
     constexpr FmSwVoice() noexcept
@@ -362,18 +344,18 @@ struct FmVoice {
 };
 
 // ================================================================
-//  後方互換: 旧 FMOP / FMVOICE との変換ヘルパー
-//  FITOMCfg の既存バンク読み込みコードが使用する。
-//  チップドライバは FmVoice を使い、旧 FMVOICE は参照しない。
+//  旧FITOMの FMOP / FMVOICE との変換ヘルパー
+//  HwPatch::fromLegacy / toLegacy (PatchData.h) から使う。
+//  チップドライバは FmVoice を使い、FMVOICE は参照しない。
 // ================================================================
 namespace legacy {
 
-// 旧 FMOP 構造体（バンクファイル読み込み専用・新規使用禁止）
+// 旧 FMOP 構造体（変換専用・新規使用禁止）
 #pragma pack(push, 1)
 struct FMOP {
     uint8_t AR, DR, SL, SR, RR, REV, TL, EGT, EGS, KSL, KSR, WS;
     uint8_t AM, VIB, SLW, SLD, SLY, SLR;     // OP LFO
-    uint8_t SLS, SLM, SLI;                   // OP LFO sync/mode/fadein (新規)
+    uint8_t SLS, SLM, SLI;                   // OP LFO sync/mode/fadein
     uint8_t DM0, MUL, DT1, DT2, DT3;
     uint8_t VTL, VAR, VDR, VSL, VSR, VRR, VLD, VLR;
 };
@@ -383,12 +365,12 @@ struct FMVOICE {
     char     name[32];
     uint8_t  FB, AL, AMS, PMS;
     uint8_t  LDM, LDL, LWF, LFS, LFD, LFR, NFQ;  // ch LFO
-    uint8_t  LFM, LFI;                               // ch LFO mode/fadein (新規)
+    uint8_t  LFM, LFI;                               // ch LFO mode/fadein
     FMOP     op[4];
 };
 #pragma pack(pop)
 
-// 変換関数: 旧 FMVOICE → 新 FmVoice
+// 変換関数: 旧 FMVOICE → FmVoice
 inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
     FmVoice dst;
     dst.id = src.ID;
@@ -403,10 +385,8 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
     dst.hw.NFQ  = src.NFQ;
 
     // SW (チャンネル LFO)
-    // 旧LDM/LDL(16bit分割、kfs相当)を新しいdepthCents(セント単位、
-    // 1フィールド)に変換する。新レンジ(±1200セント)は旧の実質上限
-    // (±8192kfs≈±200セント相当だった想定)より大幅に広いため、
-    // クランプは実質的に効かない。
+    // LDM/LDL(14bit符号付き、kfs単位)をdepthCents(セント単位)に
+    // 変換する。±1200セント(±768kfs)を超える値はクランプする。
     {
         int16_t rawDepth = static_cast<int16_t>((static_cast<uint16_t>(src.LDM) << 8) | src.LDL);
         if (rawDepth >= 8192) rawDepth -= 16384;
@@ -435,13 +415,13 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
         h.AM  = s.AM;   h.VIB = s.VIB;
         h.EGT = s.EGT;  h.WS  = s.WS;
 
-        // チップ拡張 (オペレータ単位、2026年7月にFmHwOpへ移設)
+        // チップ拡張 (オペレータ単位)
         h.REV = s.REV;
         h.EGS = s.EGS;
         h.DT3 = s.DT3;
-        // DM0(旧FMOP側のフィールド名)のみチャンネル単位のまま
-        // (ext.FIX)。旧形式もOP単位でDM0を持っていたが、意味的に
-        // チャンネル共通の値のためop[0]の値を代表として使う。
+        // DM0 はチャンネル単位の ext.FIX に入れる。FMOP は OP 単位で
+        // DM0 を持つが、意味的にチャンネル共通の値のためop[0]の値を
+        // 代表として使う。
         if (i == 0) dst.ext.FIX = s.DM0;
 
         // SW (オペレータ)
@@ -455,7 +435,7 @@ inline FmVoice fromLegacy(const FMVOICE& src) noexcept {
     return dst;
 }
 
-// 変換関数: 新 FmVoice → 旧 FMVOICE (GUI 後方互換用)
+// 変換関数: FmVoice → 旧 FMVOICE
 inline FMVOICE toLegacy(const FmVoice& src) noexcept {
     FMVOICE dst{};
     dst.ID = src.id;
@@ -473,7 +453,7 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
         dst.LDM = static_cast<uint8_t>(raw16 >> 8);
         dst.LDL = static_cast<uint8_t>(raw16 & 0xFF);
     }
-    dst.LWF = src.sw.LWF;  // LFO フィールド廃止 (HW LFO はパフォーマンスパラメータへ)
+    dst.LWF = src.sw.LWF;
     dst.LFS = src.sw.LFS;  dst.LFD = src.sw.LFD;
     dst.LFR = src.sw.LFR;
 
@@ -507,8 +487,7 @@ inline FMVOICE toLegacy(const FmVoice& src) noexcept {
 
 // ================================================================
 //  チップドライバ用ヘルパーマクロ
-//  UpdateVoice 内で FmVoice から各チップのビット幅に切り出す。
-//  旧 GET_AR 等を置き換える。
+//  updateVoice 内で FmVoice から各チップのビット幅に切り出す。
 // ================================================================
 
 // OPN / OPM 系: 5bit → そのまま (OPM は上位3bit使用 = >> 2)

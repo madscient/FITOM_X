@@ -1,11 +1,5 @@
 // fitom/CFITOM.cpp
 // FITOM コアシングルトン実装
-//
-// 旧 FITOM.cpp からの変更:
-//   - boost::thread → std::thread
-//   - FMVOICE* / CFMBank → PatchManager
-//   - SCCI 依存を除去 (PortFactory 経由)
-//   - tables.h (ROM::devmap) を FITOMdefine.h の定数で代替
 
 #include "fitom/CFITOM.h"
 #include "fitom/FnumUtils.h"
@@ -29,7 +23,7 @@
 namespace fitom {
 
 // ================================================================
-//  静的デバイス情報テーブル (旧 ROM::devmap に対応)
+//  静的デバイス情報テーブル
 // ================================================================
 namespace {
 
@@ -310,15 +304,14 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
     // MPU(MAX_MPUS=4)は常に全面分生成する。実際にMIDIバイトが流れ込むか
     // どうか(=物理/仮想MIDI入力ポートが割り当てられているか)はMidiProcessor
     // の存在とは独立な関心事であるため(GUIのMIDIポート設定ダイアログから、
-    // 実行中に未割り当てのMPUへ新たにポートを割り当てられるようにするため、
-    // 2026年7月に変更。以前はconfig_->getMidiInputCount()分しか生成せず、
-    // 未設定のMPUにはMidiProcessor自体が存在しなかった)。
+    // 実行中に未割り当てのMPUへ新たにポートを割り当てられるようにするため)。
     for (int p = 0; p < MAX_MPUS; ++p) {
         for (int ch = 0; ch < 16; ++ch) {
-            // GM規格準拠: MIDI ch10 (0-indexed: ch9) は固定でリズムチャンネル。
-            // (channel_mapは廃止。ポリフォニー数もデバイス依存のため
-            //  固定設定ではなく、CInstCh::progChange()実行時に解決された
-            //  パッチのデバイスチャンネル数から動的に決定される)
+            // GM規格準拠: 起動時は MIDI ch10 (0-indexed: ch9) をリズムチャンネル
+            // にする。役割は CC#0=0x78/0x79 で切り替えられる
+            // (MidiProcessor::switchChannelRole())。ポリフォニー数はデバイス
+            // 依存のため固定設定ではなく、CInstCh::progChange()実行時に
+            // 解決されたパッチのデバイスチャンネル数から動的に決定される。
             bool isRhythm = (ch == 9);
             if (isRhythm) {
                 channels_[p][ch] = std::make_unique<CRhythmCh>(
@@ -336,7 +329,7 @@ int CFITOM::init(std::unique_ptr<FITOMConfig> config,
     }
 
     // SF2直行パス: プロファイルのsf2_channel_windows[]を初期状態として
-    // 窓テーブルへ反映する(2026年7月新設。演奏中のプライベートSysEx
+    // 窓テーブルへ反映する(演奏中のプライベートSysEx
     // sub-cmd 0x04によるsetSf2ChannelWindow()呼び出しと等価な初期化)。
     for (const auto& w : config_->getSf2ChannelWindows()) {
         setSf2ChannelWindow(w.mpu, w.ch, w.fluidsynthChan);
@@ -400,7 +393,7 @@ void CFITOM::exit(bool /*save*/)
     // プログラム終了時に自動的に2回目のexit()を呼んでしまう。
     // この時点でBoost.Logの静的状態が(他の翻訳単位の静的破棄順序により)
     // 既に破棄されている可能性があり、FITOM_LOG_INFO呼び出しが
-    // クラッシュを引き起こしていた(fitom_cliでCtrl+C終了時に顕在化)。
+    // クラッシュを引き起こす(fitom_cliのCtrl+C終了等)。
     // このガードにより、2回目以降の呼び出しは何もせず安全に即return する。
     if (exited_) return;
     exited_ = true;
@@ -415,7 +408,7 @@ void CFITOM::exit(bool /*save*/)
     // HWPlugin_Shutdown()(エクスポートされていれば)を呼んでおくことで、
     // DLLアンロード時のスレッド停止処理が暗黙の静的破棄タイミングに
     // 依存しないようにする(Windowsでのローダーロック起因のフリーズを
-    // 避けるため。2026年7月、詳細はIHWPlugin.hのHWPlugin_Shutdown宣言
+    // 避けるため。詳細はIHWPlugin.hのHWPlugin_Shutdown宣言
     // コメント参照)。
     if (config_) config_->getHWPluginRegistry().closeAll();
 
@@ -521,11 +514,11 @@ std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     if (!stereoPairPort) return dev;
 
     // リニアステレオ化 (CLinearPanDevice): R側チップも生成してラップする。
-    // R側ポートにも高位バンクへの差し替えを適用する(2026年8月修正。L側は
-    // initDevices()側で resolveHighBankPort() 済みだが、R側は生ポートのまま
-    // 渡されていたため、ADPCM-A/ADPCM-B(OPNA)のように自分専用の高位バンクへ
-    // 配置されるサブデバイスをステレオペアにすると、R側だけ低位バンクへ
-    // 書き込んでしまっていた。spanGroup配下と同じくconfiguredPort2の概念が
+    // R側ポートにも高位バンクへの差し替えを適用する(L側は
+    // initDevices()側で resolveHighBankPort() 済み。R側を生ポートのまま
+    // 渡すと、ADPCM-A/ADPCM-B(OPNA)のように自分専用の高位バンクへ
+    // 配置されるサブデバイスをステレオペアにしたとき、R側だけ低位バンクへ
+    // 書き込んでしまう。spanGroup配下と同じくconfiguredPort2の概念が
     // 無いため常にOffsetPortを自前生成する)。
     stereoPairPort = resolveHighBankPort(deviceType, stereoPairPort, nullptr);
 
@@ -635,9 +628,7 @@ void CFITOM::initDevices()
         // 単一物理ポート単位)をbuildPhysicalChipList()が後で拾えるよう
         // 記録しておく。stereoPairPort指定時(CLinearPanDevice化)は、
         // ラップ前のL側/R側の生デバイスをそれぞれの物理ポートに紐づける
-        // (2026年8月対応。以前はここでラップ後のポインタしか手に入らず
-        //  対象外としていたため、リニアステレオ化したチップがレベルメーター
-        //  に一切表示されなかった)。突き合わせキーは
+        // (ラップ後のポインタでは物理ポートと対応しないため)。突き合わせキーは
         //  buildPhysicalChipList()と同じ「resolveHighBankPort()適用前の
         //  生ポート」を使う必要があるため、config_から取り直す。
         registerPendingSubDevice(dynamic_cast<HWPort*>(config_->getDevicePort(i)),
@@ -648,7 +639,7 @@ void CFITOM::initDevices()
         }
 
         // 同種デバイス自動束ね: spanGroups があれば追加のチップ(モノラルまたは
-        // ステレオペア)を生成し CSpanDevice で束ねる (旧FITOMの isSpannable 相当)。
+        // ステレオペア)を生成し CSpanDevice で束ねる。
         int spanCount = config_->getDeviceSpanGroupCount(i);
         if (spanCount > 0) {
             auto spanDev = std::make_unique<CSpanDevice>();
@@ -676,11 +667,9 @@ void CFITOM::initDevices()
                 sp = resolveHighBankPort(subDeviceType, sp, nullptr);
                 // rhythm_modeも代表デバイス(config_->getDeviceRhythmMode(i))を
                 // 流用せず、このポート本来の値を使う(deviceTypeと同じ理由。
-                // 2026年8月修正: 以前は代表の値を全サブチップへ適用していた
-                // ため、rhythm_mode:trueのチップが別のrhythm_mode:falseチップと
-                // spanGroupとして束ねられると、束ねられた側のch6-8無効化が
-                // 効かなくなっていた[逆に代表側がtrueだと束ねられた側にも
-                // 無効化が誤って波及していた])。
+                // 代表の値を全サブチップへ適用すると、rhythm_modeの異なる
+                // チップをspanGroupとして束ねたとき、ch6-8の無効化が
+                // 束ねられた側で効かなくなる、または誤って波及する)。
                 bool subRhythmMode = config_->getDeviceSpanGroupRhythmMode(i, k);
                 ISoundDevice* subLRaw = nullptr;
                 ISoundDevice* subRRaw = nullptr;
@@ -710,9 +699,7 @@ void CFITOM::initDevices()
             // getChCount()はチャンネルアドレス空間(enableCh(false)で無効化された
             // chも含む、例: COPNBのch0/ch3)、getAvailableChs()は実際に発音可能な
             // ch数。COPNBのように一部chが恒常的に無効化されているチップが束ねに
-            // 混ざると両者が乖離するため、両方をログに出す
-            // (2026年7月、ステージング環境からの指摘: 束ね合計chが実際の
-            //  発音可能数と食い違って見えると報告があった)。
+            // 混ざると両者が乖離するため、両方をログに出す。
             FITOM_LOG_INFO("Device[" << i << "]: " << config_->getDeviceLabel(i)
                 << " spanned across " << (spanCount + 1) << " physical chips ("
                 << (int)spanDev->getChCount() << "ch addressable, "
@@ -733,18 +720,15 @@ void CFITOM::initDevices()
         // 優先して逆引きする。OPNA(YM2608)とOPNB/OPNBB(YM2610/2610B)の
         // ADPCM-Bは同一のVoicePatchTypeを使うが、実際の波形バイナリの
         // バウンダリ整列(OPNA=32byte、OPNB/OPNBB=256byte)が異なり同じ
-        // オフセットテーブルを共有できないため(2026-07-24、実機ログで
-        // OPNBが誤ってOPNA用オフセットを使っていたことが判明)、
-        // PcmBank::deviceTypeで物理チップ単位に明示区別できるようにした。
-        // chip指定が無い(=deviceType不一致)場合は、従来通りこのデバイスの
+        // オフセットテーブルを共有できないため、PcmBank::deviceTypeで
+        // 物理チップ単位に明示区別する。
+        // chip指定が無い(=deviceType不一致)場合は、このデバイスの
         // VoicePatchType(ADPCM-B/ADPCM-A/PCM-D8)に一致するpcm_banks
-        // エントリ(groupのみ指定)にフォールドバックする。複数の異なる
+        // エントリ(groupのみ指定)にフォールバックする。複数の異なる
         // PCMバンク(コーデックの異なるADPCM-A用/ADPCM-B用等)を同一
-        // プロファイル内で併用できるようにするため(2026年7月、以前は
-        // bankNo=0固定で全PCMデバイスが同じバンクを共有しており、2種目
-        // 以降のPCMバンクが常に無視されていた不具合を修正)。どちらも
-        // 一致するバンクが無い場合は、従来通りbank0にフォールバックする
-        // (group/chipいずれも指定しない旧来のpcm_banks記述との後方互換)。
+        // プロファイル内で併用できるようにするため。どちらも
+        // 一致するバンクが無い場合はbank0にフォールバックする
+        // (group/chipいずれも指定しないpcm_banks記述向け)。
         {
             int pcmBankNo = patchMgr_->pcmRegistry().findBankNoForDeviceType(deviceType);
             if (pcmBankNo < 0) {
@@ -845,10 +829,9 @@ void CFITOM::buildPhysicalChipList()
         // DEVICE_NONEのエントリ(chip:"SF2"のSF2直行パス用ラッパー、または
         // 単に未知のchip文字列)はinitDevices()がISoundDevice生成自体を
         // スキップしている(実レジスタ空間を持たない)ため、レジスタダンプ
-        // モニターの物理チップ一覧にも登録しない(2026年7月新設。以前は
-        // ここでdeviceTypeを一切見ておらず、SF2ラッパーのIPortへ生MIDI
-        // バイト列を書き込んだ際のシャドウレジスタが、無意味な「物理チップ」
-        // としてそのままRegisterDumpWindowに表示されてしまっていた)。
+        // モニターの物理チップ一覧にも登録しない(登録すると、SF2ラッパーの
+        // IPortへ生MIDIバイト列を書き込んだ際のシャドウレジスタが、無意味な
+        // 「物理チップ」としてRegisterDumpWindowに表示されてしまう)。
         if (config_->getDeviceType(i) == DEVICE_NONE) continue;
 
         auto* port  = dynamic_cast<HWPort*>(config_->getDevicePort(i));
@@ -885,10 +868,7 @@ void CFITOM::buildPhysicalChipList()
     // チップ一覧(portToChip)へ突き合わせる。同種デバイス自動束ね
     // (spanGroups)で他デバイスに吸収されたデバイスも、その吸収先が
     // 登録したポートと同じportを持つため、ここで正しく同じ物理チップの
-    // サブデバイスとして復元される(2026年7月、ユーザー報告により発覚:
-    // 以前はspanGroupsを持つ/持たれる側の両方をチャンネルレベルメーターの
-    // 対象外としていたため、同系統FMチップが複数ある構成でチャンネルが
-    // 大量に欠落していた)。
+    // サブデバイスとして復元される。
     for (const auto& psd : pendingSubDevices_) {
         auto it = portToChip.find(psd.port);
         if (it == portToChip.end()) continue;
@@ -1011,7 +991,7 @@ std::vector<PhysicalChipChannelState> CFITOM::getPhysicalChipChannelStates(int i
     // L/R分割表示になるのは、その物理チップ自身がステレオ出力を持つ場合
     // (getChipPanType() != Mono) だけ。ペアを1つのステレオデバイスとして
     // 見せるのは論理チップ単位のビュー(getLogicalDeviceChannelStates())の
-    // 責務である(2026年8月、ユーザーの実機確認により整理)。
+    // 責務である。
     const auto& info = physicalChips_[index];
     for (const auto& sub : info.subDevices) {
         if (!sub.device) continue;
@@ -1182,10 +1162,12 @@ void CFITOM::resetAllCtrl()
 
 // ─── マスターピッチ ──────────────────────────────────────────────────────────
 
-// SF2直行パス(docs/design/sf2-direct-path.md参照): マスターボリューム/
-// マスターピッチも、新規プロトコルを設計せず既存のGM2 Universal Realtime
-// SysExをそのままHWPlugin_WriteBlock経由でSF2ラッパーへ転送するだけで
-// 済ませる(8.1節既存のマスターチューニングSysExと同じバイト列)。
+// SF2直行パス(docs/design/sf2-direct-path.md「マスターボリュームと
+// マスターピッチ」参照): マスターボリューム/マスターピッチも、新規
+// プロトコルを設計せず既存のGM2 Universal Realtime SysExをそのまま
+// HWPlugin_WriteBlock経由でSF2ラッパーへ転送するだけで済ませる
+// (FITOM_Xが外部から受信するマスターボリューム/マスターファイン
+// チューニングSysExと同じバイト列)。
 namespace {
 void buildGm2MasterVolumeSysEx(uint8_t (&out)[8], uint8_t vol)
 {
@@ -1309,7 +1291,7 @@ uint8_t CFITOM::getMasterVolume() const
     return config_ ? config_->getMasterVolume() : 100;
 }
 
-// ─── SF2直行パス (docs/design/sf2-direct-path.md参照、2026年7月新設) ───
+// ─── SF2直行パス (docs/design/sf2-direct-path.md参照) ───
 
 bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t d1, uint8_t d2)
 {
@@ -1318,8 +1300,9 @@ bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t
     if (!w.assigned) return false;
 
     // 窓には含まれるがSF2デバイス未接続(プラグインロード失敗等)の場合は、
-    // ネイティブ経路へフォールバックせず単純に読み捨てる(2.6節: 窓に
-    // 含まれる限り常にこの経路として動作する)。
+    // ネイティブ経路へフォールバックせず単純に読み捨てる(窓に含まれる
+    // 限り常にこの経路として動作する。docs/design/sf2-direct-path.md
+    // 「パッチベイに徹する」参照)。
     if (!sf2Port_) return true;
 
     const uint8_t type = status & 0xF0;
@@ -1360,7 +1343,7 @@ bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t
             0xF7
         };
         sf2Port_->writeBurst(0, buf, sizeof(buf));
-        w.lastProg = static_cast<int>(d1 & 0x7F); // MIDIモニター表示用(2026年8月新設)
+        w.lastProg = static_cast<int>(d1 & 0x7F); // MIDIモニター表示用
         return true;
     }
 
@@ -1374,7 +1357,7 @@ bool CFITOM::routeSf2ChannelMessage(int mpu, uint8_t ch, uint8_t status, uint8_t
     } else {
         uint8_t buf[3] = { remappedStatus, d1, d2 };
         sf2Port_->writeBurst(0, buf, sizeof(buf));
-        // MIDIモニターのFnumber列表示用(2026年8月新設): fluidsynthへ実際に
+        // MIDIモニターのFnumber列表示用: fluidsynthへ実際に
         // 送出したNote On(0x90、velocity>0)の生バイト列を保持する。
         // velocity=0のNote On(Note Off相当)や実際のNote Offでは更新しない
         // (「最後に送ったノートオンメッセージ」を表示する設計のため)。
@@ -1408,7 +1391,7 @@ void CFITOM::setSf2ChannelWindow(uint8_t mpu, uint8_t ch, uint8_t fluidsynthChan
     }
 
     // 同じfluidsynth_chanを複数の(mpu, ch)組へ重複して割り当てることは
-    // できない(docs 8.2節)。重複する場合は要求そのものを無視する
+    // できない(docs/design/sf2-direct-path.md「窓」参照)。重複する場合は要求そのものを無視する
     // (暗黙に既存の割り当てを解除するような副作用は起こさない)。
     for (int p = 0; p < MAX_MPUS; ++p) {
         for (int c = 0; c < 16; ++c) {
@@ -1431,7 +1414,7 @@ void CFITOM::setSf2ChannelWindow(uint8_t mpu, uint8_t ch, uint8_t fluidsynthChan
 }
 
 // ================================================================
-//  タイマースレッド (非 MFC 環境用)
+//  タイマースレッド
 // ================================================================
 
 void CFITOM::startTimerThread(uint32_t intervalMs)
@@ -1477,7 +1460,7 @@ MidiProcessor::MidiProcessor(
 
 // GUI等からの構造化送出(CFITOM.h宣言コメント参照)。(mpuIndex_, ch)が
 // SF2直行パスの窓に含まれる場合はrouteSf2ChannelMessage()へ振り分け、
-// 実MIDI入力(processMessage())と同じ挙動にする(2026年8月新設)。
+// 実MIDI入力(processMessage())と同じ挙動にする。
 void MidiProcessor::sendControlChange(uint8_t ch, uint8_t cc, uint8_t val)
 {
     if (ch >= 16) return;
@@ -1651,7 +1634,6 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
 
     // GM2規格: Bank Select MSB(CC#0)の0x78(DEVICE_RHYTHM)/0x79は、
     // チャンネルの役割(リズム/メロディ)自体を動的に切り替える特殊予約値。
-    // (旧FITOMのCMidiInst::Control()と同じロジック)。
     // この2値は通常のバンク選択値としては一切使わせず、常にここで消費する
     // (bankSelMSB()には転送しない)。これにより、CInstCh側の bankSelM_ に
     // 0x78/0x79が入ることはなく、CC#0=0x01-0x6Fを「直接モードのVoicePatchType
@@ -1707,9 +1689,8 @@ void MidiProcessor::processControl(uint8_t ch, uint8_t cc, uint8_t val)
         rpn_[ch].lsb = val;
         // MSB受信済みのときのみ、MSBと合成した14bit値で「上書き」適用する。
         // これが無いと、CC#6→CC#38の通常の送信順でLSBが一切反映されない
-        // (2026年8月修正。RPN#1チャンネルファインチューニングのように
-        //  14bit全体を使うパラメータで、指定値と実際のピッチが食い違う
-        //  原因になっていた)。
+        // (RPN#1チャンネルファインチューニングのように14bit全体を使う
+        //  パラメータで、指定値と実際のピッチが食い違う)。
         applyDataEntry(ch, midicch);
         break;
     case 96:  // Data Increment
@@ -1757,7 +1738,7 @@ void MidiProcessor::processSysEx()
 
     // ─── プライベート(メーカー固有) SysEx: manufacturer ID = 00H 48H 01H ───
     // (拡張ID形式。1byte目が00Hの場合、後続2byteでメーカーを識別する)
-    // 将来実装用のスタブ分岐のみ用意する (processPrivateSysEx()参照)。
+    // 処理は processPrivateSysEx() が行う。
     if (id0 == 0x00 && sysexPt_ >= 3
         && sysexBuf_[1] == 0x48 && sysexBuf_[2] == 0x01) {
         processPrivateSysEx();
@@ -1782,7 +1763,7 @@ void MidiProcessor::processSysEx()
         uint16_t value14 = (static_cast<uint16_t>(msb) << 7) | lsb;
 
         switch (sub2) {
-        case 0x01: // Master Volume (スタブ実装: MSBのみ使用、7bit精度)
+        case 0x01: // Master Volume (MSBのみ使用、7bit精度。FM/PSGチップの音量には反映されず、SF2直行パスにだけ効く)
             parent_->setMasterVolume(msb);
             FITOM_LOG_INFO("SysEx: Master Volume = " << (int)msb);
             break;
@@ -1829,7 +1810,7 @@ void MidiProcessor::processSysEx()
 }
 
 // プライベート(メーカー固有)SysEx: manufacturer ID = 00H 48H 01H
-// (拡張ID形式)。将来実装用のスタブのみ。呼び出し時点でsysexBuf_[0..2]が
+// (拡張ID形式)。呼び出し時点でsysexBuf_[0..2]が
 // 00H 48H 01Hであることは呼び出し元(processSysEx)で確認済み。
 // sysexBuf_[3]以降、sysexPt_までがメーカー固有のペイロード。
 // SysEx(private, manufacturer 00H 48H 01H)によるHwPatch/SwPatch

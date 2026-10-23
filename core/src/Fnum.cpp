@@ -1,5 +1,5 @@
 #include "fitom/fitom_core.h"
-#include "Fnum.h"  // core/src/Fnum.h (旧実装)
+#include "Fnum.h"  // core/src/Fnum.h (CFnumTable はどこからも参照されていない。テーブルは FnumRegistry が生成する)
 #include <math.h>
 
 CFnumTable theFnum;

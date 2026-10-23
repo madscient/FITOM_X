@@ -1,7 +1,7 @@
 #pragma once
 // fitom/fitom_core.h
 // チップドライバ・コアモジュール共通インクルード
-// 旧 stdafx.h の代替。プラットフォーム依存コードを含まない。
+// プラットフォーム依存コードを含まない。
 
 // ─── 標準ライブラリ ───────────────────────────────────────────────────────────
 #include <cstdint>
@@ -15,8 +15,8 @@
 #include <cassert>
 
 // ─── プリミティブ型の互換定義 ────────────────────────────────────────────────
-// Windows BOOL / BYTE / WORD / DWORD の代替
-// 旧コードとの互換のため残す。新コードでは std 型を使うこと。
+// Windows 以外での BOOL / BYTE / WORD / DWORD の代替。
+// 新コードでは std 型を使うこと。
 #ifndef _WIN32
 using BOOL   = bool;
 using BYTE   = uint8_t;
@@ -27,7 +27,7 @@ using DWORD  = uint32_t;
 #  define ZeroMemory(d, l) std::memset(d, 0, l)
 #endif
 
-// TCHAR は廃止方向だが移行期に残す
+// TCHAR 系は新コードでは使わない。
 // 内部文字列は全て UTF-8 std::string で扱う
 #ifndef TCHAR
 using TCHAR   = char;

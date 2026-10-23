@@ -1,15 +1,6 @@
 #pragma once
 // fitom/ISoundDevice.h
-// 音源デバイス抽象インターフェース (モダナイズ版)
-//
-// 旧 SoundDev.h の ISoundDevice / CSoundDevice から移行。
-// 変更点:
-//   - FMVOICE*     → const HwPatch* / FmVoice* (段階移行: 両方受け付ける)
-//   - CPort*       → fitom::IPort*
-//   - TCHAR*       → std::string
-//   - BOOL         → bool
-//   - VoiceProcessor を内包 (UpdateVolExp / UpdateOpLFO を代替)
-//   - ポリチャンネル管理を ChState に集約
+// 音源デバイス抽象インターフェース
 
 #include "fitom/IPort.h"
 #include "fitom/VoiceData.h"
@@ -31,13 +22,13 @@ namespace fitom {
 class IMidiCh;  // forward
 
 // ================================================================
-//  チャンネル状態 (旧 CHATTR の後継)
+//  チャンネル状態
 // ================================================================
 struct ChState {
     enum class Status { Empty, Disabled, Assigned, Running, Releasing };
 
     Status   status    = Status::Empty;
-    bool     autoAssign = true;   // 旧 dva
+    bool     autoAssign = true;   // false なら findBestCh() の自動割り当て対象外
     IMidiCh* owner     = nullptr;
 
     HwPatch  hwPatch;             // 現在割り当てられた HW パッチ
@@ -50,23 +41,21 @@ struct ChState {
     // assignCh() に渡された SwPatch のキャッシュ(値コピー)。hwPatch と
     // 異なりポインタ元(PatchManagerのSwBank)の寿命が短命な呼び出しの
     // 場合もあるため、VoiceProcessor::onVolumeChange() 用に sw/swOp を
-    // ここへ保持しておく(2026年7月新設。setVolume/setExpression が
+    // ここへ保持しておく(setVolume/setExpression が
     // FmVoice を再構築するのに必要)。
     SwPatch  swPatch;
     VoiceProcessor proc;          // SW パラメータ処理エンジン
 
     uint8_t  lastNote  = 0xFF;
-    int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/design/terminology.md「kfs」参照)
+    int16_t  fineFreq  = 0;       // kfs単位 (1半音=64ステップ、docs/design/terminology.md「単位: kfs (KF Step)」参照)
     uint16_t noteOnAge = 0;       // 古いチャンネルを奪う優先度
     // ノートオン(CSoundDevice::noteOn())が呼ばれるたびに単調増加する
     // シーケンス番号。sounding/velocityは現在値のスナップショットに過ぎず、
     // 同一ベロシティでの再トリガー(ボイススチールによる同一チャンネル上の
     // 連続ノートオン)を区別できないため、チャンネルレベルメーター(GUI)が
-    // 「本当にノートオンが起きたか」をフレーム間差分で検出するために使う
-    // (2026年7月新設)。
+    // 「本当にノートオンが起きたか」をフレーム間差分で検出するために使う。
     uint32_t noteOnSeq = 0;
 
-    // レガシー互換: FNUM (旧 ISoundDevice::FNUM)
     struct Fnum {
         uint8_t  block = 0;
         uint16_t fnum  = 0;
@@ -132,19 +121,14 @@ struct ChState {
     // assign()がstatusをReleasing→Assignedへ書き換えてからrun()が
     // 呼ばれるため、run()側で「直前がReleasingだったか」をstatusから
     // 判定しようとしても、その時点では既にAssignedに上書きされた後で
-    // 常にfalseになってしまう(2026年7月発見のバグ。「リリース中再トリガー
-    // 対策」自体はOPM/OPN/OPL/OPL3に実装済みだったが、この経路のせいで
-    // 発動条件[wasReleasing]が実質的に常にfalseとなり、事実上一度も
-    // 機能していなかった。高速な連続ノートオンで前の音のリリース中に
-    // 同じchを再利用する[通常のround-robin]たびに毎回この対策が
-    // スキップされ、前の音のエンベロープがリリース中のまま次のアタックが
-    // 乗るため、アタックが再トリガーされず音程だけ滑らかに変化して
-    // 聞こえる不具合として顕在化した)。
+    // 常にfalseになってしまう(その場合、リリース中のchを再利用するたびに
+    // 強制ダンプがスキップされ、前の音のエンベロープがリリース中のまま
+    // 次のアタックが乗って、音程だけ滑らかに変化して聞こえる)。
     // そのためassign()側で書き換え前のstatusを見てwasReleasingを確定させ、
     // run()はstatus==Assigned(=assign()経由)の場合はその値を信頼して
     // 上書きしない。assign()を経由しない経路(モノフォニックの自己スティール
     // 等、CInstCh::noteOn()がdevChを直接使い回すケース)ではstatusが
-    // Releasing/Runningのまま渡ってくるため、従来通りrun()側で直接判定する。
+    // Releasing/Runningのまま渡ってくるため、run()側で直接判定する。
     bool wasReleasing = false;
     void assign(IMidiCh* ch) {
         wasReleasing = (status == Status::Releasing);
@@ -183,22 +167,21 @@ public:
     // ─── チャンネル割り当て ─────────────────────────────────────────────
     // samplePatch: サンプルベース音源系 (VOICE_PATCH_AWM等) 用。
     // hwPatchとは排他 (通常のFMオペレータ系チップはnullptrのまま呼ぶ)。
-    // vel/swPatch: 2026年7月追加。VoiceProcessor::onNoteOn()をupdateVoice()
-    // より前に呼べるようにするため(ドキュメント化された正しい設計、
-    // docs/design/voice-processor.md「呼び出しの順序」参照。以前はonNoteOn()が
-    // noteOn()側に遅延しており、updateVoice()内のキャリア側ベロシティ
-    // 補正値(velAR/velDR/velSL/velRR/velSR)が常に未計算のまま実機へ
-    // 送信されるバグがあった)。pendingSwPatch機構はこれにより不要に
-    // なったため削除した。
+    // vel/swPatch: VoiceProcessor::onNoteOn()をupdateVoice()より前に呼ぶ
+    // ために受け取る。updateVoice()はキャリア側ベロシティ補正値
+    // (velAR/velDR/velSL/velRR/velSR)を書くので、その前に計算が済んで
+    // いなければならない(docs/design/voice-processor.md「呼び出しの順序」参照)。
     virtual uint8_t allocCh(IMidiCh* owner, const HwPatch* patch, uint8_t vel,
                              const SwPatch* swPatch = nullptr,
                              const SampleZonePatch* samplePatch = nullptr) = 0;
     virtual uint8_t assignCh(uint8_t ch, IMidiCh* owner, const HwPatch* patch, uint8_t vel,
                               const SwPatch* swPatch = nullptr,
                               const SampleZonePatch* samplePatch = nullptr) = 0;
-    // queryCh は findBestCh に統合 (後方互換のため残す)
+    // queryCh: 空きチャンネルを選ぶ。mode=1 は空き/Releasing のみ、
+    // mode=0 は Running の強制奪取も含む。チップドライバはオーバーライドして
+    // デバイス固有のチャンネル制約を課す。
     virtual uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode)    = 0;
-    // releaseCh は noteOff に内包 (後方互換のため残す)
+    // releaseCh は noteOff に内包されている (noteOff 後に呼んでも何もしない)
     virtual void    releaseCh(uint8_t ch)                                       = 0;
     virtual void    enableCh(uint8_t ch, bool enable)                       = 0;
     virtual uint8_t getAvailableChs() const                                 = 0;
@@ -240,9 +223,9 @@ public:
     // cc1: MIDI CC#1 の値 (0-127)。maxDepth: RPN#5 由来の最大デプス。
     virtual void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) = 0;
 
-    // CC#77: ソフトウェアLFO Depthの演奏時上書き(音色固有LFO、
+    // CC#77: ソフトウェアLFO Depthの演奏時補正(音色固有LFO、
     // sw.LFR>0のケース専用)。発音中のノートにも即座に反映される。
-    // cents: -1200〜+1200。範囲外(センチネル)を渡すと上書きを解除する。
+    // cents: 音色の depthCents に加算するオフセット[セント]。0=補正なし。
     virtual void setLfoDepthOverride(uint8_t ch, int16_t cents) = 0;
 
     // ─── ChState への直接アクセス (VoiceProcessor::onNoteOn 等で使用) ───────
@@ -257,16 +240,15 @@ public:
     // 書いてtrueを返す。現状の実装は CLinearPanDevice (物理的にL/Rへ固定
     // 配線された同一チップ2台を束ねたもの) のみ。
     // false を返した場合、呼び出し元はチップ自身のパン能力
-    // (FITOMConfig::getChipPanType()) と ChState::panpot から定位を求める
-    // (2026年8月新設)。
+    // (FITOMConfig::getChipPanType()) と ChState::panpot から定位を求める。
     virtual bool getStereoGains(uint8_t /*ch*/, float& /*gainL*/, float& /*gainR*/) const {
         return false;
     }
 
     // ソフトLFO (VoiceProcessor::onTick) の変調結果を反映するための公開API。
     // CInstCh/CRhythmCh いずれの経路でも CSoundDevice::timerCallback() が
-    // 内部で自動的に呼び出す (2026年8月、CRhythmCh が独自に onTick を回して
-    // 二重tickになっていたのを解消し、デバイス側へ一本化した)。
+    // 内部で自動的に呼び出す。呼び出し側のチャンネルが独自に onTick を
+    // 回すと二重tickになる。
     virtual void updateTL(uint8_t ch, uint8_t op, uint8_t tl) = 0;
 
 
@@ -274,8 +256,7 @@ public:
     // AM/PMどちらとして効くかは、そのチャンネルに現在割り当てられている
     // ボイス自身のAMS/PMS感度パラメータで決まる(enablePM/enableAM参照)。
     // Depth/Rateはチップ内に1系統しかない共有リソースのため、AM用/PM用に
-    // 分ける意味が無く、単一のsetLFODepth/setLFORateに統合している
-    // (2026年7月、setPMDepth/setAMDepth・setPMRate/setAMRateを統合)。
+    // 分ける意味が無く、単一のsetLFODepth/setLFORateにしている。
     virtual void enablePM(uint8_t ch, bool on)              {}
     virtual void enableAM(uint8_t ch, bool on)              {}
     virtual void setLFODepth(uint8_t ch, uint8_t dep)       {}
@@ -372,8 +353,7 @@ public:
     const HwPatch* getCurrentPatch(uint8_t ch) const override;
     uint8_t        getCurrentNote(uint8_t ch)  const override;
 
-    // ─── 旧 API 互換 (移行期) ───────────────────────────────────────────
-    // チップドライバが既存コードを参照する箇所のため残す
+    // ─── ChState への直接アクセス ───────────────────────────────────────
     ChState* getChState(uint8_t ch) override {
         return (ch < maxChs_) ? &chState_[ch] : nullptr;
     }
@@ -389,7 +369,7 @@ protected:
     virtual void updatePanpot(uint8_t ch)                     = 0;
     virtual void updateSustain(uint8_t ch)                    = 0;
     virtual void updateKey(uint8_t ch, bool keyOn)            = 0;
-    // updateTL は public セクションに公開 (CRhythmCh のLFO処理用)
+    // updateTL は ISoundDevice 側で public に宣言している
     virtual void updateFnumber(uint8_t ch, bool forceWrite = true);
 
     // ─── キャリアオペレータ判定 ─────────────────────────────────────────
@@ -399,9 +379,8 @@ protected:
     // チップドライバ側がこのメソッドで教える設計)。
     // デフォルト実装はOPN/OPM互換の標準8アルゴリズムテーブル(kCarrierMask、
     // hw.ALG&7で参照)。キャリア規則が異なるチップ(OPL系2op/4op、OPLL等)は
-    // オーバーライドすること (2026年7月、この判定がOPN/OPM専用のまま
-    // 全チップ共通で使われており、OPL/OPLL等でキャリアopがvol/exp/vel/VTLの
-    // 影響を一切受けないバグがあったため導入)。
+    // オーバーライドすること (しないとキャリアopがvol/exp/vel/VTLの
+    // 影響を受けなくなる)。
     virtual bool isCarrierOp(uint8_t ch, int op) const;
 
     // isCarrierOp() を op=0-3 全てについて評価し、ビットマスクにまとめる
@@ -415,9 +394,8 @@ protected:
 
     // ChState (hwPatch/samplePatch/swPatch キャッシュ) から
     // VoiceProcessor::onNoteOn/onVolumeChange 用の FmVoice を再構築する。
-    // samplePatch使用中(PCM系)はhw/hwOpを既定値(TL=0)のままにする
-    // (assignCh()のsamplePatch分岐が従来dummy.hw/hwOpに触れていなかった
-    // のと同じ扱い)。呼び出し元は ch < maxChs_ を保証すること。
+    // samplePatch使用中(PCM系)はhw/hwOpを既定値(TL=0)のままにする。
+    // 呼び出し元は ch < maxChs_ を保証すること。
     FmVoice buildVoiceForCh(uint8_t ch) const {
         const auto& s = chState_[ch];
         FmVoice v;
@@ -432,10 +410,10 @@ protected:
 
     // ─── サンプルベース音源系(SampleZonePatch)へのSwPatch適用 ──────────
     // assignCh()のsamplePatch分岐でVoiceProcessor::onNoteOn()を呼ぶか。
-    // 既定false(呼ばない=既存動作維持)。effectiveTL()のみ(または
+    // 既定false(呼ばない)。effectiveTL()のみ(または
     // その一部)で音量を決める設計のチップのみtrueにオーバーライドする。
     // AWMは実機のLFO/VIBレジスタ・波形バイナリ側の設定と整合させる設計が
-    // 別途必要なため対象外(2026年7月、docs/design/patch-resolution.md参照)。
+    // 別途必要なため対象外(docs/design/patch-resolution.md「サンプル系」参照)。
     virtual bool usesVoiceProcessorForSamplePatch() const { return false; }
 
     // 上記がtrueの場合にonNoteOn()へ渡すvolume。既定はs.volume(実際の
@@ -459,12 +437,10 @@ protected:
     uint8_t         maxChs_;
     uint8_t         opCount_;
     IPort*          port_;
-    // maxChs_と同数だけ確保する(コンストラクタでresize)。以前は
-    // 固定長配列ChState chState_[MAX_CHS]だったが、MAX_CHSより多い
-    // チャンネル数を要求するチップ(OPL4 AWM = 24ch)が現れた際に、
-    // 配列サイズとmaxChs_の値が食い違って範囲外アクセスするクラッシュ
-    // バグが発生した(2026年7月)。チップごとに実際に必要な数だけ確保する
-    // vectorにすることで、この種の不一致がそもそも起こり得ない設計にする。
+    // maxChs_と同数だけ確保する(コンストラクタでresize)。固定長配列
+    // (MAX_CHS)にすると、MAX_CHSより多いチャンネル数を要求するチップ
+    // (OPL4 AWM = 24ch)で配列サイズとmaxChs_が食い違い範囲外アクセスに
+    // なるため、チップごとに実際に必要な数だけ確保する。
     std::vector<ChState> chState_;
     uint8_t*        regBak_;    // レジスタバックアップ
     size_t          regSize_;
