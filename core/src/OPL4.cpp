@@ -2,8 +2,8 @@
 // YMF278 (OPL4) の AWM(PCM)部ドライバ実装。
 //
 // OPL4はFM部(OPL3完全互換, YMF278内蔵)とAWM部(PCM/波形メモリ, YRW801外付け
-// またはYMF278内蔵ROM連携)を持つ複合チップ。FM部は OPL_new.cpp の COPL3 が
-// (Config::resolveCompositeSpec 経由の sub-device 自動生成で) 別途担当する。
+// またはYMF278内蔵ROM連携)を持つ複合チップ。FM部は OPL_new.cpp の COPL3/COPL3_2 が
+// (FITOMConfig::resolveCompositeSpec 経由の sub-device 自動生成で) 別途担当する。
 // 本ファイルは AWM部 (COPL4AWM) のみを扱う。
 
 #include "fitom/ISoundDevice.h"
@@ -23,7 +23,7 @@ namespace fitom {
 //  PcmBankRegistry/maxMem等)を一切使わず、恩恵がないため。
 //
 //
-//  レジスタマップ (ユーザー提供のYMF278アプリケーションノート画像で確定):
+//  レジスタマップ (YMF278アプリケーションノートによる):
 //    0x08-0x1F: 波形番号 下位8bit (ch0-23)
 //    0x20-0x37: F_NUMBER下位7bit(bit7-1) | 波形番号bit8(bit0)
 //    0x38-0x4F: Octave(bit7-4) | PseudoReverb(bit3) | F_NUMBER上位3bit(bit2-0)
@@ -36,9 +36,8 @@ namespace fitom {
 //    0xE0-0xF7: AM(bit2-0)
 //    0xF8: Mixing FM_R(bit5-3)/FM_L(bit2-0、3bitずつ、bit7-6は未使用)
 //    0xF9: Mixing PCM_R(bit5-3)/PCM_L(bit2-0、3bitずつ、bit7-6は未使用)
-//          (2026年8月訂正: 旧コメントは4bitニブルと誤記していたが、
-//          ymfm[extern/ymfm/src/ymfm_pcm.h ch_mix_*()]・ALSA
-//          [OPL4_MIX_LEFT_MASK=0x07/OPL4_MIX_RIGHT_MASK=0x38]とも3bitずつ。
+//          (4bitニブルではない。ymfm[extern/ymfm/src/ymfm_pcm.h ch_mix_*()]・
+//          ALSA[OPL4_MIX_LEFT_MASK=0x07/OPL4_MIX_RIGHT_MASK=0x38]とも3bitずつ。
 //          値は0=最大音量[ymfmのs_mix_scale[0]=0x7fa]〜7=無音の8段階テーブル
 //          からの選択式で、線形の減衰量ではない)
 //
@@ -48,10 +47,6 @@ namespace fitom {
 //  経由で行う。ChState::samplePatch のキーゾーン (+ベロシティレイヤー)
 //  をノート/ベロシティで線形探索し、該当する SampleZone::waveIndex を
 //  実際のROM波形番号としてレジスタに書く。
-//  (旧: hwOp[0].WSにGM Program Number/ドラムノート番号を詰め、
-//   コード内蔵のkAllRegions[610]定数テーブルを検索する設計だったが、
-//   YRW801以外のROM/カスタムサンプルセットへの対応、ADPCM系への
-//   スキーマ再利用を見据えてプロファイル化した)。
 //  ユーザーPCMのロード(loadVoice)は非対応 (ROM専用)。
 // ================================================================
 class COPL4AWM : public CSoundDevice {
@@ -68,11 +63,10 @@ public:
 
     // reg 0xF8/0xF9はAWM側のレジスタバンク(getHighBankOffset()により
     // アドレス0x200以降にオフセットされる側)にしか存在せず、FM部
-    // (COPL3、別バンク)からは書き込めない。「FM出力ミキサーはCOPL3側が
-    // 別途担当する」という誤った想定のコメントが以前付いていたが、実際は
-    // このinit()がFM/PCM両方のミキサーレベルを初期化する唯一の経路である
-    // (2026年8月訂正)。両方とも0=最大音量(ymfmのs_mix_scale[0]=0x7fa、
-    // 8段階テーブルの先頭)を指定する。
+    // (COPL3、別バンク)からは書き込めない。このためFM出力のミキサーレベルも
+    // COPL3側ではなく、このinit()が初期化する唯一の経路である。
+    // 両方とも0=最大音量(ymfmのs_mix_scale[0]=0x7fa、8段階テーブルの先頭)
+    // を指定する。
     void init() override {
         setReg(0xF8, 0x00, true); // FMミキサーレベル最大
         setReg(0xF9, 0x00, true); // PCMミキサーレベル最大
@@ -101,10 +95,8 @@ protected:
     // keyScalingとして移植してある(config/profiles/opl4awm_yrw801_*.
     // samplezonebank.json)。
     //
-    // (2026年8月、ユーザー報告「AWMは音は出るが意図した波形と異なる」の
-    // 調査で判明。以前はgetFnumberFromHz()[OPN用]を誤用しており、
-    // 波形ごとの校正が全く反映されず、しかもoctaveが0〜7にクランプされて
-    // 負のoctaveを一切表現できていなかった)。
+    // このため getFnumberFromHz()[OPN用] は使えない(波形ごとの校正が
+    // 反映されず、負のoctaveも表現できない)。
     ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
         ChState::Fnum ret;
         const auto& s = chState_[ch];
@@ -148,10 +140,8 @@ protected:
     // 1bitとして結合して波形テーブルヘッダを読みに行く。順序を逆にすると、
     // 新しい波形番号のbit8が反映される前(=1つ前のノートのbit8のまま)で
     // ロードが実行され、意図した波形と異なる(wavenumが256ずれた)波形が
-    // 鳴ってしまう(2026年7月、ユーザー報告「音は出るが意図した波形でない」
-    // により発覚。extern/ymfm/src/ymfm_pcm.cppのload_wavetable()呼び出し
-    // 箇所と、OPN系F-number書き込み[reg 0xA4→0xA0の順、高位バイトを先に
-    // 書いてから低位バイトで確定させる同種の設計]との比較で判明)。
+    // 鳴ってしまう(extern/ymfm/src/ymfm_pcm.cppのload_wavetable()呼び出し
+    // 箇所参照)。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         const SampleZone* zone = s.samplePatch
@@ -185,9 +175,8 @@ protected:
     // 最大音量(TotalLevel=0)に到達できず、AWM全体が常に一定量だけ
     // 静かになる。実チップ向けのALSAドライバもこれを見込んで固定の
     // ブースト値を既定で加えているため、同じ値をここでも適用する
-    // (2026年8月、ユーザー報告「OPL4AWMだけミックスレベルがかなり低い」
-    // により発覚。reg 0xF8/0xF9[ミキサーレベル]は本ファイルのinit()以外
-    // どこからも書かれておらず、そちらは既に最大値のままだった)。
+    // (reg 0xF8/0xF9[ミキサーレベル]はinit()で既に最大値にしてあり、
+    // そちらでは補えない)。
     static constexpr int kVolumeBoost = 8;
 
     // toneAttenuate(加算)・volumeFactor(「最大からの余白」への乗算、
@@ -195,8 +184,8 @@ protected:
     // (sound/drivers/opl4/yrw801.cのopl4_sound::tone_attenuate/
     // volume_factor)と同じ規約で、CC#7/CC#11/velocity由来の減衰量
     // (calcVolExpVel、GM準拠のdBログ加算)に対して波形固有の補正を
-    // 追加で適用する(2026年8月新設。GM楽器間の音量バランスを取るための
-    // 校正値で、無いと一部楽器が相対的に大きすぎ/小さすぎに聞こえる)。
+    // 追加で適用する(GM楽器間の音量バランスを取るための校正値で、
+    // 無いと一部楽器が相対的に大きすぎ/小さすぎに聞こえる)。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         const SampleZone* zone = s.samplePatch
@@ -217,22 +206,18 @@ protected:
         // かけて徐々に補間する(CC#7/CC#11のリアルタイム変化を滑らかにする
         // ための仕様)。ALSAのsnd_opl4_note_on()はノートオン時の最初の音量
         // セットだけlevel_direct=1(即時反映)にし、それ以降のCC由来の更新
-        // ではlevel_direct=0(補間)に戻している。本実装は従来常にLevelDirect=0
-        // で書いていたため、チャンネル再利用時など直前のTotalLevelと新しい
-        // ノートの目標値が離れていると、最大78.2msかけてゆっくり音量が
-        // 立ち上がる(短いノートだと立ち上がりきる前に終わり、聴感上
-        // 大幅に音量が低い/エンベロープの違う箇所を聴いているように感じる)
-        // 不具合があった。判定にChState::isRunning()(s.run()がupdateKey(true)
+        // ではlevel_direct=0(補間)に戻している。常にLevelDirect=0で書くと、
+        // チャンネル再利用時など直前のTotalLevelと新しいノートの目標値が
+        // 離れているとき、最大78.2msかけてゆっくり音量が立ち上がる(短い
+        // ノートだと立ち上がりきる前に終わり、聴感上大幅に音量が低い/
+        // エンベロープの違う箇所を聴いているように感じる)。
+        // 判定にChState::isRunning()は使えない(s.run()がupdateKey(true)
         // より前に呼ばれるため、まだ実際のKEY ONレジスタ書き込み前なのに
-        // trueになってしまい判定に使えない)ではなく、reg 0x68のKEYONビット
-        // (bit7)を直接見る: 現在KEYONが立っていなければ(未発音チャンネルの
-        // ノートオン処理中、またはKEY OFF後の再利用)ALSAと同じくLevelDirect=1
-        // で即時反映し、既にKEYONが立っていれば(発音中のCC#7/CC#11
-        // リアルタイム変化)LevelDirect=0で滑らかに補間する(2026年8月、
-        // ユーザー報告「ラウンドロビンで1周すると音量・音色が変わる」の
-        // 調査で発見。ymfm[extern/ymfm/src/ymfm_pcm.cpp]へ一時的に仕込んだ
-        // 内部状態ログで、修正前は`m_total_level`が直前のノートの値から
-        // ゆっくり補間され続けていたことを確認済み)。
+        // trueになる)。代わりにreg 0x68のKEYONビット(bit7)を直接見る:
+        // 現在KEYONが立っていなければ(未発音チャンネルのノートオン処理中、
+        // またはKEY OFF後の再利用)ALSAと同じくLevelDirect=1で即時反映し、
+        // 既にKEYONが立っていれば(発音中のCC#7/CC#11リアルタイム変化)
+        // LevelDirect=0で滑らかに補間する。
         bool levelDirect = (getReg(static_cast<uint16_t>(0x68 + ch)) & 0x80) == 0;
         setReg(static_cast<uint16_t>(0x50 + ch),
                static_cast<uint8_t>(((static_cast<uint8_t>(totalLevel) & 0x7F) << 1)

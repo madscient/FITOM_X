@@ -1,5 +1,5 @@
 // fitom/OPM_new.cpp
-// COPM / COPP / COPZ チップドライバ — ISoundDevice ベース移行版
+// COPM / COPP / COPZ チップドライバ
 //
 // 主な差異 (OPN との比較):
 //   - 8ch
@@ -102,9 +102,7 @@ protected:
             // 実機YM2151のレジスタ$80-$9Fは KS(2bit,bit7-6) | AR(5bit,bit4-0)
             // で、bit5は未使用(FITOM独自のfixFreqフラグに転用)。ar_opm/
             // dr_opm/sr_opmは既に0-31(5bit)のFmHwOp共通ドメインの値のため、
-            // 追加のシフトは不要(2026年7月、誤って">>2"していたバグを修正。
-            // 実機の5bit幅の下位2bitが常に0になり、AR/DR/SRの実効解像度が
-            // 8段階にまで劣化していた)。
+            // 追加のシフトは不要(シフトすると下位bitが落ちて実効解像度が劣化する)。
             const bool fixFreq = (ex.FIX != 0);
             const uint8_t ar_opm = car_opm ? s.proc.velAR(kMap[i]) : (o.AR & 0x1F);
             setReg(static_cast<uint16_t>(0x80 + i * 8 + ch),
@@ -121,8 +119,7 @@ protected:
                    (fixFreq ? 0 : ((o.DT2 & 3) << 6)) | (sr_opm & 0x1F));
 
             // SL / RR: 実機レジスタ$E0-$FFは D1L(4bit,bit7-4) | RR(4bit,bit3-0)。
-            // sl_opm/rr_opmは既に0-15(4bit)のためシフト不要(同上、">>3"で
-            // 1bitにまで劣化していたバグを修正)。
+            // sl_opm/rr_opmは既に0-15(4bit)のためシフト不要(同上)。
             const uint8_t sl_opm = car_opm ? s.proc.velSL(kMap[i]) : (o.SL & 0xF);
             const uint8_t rr_opm = car_opm ? s.proc.velRR(kMap[i]) : (o.RR & 0xF);
             setReg(static_cast<uint16_t>(0xE0 + i * 8 + ch),
@@ -235,13 +232,11 @@ protected:
     // HW LFO — チップ全体でRate/Depthは1系統のみの共有リソース(実機の
     // 制約そのもの)だが、チャンネルごとのAMS/PMS感度(reg 0x38+ch)は
     // 独立しているため、複数チャンネルが同時に(異なるAMS/PMS配分で)
-    // 参照して構わない。以前はチャンネルをまたいだ「所有権」の奪い合い
-    // (lfoOwner_、他chのAMS/PMSビットを強制クリア)を行っていたが、
-    // これは正当な同時使用のケース(複数チャンネルで同時にAMS>0または
-    // PMS>0のボイスを鳴らす)を誤って阻害するため撤廃した
-    // (2026年7月)。AM/PMいずれとして効くかは、このチャンネルに
-    // 現在割り当てられているボイス自身のAMS/PMS値で決まる(0ならその
-    // チャンネルには実質無効果)。
+    // 参照して構わない。チャンネル間でLFOの所有権を取り合って他chの
+    // AMS/PMSビットをクリアすることはしない(複数チャンネルで同時に
+    // AMS>0またはPMS>0のボイスを鳴らす正当な使い方を阻害するため)。
+    // AM/PMいずれとして効くかは、このチャンネルに現在割り当てられている
+    // ボイス自身のAMS/PMS値で決まる(0ならそのチャンネルには実質無効果)。
     void enablePM(uint8_t ch, bool on) override {
         const auto& s = chState_[ch];
         if (on) {
@@ -270,16 +265,15 @@ protected:
     // 使わない(全チャンネル共通)。PMD/AMDは同じレジスタ0x19を
     // MSBビットで書き分ける2つの独立したラッチだが、AM/PMどちらとして
     // 効くかは各チャンネルのAMS/PMSが決めるため、setLFODepth()は常に
-    // 両方のラッチへ同じ値を書き込む(2026年7月、setPMDepth/setAMDepth
-    // を統合)。
+    // 両方のラッチへ同じ値を書き込む。
     void setLFODepth(uint8_t, uint8_t dep) override {
         if (lfoDepth_ == dep) return;
         lfoDepth_ = dep;
         setReg(0x19, static_cast<uint8_t>(0x80 | dep)); // PMDラッチ
         setReg(0x19, static_cast<uint8_t>(dep & 0x7F));  // AMDラッチ
     }
-    // LFRQ(レジスタ0x18)はAM/PMで共有の単一レジスタのため、元々
-    // setPMRate/setAMRateは同一の書き込みだった(2026年7月、統合)。
+    // LFRQ(レジスタ0x18)はAM/PMで共有の単一レジスタのため、Rateの
+    // 設定は1回の書き込みで両方に効く。
     void setLFORate(uint8_t, uint8_t rate) override {
         if (lfoRate_ == rate) return;
         lfoRate_ = rate;
@@ -300,10 +294,9 @@ private:
     }
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
-    // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
-    // 減衰量空間 (0=最大音量,127=無音) のため、書き込み前に必ずこの変換
-    // (旧Linear2dB相当) を通す必要がある (2026年7月、この変換が欠落しており
-    // ベロシティ/ボリューム/エクスプレッションの効きが反転していたバグを修正)。
+    // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,127=無音) のため、
+    // 書き込み前に必ずこの変換を通す。通さないとベロシティ/ボリューム/
+    // エクスプレッションの効きが反転する。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE96DB, STEP075DB, 7);
     }
@@ -415,10 +408,9 @@ public:
             const FmHwOp& o = p.hwOp[kMap[i]];
             setReg(static_cast<uint16_t>(0x40 + i * 8 + ch),
                    static_cast<uint8_t>(0x80 | ((o.WS & 7) << 4) | (o.DT3 & 0xF)));
-            // REV(Reverberation)/EGS(EG bias): 旧FITOMは未実装(固定値0x20)のままだった。
-            // 新FITOMの FmHwOp には REV/EGS フィールドがある(2026年7月に
-            // オペレータ単位へ移設)ため使用する。REV は $C0 の裏レジスタでは
-            // 3bit 幅しか無い。
+            // REV(Reverberation)/EGS(EG bias): FmHwOp のオペレータ単位の
+            // フィールドから書く。bit5(0x20)は旧FITOMが固定値として書いていた
+            // ものをそのまま立てる。REV は $C0 の裏レジスタでは3bit 幅しか無い。
             setReg(static_cast<uint16_t>(0xC0 + i * 8 + ch),
                    static_cast<uint8_t>(((o.EGS & 0x3) << 6) | (o.REV & 0x7) | 0x20));
         }

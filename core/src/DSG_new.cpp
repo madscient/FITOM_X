@@ -241,7 +241,7 @@ protected:
 //  楽音部 (CDSG) とはレジスタ空間が完全に独立しているため、OPL/OPLL系の
 //  ように rhythm_mode でFM側chを無効化する必要が無く、OPNAの
 //  DEVICE_OPNA_RHY と同様に常時生成してよい
-//  (Config::resolveCompositeSpec 参照)。
+//  (FITOMConfig::resolveCompositeSpec 参照)。
 // ================================================================
 class CDSGRhythm : public CSoundDevice {
 public:

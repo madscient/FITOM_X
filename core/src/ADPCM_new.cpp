@@ -1,9 +1,11 @@
 #include "fitom/PcmBankData.h"
 // fitom/ADPCM_new.cpp
-// ADPCM / PCM チップドライバ — ISoundDevice ベース移行版
+// ADPCM / PCM チップドライバ
 //
-// CAdPcmBase:  YM2608 ADPCM-A/B, YMZ280B(PCMD8) の共通基底
-// CYmDelta:    YM2608 ADPCM-B (Delta-T) / OPNA 内蔵
+// CAdPcmBase:  ADPCM / PCM 系の共通基底
+// CYmDelta:    Delta-T 型 ADPCM-B (YM2608 / YM2610 / Y8950 内蔵)
+// CY8960Delta: Y8960 拡張OPL2部の ADPCM-B
+// CAdPcm2610A: YM2610 ADPCM-A 6ch
 // CAdPcmZ280:  YMZ280B (PCMD8) 8ch ADPCM
 // CSSGSAdPcm:  YMZ705 (SSGS) 8ch ADPCM
 
@@ -19,7 +21,7 @@
 namespace fitom {
 
 // ================================================================
-//  ADPCM ボイス情報 (旧 ADPCMVOICE 相当)
+//  ADPCM ボイス情報
 // ================================================================
 struct AdpcmVoice {
     char     name[32]   = {};
@@ -51,7 +53,7 @@ public:
             FnumTableType::DeltaN, sampleRate, fnumDivide, noteOffset);
     }
 
-    // B-3: PcmBankRegistry を注入する (CFITOM::initDevices() から呼ぶ)
+    // PcmBankRegistry を注入する (CFITOM::initDevices() から呼ぶ)
     void setPcmRegistry(const PcmBankRegistry* reg, int bankNo = 0) override {
         pcmReg_    = reg;
         pcmBankNo_ = bankNo;
@@ -62,13 +64,11 @@ public:
     // CFITOM::initDevices() でデバイス生成直後に呼ぶ。
     //
     // 波形バイナリ自体をチップのPCMメモリへ配置する処理はここでは
-    // 行わない(2026年7月、設計を訂正)。実チップのADPCM-A/B用メモリは
-    // 多くの場合ROM/事前フラッシュ済みRAMであり、その配置はhwif側
-    // (実機ボード・fitom_fmhwif側の設定)の責務である。FITOM_X本体は
-    // 波形データが既にそこへ配置されている前提で、entries[]のオフセット/
-    // サイズ情報だけを使ってStart/Endアドレスレジスタを設定する
-    // (以前はFITOM_X側でPCM RAM相当のレジスタへ波形バイナリを逐次
-    // 転送する実装になっていたが、この転送責務自体を持つべきではなかった)。
+    // 行わない。実チップのADPCM-A/B用メモリは多くの場合ROM/事前
+    // フラッシュ済みRAMであり、その配置はhwif側(実機ボード・
+    // fitom_fmhwif側の設定)の責務である。FITOM_X本体は波形データが
+    // 既にそこへ配置されている前提で、entries[]のオフセット/サイズ
+    // 情報だけを使ってStart/Endアドレスレジスタを設定する。
     void initPcmData() override {
         if (!pcmReg_) return;
         const PcmBank* bank = pcmReg_->find(pcmBankNo_);
@@ -85,7 +85,7 @@ public:
             << usedMem_ << " bytes (bank " << pcmBankNo_ << ")");
     }
 
-    // B-3: HwPatch.hwOp[0].WS = エントリ番号 → PcmEntry を解決
+    // HwPatch.hwOp[0].WS = エントリ番号 → PcmEntry を解決
     const PcmEntry* resolvePcmEntry(const HwPatch& patch) const {
         if (!pcmReg_) return nullptr;
         uint8_t ws = patch.hwOp[0].WS & 0x7F;
@@ -119,7 +119,7 @@ public:
     void updateTL(uint8_t, uint8_t, uint8_t) override {}
 
 protected:
-    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // VoiceProcessor へ渡すキャリアマスク計算用。
     // ADPCM系はFM合成のアルゴリズム概念を持たず、単一の"声"(op0相当)を
     // 常にキャリア扱いする(updateVolExpのeffectiveTL(0)参照)。hw.ALGは
     // ADPCM系パッチでは意味を持たないため、OPN/OPM用のデフォルト実装
@@ -128,8 +128,8 @@ protected:
         return op == 0;
     }
 
-    // 旧FITOM CAdPcmBase::CAdPcmBase() が設定していた NoteOffset(-57,
-    // "origin note: O3A") 相当。noteOffset_ (= kNoteOffset 448/356) は
+    // ピッチの原点 (origin note: O3A)。旧FITOM CAdPcmBase の
+    // NoteOffset(-57) と同じ値。noteOffset_ (= kNoteOffset 448/356) は
     // fnumTable_ 生成用のテーブルオフセットであり別物なので、これと
     // 混同して再利用してはならない。
     static constexpr int kPitchOrigin = -57;
@@ -138,15 +138,14 @@ protected:
     size_t   usedMem_;
     uint8_t  parentDevId_;
 
-    // B-3 追加
     const PcmBankRegistry* pcmReg_;
     int                    pcmBankNo_;
 
     AdpcmVoice voices_[128];  // WS番号(entry_no) → Start/Endアドレス・長さ (registerVoice で登録)
 
-    // DeltaN F-number 計算 (旧 CYmDelta::GetDeltaN 相当、完全に元の実装のまま)。
-    // root_note対応は、この関数の計算結果に対して後段でスケーリングする
-    // 方式にしたため(getFnumber参照)、この関数自体は一切変更していない。
+    // DeltaN F-number 計算 (旧FITOM CYmDelta::GetDeltaN と同じ計算)。
+    // root_note対応はこの関数の中ではなく、計算結果を後段で
+    // スケーリングして行う(getFnumber / applyRootNoteScale 参照)。
     uint16_t getDeltaN(int offsetFromBase, int baseOffset) {
         int off = offsetFromBase;
         int oct = 0;
@@ -162,10 +161,8 @@ protected:
 
     // root_note(MIDIノート番号)が69(A4)と異なる場合、DeltaN計算結果に
     // 直接、半音差の周波数比(2^(69-rootNote)/12)を掛けて補正する。
-    // getDeltaN()自体(oct探索を含む複雑な既存ロジック)には一切手を
-    // 加えず、後段でシンプルな比率補正を1回だけ適用することで、
-    // rootNote=69(デフォルト、既存動作)の場合は完全に無変更のまま
-    // 後方互換を保証しつつ、rootNoteが異なる場合のみ安全に対応する。
+    // getDeltaN()(oct探索を含む)の外で比率補正を1回だけ掛けるので、
+    // rootNote=69(デフォルト)ではgetDeltaN()の結果がそのまま使われる。
     static uint16_t applyRootNoteScale(uint16_t deltaN, uint8_t rootNote) noexcept {
         if (rootNote == 69 || deltaN == 0) return deltaN;
         double scale = std::pow(2.0, (69.0 - static_cast<double>(rootNote)) / 12.0);
@@ -175,8 +172,8 @@ protected:
 };
 
 // ================================================================
-//  レジスタマップ (旧 REGMAP 完全移植。フィールド名・順序は
-//  YMDeltaT.h の struct REGMAP に完全準拠する)
+//  レジスタマップ (フィールド名・順序は旧FITOM legacy/src/YMDeltaT.h の
+//  struct REGMAP と同じ)
 // ================================================================
 struct RegMap {
     uint8_t control1;
@@ -202,12 +199,11 @@ struct RegMap {
     // control2のROM/RAM・8bit DRAMビットを常に0にしか設定しないため
     // 実質固定で2=4byte境界)。YM2610/YM2610B(OPNB)はチップ側の実装が
     // 常に8=256byte境界固定(control2の値に関係なく固定)であり、OPNAと
-    // 混同すると再生アドレスが64倍ズレる(2026-07-24、実機ログで確認・
-    // 修正)。
+    // 混同すると再生アドレスが64倍ズレる。
     uint8_t addrShift;
 };
 
-// YM2608 (OPNA) ADPCM-B レジスタマップ (旧FITOM CAdPcm2608 完全移植)
+// YM2608 (OPNA) ADPCM-B レジスタマップ (旧FITOM CAdPcm2608 から移植)
 static const RegMap kOPNA_DeltaT = {
     /*control1*/0x00, /*control2*/0x01, /*startLSB*/0x02, /*startMSB*/0x03,
     /*endLSB*/0x04,   /*endMSB*/0x05,   /*limitLSB*/0x0c, /*limitMSB*/0x0d,
@@ -216,7 +212,7 @@ static const RegMap kOPNA_DeltaT = {
     /*addrShift*/2
 };
 
-// Y8950 (YM3801) ADPCM レジスタマップ (旧FITOM CAdPcm3801 完全移植)
+// Y8950 (YM3801) ADPCM レジスタマップ (旧FITOM CAdPcm3801 から移植)
 static const RegMap kY8950_DeltaT = {
     /*control1*/0x07, /*control2*/0x08, /*startLSB*/0x09, /*startMSB*/0x0a,
     /*endLSB*/0x0b,   /*endMSB*/0x0c,   /*limitLSB*/0xff, /*limitMSB*/0xff,
@@ -225,20 +221,15 @@ static const RegMap kY8950_DeltaT = {
     /*addrShift*/2
 };
 
-// YM2610 (OPNB) ADPCM-B レジスタマップ (旧FITOM CAdPcm2610B 完全移植)
-// 2026-07-24: addrShift=8で確定(ymfm実ソースで裏取り済み)。
-// YMEngine/extern/ymfm/src/ymfm_opn.cpp の ym2610::ym2610() コンストラクタが
-// m_adpcm_b(intf, 8) と非0のaddrshiftを明示的に渡しており、
-// adpcm_b_channel::address_shift()(ymfm_adpcm.cpp)は「非0なら無条件にその
-// 値を返す」実装のため、YM2610/2610Bは常時8(256byte境界)固定で確定
-// (control2のROM/RAM・8bit DRAMビットには依存しない)。一方YM2608(OPNA)の
-// コンストラクタはm_adpcm_b(intf)(addrshift省略=0)で、この場合は
-// control2のrom_ram()/dram_8bit()ビットが両方0なら2(4byte境界)になる
-// (本FITOM_Xの実装は両ビット常に0固定のため、OPNAは常に2で正しい)。
-// 一時的に2へ差し戻して検証したが改善しなかったため8へ戻す。8でも症状が
-// 残る場合、原因はaddrShift値ではなくadpcm_packer側の実際の整列単位
-// (pcmbank.jsonのboundaryはFITOM_X側で検証に使われない情報欄のため、
-// 実データが256byte境界に整列されていない可能性がある)を疑うこと。
+// YM2610 (OPNB) ADPCM-B レジスタマップ (旧FITOM CAdPcm2610B から移植)
+// addrShift=8 の根拠: YMEngine/extern/ymfm/src/ymfm_opn.cpp の
+// ym2610::ym2610() コンストラクタが m_adpcm_b(intf, 8) と非0のaddrshiftを
+// 明示的に渡しており、adpcm_b_channel::address_shift()(ymfm_adpcm.cpp)は
+// 「非0なら無条件にその値を返す」実装のため、YM2610/2610Bは常時8
+// (256byte境界)固定(control2のROM/RAM・8bit DRAMビットには依存しない)。
+// 一方YM2608(OPNA)のコンストラクタはm_adpcm_b(intf)(addrshift省略=0)で、
+// この場合はcontrol2のrom_ram()/dram_8bit()ビットが両方0なら2(4byte境界)
+// になる(本FITOM_Xの実装は両ビット常に0固定のため、OPNAは常に2)。
 static const RegMap kOPNB_DeltaT = {
     /*control1*/0x10, /*control2*/0x11, /*startLSB*/0x12, /*startMSB*/0x13,
     /*endLSB*/0x14,   /*endMSB*/0x15,   /*limitLSB*/0xff, /*limitMSB*/0xff,
@@ -270,10 +261,8 @@ public:
     // 書き込みは行わない(波形データは既にhwif側で配置済みという前提)。
     // 実際のStart/Endアドレスレジスタへの反映はupdateVoice()がNoteOnの
     // たびに行う(reg_.addrShiftビット右シフトしてレジスタ値にする。
-    // OPNA/Y8950=2=4byte境界、OPNB/OPNBB=8=256byte境界。旧実装は全チップに
-    // 4byte境界のシフト量を固定で使っており、OPNB/OPNBBの実際のシフト量
-    // (ymfm adpcm_b_channel側がチップ種別で固定8を使う)と食い違って
-    // 再生アドレスが64倍ズレていた。2026-07-24、実機ログで確認・修正)。
+    // OPNA/Y8950=2=4byte境界、OPNB/OPNBB=8=256byte境界。シフト量を
+    // チップ間で共通にすると再生アドレスが64倍ズレる)。
     //
     // adpcm_packer側がboundary(pcmbank.json、32/256byte)に整列済みの
     // オフセットを出力していれば自動的に満たされるはずだが、万一
@@ -304,7 +293,7 @@ protected:
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return ret;
 
-        // 既存ロジックと全く同じ計算 (root_note=69固定相当、無変更)。
+        // root_note=69 を前提に DeltaN を求め、root_note の差は後段で補正する。
         int idx = static_cast<int>(s.lastNote) * 64
                 + (kPitchOrigin * 64)
                 + s.fineFreq + offset;
@@ -325,9 +314,8 @@ protected:
         setReg(reg_.deltanMSB, static_cast<uint8_t>((fnum.fnum >> 8) & 0xFF));
     }
 
-    // Start/Endアドレスのみを書く (旧FITOM CYmDelta::UpdateVoice 完全移植)。
-    // プログラム番号は、samplePatchのゾーン検索結果のwaveIndexを使う
-    // (B-3 resolvePcmEntryのHwPatch版から、SampleZone版に置き換え)。
+    // Start/Endアドレスのみを書く。
+    // プログラム番号は、samplePatchのゾーン検索結果のwaveIndexを使う。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         const SampleZone* zone = resolveSampleZone(s);
@@ -340,9 +328,7 @@ protected:
         if (num >= 0 && num < 128 && voices_[num].length) {
             // st/edはバイト単位(registerVoice参照)。reg_.addrShiftビット
             // 右シフトして、このチップの実際のアドレス指定単位に変換する
-            // (OPNA/Y8950=4byte単位、OPNB/OPNBB=256byte単位。旧実装は
-            // 全チップに4byte単位を固定で使っていたため、OPNB/OPNBBの
-            // 再生アドレスが64倍ズレていた。2026-07-24、実機ログで確認・修正)。
+            // (OPNA/Y8950=4byte単位、OPNB/OPNBB=256byte単位)。
             uint32_t st = voices_[num].startAddr;
             uint32_t ed = st + voices_[num].length - 1;
             uint32_t stReg = st >> reg_.addrShift;
@@ -360,28 +346,24 @@ protected:
         }
     }
 
-    // Volumeのみを書く (旧FITOM CYmDelta::UpdateVolExp 完全移植)。
+    // Volumeのみを書く。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         // effectiveTL()は既にラウドネス空間(0=無音,127=最大音量、
         // VoiceProcessor.h/OPN_new.cppのeffTLToReg()コメント参照)のため、
-        // calcVolExpVel()の戻り値と同じ規約でそのまま渡せる。2026年7月、
-        // ここに不要な反転(127-effectiveTL(0))が入っており、Expression/
-        // Velocityの効きが逆転していたバグを修正(onNoteOn()が呼ばれて
-        // いなかった別の既存バグの陰に隠れて顕在化していなかった)。
+        // calcVolExpVel()の戻り値と同じ規約でそのまま渡せる(127-反転を
+        // 挟むとExpression/Velocityの効きが逆転する)。
         uint8_t evol = s.proc.effectiveTL(0);
-        uint8_t vol = fitom::calcLinearLevel(evol, 0); // 旧: CalcLinearLevel(evol, 0)
+        uint8_t vol = fitom::calcLinearLevel(evol, 0);
         setReg(reg_.volume, static_cast<uint8_t>(vol << 1));
     }
 
     // このチップの音量はeffectiveTL(0)のみで決まる設計のため、
     // samplePatch分岐でもVoiceProcessor::onNoteOn()を呼び、SwPatchの
-    // トレモロ/VTL感度/チャンネルLFOを有効化する(2026年7月新設)。
+    // トレモロ/VTL感度/チャンネルLFOを有効化する。
     bool usesVoiceProcessorForSamplePatch() const override { return true; }
 
-    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する
-    // (2026年7月、従来no-opだったためトレモロが継続的に反映されなかった
-    // バグを修正)。
+    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する。
     void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t /*tl*/) override {
         updateVolExp(ch);
     }
@@ -393,12 +375,12 @@ protected:
     }
 
     // 再生トリガーのみ (Start/End/DeltaN/Volumeは既に別フックで設定済み)。
-    // 旧FITOM CYmDelta::UpdateKey / StopPCM 完全移植。
+    // 旧FITOM CYmDelta::UpdateKey / StopPCM から移植。
     void updateKey(uint8_t ch, bool keyOn) override {
         if (ch >= maxChs_) return;
         stopPcm(); // 常に一旦停止
         if (keyOn) {
-            // 2026-07-24修正: control2のbit7/6(pan_left/pan_right)は
+            // control2のbit7/6(pan_left/pan_right)は
             // ステレオ定位ではなく実質的な「出力有効化ビット」を兼ねる
             // (ymfm adpcm_b_channel::output()参照: 両ビットとも0だと
             // 演算結果が出力に一切加算されない=完全無音)。
@@ -407,11 +389,11 @@ protected:
             // 0(center)であり、MIDI側が明示的にパンCCを送らない限り
             // 「0→0で変化なし」と判定されupdatePanpot()が一度も呼ばれない
             // (volDirtyはnoteOnで強制trueにされるが、panDirtyは同様の
-            // 強制がされていない)。結果、control2が実チップのリセット値
-            // (0=両ビットOFF)のまま放置され、ADPCM-Bがセンターパンでは
-            // 恒久的に無音になっていた。他デバイスのパンレジスタと違い
-            // このチップは「毎ノートオンで確実に書く」必要があるため、
-            // 上位のdirtyフラグに関係なくここで無条件に呼ぶ。
+            // 強制がされていない)。するとcontrol2が実チップのリセット値
+            // (0=両ビットOFF)のまま残り、センターパンでは無音になる。
+            // 他デバイスのパンレジスタと違いこのチップは「毎ノートオンで
+            // 確実に書く」必要があるため、上位のdirtyフラグに関係なく
+            // ここで無条件に呼ぶ。
             updatePanpot(ch);
             setReg(reg_.flag,     0x1b);
             setReg(reg_.flag,     0x80);
@@ -472,7 +454,7 @@ protected:
 //    0x200-0x204: PCM ROM/RAM書き込み (波形データの配置はhwif側の責務の
 //                 ため、本ドライバでは使用しない。ハードウェア仕様として記載のみ)
 //
-//  旧FITOM同様、チャンネル毎のMIDI Volume(CC#7)は反映せず、
+//  チャンネル毎のMIDI Volume(CC#7)は反映せず、
 //  velocity×expressionのみをチャンネルレジスタに反映し、
 //  MIDI Volumeは総合音量レジスタ(0x01)に集約する
 //  (6ch全体で1つの総合音量しか持てないハードウェア制約のため、
@@ -541,7 +523,7 @@ protected:
         if (ch >= maxChs_) return;
         // NoteOff では意図的に何も書かない。ワンショットのドラムサンプルは
         // 短いゲートタイムで途中から切られるより最後まで鳴らすほうが自然
-        // なため(旧FITOMと同じ挙動)。明示的に止めたい場合は forceDamp()。
+        // なため。明示的に止めたい場合は forceDamp()。
         if (!keyOn) return;
         // キーオンの前に必ずダンプする。上記のとおりこのチップは NoteOff で
         // 止まらないので、同一chを再割り当てする時点で前のサンプルがまだ
@@ -558,11 +540,10 @@ protected:
         // チャンネルレジスタ: velocity×expression(+SwPatchのVTL感度/
         // トレモロ)のみ (vol=127固定相当)。effectiveTL(0)は
         // sampleVoiceProcessorVolume()が常にvol=127を渡すことで、この
-        // vol中立化を維持したまま計算される(2026年7月、従来のcalcVolExpVel
-        // 直接呼び出しから置き換え。総合音量レジスタ側は無変更)。
+        // vol中立化を維持したまま計算される。
         // effectiveTL()は既にラウドネス空間(0=無音,127=最大音量)のため、
-        // 元のcalcVolExpVel()と同じ規約でそのまま渡せる(反転不要。
-        // 反転を入れてExpression/Velocityの効きが逆転していたバグを修正)。
+        // calcVolExpVel()と同じ規約でそのまま渡せる(反転を入れると
+        // Expression/Velocityの効きが逆転する)。
         uint8_t vev = s.proc.effectiveTL(0);
         uint8_t evol = 31u - fitom::linear2dB(vev, RANGE24DB, STEP075DB, 5);
         setReg(static_cast<uint16_t>(0x08 + ch),
@@ -577,11 +558,11 @@ protected:
     // 参照)のため、samplePatch分岐でもVoiceProcessor::onNoteOn()を呼び、
     // SwPatchのVTL感度/トレモロを有効化する。チャンネルLFO(ビブラート)は
     // updateFreq()がno-op(ピッチ制御非対応チップ)のため実質無効のままだが、
-    // onNoteOn自体は無害(2026年7月新設)。
+    // onNoteOn自体は無害。
     bool usesVoiceProcessorForSamplePatch() const override { return true; }
 
     // 総合音量レジスタ(vol由来)とチャンネル計算(effectiveTL)を分離する
-    // 既存設計を維持するため、onNoteOn()へは常にvol=127(中立値)を渡す。
+    // ため、onNoteOn()へは常にvol=127(中立値)を渡す。
     uint8_t sampleVoiceProcessorVolume(uint8_t) const override { return 127; }
 
     // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する。
@@ -620,18 +601,16 @@ protected:
     }
 };
 // ================================================================
-// ================================================================
 //  CAdPcmZ280 (YMZ280B / PCMD8) — 8ch、4bit ADPCM固定
 //
-//  実機データシート (bitsavers YMZ280B_199610.pdf) 確認済み。
-//  旧FITOM(PCMD8.cpp)はStart/Endアドレスの複雑な4ブロック分散配置
-//  (H/M/Lがそれぞれ$20/$40/$60系に分かれる) を正確に再現していたが、
-//  Pitchレジスタの書き込みだけ旧FITOM独自の内部スケール前提
-//  (fnum>>8/fnum>>16という17bit幅を仮定したシフト) に依存しており、
-//  新FITOMの9bit精度Fnumberとは噛み合わないため、その部分のみ
-//  データシートに忠実な形で書き直す。
+//  実機データシート (bitsavers YMZ280B_199610.pdf) に基づく。
+//  Start/Loop Start/Loop End/End の各アドレスを H/M/L に分けて
+//  $20/$40/$60系へ分散配置する方式は旧FITOM(PCMD8.cpp)と同じ。
+//  Pitchレジスタは旧FITOM独自の内部スケール前提のシフト
+//  (fnum>>8/fnum>>16という17bit幅を仮定したもの) を使わず、
+//  9bit精度のFnumberをデータシートどおりに書く。
 //
-//  レジスタマップ (実機確定、chはオフセット0-7):
+//  レジスタマップ (データシートによる、chはオフセット0-7):
 //    $00+ch*4: FN7-FN0 (Pitch下位8bit)
 //    $01+ch*4: KON(bit7)|MD1(bit6)|MD0(bit5)|LOOP(bit3)|FN8(bit0)
 //    $02+ch*4: TL7-TL0 (Total Level, 8bit, 256段階)
@@ -640,7 +619,7 @@ protected:
 //    $21/$41/$61+ch*4: Loop Start Address (H/M/L) ※未使用のためゼロ固定
 //    $22/$42/$62+ch*4: Loop End Address (H/M/L)   ※未使用のためゼロ固定
 //    $23/$43/$63+ch*4: End Address (H/M/L)
-//    $80: DSP出力chセレクタ (今回はDSP非接続のため無効化のみ)
+//    $80: DSP出力chセレクタ (DSPは接続しないため無効化のみ)
 //    $FF: KENS(bit0)|MENS(bit1)|IENS(bit2) ※ビット位置はデータシート
 //         記載レイアウトが崩れており確定できず、旧FITOMの実測値(0xc0)
 //         を踏襲する
@@ -650,7 +629,7 @@ protected:
 // ================================================================
 class CAdPcmZ280 : public CAdPcmBase {
 public:
-    static constexpr int kNoteOffset = 356; // YMZ280_OFFSET (旧FITOM準拠)
+    static constexpr int kNoteOffset = 356; // 旧FITOMの YMZ280_OFFSET と同値
 
     CAdPcmZ280(IPort* port, int sampleRate, size_t memSize)
         : CAdPcmBase(DEVICE_PCMD8, port, 0x100, sampleRate, 384,
@@ -680,7 +659,7 @@ public:
 
 protected:
     // 9bit精度 (FN8-FN0)。実機式は正確な変換係数がデータシートに
-    // 明記されていないため、既存のgetDeltaN基盤 (DeltaN方式テーブル、
+    // 明記されていないため、getDeltaN基盤 (DeltaN方式テーブル、
     // 384分周) をそのまま用いる。
     ChState::Fnum getFnumber(uint8_t ch, int16_t offset = 0) const override {
         ChState::Fnum ret;
@@ -700,7 +679,7 @@ protected:
     }
 
     // Start/Loop/End アドレス (H/M/L の3ブロックに分散配置)。
-    // ループ再生は使わないため Loop Start/End はゼロ固定 (旧FITOM準拠)。
+    // ループ再生は使わないため Loop Start/End はゼロ固定。
     void updateVoice(uint8_t ch) override {
         const auto& s = chState_[ch];
         const SampleZone* zone = resolveSampleZone(s);
@@ -736,8 +715,6 @@ protected:
     }
 
     // Pitch (9bit): FN7-FN0を$00+ch*4、FN8を$01+ch*4のbit0に書く。
-    // (旧FITOMの`>>8`/`>>16`シフトは、旧FITOM独自の内部Fnumber表現を
-    //  前提にした変換であり、新FITOMの9bit精度Fnumberとは異なるため使わない)
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         uint8_t base = static_cast<uint8_t>(ch * 4);
@@ -748,8 +725,8 @@ protected:
                static_cast<uint8_t>(cur | ((fnum.fnum >> 8) & 1)), false);
     }
 
-    // Total Level (8bit)。7bit音量を8bit空間へビット拡張 (旧FITOM準拠、
-    // MSB複製による拡張: (v<<1)|(v>>6))。
+    // Total Level (8bit)。7bit音量を8bit空間へビット拡張
+    // (MSB複製による拡張: (v<<1)|(v>>6))。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         uint8_t vol = s.proc.effectiveTL(0);
@@ -760,7 +737,7 @@ protected:
 
     // このチップの音量はeffectiveTL(0)のみで決まる設計のため、
     // samplePatch分岐でもVoiceProcessor::onNoteOn()を呼び、SwPatchの
-    // トレモロ/VTL感度/チャンネルLFOを有効化する(2026年7月新設)。
+    // トレモロ/VTL感度/チャンネルLFOを有効化する。
     bool usesVoiceProcessorForSamplePatch() const override { return true; }
 
     // Panpot (4bit、16段階)。中央=8相当 (データシートに中央値の明記は
@@ -774,9 +751,7 @@ protected:
 
     void updateSustain(uint8_t /*ch*/) override {}
 
-    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する
-    // (2026年7月、従来no-opだったためトレモロが継続的に反映されなかった
-    // バグを修正)。
+    // オペレータLFO(トレモロ)によるeffectiveTL変化を音量レジスタへ反映する。
     void updateTL(uint8_t ch, uint8_t /*op*/, uint8_t /*tl*/) override {
         updateVolExp(ch);
     }
@@ -949,17 +924,11 @@ protected:
 
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType)
 {
-    // 2026-07-24: DeltaNテーブル生成の真因は FnumUtils.h の
-    // FnumRegistry::generateTable() 側にあった(FnumTableType::DeltaNケースで
-    // divideの乗算が丸ごと欠落しており、実チップの式 delta_n=round(2^16*freq*
-    // divide/master) になっていなかった)。そちらを修正したため、ここは
-    // OPNA/OPNB/OPN2等のFMチップドライバ(createCOPNA/createCOPNB/createCOPN2)
-    // と同様、port->getClock()(実クロック)をmasterとして使う。
-    // (一度はここをport->getClock()化する修正のみでFnumUtils.h側の式を
-    //  直さないまま試し、dn=3〜4という壊滅的な値になって差し戻した経緯が
-    //  あるが、原因はクロック取得の是非ではなくFnumUtils.h の式自体だった)
+    // DeltaNテーブルは FnumRegistry::generateTable() が実チップの式
+    // (delta_n ∝ 2^16*freq*divide/master) で生成するため、OPNA/OPNB/OPN2等の
+    // FMチップドライバと同様、port->getClock()(実クロック)をmasterとして使う。
     int clock = (p ? p->getClock() : 0);
-    if (clock <= 0) clock = sr; // 取得できない場合のみ従来通りsrにフォールバック
+    if (clock <= 0) clock = sr; // 取得できない場合のみsrにフォールバック
 
     switch (deviceType) {
     case DEVICE_PCMD8:
@@ -967,9 +936,7 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
         return std::make_unique<CAdPcmZ280>(p, clock, 4 * 1024 * 1024); // 4MB
     case DEVICE_MA1:
     case DEVICE_ADPCMB_Y8950:
-        // Y8950 (YM3801) 内蔵ADPCM。DEVICE_ADPCMB_Y8950が正式な識別子
-        // (2026年7月新設)。旧汎用識別子DEVICE_ADPCMは削除した
-        // (動いていなかったコードとの互換性維持は不要と判断)。
+        // Y8950 (YM3801) 内蔵ADPCM。
         return std::make_unique<CYmDelta>(
             deviceType, p, 0x20, clock, 72, 256 * 1024, DEVICE_Y8950,
             kY8950_DeltaT);

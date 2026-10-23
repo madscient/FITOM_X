@@ -1,15 +1,15 @@
 // fitom/OPL_new.cpp
-// COPL / COPL2 / C3801 / COPL3 チップドライバ — ISoundDevice ベース移行版
+// COPL / COPL2 / COPL3 系チップドライバ
 //
 // OPL 系の特徴:
 //   - 2OP (ops=2)
 //   - ALG は 1bit (FM=0 / Add=1)、AL&1 がキャリア判定
 //   - TL は 6bit (64段階)
-//   - AR/DR/SR/RR は 4bit (元のビット幅 >>1 で使用)
+//   - AR/DR/SR/RR は 4bit (AR/DR/SR は 5bit の値を >>1、RR は 4bit のまま使用)
 //   - KSL あり / DT1・DT2 なし
 //   - VIB あり / WS あり (OPL2 以降)
 //   - UpdateKey でキーオン/オフを Sustain とともに制御
-//   - パンポット: レジスタ 0xC0 の bit7/bit6 (OPL3 は 4bit)
+//   - パンポット: レジスタ 0xC0 の bit5/bit4 (OPL3 の出力ビット位置)
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/MultiDevice.h"
@@ -29,13 +29,12 @@ public:
     // 実機YM3526/YM3812のマスタークロック(NTSC colorburst相当、
     // 3.579545MHz)。sampleRate引数は他チップドライバとのファクトリ
     // 関数シグネチャ一貫性のために残すが、Fnum計算には使用しない
-    // (2026年7月に、誤ってsampleRateをfnumMasterとして使っていた
-    // バグを修正。以前はFnumberが常に65535にクランプされていた)。
+    // (fnumMasterに使うとFnumberが常に上限へクランプされる)。
     static constexpr int kMasterClock = 3579545;
 
     // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
     // 専用として無効化する(COPLLと同じ設計、docs/design/chip-drivers.mdの
-    // 「内蔵リズムのサブデバイスと rhythm_mode」参照。2026年7月、OPL系リズムモード対応で追加)。
+    // 「内蔵リズムのサブデバイスと rhythm_mode」参照)。
     COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL2,
          bool rhythmMode = false)
         : CSoundDevice(devId, 9, port,
@@ -86,7 +85,7 @@ protected:
         return (op == 1) || ((chState_[ch].hwPatch.hw.ALG & 1) != 0);
     }
 
-    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // VoiceProcessor へ渡すキャリアマスク計算用。
     // OPN/OPM用のデフォルト実装(hw.ALGを3bit8アルゴリズムとして解釈)は
     // OPLの1bit ALGと噛み合わないため、isCarrier()に委譲する。
     bool isCarrierOp(uint8_t ch, int op) const override {
@@ -97,9 +96,8 @@ protected:
     static uint8_t ar4(uint8_t v) { return v >> 1; }  // 5bit → 4bit (上位4bit)
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
-    // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
-    // 減衰量空間 (0=最大音量,63=無音、6bit) のため、書き込み前に必ずこの
-    // 変換 (旧Linear2dB相当) を通す必要がある。
+    // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
+    // ため、書き込み前に必ずこの変換を通す。
     //
     // TLのステップ幅はOPN/OPM系と同じ0.75dBで、違うのはレンジ(6bit=47.25dB)
     // だけ。よってここはクランプであってスケーリングではない — TL>>1 のような
@@ -149,7 +147,7 @@ protected:
             setReg(static_cast<uint16_t>(0xE0 + i * 3 + slot), o.WS & 0x3);
         }
 
-        // FB / ALG / Pan (bit7-6 = L/R, bit3-1 = FB, bit0 = ALG)
+        // FB / ALG / Pan (bit5-4 = L/R, bit3-1 = FB, bit0 = ALG)
         setReg(static_cast<uint16_t>(0xC0 + ch),
                static_cast<uint8_t>(0x30 | ((p.hw.FB & 7) << 1) | (p.hw.ALG & 1)));
 
@@ -185,8 +183,8 @@ protected:
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         // OPL: A0 = fnum[8:1], B0 = block[2:0] | fnum[10:9] | keyon
         // fnum>>9 は2bit(0-3)の値になり得るため、&1でマスクしてはならない
-        // (以前は&1でbit10側を静かに落としており、fnumが1024以上になる
-        // 音域でFnumberが実機へ正しく伝わらないバグとなっていた)。
+        // (bit10が落ち、fnumが1024以上になる音域でFnumberが実機へ正しく
+        // 伝わらなくなる)。
         uint8_t b0cur = getReg(static_cast<uint16_t>(0xB0 + ch)) & 0x20;
         setReg(static_cast<uint16_t>(0xA0 + ch),
                static_cast<uint8_t>((fnum.fnum >> 1) & 0xFF), true);
@@ -329,6 +327,8 @@ protected:
 
 // ================================================================
 //  C3801 (Y8950) — OPL ベース
+//  DeviceFactory からは生成されない(DEVICE_Y8950 は createCOPL() の
+//  COPL で扱う)。
 // ================================================================
 class C3801 : public COPL {
 public:
@@ -354,9 +354,8 @@ class COPL3 : public CSoundDevice {
 public:
     // 実機YMF262のマスタークロック(14.31818MHz、COPLの3.579545MHzの
     // ちょうど4倍)。divide=288(=COPLの72×4)と対応しており、この
-    // 4倍/4倍の比率により、COPLと数学的に同一のFnumber値を生成する
-    // (2026年7月に、誤ってsampleRateをfnumMasterとして使っていた
-    // バグを修正)。
+    // 4倍/4倍の比率により、COPLと数学的に同一のFnumber値を生成する。
+    // sampleRateはFnum計算に使わない(COPLと同じ)。
     static constexpr int kMasterClock = 14318180;
 
     COPL3(IPort* port, int /*sampleRate*/)
@@ -388,15 +387,14 @@ protected:
     static const uint8_t opmap[4];  // 4オペレータ分のスロットオフセット
     static const uint8_t carmsk[8]; // hw.ALG(3bit)値ごとのキャリアOPビットマスク
 
-    // 疑似デチューン(PDT由来)の計算結果キャッシュ。旧FITOM
-    // (OPL3.cpp)のPseudoDT1[ch]/PseudoDT2[ch]と同じ設計(2026年7月に
-    // 復元)。基底クラスのupdateFnumber()が計算した通常のFnumが
-    // updateFreq(ch,&fnum)という形で強制的に渡されてしまうため、
-    // updateFreq側でfn引数をそのまま使うと疑似デチューンが常に
-    // バイパスされてしまう(2026年7月に発見した不具合)。これを
-    // 避けるため、updateFnumber()をオーバーライドし、基底クラスを
-    // 呼ぶ"前"に疑似デチューンを事前計算してキャッシュしておき、
-    // updateFreq()はfn引数を使わず常にこのキャッシュを参照する。
+    // 疑似デチューン(PDT由来)の計算結果キャッシュ。基底クラスの
+    // updateFnumber()が計算した通常のFnumが updateFreq(ch,&fnum)という
+    // 形で強制的に渡されるため、updateFreq側でfn引数をそのまま使うと
+    // 疑似デチューンが常にバイパスされる。これを避けるため、
+    // updateFnumber()をオーバーライドし、基底クラスを呼ぶ"前"に
+    // 疑似デチューンを事前計算してキャッシュしておき、updateFreq()は
+    // fn引数を使わず常にこのキャッシュを参照する
+    // (docs/design/chip-notes.md「疑似デチューン」参照)。
     ChState::Fnum pseudoDT1_[6]{};
     ChState::Fnum pseudoDT2_[6]{};
 
@@ -411,7 +409,7 @@ protected:
 
     uint16_t portBase(uint8_t ch) const { return (ch >= 3) ? 0x100 : 0; }
     uint8_t  localCh(uint8_t ch)  const { return ch % 3; }
-    // 後半opペアのローカルch (常に前半+3、旧FITOM同様)
+    // 後半opペアのローカルch (常に前半+3)
     uint8_t  pairCh(uint8_t ch)   const { return static_cast<uint8_t>(localCh(ch) + 3); }
 
     uint8_t alValue(uint8_t ch) const {
@@ -421,7 +419,7 @@ protected:
         return (carmsk[alValue(ch)] & (1 << op)) != 0;
     }
 
-    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // VoiceProcessor へ渡すキャリアマスク計算用。
     // OPL3の4opアルゴリズムはOPN/OPM用のデフォルトテーブルと異なる
     // (carmsk[]参照)ため、isCarrier()に委譲する。
     bool isCarrierOp(uint8_t ch, int op) const override {
@@ -432,8 +430,7 @@ protected:
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
     // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
-    // ため、書き込み前に必ずこの変換 (旧Linear2dB相当) を通す必要がある
-    // (2026年7月、この変換が欠落していたバグを修正。COPLと同様)。
+    // ため、書き込み前に必ずこの変換を通す(COPLと同様)。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
     }
@@ -528,20 +525,15 @@ protected:
 
     void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
         // 疑似デチューン: op[0]/op[2] (各2OPペアの先頭オペレータ) の
-        // PDT フィールド(int16_t、100/64セント単位のオフセット)を使い、
+        // PDT フィールド(int16_t、kfs単位のオフセット)を使い、
         // 前半/後半ペアで別々のFnumberを計算する。OPNのFXモード
         // (疑似デチューン、ext.FIX=1)と同じフィールド・同じ計算式を
-        // 共有する(2026年7月〜)。旧FITOM(OPL3.cpp)はDT1(<<7)とDT2を
-        // ビット合成した14bit値(±8192)を使っていたが、PDTは元々
-        // 16bit(±32767)でより広いレンジを持ち、ビット合成も不要なため
-        // こちらに一本化した。DT1/DT2は他チップと同じ「OPLでは0固定」
-        // の状態に戻す。
+        // 共有する。DT1/DT2はOPL系の実機に相当する機構が無いため使わない。
         //
-        // fn引数は意図的に無視する(旧FITOMと同じ設計)。基底クラスの
-        // updateFnumber()が計算した"疑似デチューンなし"の通常Fnumが
-        // updateFreq(ch,&fnum)という形で強制的に渡されてくるため、
-        // これをそのまま使うと疑似デチューンが常にバイパスされてしまう
-        // (2026年7月に発見・修正)。updateFnumber()をオーバーライドし、
+        // fn引数は意図的に無視する。基底クラスのupdateFnumber()が計算した
+        // "疑似デチューンなし"の通常Fnumが updateFreq(ch,&fnum)という形で
+        // 強制的に渡されてくるため、これをそのまま使うと疑似デチューンが
+        // 常にバイパスされる。updateFnumber()をオーバーライドし、
         // 基底クラスを呼ぶ"前"に疑似デチューンを事前計算して
         // pseudoDT1_/pseudoDT2_ にキャッシュしてあるので、常にそちらを
         // 使う(ポルタメント時も含め、常に疑似デチューンが正しく反映される)。
@@ -661,11 +653,7 @@ protected:
         // 前半チャンネルのKey-Onだけで4オペレータ全てが動作する。逆に
         // ConnectionSEL=0(独立2OP×2)の場合は両チャンネルのKey-Onが
         // それぞれ独立に意味を持つため、後半ペアも鳴らしたいなら明示的に
-        // Key-Onを送る必要がある(2026年7月、この条件が逆になっていた
-        // 実装バグを発見・修正。旧FITOM(OPL3.cpp)の
-        // `if ((voice->AL & 0x08) || !keyon)` をそのまま復元していたが、
-        // legacyのbit3は本コードのConnectionSELビットとは別物で、
-        // 実機仕様に照らすと条件そのものが逆だった)。
+        // Key-Onを送る必要がある。
         if (!(alValue(ch) & 0x04) || !keyOn) {
             uint8_t b2cur = getReg(reg_b2) & 0xDF;
             setReg(reg_b2, static_cast<uint8_t>(b2cur | (keyOn ? 0x20 : 0)), true);
@@ -678,14 +666,14 @@ const uint8_t COPL3::opmap[4] = {0x0, 0x3, 0x8, 0xb};
 // AL&4=0(ConnectionSEL無効、前半・後半が独立2OPペア×2)の場合は、
 // 前半ペア単体のキャリアマスク(CON=0→0x2/CON=1→0x3)と後半ペア単体の
 // キャリアマスク(CON=0→0x8/CON=1→0xc)を"両方"合成する必要がある。
-// 旧実装は前半ペアのみ、または後半ペアのみの値をそのまま流用しており、
-// 独立2OPペアモードで一方のペアのキャリアopがvol/exp/vel/VTLの影響を
-// 一切受けないバグがあった(2026年8月修正。ConnectionSEL有効時
-// (AL&4=1、インデックス4-7)は実機YMF262(Nuked-OPL3で検証)と一致して
-// おり変更なし)。
+// 一方だけにすると、もう一方のペアのキャリアopがvol/exp/vel/VTLの影響を
+// 一切受けなくなる。ConnectionSEL有効時(AL&4=1、インデックス4-7)の値は
+// Nuked-OPL3で実機YMF262の挙動と照らし合わせてある。
 const uint8_t COPL3::carmsk[8] = {0xa, 0xb, 0xe, 0xf, 0x8, 0x9, 0xa, 0xd};
 
 
+// ================================================================
+//  COPL3_2: OPL3 (YMF262) — 4OPモードの残りの2OPチャンネル、6ch
 //
 //  実機OPL3は1ポートあたり4OPモード最大3ch(ch0-2)を使うと、
 //  残りのch6-8(3ch)は2OPのまま使える。2ポート合計で
@@ -703,7 +691,7 @@ const uint8_t COPL3::carmsk[8] = {0xa, 0xb, 0xe, 0xf, 0x8, 0x9, 0xa, 0xd};
 //  OPL3 固有の初期化:
 //    0x001: Wave Select Enable (port1)     → chip1_->setReg(0x01, 0x20)
 //    0x101: Wave Select Enable (port2)     → chip2_->setReg(0x01, 0x20)
-//    0x105: OPL3 NEW1 = 1 (OPL3 モード有効) → chip2_->setReg(0x05, 0x01)
+//    0x105: OPL3 NEW1/NEW2 (OPL3/OPL4 モード有効) → chip2_->setReg(0x05, 0x03)
 //           (OffsetPort により 0x100+0x05 = 0x105 に書かれる)
 //
 //  OPL のキーオン/オフは B0+ch レジスタ (bit5) で完結しており、
@@ -716,8 +704,7 @@ public:
     // (DEVICE_OPL_RHY)専用として無効化する。実機のリズムモードレジスタ
     // (0xBD)はbank0(port1)にのみ存在するハードウェア制約のため、port2側
     // (chip2_)のch6-8は影響を受けず通常の2OPとして使い続けられる
-    // (2026年7月、OPL系リズムモード対応で追加。PatchManager.cppの
-    // ext.rhythmCh解決コメント参照)。
+    // (PatchManager.cppの ext.rhythmCh 解決コメント参照)。
     COPL3_2(IPort* port, int sampleRate, bool rhythmMode = false)
         : rhythmMode_(rhythmMode)
     {
@@ -777,7 +764,7 @@ private:
 //  なく実際のFMオペレータパラメータ(HwPatch)を要求するため、
 //  VOICE_PATCH_OPL_RHYという通常のVoicePatchTypeを持ち、パッチ解決は
 //  他の直接モードチップと全く同じ経路(resolveTriple→HwBankRegistry)
-//  で行われる(2026年7月)。
+//  で行われる。
 //
 //  実機レジスタ配置(0xBD): bit5=リズムモード有効、bit4=BD/bit3=SD/
 //  bit2=TOM/bit1=CYM/bit0=HHのキーオン。楽器番号(0-4)をそのまま
@@ -818,13 +805,12 @@ protected:
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
     // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,63=無音、6bit) の
-    // ため、書き込み前に必ずこの変換 (旧Linear2dB相当) を通す必要がある
-    // (2026年7月、この変換が欠落していたバグを修正。COPLと同様)。
+    // ため、書き込み前に必ずこの変換を通す(COPLと同様)。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE48DB, STEP075DB, 6);
     }
 
-    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // VoiceProcessor へ渡すキャリアマスク計算用。
     // ch==4(BD)はCOPLと同じ2opキャリア規則。それ以外(単一オペレータ
     // 楽器)はhwOp[0]のみを使い常にキャリア扱い(updateVoice参照)。
     bool isCarrierOp(uint8_t ch, int op) const override {
@@ -836,13 +822,10 @@ protected:
     // ベロシティ補正値(VoiceProcessor経由)を使う。単一オペレータ楽器は
     // 常にcarrier=true(単独の発振器として出力されるため)。
     //
-    // opIdxとvelOpIdxは異なる意味を持つ別々の添字である点に注意
-    // (2026年7月、BDだけ発音しないバグの修正で分離。それまでは両方に
-    // opIdxを流用しており、HH/SD/TOM/CYM[単一オペレータ、hwOp[0]のみ
-    // 使用]がたまたま正しく動いていた[proc側もop0で計算されるため]一方、
-    // BD[2オペレータ、キャリアはop1]だけキャリアのエンベロープに誤って
-    // モジュレータ側[op0]のVoiceProcessor補正値を適用してしまい無音化
-    // していた)。
+    // opIdxとvelOpIdxは異なる意味を持つ別々の添字である点に注意。
+    // 同じ値で済ませると、BD[2オペレータ、キャリアはop1]でキャリアの
+    // エンベロープにモジュレータ側[op0]のVoiceProcessor補正値が掛かり
+    // 無音になる。
     //   opIdx:    物理レジスタスロット番号(0/1、0x20+opIdx*3+slot等の
     //             アドレス計算に使う)。HH/TOM=0、SD/CYM=1、BDは呼び出し
     //             ごとに0/1(kRhythmOpIndex/updateVoice参照)。
@@ -871,12 +854,12 @@ protected:
 
         const uint8_t sl = carrier ? proc.velSL(velOpIdx) : (o.SL & 0xF);
         // EGT/SR制御(パーカッシブ/サステインモード切替)は、carrier/
-        // modulatorを問わず全オペレータに適用する(2026年7月に訂正)。
+        // modulatorを問わず全オペレータに適用する。
         // 通常のCOPL::updateVoiceでcarrierを見ているのは、サスティン
         // ペダル中の特殊なRRフォールバック(kFallbackRR)がキャリアのみに
         // 作用するためであり、EGT/SR制御そのものとは別の話。リズム
-        // チャンネルはサスティンペダル非対応のため、そちらのロジックは
-        // 元々不要(kFallbackRR相当の分岐は追加しない)。
+        // チャンネルはサスティンペダル非対応のため、kFallbackRR相当の
+        // 分岐は持たない。
         const uint8_t srValue = carrier ? proc.velSR(velOpIdx) : o.SR;
         const uint8_t rrValue = carrier ? proc.velRR(velOpIdx) : o.RR;
         const uint8_t rr = srValue ? ar4(srValue) : rrValue;
@@ -942,16 +925,11 @@ protected:
     // リズムパートはノート番号に応じてピッチシフトできる(COPLLRhythmと
     // 同じ設計)。ch7(HH/SD)・ch8(TOM/CYM)は物理チャンネルを共有するが、
     // HH/CYM側がFnum更新自体を行わない(下記参照)ため、実質的にSD/TOM
-    // 側が各共有チャンネルのFnumを排他的に制御する形になる(2026年7月、
-    // ユーザー要望によりHH/CYMのFnum更新を無効化。以前はch7/ch8とも
-    // 2つの楽器が異なるノート番号で発音すると後着優先で上書きされる
-    // 仕様だった)。
+    // 側が各共有チャンネルのFnumを排他的に制御する形になる。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         // HH(ch0)・CYM(ch1)はノイズ性の発振でFnumがほぼ発音に寄与しない
-        // ため、Fnum更新自体を行わない。ch7(HH/SD共有)・ch8(CYM/TOM共有)
-        // では物理チャンネルをピッチ変化に意味のあるSD/TOM側が排他的に
-        // 制御できるようにするため(2026年7月、ユーザー要望。HH/CYMが
-        // 後着で書き込むとSD/TOMのFnumを意図せず上書きしてしまっていた)。
+        // ため、Fnum更新自体を行わない。HH/CYMが後着で書き込むと、ピッチ
+        // 変化に意味のあるSD/TOM側のFnumを上書きしてしまうため。
         if (ch == 0 || ch == 1) return;
         uint8_t physCh = kRhythmMapCh[ch];
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
@@ -1029,10 +1007,6 @@ std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int sr) { return std
 // ================================================================
 //  フォールバック受け入れ判定
 // ================================================================
-// COPL (VOICE_PATCH_OPL, YM3526): OPL2形式の音色データを再生できるか。
-// 実機OPLは波形選択ハードウェア自体を持たないため、OPL2音色が
-// hwOp[].WS!=0 (非サイン波) を使っている場合、その波形情報が失われ
-// 音が変わってしまう。WSが全オペレータで0(サイン波)の場合のみ許可する。
 // COPL (VOICE_PATCH_OPL, YM3526): OPL2/OPL3(2op)形式の音色データを
 // 再生できるか。実機OPLは波形選択ハードウェア自体を持たないため、
 // hwOp[].WS!=0 (非サイン波) を使っている場合、その波形情報が失われ

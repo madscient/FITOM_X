@@ -1,14 +1,5 @@
 // fitom/OPN_new.cpp
-// COPN チップドライバ — ISoundDevice ベースへの移行版
-//
-// 移行パターン:
-//   旧: FMVOICE* voice = attr->GetVoice() → 各フィールドを直接読む
-//   新: const HwPatch& p = s.hwPatch → hw.FB/ALG, hwOp[i].AR 等を読む
-//       TL は s.proc.effectiveTL(op) を読む (VolExp/LFO 適用済み)
-//
-// このファイルは OPN.cpp 全体のリファクタリング版。
-// 他のチップドライバも同じパターンで移行する:
-//   OPM_new.cpp / OPL_new.cpp / OPLL_new.cpp / SSG_new.cpp 等
+// COPN (YM2203) チップドライバ
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
@@ -31,7 +22,7 @@ public:
     // 実機OPN系は「チップの ch2 (最初の3ch分の3番目)」のみがFXモード対応で、
     // OPNA/OPN2 の後半3ch分 (chip2_、port2側) には対応するレジスタが
     // 実機に存在しない。単体OPNおよびOPNA/OPN2の前半サブチップはtrue、
-    // OPNA/OPN2の後半サブチップはfalseを渡す (旧FITOMのfxenaフラグに相当)。
+    // OPNA/OPN2の後半サブチップはfalseを渡す。
     COPN(IPort* port, uint8_t deviceId = DEVICE_OPN, int fnumMaster = 3993600,
          bool fxCapable = true)
         : CSoundDevice(deviceId, 3, port,
@@ -49,7 +40,7 @@ public:
     }
 
     // FXモード(ch2専用)を要求するパッチは、ch2以外では正常動作しないため
-    // 必ずch2を払い出す (旧FITOM COPN::QueryCh 相当)。
+    // 必ずch2を払い出す。
     // fxCapable_=false (OPNA/OPN2後半サブチップ) の場合はこの判定自体を行わない。
     uint8_t queryCh(IMidiCh* owner, const HwPatch* patch, int mode) override {
         if (fxCapable_ && patch && patch->ext.FIX != 0) {
@@ -159,11 +150,9 @@ protected:
 
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         // MSB 書き込み後に LSB 書き込み (OPN の仕様)。
-        // 2026年7月: 一時的にLSB→MSBの順に入れ替えて実機検証したところ、
-        // 症状が悪化した(最初のノートオンが発音しない、以降は不正な
-        // 音程になる)ため、MSB→LSBの順に戻した。ラッチ機構がどちらの
-        // 書き込みで確定するかは実機検証で再度切り分け中(docs/
-        // docs/design/chip-notes.md「F-numberの書き込み」参照)。
+        // LSB→MSBの順にすると、最初のノートオンが発音せず以降も不正な
+        // 音程になる。どちらの書き込みでF-numberが確定するかは確かめて
+        // いない(docs/design/chip-notes.md「F-numberの書き込み」参照)。
         // forceWrite=true: 前回と同じ値でも必ず実際に書き込む
         // (regBak_のシャドウとチップ/エミュレータ側の内部状態が
         // 何らかの理由でズレていても正しく反映されるようにするため)。
@@ -254,7 +243,7 @@ protected:
     void updateSustain(uint8_t ch) override {
         // Sustain ON: キャリア OP の RR を 4 固定にして音を引き延ばす
         // Sustain OFF: 音色の RR に戻す (モジュレータは対象外)
-        // 旧 FITOM COPN::UpdateSustain と同等 (REV パラメータは新FITOMにないため固定値 4)
+        // RR=4 は旧FITOM COPN::UpdateSustain に倣った固定値 (REV パラメータを持たないため)
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
         for (int op = 0; op < 4; ++op) {
@@ -304,10 +293,9 @@ private:
     }
 
     // VoiceProcessor::effectiveTL() はラウドネス空間 (0=無音,127=最大音量) の
-    // 値を返す (旧CalcLinearLevelの仕様をそのまま踏襲)。実機TLレジスタは
-    // 減衰量空間 (0=最大音量,127=無音) のため、書き込み前に必ずこの変換
-    // (旧Linear2dB相当) を通す必要がある (2026年7月、この変換が欠落しており
-    // ベロシティ/ボリューム/エクスプレッションの効きが反転していたバグを修正)。
+    // 値を返す。実機TLレジスタは減衰量空間 (0=最大音量,127=無音) のため、
+    // 書き込み前に必ずこの変換を通す。通さないとベロシティ/ボリューム/
+    // エクスプレッションの効きが反転する。
     static uint8_t effTLToReg(uint8_t effTL) {
         return fitom::linear2dB(effTL, RANGE96DB, STEP075DB, 7);
     }

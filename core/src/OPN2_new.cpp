@@ -1,8 +1,8 @@
 // fitom/OPN2_new.cpp
-// COPNA / COPN2 チップドライバ — CSpanDevice を使った正しい継承構造
+// COPNA / COPN2 チップドライバ
 //
 // 設計方針:
-//   旧FITOMと同様に、OPN2/OPNA は CSpanDevice を継承し、
+//   OPN2/OPNA は CSpanDevice を継承し、
 //   内部に2つの COPN サブチップ (各3ch) を保持する。
 //
 //   ch 0-2: chip1_ (port1: アドレス 0x000-0x0FF)
@@ -105,7 +105,7 @@ public:
         // 2つの COPN サブチップを生成
         // FXモード(3rd channel special mode)は実機上 chip1_(port1側、ch0-2)
         // のch2にのみ存在し、chip2_(port2側、ch3-5)には対応するレジスタが
-        // 実機に存在しない (旧FITOMの fxena フラグ相当の区別)。
+        // 実機に存在しない。
         chip1_ = createSubCOPN(port1,              fnumMaster, true);
         chip2_ = createSubCOPN(port2Wrapper_.get(), fnumMaster, false);
 
@@ -184,16 +184,13 @@ private:
 //
 //  実機YM2610のFM部は、YM2612/YM2608系(6ch)からADPCM制御回路のために
 //  各サブチップの先頭ch(port1側ch0、port2側ch0=グローバルch3)を差し引いた
-//  実効4ch構成 (有効なグローバルchは1,2,4,5)。旧FITOMはCOPN2から派生して
-//  同じch0/ch3を無効化する実装だったが、新実装ではOPNA相当のCOPNAが
-//  基底クラスに当たるため、これを派生する。
+//  実効4ch構成 (有効なグローバルchは1,2,4,5)。6ch構成の基底はCOPNAなので、
+//  これを派生してch0/ch3を無効化する。
 //  SSG/ADPCM-A/ADPCM-BはFITOMConfig::resolveCompositeSpec()により、
-//  同一物理ポート(+extraPort)を共有する別デバイスとして自動生成される
-//  (2026年7月訂正: 以前はYM2610無印にADPCM-B用メモリ空間が無いという
-//  誤った前提でADPCM-Bを生成していなかったが、実際にはYM2610無印/2610B
-//  共通のケーパビリティであるため両方とも生成する。ADPCM-Aはレジスタが
-//  port2[アドレス0x100以降]に配置されるためextraPortを使う点に注意
-//  [CFITOM::resolveHighBankPort()参照]、ADPCM-Bはport1のまま)。
+//  同一物理ポート(+extraPort)を共有する別デバイスとして自動生成される。
+//  ADPCM-BもYM2610無印/2610B共通のケーパビリティなので両方とも生成する。
+//  ADPCM-Aはレジスタがport2[アドレス0x100以降]に配置されるためextraPortを
+//  使う点に注意 [CFITOM::resolveHighBankPort()参照]。ADPCM-Bはport1のまま。
 // ================================================================
 class COPNB : public COPNA {
 public:
@@ -228,7 +225,7 @@ private:
 //    0x11: 総合リズム音量 (6bit)
 //    0x18+ch: パン(bit6-7)/パート音量(bit0-4, 5bit)
 //
-//  sub-device自動生成 (Config::resolveCompositeSpec) により、
+//  sub-device自動生成 (FITOMConfig::resolveCompositeSpec) により、
 //  OPNA本体(FM)と同一の物理ポートを共有する独立デバイスとして生成される。
 //  音程制御は無く (各パート固定音程のサンプル再生)、FnumTableType::None。
 // ================================================================

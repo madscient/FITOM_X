@@ -1,6 +1,6 @@
 #include "fitom/SccWaveData.h"
 // fitom/PSG_new.cpp
-// CSSG / CSSGS / CSSGS3 / CDCSG / CSCC チップドライバ — ISoundDevice ベース移行版
+// CSSG / CSSGS / CSSGS3 / CDCSG / CSCC 系チップドライバ
 //
 // PSG 系の共通特性:
 //   - 周波数レジスタは「周期」(FnumTableType::SSG / TonePeriod)。音程が
@@ -23,8 +23,7 @@
 //   パラメータ範囲・挙動は一般的な FM 音源 (OPN) と同じ設定範囲
 //   (AR/DR/SR: 5bit 0-31, SL/RR: 4bit 0-15) を使い、実機 FM 音源特有の
 //   「凹型アタックカーブ (乗算的減衰)」「指数的ディケイ/リリース」を
-//   ソフトウェアで再現する。旧 FITOM の CEnvelope (線形加算モデル) とは
-//   別物として全面的に作り直した。
+//   ソフトウェアで再現する (線形加算モデルではない)。
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/FITOMdefine.h"
@@ -164,10 +163,9 @@ public:
                        noteOffset, fnumType, regSize)
     {
         opCount_ = numOps;
-        // chState_と同じ理由(2026年7月のOPL4 AWM範囲外アクセス修正)で、
-        // maxChs_と同数だけ確保するvectorにしている。固定長配列だと、
-        // 将来maxChs_がその配列の決め打ちサイズを超えるPSG系チップが
-        // 追加された場合に同種のバグを再発しうる。
+        // chState_と同じく、maxChs_と同数だけ確保するvectorにしている。
+        // 固定長配列だと、maxChs_がその配列の決め打ちサイズを超えるPSG系
+        // チップを足したときに範囲外アクセスになる。
         lfoTL_.assign(maxChs_, 64);
         envelopes_.resize(maxChs_);
     }
@@ -301,11 +299,9 @@ protected:
     void updatePanpot(uint8_t /*ch*/) override {}
 
     // 全PSG系共通の初期化ヘルパー。各派生クラスの updateVoice 先頭で呼ぶ。
-    // (以前は CPSGBase::updateVoice に SSG 固有のレジスタ操作
-    //  (ミックスレジスタ0x07・ノイズ周波数0x06・HW EG 0x08-0x0D) と
-    //  一緒に書かれていたが、これらは AY-3-8910/YM2149 (CSSG) 専用の
-    //  レジスタ配置であり、CDCSG/CSCC は updateVoice を完全に
-    //  オーバーライドして使っていなかった。CSSG 側に移動した)
+    // SSG 固有のレジスタ操作 (ミックスレジスタ0x07・ノイズ周波数0x06・
+    // HW EG 0x08-0x0D) は AY-3-8910/YM2149 専用のレジスタ配置のため、
+    // ここではなく CSSG 側に置く。
     void resetLfoBaseline(uint8_t ch) { lfoTL_[ch] = 64; }
 };
 
@@ -342,7 +338,7 @@ protected:
     // レジスタ空間を 0x20 ごとに繰り返す「ユニット」として同じドライバで
     // 扱えるようにするための索引。単体の YM2149 (maxChs_=3) では
     // unitBase() が常に 0・unitCh() が ch そのものになるため、レジスタ
-    // アドレスは従来と1バイトも変わらない。
+    // アドレスは単体チップの配置そのものになる。
     static constexpr uint8_t  kChsPerUnit  = 3;
     static constexpr uint16_t kUnitRegSize = 0x20;
 
@@ -979,32 +975,16 @@ protected:
 };
 
 // ================================================================
-//  CSAA1099 (Philips SAA1099) — 6ch、矩形波+2系統ノイズ+2系統HWエンベロープ
-//
-//  実機データシート確認済み。旧FITOM(SAA.cpp)はSCCWAVE波形テーブルを
-//  誤って流用しており、実機とは異なる不完全な実装だったため全面新規実装する。
-//
-//  レジスタマップ (実機確定):
-//    0x00-0x05: 振幅 (ch0-5)。bit0-3=左音量(4bit)、bit4-7=右音量(4bit)
-//    0x08-0x0D: 周波数 (ch0-5)、8bit (値が大きいほど低音)
-//    0x10-0x12: オクターブ (3bit×2ch/レジスタ、ch0-5)
-//    0x14: トーン有効ビット (bit0-5)
-//    0x15: ノイズ有効ビット (bit0-5)
-//    0x16: ノイズパラメータ (bit0-1=ノイズ0[ch0-2共有], bit4-5=ノイズ1[ch3-5共有])
-//    0x18/0x19: エンベロープ0/1パラメータ (ch0-2/ch3-5共有、8波形)
-//    0x1C: 全チャンネル有効(bit0)
-//
-// ================================================================
 //  CEPSG (AY8930) — AY-3-8910上位互換、Expand Mode常時有効
 //
-//  旧FITOM CEPSG (EPSG.cpp) 完全移植。AY8930はAY-3-8910/YM2149(CSSG)の
+//  旧FITOM CEPSG (EPSG.cpp) を移植したもの。AY8930はAY-3-8910/YM2149(CSSG)の
 //  上位互換チップで、Expand Mode有効時に以下の拡張機能を持つ:
 //    - レジスタ0xd の bit4-5 で Bank A(0xa0)/Bank B(0xb0) を切り替える
 //      マルチプレクス方式 (同じレジスタアドレスでもバンクにより意味が変わる)
 //    - 5bit音量 (通常のAY-3-8910/YM2149は4bit)
 //    - 各chが独立したHWエンベロープを持てる (無印AY-3-8910は全ch共有)
 //      ch0はBank A(reg 0xb/0xc)、ch1/ch2はBank B(reg 0x0-0x3)に配置される
-//      非対称な構造 (旧FITOM完全準拠)
+//      非対称な構造 (旧FITOMの実装どおり)
 //    - デューティ比制御 (reg 0x6-0x8、Bank B。無印AY-3-8910にはない機能)
 //
 //  hwOp[0].WS (4bit) をデューティ比として転用する (SCCの波形番号とは
@@ -1096,13 +1076,12 @@ protected:
         writeBank(0, static_cast<uint8_t>(ch * 2 + 1), static_cast<uint8_t>(etp >> 8));
     }
 
-    // HWエンベロープ未使用時のみ5bit音量を計算 (旧FITOM完全準拠、
+    // HWエンベロープ未使用時のみ5bit音量を計算 (旧FITOMと同じく、
     // Linear2dBの結果を31から引く反転極性)。
     // linear2dBの最終シフト(7-range-bw)で既にレジスタ幅相当のdBステップに
     // 変換されるため、evol側はSTEP075DB(無マスク)で0-127をフルレンジの
     // まま渡す必要がある。STEP150DBでマスクするとevolの上位bitが失われ、
-    // 64以上の値が0-63へ折り返されて音量が不連続になるバグになる
-    // (OPLLで発見された同種の不具合と同一原因)。
+    // 64以上の値が0-63へ折り返されて音量が不連続になる (OPLLと同じ理由)。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         if (s.hwPatch.hwOp[0].EGT & 0x08) return; // HW EG使用時はチップが自動制御
@@ -1184,7 +1163,7 @@ protected:
     }
 
     // op=0: 振幅LFO (基底のupdateTLに委譲)
-    // op=1: ノイズ周波数LFO (ミックスがノイズ関連の場合のみ、旧FITOM完全準拠)
+    // op=1: ノイズ周波数LFO (ミックスがノイズ関連の場合のみ)
     void updateTL(uint8_t ch, uint8_t op, uint8_t lev) override {
         if (op == 0) {
             CPSGBase::updateTL(ch, op, lev);
@@ -1205,10 +1184,10 @@ protected:
 // ================================================================
 //  CSAA1099 (Philips SAA1099) — 6ch、矩形波+2系統ノイズ+2系統HWエンベロープ
 //
-//  実機データシート確認済み。旧FITOM(SAA.cpp)はSCCWAVE波形テーブルを
-//  誤って流用しており、実機とは異なる不完全な実装だったため全面新規実装する。
+//  実機データシートに基づく実装。旧FITOM(SAA.cpp)はSCCWAVE波形テーブルを
+//  流用した実機と異なる実装のため、参照しない。
 //
-//  レジスタマップ (実機確定):
+//  レジスタマップ (実機データシートによる):
 //    0x00-0x05: 振幅 (ch0-5)。bit0-3=左音量(4bit)、bit4-7=右音量(4bit)
 //    0x08-0x0D: 周波数 (ch0-5)、8bit (値が大きいほど低音)
 //    0x10-0x12: オクターブ (3bit×2ch/レジスタ、ch0-5)
@@ -1334,8 +1313,7 @@ protected:
 
     // 周波数: 実機式 freq = (2×masterClock/512) × 2^octave / (511 - freqReg) を
     // freqReg について解き、0-255に収まるoctaveを探索する。
-    // (Fnum.cpp の GetSAATP は本チップの実機式と一致しない可能性があるため、
-    //  ここで直接計算する)
+    // (FnumTableType::None で構築しており、共有のFnum/周期テーブルは使わない)
     void updateFreq(uint8_t ch, const ChState::Fnum* /*fn*/) override {
         const auto& s = chState_[ch];
         if (s.lastNote >= 128) return;

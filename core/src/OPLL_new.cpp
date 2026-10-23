@@ -1,10 +1,10 @@
 // fitom/OPLL_new.cpp
-// COPLL / COPLL2 / COPLLP チップドライバ — ISoundDevice ベース移行版
+// COPLL / COPLL2 / COPLLP 系チップドライバ
 //
 // OPLL の特徴:
 //   - 9ch / 2OP
 //   - ユーザー音色 (reg 0x00-0x07) またはプリセット音色 (reg 0x30 bit7-4)
-//   - ALG & 0x40 でプリセット選択フラグ (HwPatch では ext.ALG_EXT として管理)
+//   - プリセット選択フラグは ext.ALG_EXT bit0、プリセット番号は hw.ALG
 //   - ボリュームはレジスタ 0x30 の下位 4bit (4bit = 16段階)
 //   - リズムモード: ch 6-8 はリズムとして使用 (有効/無効を enableCh で管理)
 
@@ -20,9 +20,8 @@ namespace fitom {
 // OPL系と同じ3.579545MHz(NTSC colorburst由来)を使う共通ファミリーのため、
 // OPL_new.cppのkMasterClockと同値・同じdivide=72。
 // sampleRate引数は他チップドライバとのファクトリ関数シグネチャ一貫性のために
-// 残すが、Fnum計算には使用しない(OPL_new.cppで2026年7月に発見・修正した
-// 「誤ってsampleRateをfnumMasterとして使っていたため、Fnumberが常に65535に
-// クランプされ意図した音程にならない」バグと同種のものがOPLLにも残っていた)。
+// 残すが、Fnum計算には使用しない(fnumMasterに使うとFnumberが常に上限へ
+// クランプされ、意図した音程にならない)。
 constexpr int kOpllMasterClock = 3579545;
 
 class COPLL : public CSoundDevice {
@@ -74,7 +73,7 @@ protected:
     // 派生クラスがチップ名部分だけを差し替えるためのフック。
     virtual std::string chipLabel() const { return "OPLL (YM2413)"; }
 
-    // VoiceProcessor へ渡すキャリアマスク計算用 (2026年7月追加)。
+    // VoiceProcessor へ渡すキャリアマスク計算用。
     // OPLLはキャリアが常にop1固定(car_opll = (i==1)、updateVoice参照)。
     // hw.ALGはOPLLではプリセット音色番号に転用されており、OPN/OPM用の
     // デフォルト実装(hw.ALGを3bit8アルゴリズムとして解釈)とは無関係の
@@ -100,7 +99,7 @@ protected:
         const auto& s = chState_[ch];
         const HwPatch& p = s.hwPatch;
 
-        // ext.ALG_EXT: bit0 = プリセット選択フラグ (旧 AL & 0x40)
+        // ext.ALG_EXT: bit0 = プリセット選択フラグ
         bool preset = (p.ext.ALG_EXT & 1) != 0;
         uint8_t instNo = preset ? (p.hw.ALG & 0xF) : 0;
 
@@ -136,7 +135,8 @@ protected:
                 //   SR==0 (EGT=1/sustain)  → RRをそのまま (キーオフ後のリリース)
                 // (SR>0の音色はレジスタイメージ由来ではRRフィールドが未使用=0で
                 //  あることが多く、ここでRRを書いてしまうと減衰しなくなる。
-                //  docs/manuals/hwpatch-reference.mdのOPLL節の変換表を参照)
+                //  docs/manuals/hwpatch-reference.md「`SR`(サステインレート)と
+                //  `RR`(リリースレート)の関係」を参照)
                 // Sustain (サステインペダル) は SUS bit で制御するため、
                 // ここでRRを細工する必要はない。
                 const uint8_t sl_opll = car_opll ? s.proc.velSL(i) : (o.SL & 0xF);
@@ -171,11 +171,9 @@ protected:
         // (7-range-bw) で決まるため、evol側はSTEP075DB (無マスク) で
         // 0-127をフルレンジのまま渡す必要がある。STEP150DBでマスクすると
         // evolの上位bitが失われ、64以上の値が0-63へ折り返されて音量が
-        // 不連続に無音化するバグになる。
-        // (2026年8月、ユーザーの実機確認で「Vol最大で無音、最低で最大音量」
-        // という極性反転を発見。effectiveTL()は既にラウドネス空間のため、
-        // ここで127-反転を挟むと二重反転になり結果が逆になっていた。
-        // ADPCM-A/ADPCM-Bで発見・修正済みの同種バグと同じ誤り)
+        // 不連続に無音化する。
+        // effectiveTL()は既にラウドネス空間のため、ここで127-反転を挟むと
+        // 二重反転になり音量の向きが逆になる(ADPCM-A/ADPCM-Bも同じ)。
         uint8_t loudness = s.proc.effectiveTL(1);
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint8_t cur = getReg(static_cast<uint16_t>(0x30 + ch)) & 0xF0;
@@ -206,8 +204,8 @@ protected:
 
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
-        // getFnumber() は11bit精度で値を返すが、実機OPLLのFnumberは9bit。
-        // 旧FITOMの ">>2" (11bit→9bit変換) が新実装で欠落していたため復元する。
+        // getFnumber() は11bit精度で値を返すが、実機OPLLのFnumberは9bitの
+        // ため ">>2" で落とす。
         uint16_t fnum9 = static_cast<uint16_t>((fnum.fnum >> 2) & 0x1FF);
         uint8_t b0cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0x30; // KEY/SUSビット保持
         setReg(static_cast<uint16_t>(0x10 + ch),
@@ -240,7 +238,6 @@ protected:
         // ユーザー音色・ROM 音色を問わず常に SUS bit で制御する。
         // SUS=1: NoteOff 後もチップが無限サスティンレートで引き延ばす。
         // SUS=0: 通常のリリース動作に戻す。
-        // 旧 FITOM COPLL::UpdateSustain と同等。
         const auto& s = chState_[ch];
         const uint8_t sus_bit = s.sustain ? 0x20u : 0x00u;
         const uint8_t cur     = getReg(static_cast<uint16_t>(0x20 + ch));
@@ -253,11 +250,11 @@ protected:
         // 操作する。
         // EGT/RRはupdateVoice()の静的変換 (SR>0ならEGT=0かつRRレジスタ=SR、
         // SR==0ならEGT=1かつRRレジスタ=RR) で確定済み。
-        // OPL系(COPL/COPL3)は従来どおりキーオン/キーオフのたびにEGT/RRを
-        // 動的に書き換える技法を使うが、実機OPLLのEG挙動はOPL系と異なり
-        // 発音中のEGTビット書き換えが期待どおりに効かないことが2026年8月の
-        // 実機検証で確認されたため、OPLL系のみ静的変換とする(確定仕様)
-        // (docs/design/chip-notes.md「OPLL系」を参照)。
+        // OPL系(COPL/COPL3)はキーオン/キーオフのたびにEGT/RRを動的に
+        // 書き換える技法を使うが、実機OPLLのEG挙動はOPL系と異なり
+        // 発音中のEGTビット書き換えが期待どおりに効かないため、OPLL系
+        // のみ静的変換とする
+        // (docs/design/chip-notes.md「EGTとRRの静的な変換」を参照)。
         uint8_t cur = getReg(static_cast<uint16_t>(0x20 + ch)) & 0xEF;
         setReg(static_cast<uint16_t>(0x20 + ch),
                static_cast<uint8_t>(cur | (keyOn ? 0x10 : 0)), true);
@@ -304,15 +301,6 @@ protected:
     std::string chipLabel() const override { return "OPLLX (YM2423-X)"; }
 };
 
-// ================================================================
-//  CVRC7 — OPLL からリズムチャンネルを削除した派生 (FS1001)
-//  制御ロジックは OPLL と同一だが、リズム音源回路自体が存在しないため
-//  楽音 6ch のみが有効。CSoundDevice に maxChs=6 を渡すことで
-//  getChCount() も正しく 6 を返し、chState_自体がch0-5の6要素しか
-//  持たなくなるため、ch 6-8 は物理的に存在しない(=常にアクセス不能)
-//  扱いになる。リズム回路自体が存在しないため、rhythmMode は常に
-//  無効に固定する(呼び出し元から true が渡されても無視する)。
-// ================================================================
 // ================================================================
 //  COPLLEX — Y8960 拡張OPLL部
 //
@@ -361,6 +349,15 @@ protected:
     }
 };
 
+// ================================================================
+//  CVRC7 — OPLL からリズムチャンネルを削除した派生 (FS1001)
+//  制御ロジックは OPLL と同一だが、リズム音源回路自体が存在しないため
+//  楽音 6ch のみが有効。CSoundDevice に maxChs=6 を渡すことで
+//  getChCount() も正しく 6 を返し、chState_自体がch0-5の6要素しか
+//  持たなくなるため、ch 6-8 は物理的に存在しない(=常にアクセス不能)
+//  扱いになる。リズム回路自体が存在しないため、rhythmMode は常に
+//  無効に固定する(呼び出し元から true が渡されても無視する)。
+// ================================================================
 class CVRC7 : public COPLL {
 public:
     CVRC7(IPort* port, int sampleRate)
@@ -375,7 +372,7 @@ protected:
 //  FM本体とは独立したレジスタ体系:
 //    0x0E: bit5=リズムモード有効固定、bit0-4=各パートのキーオン
 //    0x36/0x37/0x38: パート音量 (2パートずつ上位/下位4bitに packing)
-//    パート→物理ch対応 (旧FITOM RhythmMapCh): {7,8,8,7,6}
+//    パート→物理ch対応: {7,8,8,7,6}
 //
 //  sub-device自動生成により、OPLL本体と同一の物理ポートを共有する
 //  独立デバイスとして生成される。
@@ -395,24 +392,22 @@ public:
     void init() override { setReg(0x0E, 0x20, true); }
 
 protected:
-    // パート(0-4: HH,CYM,TOM,SD,BD) → 音量レジスタ / 物理ch対応 (旧FITOM完全移植)
+    // パート(0-4: HH,CYM,TOM,SD,BD) → 音量レジスタ / 物理ch対応
     static constexpr uint8_t kRhythmReg[5]   = {0x37, 0x38, 0x38, 0x37, 0x36};
     static constexpr uint8_t kRhythmMapCh[5] = {7, 8, 8, 7, 6};
 
     // リズムパートはROM内蔵の固定音色だが、Fnum/Blockレジスタの値
-    // 自体はノート番号に応じて可変にする (ユーザー要望: ノート番号に
-    // 対応したFnumを与えることで、内蔵ドラム音のピッチシフト演奏を
-    // 可能にする)。基底クラスCSoundDevice::getFnumber()の標準的な
+    // 自体はノート番号に応じて可変にする (ノート番号に対応したFnumを
+    // 与えることで、内蔵ドラム音のピッチシフト演奏を可能にする)。
+    // 基底クラスCSoundDevice::getFnumber()の標準的な
     // ノート→Fnum変換をそのまま使う(COPLLRhythmのコンストラクタで
     // 既にFnumTableType::Fnumber+FNUM_OFFSETが設定済みなので、
     // 通常のOPLL FMチャンネルと全く同じ変換になる)。
     // ch7(HH/SD共用)・ch8(CYM/TOM共用)は物理チャンネルを共有するが、
     // HH(ch0)・CYM(ch1)側がFnum更新自体を行わない(updateFreq参照)ため、
     // 実質的にSD/TOM側が各共有チャンネルのFnumを排他的に制御する形に
-    // なる(2026年7月、ユーザー要望。HH/CYMはノイズ性の発振でFnumが
-    // ほぼ発音に寄与しないため、後着で書き込むとSD/TOMのFnumを意図せず
-    // 上書きしてしまっていた。以前はch7/ch8とも後着優先で上書きされる
-    // 仕様だった)。
+    // なる(HH/CYMはノイズ性の発振でFnumがほぼ発音に寄与しないため、
+    // 後着で書き込ませるとSD/TOMのFnumを意図せず上書きしてしまう)。
     void updateVoice(uint8_t ch) override {
         updateFreq(ch, nullptr);
         updateVolExp(ch);
@@ -435,25 +430,18 @@ protected:
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
         // MIDI Volume(CC#7)とベロシティの組み合わせ (Expressionは含まない)。
-        // 旧FITOMはCalcLinearLevel(vev, tl)(第2引数が減衰量[高いほど静か])
-        // を使い127-velocityで変換していたが、新しいcalcVolExpVel(vol, exp,
-        // vel)は3引数とも同じラウドネス空間(高いほど大きい音、OPL4AWM/
-        // PSGのcalcVolExpVel(s.volume, s.expression, s.velocity)呼び出しと
-        // 同じ規約)のため、旧来の127-反転をそのまま持ち込むと強く叩くほど
-        // 静かに、弱く叩くほど大きく鳴る逆転バグになっていた
-        // (2026年8月、メロディパートのTL極性反転バグ修正を受けたユーザーの
-        // 指摘でビルトインリズム側も確認し発覚)。
+        // calcVolExpVel(vol, exp, vel)は3引数とも同じラウドネス空間(高いほど
+        // 大きい音、OPL4AWM/PSGのcalcVolExpVel(s.volume, s.expression,
+        // s.velocity)呼び出しと同じ規約)のため、velocityを127-反転して
+        // 渡してはならない(強く叩くほど静かに、弱く叩くほど大きく鳴る)。
         uint8_t loudness = fitom::calcVolExpVel(s.volume, 127u, s.velocity);
         // STEP075DB (無マスク) で渡す理由は updateVolExp (トーンパート側) 参照
         uint8_t vol = fitom::linear2dB(loudness, RANGE48DB, STEP075DB, 4);
         uint16_t addr = kRhythmReg[ch];
         // ch&5: ch=0,2(HH/TOM)は上位nibble、ch=1,3,4(CYM/SD/BD)は下位nibble
-        // (旧FITOM完全移植。2026年8月、判定が逆転しておりSDが自分では
-        // $37下位に一度も書き込まれず起動直後は最大音量のままハイハット
-        // 発音時にHHの音量で上書きされ以後固定的に減衰する等の不具合を
-        // ユーザー指摘[レジスタダンプ比較]で修正。旧FITOM(legacy/src/
-        // OPLL.cpp COPLLRhythm::UpdateVolExp)の`mask = (ch&5) ? 0xf0 : 0x0f`
-        // (ch&5が真のとき下位nibble書き込み)と突き合わせて確認済み)。
+        // (旧FITOM legacy/src/OPLL.cpp COPLLRhythm::UpdateVolExp の
+        // `mask = (ch&5) ? 0xf0 : 0x0f` [ch&5が真のとき下位nibble書き込み]
+        // と同じ割り当て)。
         bool highNibble = (ch & 5) == 0;
         uint8_t mask = highNibble ? 0x0F : 0xF0;
         uint8_t shifted = highNibble ? static_cast<uint8_t>(vol << 4) : vol;
@@ -467,7 +455,7 @@ protected:
     }
 
     // パート番号は音色データの hw.ALG (下位3bit) で直接指定する。
-    // 該当パートが既に使用中なら 0xFF (旧FITOM COPLLRhythm::QueryCh 完全移植)。
+    // 該当パートが既に使用中なら 0xFF。
     uint8_t queryCh(IMidiCh* /*owner*/, const HwPatch* patch, int mode) override {
         if (!patch) return 0xFF;
         uint8_t num = patch->hw.ALG & 0x7;
@@ -531,14 +519,12 @@ std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int sr) { return std
 // ALG_EXTの値が1/3/5/7(必ず奇数=bit0=1)になり、`& 1`で漏れなく検出
 // できる — BANK拡張バンク(2=OPLL-P/3=VRC7)のプリセットだからといって
 // bit0の判定をすり抜けてフォールバック対象になることはない
-// (2026年8月、拡張バンクのプリセットが&1判定を回避しないかという
-// 指摘を受けて検証・コメント追記。test_y8960.cppに全BANK値×
-// プリセット/ユーザーの回帰テストを追加済み)。
+// (test_y8960.cppに全BANK値×プリセット/ユーザーの回帰テストがある)。
 // ユーザー音色(bit0=0)側は、BANK値(bit2-1)がユーザー音色レジスタ
-// (0x00-0x07)の再生結果に一切影響しない(opllex_registers::
-// cache_operator_data()がinstrument==0のときbank_tableを参照しない
-// ため)ことをCOPLLEX側の実装で確認済みのため、標準OPLL系のパッチ
-// (bit2-1=0)をそのまま受け入れてよい。
+// (0x00-0x07)の再生結果に一切影響しない(OPLLEXのエミュレータ実装の
+// opllex_registers::cache_operator_data()はinstrument==0のとき
+// bank_tableを参照しない)ため、標準OPLL系のパッチ(bit2-1=0)を
+// そのまま受け入れてよい。
 bool opllFamilyAcceptsFallback(uint8_t sourceVoicePatchType, uint8_t selfVoicePatchType,
                                 const HwPatch& patch) {
     auto isOpllFamily = [](uint8_t v) {
