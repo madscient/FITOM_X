@@ -233,6 +233,9 @@
 - `gui/mfc_shim/`はどの`CMakeLists.txt`からも`add_subdirectory`されておらず、ビルド対象外。中身は廃止済みの`FmEnginePort`等を参照していて古い。`CMakePresets.json`が設定する`FITOM_GUI_MFC`もどこからも読まれない。残すかは未決(**確認済み**: grep)
 - `vcpkg.json`の依存に`boost-interprocess`が残っているが、コードはBoost.Interprocessを使っていない(**確認済み**: `core`/`apps`/`gui`/`backends`で`boost/interprocess`のインクルードが無いことをgrepで確認)。依存を外すかは未決
 
+**設定スキーマ**
+- `profile.schema.json`の`devices[].engine`の`examples`が`"YMEngine"`/`"AYEngine"`のまま。実際のプロファイルが書く値は`"engines/YMFMEngine"`等(**確認済み**: FITOM_stagingの全プロファイルの`engine`の値を数えた)。FITOM_stagingの写しも同じで、原本の修正を待っている
+
 **プラグイン SDK**
 - `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す
 
@@ -249,7 +252,7 @@
 | FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装) |
 | FitomSf2IF | `IHWPlugin.h`の写しに部位ゲインの節が無い。部位ゲインは任意の組なので、このままでもロードはできる |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`の`fitom.conf.schema.json`と`profile.schema.json`がFITOM_Xと異なる(`profile.schema.json`の写しには`part_gains`が無く、トップレベルが`additionalProperties: false`のため、部位ゲインを保存したプロファイルは写しを更新するまで検証に通らない)。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決 |
+| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決 |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 
