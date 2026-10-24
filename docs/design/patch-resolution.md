@@ -134,7 +134,7 @@ Program Change 受信 (CRhythmCh::progChange)
 
 バンク番号の名前空間はチップ種別ごとに独立している。`group`だけを変えて同じファイルを複数回登録すれば、同じ音色を複数のチップ種別から引ける。
 
-PSG系だけは検索の前に`PatchManager::hwBankLookupVoicePatchType()`がキーを`VOICE_PATCH_SSG`へ寄せる(「PSG系共有バンク」節)。登録側は寄せないので、`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`を指定して登録したバンクは検索で見つからない(STATUS 4節)。
+PSG系だけは検索の前に`PatchManager::hwBankLookupVoicePatchType()`がキーを`VOICE_PATCH_SSG`へ寄せる(「PSG系共有バンク」節)。登録側は寄せない。`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`/`"SCCP"`を指定したエントリは、登録しても検索で見つからないので、プロファイルの読み込み時に警告して読み飛ばす(`"PSG"`はSSGの別名なので登録する)。
 
 ## OPLL系のROM音色
 

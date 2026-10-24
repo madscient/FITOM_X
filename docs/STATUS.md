@@ -209,7 +209,6 @@
 - 外部MIDIクロック(0xF8)への同期は無い。コアには受け口(`MidiProcessor`の`clockEnabled_`→`CInstCh::midiClockCallback()`)があるが処理は空で、RtMidiバックエンドはTiming Clockを受信時に捨てている(`ignoreTypes`)。**確認済み**: コードを読んで確認
 
 **パッチの解決**
-- プロファイルの`hw_banks[]`で`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`を指定したバンクは、検索で見つからない。登録は`group`から決まるVoicePatchType(EPSGなら0x41)をキーにするが、検索は`PatchManager::hwBankLookupVoicePatchType()`がPSG系を常に0x40へ寄せるため。利用者向けマニュアルでは`group: "SSG"`で登録するよう案内している。**確認済み**: 登録(`loadHwBankJson()`)と検索(`resolveTriple()`)のコードを読んで確認。動かしては確かめていない
 - `PatchManager::loadDrumBankJson()`は呼び出し元が無い(実際に使うのは`loadDrumKitJson()`)。**確認済み**: grep
 
 **チップドライバ**

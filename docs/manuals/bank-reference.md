@@ -71,7 +71,7 @@ OPLL系(OPLL/OPLLP/OPLLX/VRC7/OPLLEX)は、ユーザー音色ならファミリ�
 
 SSG(YM2149/AY-3-8910)・EPSG(AY8930)・DCSG(SN76489)・SAA(SAA1099)・SCC(K051649/K052539)は、すべて1つのバンク空間を共有します。チップごとの機能の差は大きい一方で、1チップあたりの音色の種類が少なく、チップごとにバンクを分けると番号が埋まらないためです。
 
-- PSG系の音色バンクは`group: "SSG"`で登録してください。MIDIのCC#0にEPSG/DCSG/SAA/SCCのどれを送っても、バンクは`SSG`の空間から探されます。`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`を指定して登録したバンクは、この検索で見つかりません
+- PSG系の音色バンクは`group: "SSG"`で登録してください。MIDIのCC#0にEPSG/DCSG/SAA/SCCのどれを送っても、バンクは`SSG`の空間から探されます。`group`に`"EPSG"`/`"DCSG"`/`"SAA"`/`"SCC"`/`"SCCP"`を指定したバンクは、読み込み時に警告をログに出して登録しません(`"PSG"`は`"SSG"`と同じ扱いです)
 - 実際にどのチップで鳴らすかは、音色ごとに`ext.target_voice_patch_type`で指定します(SSG/EPSG/DCSG/SAA/SCCのいずれかのチップ種別の値)。同じバンクの中にSSG用の音色とSCC用の音色が混ざっていて構いません
 - `ext.target_voice_patch_type`を省略した(0の)音色は、プロファイルの`psg_fallback_chip`で指定したチップ(省略時はSSG)で鳴ります
 - PSG系の音色は、指定したチップが無いときに別のPSG系チップで代わりに鳴らすことはしません

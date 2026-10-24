@@ -287,6 +287,59 @@ TEST_CASE("FITOMConfig: the same bank number can be registered for different chi
     CHECK(opzBank->voicePatchType == opzType);
 }
 
+TEST_CASE("FITOMConfig: PSG-family hw_banks must use group SSG; other PSG groups "
+          "are skipped instead of being registered where lookup never reaches",
+          "[config]")
+{
+    // PSG系は族全体でSSGのバンク空間を共有し、検索は常にSSG(0x40)で行う
+    // (PatchManager::hwBankLookupVoicePatchType)。EPSG等のgroupで登録すると
+    // 二度と見つからないバンクになるので、読み込み時に読み飛ばす。
+    // "PSG"はSSGの別名として受け付ける。
+    fs::path dir = fs::temp_directory_path() / "fitom_test_hwbank_psg_group";
+    fs::create_directories(dir);
+
+    auto writeHwBank = [](const fs::path& p, const std::string& name) {
+        json hwbank = {{"name", name}, {"patches", json::array()}};
+        std::ofstream f(p);
+        f << hwbank.dump(2);
+    };
+    writeHwBank(dir / "ssg.hwbank.json",  "SSG bank0");
+    writeHwBank(dir / "epsg.hwbank.json", "EPSG bank1");
+    writeHwBank(dir / "sccp.hwbank.json", "SCCP bank2");
+    writeHwBank(dir / "psg.hwbank.json",  "PSG bank3");
+
+    json profile = {
+        {"profile_name", "psg group test"},
+        {"devices",      json::array()},
+        {"banks", {
+            {"hw_banks", json::array({
+                {{"group", "SSG"},  {"bank", 0}, {"file", "ssg.hwbank.json"}},
+                {{"group", "EPSG"}, {"bank", 1}, {"file", "epsg.hwbank.json"}},
+                {{"group", "SCCP"}, {"bank", 2}, {"file", "sccp.hwbank.json"}},
+                {{"group", "PSG"},  {"bank", 3}, {"file", "psg.hwbank.json"}}
+            })}
+        }}
+    };
+    fs::path profilePath = dir / "psg_group.profile.json";
+    { std::ofstream f(profilePath); f << profile.dump(2); }
+
+    fitom::FITOMConfig cfg;
+    fitom::PatchManager pm;
+    REQUIRE(cfg.loadProfile(profilePath, &pm));
+
+    const auto* ssg0 = pm.hwRegistry().find(VOICE_PATCH_SSG, 0);
+    const auto* psg3 = pm.hwRegistry().find(VOICE_PATCH_SSG, 3);
+    REQUIRE(ssg0 != nullptr);
+    REQUIRE(psg3 != nullptr);
+    CHECK(ssg0->name == "SSG bank0");
+    CHECK(psg3->name == "PSG bank3");
+
+    CHECK(pm.hwRegistry().find(VOICE_PATCH_EPSG, 1) == nullptr);
+    CHECK(pm.hwRegistry().find(VOICE_PATCH_SCC, 2) == nullptr);
+    CHECK(pm.hwRegistry().find(VOICE_PATCH_SSG, 1) == nullptr);
+    CHECK(pm.hwRegistry().find(VOICE_PATCH_SSG, 2) == nullptr);
+}
+
 TEST_CASE("FITOMConfig: bank_overrides matches drum_banks by 'prog' (not 'bank', "
           "which drum_banks entries don't have)", "[config]")
 {

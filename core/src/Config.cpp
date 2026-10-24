@@ -1958,6 +1958,15 @@ void FITOMConfig::loadDrumBanks(const nlohmann::json& banks,
                     << "\" in " << file << " — skipped");
                 continue;
             }
+            // PSG系は族全体でSSGのバンク空間を共有し、検索は常にSSGで行う
+            // (PatchManager::hwBankLookupVoicePatchType)。SSG以外のgroupで
+            // 登録すると二度と見つからないバンクになるので、登録しない。
+            if (isPsgFamilyVoicePatchType(voicePatchType) && voicePatchType != VOICE_PATCH_SSG) {
+                FITOM_LOG_WARN("hw_banks: group \"" << groupStr << "\" in " << file
+                    << " — PSG-family banks share the SSG bank space; use group \"SSG\""
+                       " and set ext.target_voice_patch_type per patch. skipped");
+                continue;
+            }
             // サンプルベース音源系 (VOICE_PATCH_AWM等) はHwBankRegistryでは
             // なくSampleZoneBankRegistry (専用スキーマ) に読み込む。
             if (voicePatchType == VOICE_PATCH_AWM) {
