@@ -263,15 +263,16 @@
 
 ## 5. 周辺リポジトリの追従状況
 
-2026年10月23日時点(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
+2026年10月23日時点。FitomEmuIF・FitomHwIF・FitomSf2IF・FITOM_stagingは10月24日に見直した(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
+他のリポジトリへの作業の依頼文は`docs/plans/request-<リポジトリ名>.md`に置く。依頼先の作業が終わったら、この表を更新して依頼文を消す。
 
 | リポジトリ | 状況 |
 |---|---|
-| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(任意)は未実装で、実装するまでFM/PSGにマスターボリュームは効かない。`IHWPlugin.h`の写しの同期も要る |
-| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`は実機にミキサーが無いので実装不要。`IHWPlugin.h`の写しの同期(旧名FitomIFTestの修正を含む)は要る |
-| FitomSf2IF | `IHWPlugin.h`の写しに部位ゲイン・マスターボリュームの節が無い。どちらも任意で、SF2のデバイスにはマスターボリュームをSysExで送るので、このままでもロードはでき、動作も変わらない |
+| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(任意)は未実装で、実装するまでFM/PSGにマスターボリュームは効かない。`IHWPlugin.h`の写しの同期も要る(origin `87d0a6c`の写しは`d214ff9`の1つ前のFITOM_Xと同一)。依頼文: `docs/plans/request-FitomEmuIF.md` |
+| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`は実機にミキサーが無いので実装不要。`IHWPlugin.h`の写しの同期(旧名FitomIFTestの修正を含む)は要る(origin `a2357ea`の写しは`d214ff9`の1つ前のFITOM_Xと同一)。依頼文: `docs/plans/request-FitomHwIF.md` |
+| FitomSf2IF | `IHWPlugin.h`の写しに部位ゲイン・マスターボリュームの節が無い。どちらも任意で、SF2のデバイスにはマスターボリュームをSysExで送るので、このままでもロードはでき、動作も変わらない(origin `ae15e91`)。依頼文: `docs/plans/request-FitomSf2IF.md` |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと構造が同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。その後FITOM_X側で`profile.schema.json`の`master_volume`の`description`を変えたので、説明文だけ食い違う。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決。`emu_ibmpc`プロファイルの`_comment`に「SAAのclockはCSAA1099の既定値8MHz固定に合わせる必要がある」とあるが、SAA1099はプラグインが報告するクロックを使うようになったので古い(プラグイン設定の`clock`が8000000なので音程は変わらない) |
+| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと構造が同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。その後FITOM_X側で`profile.schema.json`の`master_volume`の`description`を変えたので、説明文だけ食い違う。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決。`emu_ibmpc`プロファイルの`_comment`に「SAAのclockはCSAA1099の既定値8MHz固定に合わせる必要がある」とあるが、SAA1099はプラグインが報告するクロックを使うようになったので古い(プラグイン設定の`clock`が8000000なので音程は変わらない)。スキーマの写しと`emu_ibmpc`の注記の依頼文: `docs/plans/request-FITOM_staging.md` |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 
