@@ -43,6 +43,12 @@ public:
     void reset() override {
         CSoundDevice::reset();
         for (int i = 0x20; i < 0xFF; ++i) setReg(static_cast<uint16_t>(i), 0, true);
+        for (auto& v : lfoSens_) v = 0;
+        // LFOのRate/Depthも、控えと同じ0をチップへ書く(書かないと、控えだけが
+        // 0に戻り、次にCC#14/#15で0を送っても同値として省かれ古い値が残る)。
+        setReg(0x18, 0x00, true);
+        setReg(0x19, 0x80, true); // PMDラッチ
+        setReg(0x19, 0x00, true); // AMDラッチ
         lfoDepth_ = 0; lfoRate_ = 0;
     }
 
@@ -80,7 +86,8 @@ protected:
         uint8_t r20 = (getReg(static_cast<uint16_t>(0x20 + ch)) & 0xC0)
                     | ((p.hw.FB & 7) << 3) | (p.hw.ALG & 7);
         setReg(static_cast<uint16_t>(0x20 + ch), r20);
-        setReg(static_cast<uint16_t>(0x38 + ch), 0); // HW LFO disable
+        lfoSens_[ch] = 0;   // HW LFO disable
+        writeLfoSens(ch);
 
         for (int i = 0; i < 4; ++i) {
             const FmHwOp& o = p.hwOp[kMap[i]];
@@ -239,26 +246,16 @@ protected:
     // ボイス自身のAMS/PMS値で決まる(0ならそのチャンネルには実質無効果)。
     void enablePM(uint8_t ch, bool on) override {
         const auto& s = chState_[ch];
-        if (on) {
-            setReg(static_cast<uint16_t>(0x38 + ch),
-                   static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x38 + ch)) & 0x07)
-                   | ((s.hwPatch.hw.PMS & 7) << 4)));
-        } else {
-            setReg(static_cast<uint16_t>(0x38 + ch),
-                   static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x38 + ch)) & 0x07));
-        }
+        lfoSens_[ch] = static_cast<uint8_t>((lfoSens_[ch] & 0x03)
+                     | (on ? ((s.hwPatch.hw.PMS & 7) << 4) : 0));
+        writeLfoSens(ch);
     }
 
     void enableAM(uint8_t ch, bool on) override {
         const auto& s = chState_[ch];
-        if (on) {
-            setReg(static_cast<uint16_t>(0x38 + ch),
-                   static_cast<uint8_t>((getReg(static_cast<uint16_t>(0x38 + ch)) & 0x70)
-                   | (s.hwPatch.hw.AMS & 3)));
-        } else {
-            setReg(static_cast<uint16_t>(0x38 + ch),
-                   static_cast<uint8_t>(getReg(static_cast<uint16_t>(0x38 + ch)) & 0x70));
-        }
+        lfoSens_[ch] = static_cast<uint8_t>((lfoSens_[ch] & 0x70)
+                     | (on ? (s.hwPatch.hw.AMS & 3) : 0));
+        writeLfoSens(ch);
     }
 
     // Depth/Rateはチップ内蔵LFOが1系統のみのため、チャンネル引数は
@@ -287,6 +284,15 @@ private:
 
     uint8_t  lfoDepth_ = 0, lfoRate_ = 0;
     int16_t  masterTune_ = 0;
+
+    // $38+ch に書く PMS(b6-4)/AMS(b1-0)。シャドウを読み書きせずドライバが持つ。
+    // OPZ の $38+ch は b7/b2 が PMS/AMS の LFO1/LFO2 の窓の選択で、窓ごとに
+    // 別の値を持つため、1バイトのシャドウからは読み戻せない。今は常に
+    // LFO1 の窓(b7=b2=0)へ書く。
+    uint8_t  lfoSens_[8] = {};
+    void writeLfoSens(uint8_t ch) {
+        setReg(static_cast<uint16_t>(0x38 + ch), lfoSens_[ch]);
+    }
 
     bool isCarrier(uint8_t ch, int op) const {
         uint8_t alg = chState_[ch].hwPatch.hw.ALG & 7;

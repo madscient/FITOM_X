@@ -384,6 +384,8 @@ OPM/OPZ(`COPM`/`COPZ`)だけが実装し、他のチップは基底クラスのn
 - `setLFODepth`/`setLFORate`はAM/PMの区別を持たない。AM/PMどちらとして効くかは、ボイス自身のAMS/PMSで決まる
 - 複数のチャンネルが同時にAMS/PMSを使うのは正当なので、チャンネル間の排他はしない
 - `enablePM`/`enableAM`は`noteOn()`で無条件にtrueを送る。AMS/PMS=0のボイスでは結果的に効果が無い
+- `COPM`は`$38+ch`に書くPMS/AMSをドライバ側(`lfoSens_`)に持ち、シャドウを読み戻さずに1バイト全体を書く。OPZの`$38+ch`はb7/b2がLFO1/LFO2の窓の選択で、窓ごとに別の値を持つため、1バイトのシャドウからは読み戻せない。今は常にLFO1の窓へ書く
+- `COPM::reset()`は、Rate/Depthの控え(`lfoRate_`/`lfoDepth_`)を0に戻すのと一緒に、チップの`$18`と`$19`の2つのラッチにも0を書く。控えだけを戻すと、次に0を送ったときに同値として省かれ、チップに古い値が残る
 - Depth/Rateは物理チップ単位でしか持てないので、同じチップを共有する複数のチャンネルが別々の値を送ると、最後に送った値が勝つ(実機の制約そのもの)
 - `CSpanDevice`/`CUnison`は`enablePM`/`enableAM`/`setLFODepth`/`setLFORate`を各チップへ転送する(`SPAN_DELEGATE`/`UNISON_BROADCAST`)
 - OPZの第2LFOには対応していない。対応の設計検討は`docs/proposals/opm-opz-hw-lfo.md`

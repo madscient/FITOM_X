@@ -220,8 +220,7 @@
 - OPK(YM7116)/OPK2(YM7129)のドライバ(旧実装は`legacy/src/OPK.cpp`にある。**確認済み**: `DeviceFactory.cpp`に生成処理が無く、`Config.cpp`に`chip`名の対応も無いことをgrepで確認)
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
 - チップファミリーをまたぐフォールバック(旧FITOMの互換リスト相当)。ファミリー内のフォールバックは`acceptsFallback`で実装済み(`docs/design/chip-drivers.md`「フォールバック」)。OPLL系のROMプリセットは、OPLLEXへ落ちるもの以外はチップ間でフォールバックしない(ROMの中身が実機ごとに違うため)
-- OPM/OPZ ハードウェアLFO: 設計検討完了・実装未着手。`docs/proposals/opm-opz-hw-lfo.md`
-- OPM/OPZ の既存の不具合2つ(`docs/proposals/opm-opz-hw-lfo.md`「着手前に修正が必要な既存の不具合」)。(1) `COPM::reset()`がLFOのレジスタ`$18`/`$19`をクリアしないのに`lfoDepth_`/`lfoRate_`のキャッシュは0に戻すので、リセット後にCC#14/#15で0を送っても同じ値として書き込みが省かれ、チップに古い値が残る。(2) `enablePM`/`enableAM`が`$38+ch`をシャドウ1バイトで読み書きするため、OPZの第2LFOのセレクタ(b7/b2)を扱えない。いずれもコードを読んで確かめた。音での影響は未検証
+- OPM/OPZ ハードウェアLFO: 設計検討完了。着手前の土台(`$38+ch`のドライバ側保持、`reset()`のLFOレジスタ初期化)は済み。波形・SELECTのCCと第2LFOは未着手。`docs/proposals/opm-opz-hw-lfo.md`
 - SCCの波形バンク番号が常に0: `CSCC::setWaveBankNo()`がどこからも呼ばれておらず、複数の`sccwave`バンクを音色データ側から使い分ける経路が無い。バンク0だけなら動作する
 - AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`docs/design/patch-resolution.md`)
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ
@@ -250,7 +249,7 @@
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`
 
 **ビルド**
-- 呼び出し元の無いコード: `core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
+- 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
 - `gui/mfc_shim/`はどの`CMakeLists.txt`からも`add_subdirectory`されておらず、ビルド対象外。中身は廃止済みの`FmEnginePort`等を参照していて古い。`CMakePresets.json`が設定する`FITOM_GUI_MFC`もどこからも読まれない。残すかは未決(**確認済み**: grep)
 - `vcpkg.json`の依存に`boost-interprocess`が残っているが、コードはBoost.Interprocessを使っていない(**確認済み**: `core`/`apps`/`gui`/`backends`で`boost/interprocess`のインクルードが無いことをgrepで確認)。依存を外すかは未決
 

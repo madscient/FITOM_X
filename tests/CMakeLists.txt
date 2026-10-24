@@ -25,6 +25,7 @@ add_executable(fitom_tests
     test_midi_tuning.cpp
     test_opl3_carrier.cpp
     test_opz_keyon.cpp
+    test_opm_lfo.cpp
     test_voiceprocessor_lfo.cpp
     test_voiceprocessor_tl.cpp
     test_psg_volume.cpp
