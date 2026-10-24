@@ -110,6 +110,12 @@ if(FITOM_BUILD_CLI)
     add_subdirectory(apps/fitom_cli)
 endif()
 
+# SMF→WAV のヘッドレス変換器 (オフライン描画に対応したHWプラグインを使う)
+option(FITOM_BUILD_RENDER "fitom_render (SMF→WAV 変換器) をビルド" ON)
+if(FITOM_BUILD_RENDER)
+    add_subdirectory(apps/fitom_render)
+endif()
+
 # バックエンド DLL (各自が fitom_core に非依存の独立 DLL)
 if(FITOM_BUILD_BACKEND_HWIF)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/backends/hw_if/CMakeLists.txt")

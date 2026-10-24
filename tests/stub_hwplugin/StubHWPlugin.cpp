@@ -8,6 +8,14 @@
 //   STUB_HWPLUGIN_NO_PARTS   : 4 関数を1つもエクスポートしない
 //                              (HWPlugin_SetMasterVolume もエクスポートしない)
 //   STUB_HWPLUGIN_HEAD_ONLY  : HWPlugin_GetPartCount だけをエクスポートする
+//   STUB_HWPLUGIN_OFFLINE_HEAD_ONLY : オフライン描画の組のうち
+//                              HWPlugin_InitOffline だけをエクスポートする
+// オフライン描画の組(HWPlugin_InitOffline/HWPlugin_Render)を両方エクスポート
+// するのは、定義なしの場合だけ。
+//
+// HWPlugin_Render は、L に「それまでに受け取った書き込みの回数」、R に 0.25 を
+// 書く。書き込みが何フレーム目から反映されたかをテストで読めるようにするため。
+// HWPlugin_InitOffline で受け取ったサンプルレートは StubHWPlugin_GetOfflineRate で読める。
 //
 // HWPlugin_SetMasterVolume で受け取った値は、テスト専用のエクスポート
 // StubHWPlugin_GetMasterVolume で読み出せる (契約に読み出しの関数が無いため)。
@@ -50,6 +58,8 @@ struct HWDeviceOpaque {
 
 namespace {
 std::vector<HWDeviceOpaque*> g_openDevices;
+uint64_t                     g_writeCount  = 0;
+uint32_t                     g_offlineRate = 0;   // 0 = HWPlugin_InitOffline 未呼び出し
 } // namespace
 
 #if !defined(STUB_HWPLUGIN_NO_PARTS) && !defined(STUB_HWPLUGIN_HEAD_ONLY)
@@ -117,12 +127,14 @@ FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Close(HWHandle handle)
 
 FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Write(HWHandle, uint16_t, uint8_t)
 {
+    ++g_writeCount;
     return HW_OK;
 }
 
 FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_WriteBlock(
     HWHandle, uint8_t, const uint8_t*, size_t)
 {
+    ++g_writeCount;
     return HW_OK;
 }
 
@@ -183,6 +195,33 @@ FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_SetMasterVolume(HWHandle handle, 
 }
 
 #endif // !STUB_HWPLUGIN_NO_PARTS
+
+#if !defined(STUB_HWPLUGIN_NO_PARTS) && !defined(STUB_HWPLUGIN_HEAD_ONLY)
+
+FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_InitOffline(const char*, uint32_t sample_rate)
+{
+    if (sample_rate == 0) return HW_ERR_INVALID_ARG;
+    g_offlineRate = sample_rate;
+    return HW_OK;
+}
+
+#if !defined(STUB_HWPLUGIN_OFFLINE_HEAD_ONLY)
+
+FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Render(float* out, uint32_t frames)
+{
+    if (!out || g_offlineRate == 0) return HW_ERR_INVALID_ARG;
+    for (uint32_t i = 0; i < frames; ++i) {
+        out[i * 2 + 0] = static_cast<float>(g_writeCount);
+        out[i * 2 + 1] = 0.25f;
+    }
+    return HW_OK;
+}
+
+#endif // !STUB_HWPLUGIN_OFFLINE_HEAD_ONLY
+#endif // !STUB_HWPLUGIN_NO_PARTS && !STUB_HWPLUGIN_HEAD_ONLY
+
+// テスト専用。HWPlugin_InitOffline で受け取ったサンプルレート(未呼び出しは 0)。
+FITOM_HWP_API uint32_t FITOM_HWP_CALL StubHWPlugin_GetOfflineRate() { return g_offlineRate; }
 
 // テスト専用。chip/index で開いているデバイスを探し、最後に受け取った
 // マスターボリュームを返す (未呼び出しは -1、該当デバイスなしは -2)。

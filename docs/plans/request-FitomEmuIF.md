@@ -1,4 +1,4 @@
-# 依頼: FitomEmuIF に HWPlugin_SetMasterVolume を実装し、IHWPlugin.h の写しを同期する
+# 依頼: FitomEmuIF に HWPlugin_SetMasterVolume とオフライン描画を実装し、IHWPlugin.h の写しを同期する
 
 FITOM_X のセッションが書いた、FitomEmuIF で作業するセッション向けの依頼文。
 作業が終わったら、FITOM_X のセッションがこの文書を消す。
@@ -42,6 +42,43 @@ FitomEmuIF で鳴らす FM/PSG にはマスターボリュームが効かない�
 - 換算の参考: FITOM は CC#7(チャンネルボリューム)を GM2 のカーブ
   `40·log10(v/127)` dB で扱っている(v=0 は -96 dB。FITOM_X の `core/src/VolumeUtils.cpp`
   の `kGM2dB`)。同じカーブにすると、マスターボリュームとチャンネルボリュームの効き方が揃う
+
+## 追加の依頼: オフライン描画(`HWPlugin_InitOffline` / `HWPlugin_Render`)を実装する
+
+FITOM_X は、SMF を WAV へ変換するヘッドレスの実行ファイル `fitom_render` を足し、
+HW プラグインの契約に任意の関数の組を足した。音声デバイスを開かず、FITOM が求めた
+分だけ音を描画して返すモード。FitomEmuIF が実装するまで、FitomEmuIF を使うプロファイルは
+`fitom_render` で変換できない(`fitom_render` は組を持たないプラグインがあると変換を拒否する)。
+
+### やること
+
+- [ ] `src/fitom/IHWPlugin.h` を、上の同期の代わりに、この節を追加した FITOM_X のコミットの
+      `plugin_sdk/include/fitom/IHWPlugin.h` で置き換える(マスターボリュームの節も含む)
+- [ ] `HWPlugin_InitOffline(const char* profile_path, uint32_t sample_rate)` と
+      `HWPlugin_Render(float* out, uint32_t frames)` を組でエクスポートする。
+      要件は FITOM_X の `docs/interfaces/plugin-hwif.md`「オフライン描画（オプション）」節。要点:
+  - `HWPlugin_InitOffline` は `HWPlugin_Init` の代わりに呼ばれる。RtAudio のストリームを開かない。
+    以後は `HWPlugin_Init` の後と同じく他の全関数が使えること
+  - `sample_rate` はプラグイン設定ファイルの `sample_rate` より優先する
+  - オフラインのときは `HWPlugin_GetLatencySamples` が 0 を返す
+  - `HWPlugin_Render` は L/R インターリーブの float を `frames` フレーム分書く。**クリップしない**
+    (FITOM が全プラグインの和を取った後で行う)
+  - 呼び出しより前の `HWPlugin_Write` は、描画する最初のフレームから反映する
+  - オフラインで初期化していなければ `HW_ERR_INVALID_ARG`
+  - 部位ごとのゲイン・pan(・実装済みならマスターボリューム)は、音声デバイスへ出すときと同じく掛ける
+- [ ] `HWPlugin_Shutdown` が、ストリームを開いていない状態でも安全に終わることを確かめる
+- [ ] テストを足す(オフラインで初期化して書き込み→描画で音が出る、`HWPlugin_Init` 前の `Render` が失敗する等)
+
+### 手がかり(FitomEmuIF `87d0a6c` を FITOM_X のセッションが読んだもの。確かめてから使うこと)
+
+- RtAudio のストリームは `PluginRegistry::init()` の中の `start_audio()` で起動している。
+  オフラインではこれを呼ばない分岐にすればよい
+- `PluginRegistry::audio_callback` の中身(エンジンごとの `FmEngine_Generate` → 加算 → クランプ)が
+  そのまま `HWPlugin_Render` になる。最後の [-1, 1] のクランプだけ外す
+- 一時バッファ(`tmp_l`/`tmp_r`)は `buffer_frames` に合わせて確保されている。FITOM は1回に
+  最大 4096 フレームを求める(通常は1ms分、44.1kHz で 44〜45 フレーム)ので、足りなければ
+  分割するか確保し直す
+- 各エンジンは `FmEngine_Create(sample_rate)` で作っている。オフラインでは引数の `sample_rate` を渡す
 
 ## 守ること
 

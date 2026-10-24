@@ -187,6 +187,40 @@ FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_GetPartGain(
 FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_SetMasterVolume(
     HWHandle handle, uint8_t volume);
 
+// ─── オフライン描画（任意実装）───────────────────────────────────────────────
+// 音声デバイスへ出さず、FITOM が求めた分だけ音を描画して返すモード。
+// SMF を WAV へ変換する fitom_render が使う。音声出力を持つプラグイン
+// （FM エンジン内蔵 hwif、SoundFont プラグイン等）が実装する。
+// 物理チップの hwif は実装しない（音を取り込む手段が無いため）。
+//
+// 2 関数は組でエクスポートする。FITOM は HWPlugin_InitOffline の有無で判定し、
+// HWPlugin_InitOffline があるのに HWPlugin_Render が欠けているプラグインは、
+// FITOM がロードに失敗させる。
+//
+// HWPlugin_InitOffline:
+//   HWPlugin_Init の代わりに呼ぶ（同じプロセスで両方を呼ぶことはない）。
+//   profile_path は HWPlugin_Init と同じ。音声デバイスは開かない。
+//   以後は HWPlugin_Init の後と同じく、他の全関数が使えること。
+//   sample_rate: 描画するサンプルレート（Hz）。プラグイン固有の設定ファイルに
+//   サンプルレートの記述があっても、こちらを使う。
+//   扱えないサンプルレートは HW_ERR_INVALID_ARG。
+//   このモードでは、HWPlugin_GetLatencySamples は 0 を返すこと
+//   （書き込みは次の HWPlugin_Render の先頭から反映されるため）。
+// HWPlugin_Render:
+//   開いている全デバイスの音を混ぜ、frames フレーム分を out へ書く。
+//   out は L/R インターリーブの float（frames * 2 要素）。1.0 = フルスケール。
+//   [-1, 1] に収める処理（クリップ）はしない。複数のプラグインの音を足した後で
+//   FITOM が行う。部位ごとのゲイン・マスターボリューム・pan は、音声デバイスへ
+//   出すときと同じく掛けること。
+//   呼び出しより前に行った HWPlugin_Write / HWPlugin_WriteBlock は、
+//   描画する最初のフレームから反映すること。
+//   HWPlugin_InitOffline で初期化していなければ HW_ERR_INVALID_ARG。
+//   FITOM は HWPlugin_Write と同じスレッドから、交互に呼ぶ（同時には呼ばない）。
+FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_InitOffline(
+    const char* profile_path, uint32_t sample_rate);
+FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_Render(
+    float* out, uint32_t frames);
+
 #ifdef __cplusplus
 }
 #endif

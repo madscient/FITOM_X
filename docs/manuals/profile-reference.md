@@ -44,13 +44,14 @@ FITOM_Xの設定ファイル(プロファイル`*.profile.json`と、システ�
 | `log.console` | `true` | コンソールへ出すか |
 | `profiles.root` | `"."` | `fitom_gui`のプロファイル選択画面が`*.profile.json`を探すディレクトリ。相対パスは**カレントディレクトリ**を起点にする(実行ファイルのディレクトリではない) |
 
-`fitom.conf.json`が無い場合は、各アプリの既定値で動きます(`fitom_cli`: level=debug・ファイル`fitom_cli.log`、`fitom_gui`: level=info・ファイルなし。どちらもコンソールに出す)。
+`fitom.conf.json`が無い場合は、各アプリの既定値で動きます(`fitom_cli`: level=debug・ファイル`fitom_cli.log`・コンソールに出す、`fitom_gui`: level=info・ファイルなし・コンソールに出す、`fitom_render`: level=info・ファイル`fitom_render.log`・コンソールに出さない)。
 
 ---
 
 ## 3. プロファイルの読み込みと切り替え
 
 - **`fitom_cli`**: `fitom_cli <profile.json>`。プロファイルは省略できません
+- **`fitom_render`**: `fitom_render <profile.json> <input.mid> <output.wav> [オプション]`。プロファイルは省略できません。オフライン描画に対応したHWプラグインだけを使うプロファイルが必要です([SMF→WAV変換リファレンス](./render-reference.md))
 - **`fitom_gui`**: `fitom_gui [<profile.json> [<予備のprofile.json>]]`
   - プロファイルを省略すると、`profiles.root`のディレクトリ直下にある`*.profile.json`の一覧が出るので、選んで起動します。一覧に出る名前は、プロファイルの`profile_name`です(無ければファイル名)
   - 2つ目の引数を指定すると、1つ目のプロファイルが読み込めなかった(存在しない・JSONの書式が誤っている等)ときに、代わりにそちらを読み込みます

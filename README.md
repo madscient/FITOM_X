@@ -7,6 +7,7 @@
 - 実機のチップもエミュレータも、同じ HW I/F プラグイン(DLL)の C API を通して鳴らす
 - 1 つの音色(レイヤードパッチ)で、種類の違う複数のチップを重ねて発音できる
 - GUI(`apps/fitom_gui`, Dear ImGui)と CLI(`apps/fitom_cli`)は、同一プロセス内で `fitom_core` を利用する
+- SMF を WAV へ書き出すヘッドレスの変換器(`apps/fitom_render`)。オフライン描画に対応した HW I/F プラグイン(エミュレータ等)を使う
 - Windows / Linux / macOS のクロスプラットフォームビルド
 - C++17 / CMake 3.24+
 
@@ -116,6 +117,7 @@ CC#0 の値で、音色の選び方が変わります。
 FITOM_X/
 ├── apps/
 │   ├── fitom_cli/          # CLI アプリケーション
+│   ├── fitom_render/       # SMF→WAV 変換器
 │   └── fitom_gui/          # Dear ImGui GUI アプリケーション
 ├── backends/
 │   ├── hw_if/              # HW I/F バックエンドを外部ソースから取り込む口
@@ -219,6 +221,7 @@ cmake --build --preset macos-release
 | オプション | デフォルト | 説明 |
 |---|---|---|
 | `FITOM_BUILD_CLI` | ON | `fitom_cli`(テキストコンソールモニター) |
+| `FITOM_BUILD_RENDER` | ON | `fitom_render`(SMF→WAV 変換器) |
 | `FITOM_BUILD_BACKEND_HWIF` | ON | HW I/F バックエンド。`HWIF_SOURCE_DIR` に外部ソース(FitomHwIF)を指定したときだけビルドされる |
 | `FITOM_BUILD_BACKEND_MIDI_RTMIDI` | ON | RtMidi MIDI バックエンド DLL（Windows/Linux/macOS共通）|
 | `FITOM_BUILD_BACKEND_MIDI_PIPE` | OFF | 内部用MIDIパイプ DLL(パッチエディタ連携)。各プリセットでは ON |
@@ -294,6 +297,7 @@ cmake --build --preset macos-release
 - [hwpatch-reference.md](docs/manuals/hwpatch-reference.md) — HwPatch(音色合成パラメータ)
 - [swpatch-reference.md](docs/manuals/swpatch-reference.md) — SwPatch(演奏特性パラメータ)
 - [layered-patch-reference.md](docs/manuals/layered-patch-reference.md) — レイヤードパッチ
+- [render-reference.md](docs/manuals/render-reference.md) — SMF→WAV 変換(`fitom_render`)
 
 ### プラグイン・外部ツールの開発者向け (`docs/interfaces/`)
 

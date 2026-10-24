@@ -41,6 +41,7 @@ FITOM のプロファイルの `hw_plugins[].profile` に書き、`HWPlugin_Init
 | 任意(強く推奨) | `Shutdown` | 呼ばない |
 | 任意(4関数の組) | `GetPartCount` / `GetPartName` / `SetPartGain` / `GetPartGain` | 「部位ごとのゲイン」節を参照 |
 | 任意 | `SetMasterVolume` | 呼ばない(マスターボリュームはそのデバイスに掛からない)。「マスターボリューム」節を参照 |
+| 任意(2関数の組) | `InitOffline` / `Render` | オフライン描画(`fitom_render`)に使えない。「オフライン描画」節を参照 |
 
 関数名はいずれも `HWPlugin_` で始まる。
 
@@ -321,6 +322,57 @@ hwif は実装しなくてよい。
   「SoundFont プラグインへの追加の約束」節参照)。
 - エクスポートしないプラグインのデバイスには呼ばない。
 
+### オフライン描画（オプション）
+
+音声デバイスへ出さず、FITOM が求めた分だけ音を描画して返すモード。SMF を WAV へ
+変換する `fitom_render` が使う。音声出力を持つプラグイン(FM エンジン内蔵 hwif、
+SoundFont プラグイン)が実装する。物理チップの hwif は実装しない(音を取り込む手段が
+無いため)。`fitom_render` は、プロファイルの `hw_plugins[]` のうち1つでもこの組を
+エクスポートしていないものがあれば、変換を拒否する。
+
+| 関数 | シグネチャ | 説明 |
+|---|---|---|
+| `HWPlugin_InitOffline` | `HWResult (const char* profile_path, uint32_t sample_rate)` | `HWPlugin_Init` の代わりに呼ぶ初期化。音声デバイスを開かない |
+| `HWPlugin_Render` | `HWResult (float* out, uint32_t frames)` | 開いている全デバイスの音を混ぜ、`frames` フレーム分を `out` へ書く |
+
+**組の判定**：FITOM は `HWPlugin_InitOffline` の有無で判定する。`HWPlugin_InitOffline`
+があるのに `HWPlugin_Render` が欠けているプラグインは、FITOM がロードに失敗させる。
+
+**`HWPlugin_InitOffline` の実装要件**
+
+- 同じプロセスで `HWPlugin_Init` と両方が呼ばれることはない。オフラインで初期化された後も、
+  `HWPlugin_Init` の後と同じく他の全関数(`Enumerate` / `Open` / `Write` 等)が使えること
+- `profile_path` の扱いは `HWPlugin_Init` と同じ
+- `sample_rate`：描画するサンプルレート(Hz)。プラグイン固有の設定ファイルにサンプル
+  レートの記述があっても、こちらを使う。扱えない値は `HW_ERR_INVALID_ARG`
+- このモードでは `HWPlugin_GetLatencySamples` は 0 を返すこと(書き込みは次の
+  `HWPlugin_Render` の先頭から反映されるため)
+
+**`HWPlugin_Render` の実装要件**
+
+- `out` は L/R インターリーブの float(`frames * 2` 要素)。1.0 がフルスケール
+- [-1, 1] に収める処理(クリップ)はしない。複数のプラグインの音を足した後で FITOM が行う
+- 呼び出しより前に行った `HWPlugin_Write` / `HWPlugin_WriteBlock` は、描画する最初の
+  フレームから反映すること
+- `HWPlugin_InitOffline` で初期化していなければ `HW_ERR_INVALID_ARG`
+- 部位ごとのゲイン・マスターボリューム・`pan` は、音声デバイスへ出すときと同じく掛けること
+
+| 戻り値 | 条件 |
+|---|---|
+| `HW_OK` | 成功 |
+| `HW_ERR_INVALID_ARG` | `out` が `nullptr`、またはオフラインで初期化していない |
+| `HW_ERR_IO` | それ以外の理由による失敗 |
+
+**FITOM コア側の使い方:**
+
+```
+1. DLL をロードした直後、HWPlugin_Init の代わりに HWPlugin_InitOffline を呼ぶ
+2. 以降は通常どおり Enumerate / Open し、初期化の書き込みを行う
+3. 1ms 分(サンプルレート ÷ 1000 フレーム、端数は持ち越す)以下ずつ HWPlugin_Render を
+   呼び、その合間に MIDI 処理・タイマーが HWPlugin_Write を呼ぶ
+4. 全プラグインの出力を足し、WAV の形式に合わせてクリップ・量子化する
+```
+
 ---
 
 ## アドレス変換規則
@@ -422,7 +474,8 @@ FITOM が送るメッセージ:
 
 | 関数 | 要件 |
 |---|---|
-| `HWPlugin_Init` | ロード直後に一度だけ呼ばれる。スレッドセーフ不要 |
+| `HWPlugin_Init`, `HWPlugin_InitOffline` | ロード直後に、どちらか一方が一度だけ呼ばれる。スレッドセーフ不要 |
+| `HWPlugin_Render` | `HWPlugin_Write` / `HWPlugin_WriteBlock` と同じスレッドから、交互に呼ばれる(同時には呼ばれない)。スレッドセーフ不要 |
 | `HWPlugin_Write`, `HWPlugin_WriteBlock` | **スレッドセーフ必須**。FITOM は MIDI 入力・タイマー・GUI 操作のそれぞれのスレッドから呼ぶ。現在の FITOM はこれらを1つのロックで直列化しているが、契約としては並行呼び出しを許容すること |
 | `HWPlugin_Open`, `HWPlugin_Close`, `HWPlugin_Reset` | 初期化・終了フェーズのみ。スレッドセーフ不要 |
 | `HWPlugin_GetLatencySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |

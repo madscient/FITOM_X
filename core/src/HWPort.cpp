@@ -4,6 +4,7 @@
 #include "fitom/HWPort.h"
 #include "fitom/Log.h"
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <stdexcept>
 
 namespace fitom {
@@ -50,6 +51,11 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
         self->GetPartGain = l.symRequired<PFN_GetPartGain>("HWPlugin_GetPartGain");
     }
     self->SetMasterVolume = l.symOptional<PFN_SetMasterVolume>("HWPlugin_SetMasterVolume");
+    // オフライン描画の組も、部位ごとのゲインと同じく先頭だけで判定する。
+    self->InitOffline_ = l.symOptional<PFN_InitOffline>("HWPlugin_InitOffline");
+    if (self->InitOffline_) {
+        self->Render_ = l.symRequired<PFN_Render>("HWPlugin_Render");
+    }
 
     FITOM_LOG_INFO("HWPlugin loaded: " << self->name()
         << " from " << dllPath.string());
@@ -87,6 +93,18 @@ HWResult HWPluginInstance::init(const std::string& profilePath) const
     return Init_(profilePath.empty() ? nullptr : profilePath.c_str());
 }
 
+HWResult HWPluginInstance::initOffline(const std::string& profilePath, uint32_t sampleRate) const
+{
+    if (!InitOffline_) return HW_ERR_INVALID_ARG;
+    return InitOffline_(profilePath.empty() ? nullptr : profilePath.c_str(), sampleRate);
+}
+
+HWResult HWPluginInstance::render(float* out, uint32_t frames) const
+{
+    if (!Render_) return HW_ERR_INVALID_ARG;
+    return Render_(out, frames);
+}
+
 // -------------------------------------------------------
 //  HWPluginRegistry
 // -------------------------------------------------------
@@ -107,10 +125,24 @@ void HWPluginRegistry::registerPlugin(const std::string& name,
         // Init失敗時はこのプラグイン自体を登録しない
         // (Enumerate/Openを一切呼べない状態のプラグインを使い物として
         //  entries_に残すのは危険なため)。
-        HWResult r = plugin->init(profilePath.string());
+        HWResult r;
+        if (offlineSampleRate_ != 0) {
+            if (!plugin->supportsOffline()) {
+                FITOM_LOG_ERR("HWPlugin '" << name << "': does not support offline rendering"
+                    " (HWPlugin_InitOffline is not exported)");
+                failed_.push_back(name);
+                return;
+            }
+            r = plugin->initOffline(profilePath.string(), offlineSampleRate_);
+        } else {
+            r = plugin->init(profilePath.string());
+        }
         if (r != HW_OK) {
-            FITOM_LOG_ERR("HWPlugin '" << name << "': HWPlugin_Init failed (code="
-                << static_cast<int>(r) << ", profile=" << profilePath.string() << ")");
+            FITOM_LOG_ERR("HWPlugin '" << name << "': "
+                << (offlineSampleRate_ != 0 ? "HWPlugin_InitOffline" : "HWPlugin_Init")
+                << " failed (code=" << static_cast<int>(r)
+                << ", profile=" << profilePath.string() << ")");
+            failed_.push_back(name);
             return;
         }
 
@@ -120,7 +152,45 @@ void HWPluginRegistry::registerPlugin(const std::string& name,
     } catch (const std::exception& ex) {
         FITOM_LOG_ERR("Failed to load HW plugin '" << name << "' from "
             << dllPath.string() << ": " << ex.what());
+        failed_.push_back(name);
     }
+}
+
+void HWPluginRegistry::setOfflineSampleRate(uint32_t sampleRate)
+{
+    std::lock_guard<std::mutex> lk(mutex_);
+    offlineSampleRate_ = sampleRate;
+}
+
+std::vector<std::string> HWPluginRegistry::failedPlugins() const
+{
+    std::lock_guard<std::mutex> lk(mutex_);
+    return failed_;
+}
+
+std::size_t HWPluginRegistry::registeredCount() const
+{
+    std::lock_guard<std::mutex> lk(mutex_);
+    return entries_.size();
+}
+
+HWResult HWPluginRegistry::renderOffline(float* out, uint32_t frames)
+{
+    std::lock_guard<std::mutex> lk(mutex_);
+    if (offlineSampleRate_ == 0 || !out) return HW_ERR_INVALID_ARG;
+    const std::size_t n = static_cast<std::size_t>(frames) * 2;
+    std::fill(out, out + n, 0.0f);
+    if (renderTmp_.size() < n) renderTmp_.resize(n);
+    for (auto& [name, inst] : entries_) {
+        HWResult r = inst->render(renderTmp_.data(), frames);
+        if (r != HW_OK) {
+            FITOM_LOG_ERR("HWPlugin '" << name << "': HWPlugin_Render failed (code="
+                << static_cast<int>(r) << ")");
+            return r;
+        }
+        for (std::size_t i = 0; i < n; ++i) out[i] += renderTmp_[i];
+    }
+    return HW_OK;
 }
 
 std::shared_ptr<HWPluginInstance> HWPluginRegistry::get(const std::string& name)

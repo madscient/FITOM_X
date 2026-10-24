@@ -43,6 +43,8 @@ public:
     using PFN_SetPartGain       = HWResult    (FITOM_HWP_CALL*)(HWHandle, const char*, float, float);
     using PFN_GetPartGain       = HWResult    (FITOM_HWP_CALL*)(HWHandle, const char*, float*, float*);
     using PFN_SetMasterVolume   = HWResult    (FITOM_HWP_CALL*)(HWHandle, uint8_t);
+    using PFN_InitOffline       = HWResult    (FITOM_HWP_CALL*)(const char*, uint32_t);
+    using PFN_Render            = HWResult    (FITOM_HWP_CALL*)(float*, uint32_t);
 
     static std::shared_ptr<HWPluginInstance> load(const std::filesystem::path& dllPath);
 
@@ -56,6 +58,14 @@ public:
     //   (HW_OK=成功、HW_ERR_INVALID_ARG=プロファイル解析失敗、
     //    HW_ERR_OPEN_FAILED=デバイス/ストリーム起動失敗)。
     HWResult                  init(const std::string& profilePath) const;
+
+    // オフライン描画 (IHWPlugin.h の任意関数の組)。initOffline() は init() の
+    // 代わりに呼ぶ。組をエクスポートしていないプラグインでは
+    // supportsOffline() が false で、initOffline()/render() は
+    // HW_ERR_INVALID_ARG を返す。
+    bool     supportsOffline() const { return InitOffline_ != nullptr; }
+    HWResult initOffline(const std::string& profilePath, uint32_t sampleRate) const;
+    HWResult render(float* out, uint32_t frames) const;
 
     // HWPlugin_Shutdown() を呼ぶ(エクスポートされていないプラグインでは
     // 何もしない)。二重呼び出しを避けるため、内部で一度だけ実行する
@@ -89,6 +99,9 @@ private:
     PFN_Init       Init_        = nullptr;
     PFN_Shutdown   Shutdown_    = nullptr;   // optional: 未エクスポートならnullptr
     PFN_Enumerate  Enumerate_   = nullptr;
+    // オフライン描画は2関数で1組。InitOffline_ が非nullptrなら Render_ も非nullptr(load()が保証する)。
+    PFN_InitOffline InitOffline_ = nullptr;
+    PFN_Render      Render_      = nullptr;
     mutable bool   shutdownDone_ = false;
 };
 
@@ -112,6 +125,22 @@ public:
 
     std::shared_ptr<HWPluginInstance> get(const std::string& name);
 
+    // ─── オフライン描画 ───────────────────────────────────────────────
+    // registerPlugin() より前に呼ぶ。以後の登録は HWPlugin_Init の代わりに
+    // HWPlugin_InitOffline(profile, sampleRate) で初期化し、オフライン描画の
+    // 組をエクスポートしていないプラグインは登録しない(failedPlugins()に載る)。
+    void     setOfflineSampleRate(uint32_t sampleRate);
+    uint32_t offlineSampleRate() const { return offlineSampleRate_; }
+
+    // 登録できなかったプラグインの名前(ロード失敗・初期化失敗・オフライン非対応)。
+    std::vector<std::string> failedPlugins() const;
+    std::size_t              registeredCount() const;
+
+    // 登録済みの全プラグインの HWPlugin_Render を足し合わせ、out
+    // (L/R インターリーブ、frames * 2 要素) へ書く。クリップはしない。
+    // オフラインで初期化していなければ HW_ERR_INVALID_ARG。
+    HWResult renderOffline(float* out, uint32_t frames);
+
     // 登録済みの全プラグインに対してshutdown()(HWPlugin_Shutdown、
     // エクスポートされていれば)を呼んだ上で、保持しているshared_ptrを
     // 解放する。呼び出し元(HWPluginInstanceを他に保持していないことが
@@ -130,8 +159,11 @@ public:
     }
 
 private:
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::unordered_map<std::string, std::shared_ptr<HWPluginInstance>> entries_;
+    std::vector<std::string> failed_;
+    uint32_t                 offlineSampleRate_ = 0;   // 0 = オフラインではない
+    std::vector<float>       renderTmp_;
 };
 
 // -------------------------------------------------------

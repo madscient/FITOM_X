@@ -39,6 +39,7 @@ add_executable(fitom_tests
     test_y8960.cpp
     test_hwport.cpp
     test_part_gain.cpp
+    test_offline_render.cpp
     test_test_names.cpp
 )
 
@@ -64,6 +65,14 @@ fitom_add_stub_hwplugin(fitom_test_hwplugin_no_parts  FITOM_TEST_HWPLUGIN_NO_PAR
     STUB_HWPLUGIN_NO_PARTS)
 fitom_add_stub_hwplugin(fitom_test_hwplugin_head_only FITOM_TEST_HWPLUGIN_HEAD_ONLY
     STUB_HWPLUGIN_HEAD_ONLY)
+fitom_add_stub_hwplugin(fitom_test_hwplugin_offline_head_only FITOM_TEST_HWPLUGIN_OFFLINE_HEAD_ONLY
+    STUB_HWPLUGIN_OFFLINE_HEAD_ONLY)
+
+# SMF→WAV 変換器(apps/fitom_render)の部品のテスト。変換器をビルドしないときは追加しない。
+if(TARGET fitom_render_lib)
+    target_sources(fitom_tests PRIVATE test_render.cpp)
+    target_link_libraries(fitom_tests PRIVATE fitom_render_lib)
+endif()
 
 # 内部用MIDIパイプ(fitom_midi_pipe)の回帰テスト。DLL自体が
 # FITOM_BUILD_BACKEND_MIDI_PIPE=OFF(既定)ではビルドされないため、
