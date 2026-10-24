@@ -68,6 +68,7 @@ SF2ファイルは1つの中に複数の(bank, preset)の組を持つ。CC#32の
 ## マスターボリュームとマスターピッチ
 
 `CFITOM::setMasterVolume()`/`setMasterPitch()`は、値が変わるとGM2のUniversal Realtime SysEx(マスターボリューム、マスターファインチューニング)を組み立ててSF2のデバイスへ送る。マスターピッチの範囲(430–450Hz)は440Hzから±100セントに収まるので、ファインチューニングだけで足りる。FITOM_Xが外部から受信するのと同じ標準のメッセージなので、新しいプロトコルを作っていない。
+SF2以外のHWプラグインへは、マスターボリュームを`HWPlugin_SetMasterVolume`で渡す(`docs/interfaces/plugin-hwif.md`「マスターボリューム（オプション）」)。SF2のデバイスにはこの関数を呼ばないので、二重には掛からない。
 
 ## デバイスの登録と起動時の検査
 

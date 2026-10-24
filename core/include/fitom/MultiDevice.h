@@ -59,9 +59,6 @@ public:
     void reset() override { for (auto* c : chips_) c->reset(); }
     void init()  override { for (auto* c : chips_) c->init(); }
 
-    void setMasterVolume(uint8_t vol) override {
-        for (auto* c : chips_) c->setMasterVolume(vol);
-    }
 
     // 特定チップのみ有効なオプショナルインターフェース (SCC波形テーブル /
     // ADPCM系PCMバンク) は、ISoundDevice基底のデフォルトがno-opのため、

@@ -42,6 +42,7 @@ public:
     using PFN_GetPartName       = const char* (FITOM_HWP_CALL*)(HWHandle, uint32_t);
     using PFN_SetPartGain       = HWResult    (FITOM_HWP_CALL*)(HWHandle, const char*, float, float);
     using PFN_GetPartGain       = HWResult    (FITOM_HWP_CALL*)(HWHandle, const char*, float*, float*);
+    using PFN_SetMasterVolume   = HWResult    (FITOM_HWP_CALL*)(HWHandle, uint8_t);
 
     static std::shared_ptr<HWPluginInstance> load(const std::filesystem::path& dllPath);
 
@@ -79,6 +80,7 @@ public:
     PFN_GetPartName       GetPartName       = nullptr;
     PFN_SetPartGain       SetPartGain       = nullptr;
     PFN_GetPartGain       GetPartGain       = nullptr;
+    PFN_SetMasterVolume   SetMasterVolume   = nullptr;   // optional: no-op if absent
 
 private:
     HWPluginInstance() = default;
@@ -174,6 +176,9 @@ public:
     const std::vector<Part>& getParts() const { return parts_; }
     HWResult setPartGain(const std::string& part, float gainL, float gainR);
     HWResult getPartGain(const std::string& part, float& gainL, float& gainR) const;
+
+    // マスターボリューム (IHWPlugin.h の任意関数)。DLL が実装しない場合は何もしない。
+    void setMasterVolume(uint8_t volume);
 
     // ─── レジスタダンプモニター用シャドウレジスタ ────────────────────────
     // write()/writeBurst()で実際にHWPlugin_Write/WriteBlockへ渡した値を

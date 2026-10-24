@@ -217,7 +217,6 @@ public:
     virtual void setExpression(uint8_t ch, uint8_t exp, bool update = true) = 0;
     virtual void setPanpot(uint8_t ch, int8_t pan, bool update = true)      = 0;
     virtual void setSustain(uint8_t ch, bool sus, bool update = true)       = 0;
-    virtual void setMasterVolume(uint8_t vol)                               = 0;
 
     // CC#1 Modulation: LFR=0 の音色のみ CC#1 駆動 LFO が作用する。
     // cc1: MIDI CC#1 の値 (0-127)。maxDepth: RPN#5 由来の最大デプス。
@@ -339,7 +338,6 @@ public:
     void setExpression(uint8_t ch, uint8_t exp, bool update = true) override;
     void setPanpot(uint8_t ch, int8_t pan, bool update = true) override;
     void setSustain(uint8_t ch, bool sus, bool update = true) override;
-    void setMasterVolume(uint8_t vol) override;
     void setCC1Modulation(uint8_t ch, uint8_t cc1, int16_t maxDepth) override;
     void setLfoDepthOverride(uint8_t ch, int16_t cents) override;
     void onMasterPitchChanged(double pitchHz) override;
@@ -450,7 +448,6 @@ protected:
     int             fnumDivide_;     // コンストラクタで設定
     FnumTableType   fnumType_;       // コンストラクタで設定
     int             noteOffset_;
-    int             masterVolume_;
     uint8_t         priorCh_;   // 次に奪うチャンネルのヒント
 
     // キャリアマスク (アルゴリズム → キャリア OP ビットマスク)

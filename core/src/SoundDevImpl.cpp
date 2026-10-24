@@ -49,7 +49,6 @@ CSoundDevice::CSoundDevice(uint8_t deviceType, uint8_t maxChs, IPort* port,
     , fnumDivide_(fnumDivide)
     , fnumType_(fnumType)
     , noteOffset_(noteOffset)
-    , masterVolume_(127)
     , priorCh_(0)
 {
     if (regSize > 0) {
@@ -469,13 +468,6 @@ void CSoundDevice::setSustain(uint8_t ch, bool sus, bool update)
     if (update && s.sustainDirty) { updateSustain(ch); s.sustainDirty = false; }
 }
 
-void CSoundDevice::setMasterVolume(uint8_t vol)
-{
-    masterVolume_ = vol;
-    for (int ch = 0; ch < maxChs_; ++ch) {
-        if (chState_[ch].isRunning()) updateVolExp(ch);
-    }
-}
 
 // ================================================================
 //  リセット

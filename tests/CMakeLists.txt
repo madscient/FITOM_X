@@ -31,6 +31,7 @@ add_executable(fitom_tests
     test_dsg.cpp
     test_saa1099.cpp
     test_mono_channel.cpp
+    test_master_volume.cpp
     test_ssgs.cpp
     test_silence_bank.cpp
     test_y8960.cpp

@@ -49,6 +49,7 @@ std::shared_ptr<HWPluginInstance> HWPluginInstance::load(
         self->SetPartGain = l.symRequired<PFN_SetPartGain>("HWPlugin_SetPartGain");
         self->GetPartGain = l.symRequired<PFN_GetPartGain>("HWPlugin_GetPartGain");
     }
+    self->SetMasterVolume = l.symOptional<PFN_SetMasterVolume>("HWPlugin_SetMasterVolume");
 
     FITOM_LOG_INFO("HWPlugin loaded: " << self->name()
         << " from " << dllPath.string());
@@ -203,6 +204,12 @@ HWResult HWPort::getPartGain(const std::string& part, float& gainL, float& gainR
     if (!handle_ || !plugin_ || !plugin_->GetPartCount)
         return HW_ERR_INVALID_ARG;
     return plugin_->GetPartGain(handle_, part.c_str(), &gainL, &gainR);
+}
+
+void HWPort::setMasterVolume(uint8_t volume)
+{
+    if (!handle_ || !plugin_ || !plugin_->SetMasterVolume) return;
+    plugin_->SetMasterVolume(handle_, volume);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -638,7 +638,7 @@
       "minimum": 0,
       "maximum": 127,
       "default": 100,
-      "description": "マスターボリューム。GUIのシステム設定ダイアログから変更可能。現在のバージョンでは、FM/PSGのチップの音量には反映されない(SF2直行パスにだけ転送される)。省略時は100。"
+      "description": "マスターボリューム。GUIのシステム設定ダイアログから変更可能。SF2直行パスへはSysExで、HWプラグインへはHWPlugin_SetMasterVolumeで渡し、チップのレジスタには反映しない(実機のチップと、HWPlugin_SetMasterVolumeを実装しないプラグインには効かない)。省略時は100。"
     },
     "master_pitch": {
       "type": "number",

@@ -40,6 +40,7 @@ FITOM のプロファイルの `hw_plugins[].profile` に書き、`HWPlugin_Init
 | 任意 | `GetLatencySamples` / `SetDelaySamples` | `GetLatencySamples` が無ければレイテンシ 0 とみなす。`SetDelaySamples` が無ければ呼ばない |
 | 任意(強く推奨) | `Shutdown` | 呼ばない |
 | 任意(4関数の組) | `GetPartCount` / `GetPartName` / `SetPartGain` / `GetPartGain` | 「部位ごとのゲイン」節を参照 |
+| 任意 | `SetMasterVolume` | 呼ばない(マスターボリュームはそのデバイスに掛からない)。「マスターボリューム」節を参照 |
 
 関数名はいずれも `HWPlugin_` で始まる。
 
@@ -281,6 +282,45 @@ void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
   （プロファイル側の書式は `docs/manuals/profile-reference.md`「チップの出力ごとの音量」参照）。
 - 組をエクスポートしないプラグインのデバイスには、4 関数のどれも呼ばない。
 
+### マスターボリューム（オプション）
+
+FITOM のマスターボリューム(GM2 Universal Realtime のマスターボリューム、GUI の
+システム設定ダイアログ、プロファイルの `master_volume`)を、デバイスの音声出力に
+掛けるための関数。FITOM はマスターボリュームをチップのレジスタには反映しないので、
+音声出力を持つプラグイン(FM エンジン内蔵 hwif 等)がミキサーで掛ける。物理チップの
+hwif は実装しなくてよい。
+
+| 関数 | シグネチャ | 説明 |
+|---|---|---|
+| `HWPlugin_SetMasterVolume` | `HWResult (HWHandle, uint8_t volume)` | デバイスの出力にマスターボリュームを設定する |
+
+**実装要件**
+
+- **値**：0〜127。GM2 のマスターボリュームの上位 7bit と同じ値。音量への換算は
+  プラグインが決める。128 以上は `HW_ERR_INVALID_ARG`。
+- **既定値**：一度も呼ばれていないデバイスは 127(減衰なし)として扱うこと。
+- **他のゲインとの関係**：部位ごとのゲイン・`pan` とは別に掛かる(実際に掛かるのはこれらの積)。
+- **音声出力の動作中に呼び出せること。**
+
+| 戻り値 | 条件 |
+|---|---|
+| `HW_OK` | 成功 |
+| `HW_ERR_INVALID_ARG` | `handle` が `nullptr`、または `volume` が 128 以上 |
+| `HW_ERR_IO` | それ以外の理由による失敗 |
+
+**FITOM コア側の使い方:**
+
+```
+1. 全デバイスを開いた後、プロファイルの master_volume(省略時 100)で
+   開いたデバイスごとに SetMasterVolume を呼ぶ
+2. 演奏中は、マスターボリュームの SysEx の受信と、GUI のシステム設定ダイアログの
+   操作に応じて、開いたデバイスごとに同じ値で SetMasterVolume を呼ぶ
+```
+
+- `chip: "SF2"` のデバイスには呼ばない(SoundFont プラグインには SysEx で送る。
+  「SoundFont プラグインへの追加の約束」節参照)。
+- エクスポートしないプラグインのデバイスには呼ばない。
+
 ---
 
 ## アドレス変換規則
@@ -389,6 +429,7 @@ FITOM が送るメッセージ:
 | `HWPlugin_SetDelaySamples` | 初期化フェーズのみ呼ばれる。スレッドセーフ不要 |
 | `HWPlugin_GetPartCount`, `HWPlugin_GetPartName` | `HWPlugin_Open` の直後に、同じスレッドから呼ばれる。スレッドセーフ不要 |
 | `HWPlugin_SetPartGain`, `HWPlugin_GetPartGain` | **音声出力（オーディオコールバック）と並行して呼び出せること**。`HWPlugin_Open` の直後（初期化フェーズ）と、演奏中の GUI 操作から呼ばれる。演奏中の呼び出しは、MIDI 処理・タイマーと同じロックで直列化されるので、それらが行う `HWPlugin_Write` / `HWPlugin_WriteBlock` とは並行しない。`HWPlugin_Open` / `HWPlugin_Close` とも並行しない |
+| `HWPlugin_SetMasterVolume` | **音声出力（オーディオコールバック）と並行して呼び出せること**。初期化フェーズと、演奏中の SysEx の受信・GUI 操作から呼ばれる。演奏中の呼び出しは、MIDI 処理・タイマーと同じロックで直列化されるので、それらが行う `HWPlugin_Write` / `HWPlugin_WriteBlock` とは並行しない。`HWPlugin_Open` / `HWPlugin_Close` とも並行しない |
 | `HWPlugin_Shutdown` | 終了フェーズに一度だけ、メインスレッドから呼ばれる。**呼び出しから戻るまでに、内部のバックグラウンドスレッド(オーディオコールバック等)を完全に停止・joinし終えていること**(詳細は「プラグイン全体のシャットダウン」節参照) |
 
 ---

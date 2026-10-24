@@ -380,6 +380,13 @@ public:
         std::lock_guard<std::mutex> lk(processMutex_);
         if (mpuIndex < MAX_MPUS && processors_[mpuIndex]) processors_[mpuIndex]->sendNoteOff(ch, note);
     }
+    // GUI等からのマスターボリューム変更(システム設定ダイアログ用)。
+    // setMasterVolume()はSysExの受信経路からprocessMutex_を取った状態で
+    // 呼ばれるので、ここでロックしてから呼ぶ。
+    void sendMasterVolume(uint8_t vol) {
+        std::lock_guard<std::mutex> lk(processMutex_);
+        setMasterVolume(vol);
+    }
 
     // ─── SF2直行パス (docs/design/sf2-direct-path.md参照) ───
     // MidiProcessor::processMessage()から、生MIDI入力の(mpu, ch)が窓
@@ -461,6 +468,9 @@ public:
     // ─── グローバル操作 ───────────────────────────────────────────
     void allNoteOff();
     void resetAllCtrl();
+    // processMutex_を取った状態で呼ぶこと(GUI等からはsendMasterVolume())。
+    // チップドライバには掛けず、HWプラグイン(HWPlugin_SetMasterVolume)と
+    // SF2直行パス(SysEx)へ渡す。
     void setMasterVolume(uint8_t vol);
 
     // マスターピッチを設定する (430〜450Hz, デフォルト 440Hz)
@@ -609,6 +619,7 @@ private:
     // ここでは生ポインタのみを保持する。
     std::vector<PhysicalChipInfo> physicalChips_;
     void buildPhysicalChipList();
+    void applyMasterVolumeToHwPlugins(uint8_t vol);
 
     // チャンネルレベルメーター用、buildPhysicalChipList()がsubDevicesを
     // 組み立てる元データ。initDevices()のデバイス構築

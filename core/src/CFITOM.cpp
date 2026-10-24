@@ -764,6 +764,8 @@ void CFITOM::initDevices()
 
     // レジスタダンプモニター用、物理チップ単位の一覧を構築する。
     buildPhysicalChipList();
+
+    if (config_) applyMasterVolumeToHwPlugins(config_->getMasterVolume());
 }
 
 // ================================================================
@@ -1280,10 +1282,21 @@ void CFITOM::setScaleTuning(const std::array<int8_t, 12>& table)
 void CFITOM::setMasterVolume(uint8_t vol)
 {
     if (config_) config_->setMasterVolume(vol);
+    applyMasterVolumeToHwPlugins(vol);
     if (sf2Port_) {
         uint8_t buf[8];
         buildGm2MasterVolumeSysEx(buf, vol);
         sf2Port_->writeBurst(0, buf, sizeof(buf));
+    }
+}
+
+// physicalChips_はFITOMが開いたHWプラグインのハンドル(chip:"SF2"を除く)を
+// port/port2で網羅しているので、その全てへ配る。
+void CFITOM::applyMasterVolumeToHwPlugins(uint8_t vol)
+{
+    for (const auto& chip : physicalChips_) {
+        if (chip.port)  chip.port->setMasterVolume(vol);
+        if (chip.port2) chip.port2->setMasterVolume(vol);
     }
 }
 
@@ -1764,7 +1777,7 @@ void MidiProcessor::processSysEx()
         uint16_t value14 = (static_cast<uint16_t>(msb) << 7) | lsb;
 
         switch (sub2) {
-        case 0x01: // Master Volume (MSBのみ使用、7bit精度。FM/PSGチップの音量には反映されず、SF2直行パスにだけ効く)
+        case 0x01: // Master Volume (MSBのみ使用、7bit精度。HWプラグインとSF2直行パスへ渡す)
             parent_->setMasterVolume(msb);
             FITOM_LOG_INFO("SysEx: Master Volume = " << (int)msb);
             break;

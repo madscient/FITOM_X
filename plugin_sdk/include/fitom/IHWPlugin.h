@@ -6,8 +6,8 @@
 // ─── 設計原則 ────────────────────────────────────────────────────────────────
 //   hw::HWControllerBase の write / reset / isOpen を C 関数にフラット化。
 //   DLL は不透明ハンドル (HWHandle) を管理し、FITOM コアはその値を保持するだけ。
-//   FitomIFTest 側でこの C API を実装した共有ライブラリ (fitom_hw.dll / .so) を
-//   ビルドすることで FITOM コアと分離できる。
+//   HW I/F プラグイン (実機の FitomHwIF、エミュレータの FitomEmuIF 等) が、
+//   この C API を実装した共有ライブラリをビルドすることで FITOM コアと分離できる。
 //
 // ─── デバイス列挙 ────────────────────────────────────────────────────────────
 //   HWPlugin_Enumerate で接続済みデバイスの JSON 文字列を返す。
@@ -58,7 +58,7 @@ extern "C" {
 #endif
 
 // ─── プラグイン情報 ──────────────────────────────────────────────────────────
-// プラグイン名を返す ("FitomIFTest", "DummyHW" 等)
+// プラグイン名を返す ("FitomHwIF", "FitomEmuIF" 等)
 FITOM_HWP_API const char* FITOM_HWP_CALL HWPlugin_GetName();
 
 // ─── 初期化 ──────────────────────────────────────────────────────────────────
@@ -168,6 +168,24 @@ FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_SetPartGain(
     HWHandle handle, const char* part, float gain_l, float gain_r);
 FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_GetPartGain(
     HWHandle handle, const char* part, float* out_gain_l, float* out_gain_r);
+
+// ─── マスターボリューム（任意実装）───────────────────────────────────────────
+// FITOM のマスターボリューム（GM2 Universal Realtime のマスターボリューム、
+// GUI のシステム設定ダイアログ、プロファイルの master_volume）を、デバイスの
+// 音声出力に掛けるための関数。音声出力を持つプラグイン（FM エンジン内蔵 hwif 等）
+// が実装する。FITOM はエクスポートの有無を見て、無ければ呼ばない（物理チップの
+// hwif は実装しなくてよい）。
+//
+//   volume: 0〜127。GM2 のマスターボリュームの上位 7bit と同じ値。
+//           音量への換算はプラグインが決める。128 以上は HW_ERR_INVALID_ARG。
+//   一度も呼ばれていないときは 127（減衰なし）として扱うこと。
+//   部位ゲイン・pan とは別に掛かる（実際に掛かるのはこれらの積）。
+//   FITOM は HWPlugin_Open したデバイスごとに同じ値を渡す。開いた後に
+//   プロファイルの値で一度呼び、以後は値が変わるたびに呼ぶ。
+//   chip:"SF2" のデバイスには呼ばない（SoundFont プラグインには SysEx で送る）。
+//   音声出力の動作中に呼び出せること。
+FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_SetMasterVolume(
+    HWHandle handle, uint8_t volume);
 
 #ifdef __cplusplus
 }

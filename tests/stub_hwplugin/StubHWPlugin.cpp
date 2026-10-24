@@ -6,13 +6,18 @@
 // (tests/CMakeLists.txt):
 //   定義なし                 : 4 関数をすべてエクスポートする
 //   STUB_HWPLUGIN_NO_PARTS   : 4 関数を1つもエクスポートしない
+//                              (HWPlugin_SetMasterVolume もエクスポートしない)
 //   STUB_HWPLUGIN_HEAD_ONLY  : HWPlugin_GetPartCount だけをエクスポートする
+//
+// HWPlugin_SetMasterVolume で受け取った値は、テスト専用のエクスポート
+// StubHWPlugin_GetMasterVolume で読み出せる (契約に読み出しの関数が無いため)。
 //
 // 既定値は 1.0 以外を混ぜてある。HWPort 側が値を中継せずに 1.0 を返しても
 // テストが通ってしまわないようにするため。
 
 #include <fitom/IHWPlugin.h>
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -38,7 +43,14 @@ std::vector<Part> partsForChip(const std::string& chip)
 struct HWDeviceOpaque {
     std::vector<Part> parts;
     int               clock = 0;
+    std::string       chip;
+    int               index = 0;
+    int               masterVolume = -1;   // -1 = 一度も呼ばれていない
 };
+
+namespace {
+std::vector<HWDeviceOpaque*> g_openDevices;
+} // namespace
 
 #if !defined(STUB_HWPLUGIN_NO_PARTS) && !defined(STUB_HWPLUGIN_HEAD_ONLY)
 namespace {
@@ -87,11 +99,21 @@ FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Open(
         dev->parts = partsForChip(j["chip"].get<std::string>());
     if (j.contains("clock") && j["clock"].is_number_integer())
         dev->clock = j["clock"].get<int>();
+    if (j.contains("chip") && j["chip"].is_string())
+        dev->chip = j["chip"].get<std::string>();
+    if (j.contains("index") && j["index"].is_number_integer())
+        dev->index = j["index"].get<int>();
+    g_openDevices.push_back(dev);
     *out_handle = dev;
     return HW_OK;
 }
 
-FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Close(HWHandle handle) { delete handle; }
+FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Close(HWHandle handle)
+{
+    g_openDevices.erase(std::remove(g_openDevices.begin(), g_openDevices.end(), handle),
+                        g_openDevices.end());
+    delete handle;
+}
 
 FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_Write(HWHandle, uint16_t, uint8_t)
 {
@@ -152,6 +174,23 @@ FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_GetPartGain(
 }
 
 #endif // !STUB_HWPLUGIN_HEAD_ONLY
+
+FITOM_HWP_API HWResult FITOM_HWP_CALL HWPlugin_SetMasterVolume(HWHandle handle, uint8_t volume)
+{
+    if (!handle || volume > 127) return HW_ERR_INVALID_ARG;
+    handle->masterVolume = volume;
+    return HW_OK;
+}
+
 #endif // !STUB_HWPLUGIN_NO_PARTS
+
+// テスト専用。chip/index で開いているデバイスを探し、最後に受け取った
+// マスターボリュームを返す (未呼び出しは -1、該当デバイスなしは -2)。
+FITOM_HWP_API int FITOM_HWP_CALL StubHWPlugin_GetMasterVolume(const char* chip, int index)
+{
+    for (const auto* d : g_openDevices)
+        if (chip && d->chip == chip && d->index == index) return d->masterVolume;
+    return -2;
+}
 
 } // extern "C"

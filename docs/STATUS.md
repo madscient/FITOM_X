@@ -130,6 +130,7 @@
 | HWPlugin_Shutdown (任意API、二重実行防止) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `docs/interfaces/plugin-hwif.md`, `docs/manuals/profile-reference.md` |
+| マスターボリュームのHWプラグインへの受け渡し (任意の`HWPlugin_SetMasterVolume`、デバイスごと、0-127)。チップのレジスタには掛けない | 🚧 | `docs/interfaces/plugin-hwif.md` |
 | Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `docs/design/chip-drivers.md` |
 | 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `docs/design/chip-drivers.md` |
 | リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/manuals/profile-reference.md` |
@@ -196,6 +197,7 @@
 - [ ] 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`Config::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
 - [ ] 内部用MIDIパイプと実際のパッチエディタとの接続(PowerShellの簡易クライアントでの疎通確認までは実施済み)
 - [ ] 内部用MIDIパイプの10本目の接続(ch9、起動時はリズムチャンネル)で、`CC#0=0x79`によりメロディチャンネルへ切り替えてから直接デバイス選択で試聴できること。コードを読んで判断しただけ
+- [ ] マスターボリューム: FitomEmuIFが`HWPlugin_SetMasterVolume`を実装した後、システム設定ダイアログのスライダーとマスターボリュームのSysExで、エミュレータの出力の音量が変わる。FITOM_X側は、検証用プラグインが値を受け取ることまでテストで確かめた
 - [ ] SF2直行パスのFitomSf2IFとFITOM_Xを組み合わせての音出し(FitomSf2IFは実装済み。同リポジトリの`docs/STATUS.md`も実機検証は未実施としている)
 
 ---
@@ -203,7 +205,7 @@
 ## 4. 既知の未対応・将来課題
 
 **MIDI**
-- マスターボリューム(GUIのシステム設定ダイアログ、Universal SysEx `04 01`)がFM/PSGのチップの音量に反映されない。`CFITOM::setMasterVolume()`はプロファイル設定への保存とSF2直行パスへの転送しかせず、`CSoundDevice::setMasterVolume()`は呼ばれず、`CSoundDevice::masterVolume_`も読まれていない(**確認済み**: grepで確認。音では確かめていない)
+- SF2直行パスには、起動時にプロファイルの`master_volume`/`master_pitch`を送らない(値が変わったときだけSysExで送る)。HWプラグインへは起動時にも`HWPlugin_SetMasterVolume`で渡すので、SF2だけ扱いが違う。**確認済み**: `CFITOM::initDevices()`と`setMasterVolume()`/`setMasterPitch()`を読んで確認
 - Poly Pressure / Channel Pressure
 - CC#67 Soft Pedal(FM音源に対応するパラメータが無いため意図的に非対応)
 - CC#2/CC#4 の変数分離
@@ -255,7 +257,6 @@
 - `profile.schema.json`の`devices[].engine`の`examples`が`"YMEngine"`/`"AYEngine"`のまま。実際のプロファイルが書く値は`"engines/YMFMEngine"`等(**確認済み**: FITOM_stagingの全プロファイルの`engine`の値を数えた)。FITOM_stagingの写しも同じで、原本の修正を待っている
 
 **プラグイン SDK**
-- `plugin_sdk/include/fitom/IHWPlugin.h`のコメント2か所に旧名FitomIFTestが残っている(実機HWのI/FはFitomHwIF)。写しを持つリポジトリへの同期の手間を1回で済ませるため、次に契約を変えるときにまとめて直す
 
 
 ---
@@ -266,11 +267,11 @@
 
 | リポジトリ | 状況 |
 |---|---|
-| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`) |
-| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装) |
-| FitomSf2IF | `IHWPlugin.h`の写しに部位ゲインの節が無い。部位ゲインは任意の組なので、このままでもロードはできる |
+| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(任意)は未実装で、実装するまでFM/PSGにマスターボリュームは効かない。`IHWPlugin.h`の写しの同期も要る |
+| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`は実機にミキサーが無いので実装不要。`IHWPlugin.h`の写しの同期(旧名FitomIFTestの修正を含む)は要る |
+| FitomSf2IF | `IHWPlugin.h`の写しに部位ゲイン・マスターボリュームの節が無い。どちらも任意で、SF2のデバイスにはマスターボリュームをSysExで送るので、このままでもロードはでき、動作も変わらない |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決。`emu_ibmpc`プロファイルの`_comment`に「SAAのclockはCSAA1099の既定値8MHz固定に合わせる必要がある」とあるが、SAA1099はプラグインが報告するクロックを使うようになったので古い(プラグイン設定の`clock`が8000000なので音程は変わらない) |
+| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと構造が同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。その後FITOM_X側で`profile.schema.json`の`master_volume`の`description`を変えたので、説明文だけ食い違う。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決。`emu_ibmpc`プロファイルの`_comment`に「SAAのclockはCSAA1099の既定値8MHz固定に合わせる必要がある」とあるが、SAA1099はプラグインが報告するクロックを使うようになったので古い(プラグイン設定の`clock`が8000000なので音程は変わらない) |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 

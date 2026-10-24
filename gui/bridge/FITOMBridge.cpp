@@ -1403,7 +1403,7 @@ bool FITOMBridge::setSwPatchJson(int bankNo, int prog, const std::string& js)
 // ================================================================
 
 void    FITOMBridge::setMasterVolume(uint8_t vol) {
-    if (initialized_) fitom::CFITOM::instance().setMasterVolume(vol);
+    if (initialized_) fitom::CFITOM::instance().sendMasterVolume(vol);
 }
 uint8_t FITOMBridge::getMasterVolume() const {
     return initialized_ ? fitom::CFITOM::instance().getMasterVolume() : 100;
