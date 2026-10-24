@@ -177,7 +177,9 @@ public:
     // ─── 実効パラメータ取得 ───────────────────────────────────────
     // チップドライバの updateVoice / updateVolExp / updateTL が参照する。
 
-    // 実効 TL (dB 変換前の線形値, 0〜127)
+    // 名前に反して減衰量(TL)ではなく、ラウドネス空間の値(0=無音、127=最大音量。
+    // calcLinearLevel()と同じ目盛り)。減衰量のレジスタへはeffTLToReg()等で
+    // 変換して書き、ゲインのレジスタへは反転せずに書く。
     uint8_t effectiveTL(int op) const noexcept {
         return static_cast<uint8_t>(clamp(effectiveTL_[op], 0, 127));
     }

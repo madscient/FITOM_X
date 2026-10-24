@@ -725,12 +725,13 @@ protected:
                static_cast<uint8_t>(cur | ((fnum.fnum >> 8) & 1)), false);
     }
 
-    // Total Level (8bit)。7bit音量を8bit空間へビット拡張
-    // (MSB複製による拡張: (v<<1)|(v>>6))。
+    // Total Level (8bit)。減衰量ではなくゲインで、値が大きいほど大きい音
+    // (データシートに向きの記載は無い。エミュレータ[MAME由来]は出力を
+    // sample*level/256 で求める)。effectiveTL()はラウドネス空間(0=無音、
+    // 127=最大)なので反転せず、MSB複製で8bitへ広げる: (v<<1)|(v>>6)。
     void updateVolExp(uint8_t ch) override {
         const auto& s = chState_[ch];
-        uint8_t vol = s.proc.effectiveTL(0);
-        uint8_t loudness = 127u - vol;
+        uint8_t loudness = s.proc.effectiveTL(0);
         setReg(static_cast<uint16_t>(0x02 + ch * 4),
                static_cast<uint8_t>((loudness << 1) | (loudness >> 6)), false);
     }

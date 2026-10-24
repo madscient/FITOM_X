@@ -735,6 +735,7 @@ DEVICE_ADPCMB        (117) → OPNB/OPNBB (kOPNB_DeltaT)
 `DEVICE_ADPCM`(119)は旧い汎用名で、`DEVICE_ADPCMB_Y8950`を使う。
 
 - **音色データ**: すべてSampleZonePatchを使い、HwPatchの`hwOp[]`は使わない。再生する波形は、ノートとベロシティで選んだゾーンの`SampleZone::waveIndex`(PCMバンクのエントリ番号)で決まる(`SampleZonePatch::resolveZone()`)
+- **音量レジスタの向き**: ADPCM-Bのボリュームと、YMZ280BのTotal Level(reg `$02+ch*4`)はゲインで、値が大きいほど大きい音。`VoiceProcessor::effectiveTL()`はラウドネス空間(0=無音、127=最大)の値なので、反転せずに書く。YMZ280Bのデータシート(英語版・日本語版とも)は「256ステップ」とだけ書いて向きを書いていないので、エミュレータ(MAME由来。出力を`sample*level/256`で求める)に合わせている。ラウドネスはGM2の`40·log10(L/127)`dBの目盛りで、線形のレジスタへそのまま写すとdB上の効きは半分になる。ADPCM-Bも同じ写し方で、両者を揃えている
 - **`CYmDelta`はチップごとに異なる`RegMap`（レジスタアドレス集合）を持つ**：
   `kY8950_DeltaT`(YM3801)/`kOPNA_DeltaT`(YM2608)/`kOPNB_DeltaT`(YM2610/YM2610B)の
   3種類(`control1`〜`panmask`の16フィールド)。

@@ -1178,6 +1178,43 @@ TEST_CASE("COPLLRhythm volume register nibble mapping matches legacy FITOM: "
 //       前にダンプを挟まないと確実な物理的リトリガーにならない。
 // ================================================================
 
+// YMZ280B(PCMD8)のTotal Level(reg $02+ch*4)は減衰量ではなくゲインで、値が
+// 大きいほど大きい音(データシートには向きの記載が無い。エミュレータ
+// [EPSGemuEngine の Ymz280b.cpp、MAME 由来]は出力を sample*level/256 で求める)。
+// effectiveTL(0)はラウドネス空間(0=無音、127=最大)なので、反転せずに書く。
+TEST_CASE("CAdPcmZ280 writes a larger Total Level for a louder channel volume",
+          "[sounddevice][ymz280b]")
+{
+    RecordingPort port;
+    auto dev = createCAdPcm(&port, 16934400, DEVICE_PCMD8);
+    REQUIRE(dev);
+    dev->init();
+
+    SampleZonePatch patch;
+    patch.id = 1;
+    SampleZone zone{};
+    zone.keyMin = 0; zone.keyMax = 127;
+    zone.velMin = 0; zone.velMax = 127;
+    patch.zones.push_back(zone);
+
+    auto levelAt = [&](uint8_t volume) {
+        uint8_t ch = dev->allocCh(nullptr, nullptr, 127, nullptr, &patch);
+        REQUIRE(ch != 0xFF);
+        dev->setVolume(ch, volume, false);
+        dev->setExpression(ch, 127, false);
+        dev->setNoteFine(ch, 60, 0, true);
+        dev->noteOn(ch, 127);
+        const uint8_t tl = port.regs[static_cast<uint16_t>(0x02 + ch * 4)];
+        dev->noteOff(ch);
+        return tl;
+    };
+
+    const uint8_t loud  = levelAt(127);
+    const uint8_t quiet = levelAt(40);
+    CHECK(loud == 0xFF);
+    CHECK(quiet < loud);
+}
+
 TEST_CASE("CAdPcm2610A does not stop on NoteOff but forceDamp writes the dump bit",
           "[sounddevice][adpcma][choke]")
 {
