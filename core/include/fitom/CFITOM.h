@@ -652,7 +652,7 @@ private:
         int sampleRate, IPort* extraPort, bool rhythmMode,
         bool stereoPairChipLevel = false,
         ISoundDevice** outLeftRaw = nullptr, ISoundDevice** outRightRaw = nullptr,
-        int clockDivider = 1);
+        int clockDivider = 1, int clockMultiplier = 1);
 
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;

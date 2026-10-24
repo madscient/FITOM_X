@@ -18,9 +18,9 @@
 using namespace fitom;
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int masterClock);
 }
 
 namespace {
@@ -42,9 +42,9 @@ public:
 std::unique_ptr<ISoundDevice> makeDevice(int kind, IPort* port)
 {
     switch (kind) {
-    case 0:  return createCOPM(port, 44100);
-    case 1:  return createCOPP(port, 44100);
-    default: return createCOPZ(port, 44100);
+    case 0:  return createCOPM(port, 0);
+    case 1:  return createCOPP(port, 0);
+    default: return createCOPZ(port, 0);
     }
 }
 

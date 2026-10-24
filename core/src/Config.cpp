@@ -937,6 +937,12 @@ int FITOMConfig::getDeviceClockDivider(int index) const {
     return (d > 0) ? d : 1;
 }
 
+int FITOMConfig::getDeviceClockMultiplier(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return 1;
+    int m = devices_[index].clockMultiplier;
+    return (m > 0) ? m : 1;
+}
+
 bool FITOMConfig::getDeviceRhythmMode(int index) const {
     if (index < 0 || index >= static_cast<int>(devices_.size())) return false;
     return devices_[index].rhythmMode;
@@ -1186,6 +1192,7 @@ void FITOMConfig::pushDeviceEntries(const std::string& baseLabel, uint32_t baseD
             e.deviceType     = s.deviceType;
             e.sampleRate     = sampleRate;
             e.clockDivider   = s.clockDivider;
+            e.clockMultiplier = s.clockMultiplier;
             e.extraSlot      = extraSlot;
             e.port           = port;                          // 全サブデバイスで共有
             e.port2          = s.usesExtraPort ? port2 : nullptr;
@@ -1589,6 +1596,17 @@ bool FITOMConfig::getDeviceSpanGroupStereoPairChipLevel(int index, int k) const 
 // そのままSSG部のクロックなので分周しない)。
 static constexpr int kOpnSsgClockDivider = 4;
 
+// OPL系のドライバ(COPL/COPL3/COPLRhythm)は、OPL2(YM3812)と同じ
+// 「72クロックで1サンプル」の換算でF-Numberを計算する。1サンプルあたりの
+// クロック数が違うチップのFM部には、OPL2に換算したクロックを渡す。
+//   YMF262 (OPL3)     : 288クロック → ÷4
+//   YMF278B (OPL4)のFM部: 684クロック(19×36) → ×72÷684 = ×2÷19
+// OPL4の値はymfm(ymf278b)の実装による。OPL4はFM部の出力を
+// clock/768(44.1kHz)のPCM部へ合わせて間引くが、音程はFM部の速さで決まる。
+static constexpr int kOpl3FmClockDivider    = 4;
+static constexpr int kOpl4FmClockDivider    = 19;
+static constexpr int kOpl4FmClockMultiplier = 2;
+
 bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeFromProfile,
                                         std::vector<SubDeviceSpec>& outSpec)
 {
@@ -1694,10 +1712,10 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // リズムモードレジスタ(0xBD)はbank0(port1)にのみ存在するため、
         // COPL3_2側のport1サブチップ(ch6-8)にrhythm_modeを適用すると
         // "OPL3(6ch)+OPL2(3ch)+Rhythm(5ch)" 構成になる。
-        outSpec.push_back({DEVICE_OPL3,   "-4OP", true, false});
-        outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true});
+        outSpec.push_back({DEVICE_OPL3,   "-4OP", true, false, kOpl3FmClockDivider});
+        outSpec.push_back({DEVICE_OPL3_2, "-2OP", true, true,  kOpl3FmClockDivider});
         if (rhythmModeFromProfile) {
-            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false, kOpl3FmClockDivider});
         }
         return true;
 
@@ -1711,11 +1729,14 @@ bool FITOMConfig::resolveCompositeSpec(uint32_t baseDeviceType, bool rhythmModeF
         // アクセスする(usesExtraPortはfalseのままでよい)。
         // リズム(DEVICE_OPL_RHY)はOPL3同様port1のみで完結し、
         // rhythm_mode:trueの場合のみ追加する。
-        outSpec.push_back({DEVICE_OPL3,    "-FM-4OP", true,  false});
-        outSpec.push_back({DEVICE_OPL3_2,  "-FM-2OP", true,  true});
+        outSpec.push_back({DEVICE_OPL3,    "-FM-4OP", true,  false,
+                           kOpl4FmClockDivider, kOpl4FmClockMultiplier});
+        outSpec.push_back({DEVICE_OPL3_2,  "-FM-2OP", true,  true,
+                           kOpl4FmClockDivider, kOpl4FmClockMultiplier});
         outSpec.push_back({DEVICE_OPL4AWM, "-AWM",    false, false});
         if (rhythmModeFromProfile) {
-            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false});
+            outSpec.push_back({DEVICE_OPL_RHY, "-RHYTHM", false, false,
+                               kOpl4FmClockDivider, kOpl4FmClockMultiplier});
         }
         return true;
 

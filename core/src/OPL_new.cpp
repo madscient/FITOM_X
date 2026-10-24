@@ -26,19 +26,23 @@ namespace fitom {
 // ================================================================
 class COPL : public CSoundDevice {
 public:
-    // 実機YM3526/YM3812のマスタークロック(NTSC colorburst相当、
-    // 3.579545MHz)。sampleRate引数は他チップドライバとのファクトリ
-    // 関数シグネチャ一貫性のために残すが、Fnum計算には使用しない
-    // (fnumMasterに使うとFnumberが常に上限へクランプされる)。
-    static constexpr int kMasterClock = 3579545;
+    // OPL系のドライバ(COPL/COPL3/COPLRhythm)は、YM3812と同じ「72クロックで
+    // 1サンプル」の換算でF-Numberを計算する。masterClockはその換算での
+    // クロックで、OPL3/OPL4のFM部はDeviceFactoryが換算して渡す
+    // (Config.cppのkOpl3FmClockDivider参照)。ポートがクロックを報告
+    // しないとき(0)は、YM3526/YM3812の標準クロックを使う。
+    static constexpr int kDefaultClock = 3579545;
+    static int clockOrDefault(int masterClock) {
+        return masterClock > 0 ? masterClock : kDefaultClock;
+    }
 
     // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
     // 専用として無効化する(COPLLと同じ設計、docs/design/chip-drivers.mdの
     // 「内蔵リズムのサブデバイスと rhythm_mode」参照)。
-    COPL(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL,
+    COPL(IPort* port, int masterClock, uint8_t devId = DEVICE_OPL,
          bool rhythmMode = false)
         : CSoundDevice(devId, 9, port,
-                       kMasterClock, 72,   // fnum master/divide
+                       clockOrDefault(masterClock), 72,   // fnum master/divide
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x100)
@@ -286,8 +290,8 @@ public:
     // devId: COPL2をそのまま流用する派生チップ用 (例: DEVICE_OPL2EX、
     // Y8960拡張OPL2部。レジスタマップはOPL2と完全に同一のためクラス自体は
     // 共有し、devIdとchipLabel()だけを差し替える)。
-    COPL2(IPort* port, int sampleRate, bool rhythmMode = false, uint8_t devId = DEVICE_OPL2)
-        : COPL(port, sampleRate, devId, rhythmMode) {}
+    COPL2(IPort* port, int masterClock, bool rhythmMode = false, uint8_t devId = DEVICE_OPL2)
+        : COPL(port, masterClock, devId, rhythmMode) {}
     void init() override {
         COPL::init();
         setReg(0x01, 0x20, true); // Wave Select Enable
@@ -308,8 +312,8 @@ protected:
 // ================================================================
 class COPL2EX : public COPL2 {
 public:
-    COPL2EX(IPort* port, int sampleRate, bool rhythmMode = false)
-        : COPL2(port, sampleRate, rhythmMode, DEVICE_OPL2EX) {}
+    COPL2EX(IPort* port, int masterClock, bool rhythmMode = false)
+        : COPL2(port, masterClock, rhythmMode, DEVICE_OPL2EX) {}
 
     // 仕様上のリセット値(中央=128)をシャドウへ載せる。リズム用のch6-8もここで揃う。
     void init() override {
@@ -330,8 +334,8 @@ protected:
 // ================================================================
 class C3801 : public COPL {
 public:
-    C3801(IPort* port, int sampleRate, bool rhythmMode = false)
-        : COPL(port, sampleRate, DEVICE_Y8950, rhythmMode) {}
+    C3801(IPort* port, int masterClock, bool rhythmMode = false)
+        : COPL(port, masterClock, DEVICE_Y8950, rhythmMode) {}
 protected:
     std::string chipLabel() const override { return "Y8950"; }
 };
@@ -350,15 +354,11 @@ protected:
 // ================================================================
 class COPL3 : public CSoundDevice {
 public:
-    // 実機YMF262のマスタークロック(14.31818MHz、COPLの3.579545MHzの
-    // ちょうど4倍)。divide=288(=COPLの72×4)と対応しており、この
-    // 4倍/4倍の比率により、COPLと数学的に同一のFnumber値を生成する。
-    // sampleRateはFnum計算に使わない(COPLと同じ)。
-    static constexpr int kMasterClock = 14318180;
-
-    COPL3(IPort* port, int /*sampleRate*/)
+    // masterClock: OPL2換算のクロック(COPL::kDefaultClock参照)。
+    // YMF262は288クロックで1サンプルなので、14.31818MHzなら3.579545MHz。
+    COPL3(IPort* port, int masterClock)
         : CSoundDevice(DEVICE_OPL3, 6, port,
-                       kMasterClock, 288,
+                       COPL::clockOrDefault(masterClock), 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x200)
@@ -703,12 +703,13 @@ public:
     // (0xBD)はbank0(port1)にのみ存在するハードウェア制約のため、port2側
     // (chip2_)のch6-8は影響を受けず通常の2OPとして使い続けられる
     // (PatchManager.cppの ext.rhythmCh 解決コメント参照)。
-    COPL3_2(IPort* port, int sampleRate, bool rhythmMode = false)
+    // masterClock: OPL2換算のクロック(COPL3と同じ)。
+    COPL3_2(IPort* port, int masterClock, bool rhythmMode = false)
         : rhythmMode_(rhythmMode)
     {
         offsetPort_ = std::make_unique<OffsetPort>(port, 0x100);
-        chip1_ = std::make_unique<COPL2>(port,              sampleRate);
-        chip2_ = std::make_unique<COPL2>(offsetPort_.get(), sampleRate);
+        chip1_ = std::make_unique<COPL2>(port,              masterClock);
+        chip2_ = std::make_unique<COPL2>(offsetPort_.get(), masterClock);
         // 各ポートch0-5は4OPモード(COPL3)が使用するため無効化する。
         // 残りch6-8(3ch)ずつ、計6chのみ2OPとして使用する。
         for (int i = 0; i < 6; ++i) {
@@ -776,9 +777,10 @@ private:
 // ================================================================
 class COPLRhythm : public CSoundDevice {
 public:
-    COPLRhythm(IPort* port, int /*sampleRate*/, uint8_t devId = DEVICE_OPL_RHY)
+    // masterClock: OPL2換算のクロック(OPL3/OPL4に載るときはDeviceFactoryが換算する)。
+    COPLRhythm(IPort* port, int masterClock, uint8_t devId = DEVICE_OPL_RHY)
         : CSoundDevice(devId, 5, port,
-                       COPL::kMasterClock, 72,
+                       COPL::clockOrDefault(masterClock), 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        0x100)
@@ -969,8 +971,8 @@ protected:
 // ================================================================
 class COPL2EXRhythm : public COPLRhythm {
 public:
-    COPL2EXRhythm(IPort* port, int sampleRate)
-        : COPLRhythm(port, sampleRate, DEVICE_OPL2EX_RHY) {}
+    COPL2EXRhythm(IPort* port, int masterClock)
+        : COPLRhythm(port, masterClock, DEVICE_OPL2EX_RHY) {}
 
     std::string getDescriptor() const override { return "OPL2EX Rhythm 5ch"; }
 
@@ -990,19 +992,23 @@ protected:
 } // namespace fitom
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode)
-    { return std::make_unique<COPL>(p, sr, DEVICE_OPL, rhythmMode); }
-std::unique_ptr<ISoundDevice> createC3801(IPort* p, int sr, bool rhythmMode)
-    { return std::make_unique<C3801>(p, sr, rhythmMode); }
-std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode)
-    { return std::make_unique<COPL2>(p, sr, rhythmMode); }
-std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode)
-    { return std::make_unique<COPL2EX>(p, sr, rhythmMode); }
-std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr) { return std::make_unique<COPL3>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode)
-    { return std::make_unique<COPL3_2>(p, sr, rhythmMode); }
-std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr) { return std::make_unique<COPLRhythm>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int sr) { return std::make_unique<COPL2EXRhythm>(p, sr); }
+// masterClock: OPL2換算のクロック。0なら標準のクロックを使う(COPL::kDefaultClock参照)。
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int masterClock, bool rhythmMode)
+    { return std::make_unique<COPL>(p, masterClock, DEVICE_OPL, rhythmMode); }
+std::unique_ptr<ISoundDevice> createC3801(IPort* p, int masterClock, bool rhythmMode)
+    { return std::make_unique<C3801>(p, masterClock, rhythmMode); }
+std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int masterClock, bool rhythmMode)
+    { return std::make_unique<COPL2>(p, masterClock, rhythmMode); }
+std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int masterClock, bool rhythmMode)
+    { return std::make_unique<COPL2EX>(p, masterClock, rhythmMode); }
+std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int masterClock)
+    { return std::make_unique<COPL3>(p, masterClock); }
+std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int masterClock, bool rhythmMode)
+    { return std::make_unique<COPL3_2>(p, masterClock, rhythmMode); }
+std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int masterClock)
+    { return std::make_unique<COPLRhythm>(p, masterClock); }
+std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int masterClock)
+    { return std::make_unique<COPL2EXRhythm>(p, masterClock); }
 
 // ================================================================
 //  フォールバック受け入れ判定

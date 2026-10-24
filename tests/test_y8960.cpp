@@ -96,8 +96,8 @@ void assignAllRhythmParts(ISoundDevice& dev)
 } // namespace
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t m);
-std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode);
+std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int masterClock, uint8_t m);
+std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int masterClock, bool rhythmMode);
 }
 
 // ================================================================
@@ -111,7 +111,7 @@ TEST_CASE("COPLLEX writes the per-channel BANK register from ext.ALG_EXT bits 2-
 {
     for (uint8_t bank = 0; bank < 4; ++bank) {
         RecordingPort port;
-        auto dev = createCOPLLEX(&port, 44100, 0);
+        auto dev = createCOPLLEX(&port, 0, 0);
         dev->init();
 
         HwPatch patch = makeOpllUserPatch();
@@ -130,7 +130,7 @@ TEST_CASE("COPLLEX combines the preset flag and BANK bits independently",
           "[y8960][opllex]")
 {
     RecordingPort port;
-    auto dev = createCOPLLEX(&port, 44100, 0);
+    auto dev = createCOPLLEX(&port, 0, 0);
     dev->init();
 
     HwPatch patch{};
@@ -152,7 +152,7 @@ TEST_CASE("COPLLEX combines the preset flag and BANK bits independently",
 TEST_CASE("COPLLEX still writes standard OPLL user-voice registers", "[y8960][opllex]")
 {
     RecordingPort port;
-    auto dev = createCOPLLEX(&port, 44100, 0);
+    auto dev = createCOPLLEX(&port, 0, 0);
     dev->init();
     CHECK(dev->getChCount() == 9);
     CHECK(dev->getDeviceType() == DEVICE_OPLLEX);
@@ -172,7 +172,7 @@ TEST_CASE("COPLLEX still writes standard OPLL user-voice registers", "[y8960][op
 TEST_CASE("COPL2EX shares the OPL2 register map for its FM core", "[y8960][opl2ex]")
 {
     RecordingPort port;
-    auto dev = createCOPL2EX(&port, 44100, false);
+    auto dev = createCOPL2EX(&port, 0, false);
     dev->init();
 
     CHECK(dev->getChCount() == 9);
@@ -463,7 +463,7 @@ TEST_CASE("y8960PanValue maps the MIDI panpot onto 1 / 128 / 255", "[y8960][pan]
 TEST_CASE("COPLLEX writes the stereo position to 0x50+ch", "[y8960][opllex][pan]")
 {
     RecordingPort port;
-    auto dev = createCOPLLEX(&port, 44100, 0);
+    auto dev = createCOPLLEX(&port, 0, 0);
     dev->init();
     for (uint8_t ch = 0; ch < 9; ++ch) {
         INFO("ch=" << (int)ch);
@@ -539,7 +539,7 @@ TEST_CASE("Plain OPLL rhythm does not write position registers", "[y8960][opllex
 TEST_CASE("COPL2EX writes the stereo position to 0xF6+ch", "[y8960][opl2ex][pan]")
 {
     RecordingPort port;
-    auto dev = createCOPL2EX(&port, 44100, false);
+    auto dev = createCOPL2EX(&port, 0, false);
     dev->init();
     for (uint8_t ch = 0; ch < 9; ++ch) {
         INFO("ch=" << (int)ch);

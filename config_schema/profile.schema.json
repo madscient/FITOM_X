@@ -415,7 +415,7 @@
           "clock": {
             "type": "integer",
             "default": 0,
-            "description": "[if=HW のみ] チップのマスタークロック [Hz]。HWプラグインのparams_jsonフィールド名(FitomHwIF等)。0は呼び出し元が管理しない（チップドライバが固定値を持つ場合）。",
+            "description": "[if=HW のみ] チップのマスタークロック [Hz]。HWプラグインのparams_jsonフィールド名(FitomHwIF等)。0は呼び出し元が管理しない（プラグインがクロックを報告しないとき、FMチップはチップの標準クロックで音程を計算する）。",
             "examples": [
               3993600,
               3579545,

@@ -90,9 +90,8 @@ public:
     // port1: 必須。エミュレーターの場合はこれ1つだけ渡す。
     // port2: SPFM 等の2スロット構成で2番目の IPort がある場合に渡す。
     //        nullptr の場合は内部で OffsetPort(port1, 0x100) を生成する。
-    // fnumMaster: チップのマスタークロック [Hz]。OPN2/OPNA 系は 8MHz。
-    COPNA(IPort* port1, IPort* port2 = nullptr,
-          uint8_t deviceId = DEVICE_OPNA, int fnumMaster = 8000000)
+    // fnumMaster: チップのクロック [Hz] (ポートが報告する値)。
+    COPNA(IPort* port1, IPort* port2, uint8_t deviceId, int fnumMaster)
     {
         // エミュレーター (単一ポート) の場合はオフセットポートを生成
         if (!port2) {
@@ -156,9 +155,8 @@ private:
 // ================================================================
 class COPN2 : public COPNA {
 public:
-    COPN2(IPort* port1, IPort* port2 = nullptr,
-          uint8_t deviceId = DEVICE_OPN2)
-        : COPNA(port1, port2, deviceId, 8000000)
+    COPN2(IPort* port1, IPort* port2, uint8_t deviceId, int fnumMaster)
+        : COPNA(port1, port2, deviceId, fnumMaster)
     {}
 
     std::string getDescriptor() const override { return "OPN2 (YM2612) 6ch"; }
@@ -194,8 +192,8 @@ private:
 // ================================================================
 class COPNB : public COPNA {
 public:
-    explicit COPNB(IPort* port1, IPort* port2 = nullptr)
-        : COPNA(port1, port2, DEVICE_OPNB, 8000000)
+    COPNB(IPort* port1, IPort* port2, int fnumMaster)
+        : COPNA(port1, port2, DEVICE_OPNB, fnumMaster)
     {
         disableUnusedChs();
     }
@@ -304,20 +302,26 @@ std::unique_ptr<ISoundDevice> createSubCOPN(IPort* port, int fnumMaster, bool fx
     return createSubCOPN_impl(port, fnumMaster, fxCapable);
 }
 
-std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int /*sr*/, IPort* p2) {
-    return std::make_unique<COPNA>(p, p2, DEVICE_OPNA);
+// masterClock: ポートが報告するクロック。0なら標準のクロックを使う。
+static int opnaClock(int masterClock) {
+    constexpr int kDefaultClock = 8000000;
+    return masterClock > 0 ? masterClock : kDefaultClock;
 }
-std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int /*sr*/, IPort* p2) {
-    return std::make_unique<COPNB>(p, p2);
+
+std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int masterClock, IPort* p2) {
+    return std::make_unique<COPNA>(p, p2, DEVICE_OPNA, opnaClock(masterClock));
 }
-std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int /*sr*/, IPort* p2) {
-    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2);
+std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int masterClock, IPort* p2) {
+    return std::make_unique<COPNB>(p, p2, opnaClock(masterClock));
 }
-std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int /*sr*/, IPort* p2) {
-    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2C);
+std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int masterClock, IPort* p2) {
+    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2, opnaClock(masterClock));
 }
-std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int /*sr*/, IPort* p2) {
-    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2L);
+std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int masterClock, IPort* p2) {
+    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2C, opnaClock(masterClock));
+}
+std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int masterClock, IPort* p2) {
+    return std::make_unique<COPN2>(p, p2, DEVICE_OPN2L, opnaClock(masterClock));
 }
 std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr) {
     return std::make_unique<COPNARhythm>(p, sr);

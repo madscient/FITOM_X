@@ -173,7 +173,7 @@ FITOM_HWP_API void FITOM_HWP_CALL HWPlugin_Shutdown()
 
 | 関数 | シグネチャ | 説明 |
 |---|---|---|
-| `HWPlugin_GetClock` | `int (HWHandle)` | チップのマスタークロック [Hz] を返す。FITOM は F-number やトーン周期の計算にこの値を使う |
+| `HWPlugin_GetClock` | `int (HWHandle)` | チップのマスタークロック [Hz] を返す。FITOM は F-number・トーン周期・ADPCM の再生レートをこの値から計算するので、チップを実際に動かしているクロックを返すこと。OPNA の SSG 部や OPL4 の FM 部のような内部ブロックの分周は FITOM 側で行うため、チップ自体のクロックを返す。分からないときは 0 を返す(FM 系はチップの標準クロック、それ以外は音声出力のサンプルレートで代用する) |
 | `HWPlugin_GetPanpot` | `int (HWHandle)` | パノラマ設定値を返す(`pan` と同じ値域) |
 | `HWPlugin_IsOpen` | `bool (HWHandle)` | デバイスが使用可能か返す |
 

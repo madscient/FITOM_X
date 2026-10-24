@@ -13,20 +13,21 @@ namespace fitom {
 // ================================================================
 class COPN : public CSoundDevice {
 public:
-    // fnumMaster: チップのマスタークロック [Hz]。
-    // 単体 OPN (YM2203) はデフォルト 3.993MHz。
-    // OPN2/OPNA 系のサブチップとして使用する場合は
-    // 親クラスのコンストラクタから適切なクロック値を渡す。
+    // fnumMaster: チップのクロック [Hz] (ポートが報告する値)。
+    // fnumDivide: FM部が1サンプルを出すのにかかるクロック数。YM2203は72、
+    // OPNA/OPN2/OPNB系は144 (同じF-Numberでも、クロックが同じなら
+    // YM2203の方が1オクターブ高く鳴る)。OPNA/OPN2系のサブチップとして
+    // 使用する場合は親クラスのコンストラクタから渡す。
     //
     // fxCapable: FXモード(3rd channel special mode)対応の有無。
     // 実機OPN系は「チップの ch2 (最初の3ch分の3番目)」のみがFXモード対応で、
     // OPNA/OPN2 の後半3ch分 (chip2_、port2側) には対応するレジスタが
     // 実機に存在しない。単体OPNおよびOPNA/OPN2の前半サブチップはtrue、
     // OPNA/OPN2の後半サブチップはfalseを渡す。
-    COPN(IPort* port, uint8_t deviceId = DEVICE_OPN, int fnumMaster = 3993600,
+    COPN(IPort* port, uint8_t deviceId, int fnumMaster, int fnumDivide,
          bool fxCapable = true)
         : CSoundDevice(deviceId, 3, port,
-                       fnumMaster, 144,
+                       fnumMaster, fnumDivide,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        256)
@@ -315,11 +316,14 @@ namespace fitom {
 //  ヘッダで公開すると循環インクルードが起きるため、
 //  名前でリンク解決する間接ファクトリを使う)
 std::unique_ptr<ISoundDevice> createSubCOPN_impl(IPort* port, int fnumMaster, bool fxCapable) {
-    return std::make_unique<COPN>(port, DEVICE_OPN, fnumMaster, fxCapable);
+    return std::make_unique<COPN>(port, DEVICE_OPN, fnumMaster, 144, fxCapable);
 }
 
-std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr) {
-    return std::make_unique<COPN>(p);
+// masterClock: ポートが報告するクロック。0なら標準のクロックを使う。
+std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int masterClock) {
+    constexpr int kDefaultClock = 3993600;
+    return std::make_unique<COPN>(p, DEVICE_OPN,
+                                  masterClock > 0 ? masterClock : kDefaultClock, 72);
 }
 
 // ================================================================

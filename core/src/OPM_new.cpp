@@ -21,13 +21,15 @@ namespace fitom {
 // ================================================================
 class COPM : public CSoundDevice {
 public:
-    explicit COPM(IPort* port, int sampleRate = 44100, uint8_t devId = DEVICE_OPM)
+    // masterClock: ポートが報告するクロック。0なら標準のクロックを使う。
+    explicit COPM(IPort* port, int masterClock = 0, uint8_t devId = DEVICE_OPM)
         : CSoundDevice(devId, 8, port,
                        0, 0,           // fnumMaster/Divide: OPM は独自計算
                        -61,            // origin note O4C+
                        FnumTableType::Fnumber,
                        0x100)
         , lfoDepth_(0), lfoRate_(0)
+        , masterClock_(masterClock > 0 ? masterClock : kDefaultClock)
     {
         opCount_ = 4;
         masterTune_ = computeMasterTune(440.0); // デフォルト A4=440Hz
@@ -284,6 +286,7 @@ private:
 
     uint8_t  lfoDepth_ = 0, lfoRate_ = 0;
     int16_t  masterTune_ = 0;
+    int      masterClock_;
 
     // $38+ch に書く PMS(b6-4)/AMS(b1-0)。シャドウを読み書きせずドライバが持つ。
     // OPZ の $38+ch は b7/b2 が PMS/AMS の LFO1/LFO2 の窓の選択で、窓ごとに
@@ -312,13 +315,17 @@ private:
     //   idx = 69*64 + (-61*64)/12 + (-442) = 4416 - 326 - 442 = 3648
     //   oct = 3648/768 = 4, idx_norm = 576 = 9*64+0
     //   KC = (4<<4)|kKeyCode[9] = (4<<4)|12 = 0x4C = A4 ✓
+    // kMasterTuneBase は kDefaultClock で鳴らしたときの値。KC/KF が同じなら
+    // 音程はクロックに比例するため、クロックの比の分だけ masterTune_ をずらす。
     static constexpr int16_t kMasterTuneBase = -442;
+    static constexpr int     kDefaultClock   = 3579545;
 
     // pitchHz から masterTune_ を計算する
     // 440Hz 基準で ±20Hz (約 ±77cent) の可変範囲
-    static int16_t computeMasterTune(double pitchHz) {
+    int16_t computeMasterTune(double pitchHz) const {
         return static_cast<int16_t>(kMasterTuneBase
-            + std::round(768.0 * std::log2(pitchHz / 440.0)));
+            + std::round(768.0 * std::log2((pitchHz * kDefaultClock)
+                                           / (440.0 * masterClock_))));
     }
 
     // masterTune_ を更新し、発音中チャンネルの F-number を再計算する
@@ -338,8 +345,8 @@ const uint8_t COPM::kKeyCode[12]= {0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14};
 // ================================================================
 class COPP : public COPM {
 public:
-    explicit COPP(IPort* port, int sampleRate = 44100)
-        : COPM(port, sampleRate, DEVICE_OPP) {}
+    explicit COPP(IPort* port, int masterClock = 0)
+        : COPM(port, masterClock, DEVICE_OPP) {}
     std::string getDescriptor() const override { return "OPP (YM2164) 8ch"; }
     void init() override {
         for (int i = 0; i < 8; ++i) setReg(static_cast<uint16_t>(i), 0x10, true);
@@ -351,8 +358,8 @@ public:
 // ================================================================
 class COPZ : public COPM {
 public:
-    explicit COPZ(IPort* port, int sampleRate = 44100)
-        : COPM(port, sampleRate, DEVICE_OPZ) {}
+    explicit COPZ(IPort* port, int masterClock = 0)
+        : COPM(port, masterClock, DEVICE_OPZ) {}
     std::string getDescriptor() const override { return "OPZ (YM2414) 8ch"; }
     void init() override {
         for (int i = 0; i < 8; ++i) setReg(static_cast<uint16_t>(i), 0x10, true);
@@ -428,9 +435,9 @@ public:
 } // namespace fitom
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr) { return std::make_unique<COPM>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr) { return std::make_unique<COPP>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr) { return std::make_unique<COPZ>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int masterClock) { return std::make_unique<COPM>(p, masterClock); }
+std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int masterClock) { return std::make_unique<COPP>(p, masterClock); }
+std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int masterClock) { return std::make_unique<COPZ>(p, masterClock); }
 
 // ================================================================
 //  フォールバック受け入れ判定

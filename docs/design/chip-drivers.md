@@ -94,7 +94,8 @@ struct SubDeviceSpec {
     const char* labelSuffix;   // ラベルに付与する接尾辞 (例: "-SSG")
     bool        usesExtraPort; // 2ポート目 (extraPort) を必要とするか
     bool        rhythmCapable; // rhythm_mode をこのサブデバイスに適用するか
-    int         clockDivider = 1; // 親チップのクロックに対する分周比
+    int         clockDivider = 1;    // 親チップのクロックからの換算比
+    int         clockMultiplier = 1; // (×clockMultiplier÷clockDivider)
 };
 ```
 
@@ -121,7 +122,20 @@ struct SubDeviceSpec {
 
 `DEVICE_OPNB`と`DEVICE_2610B`のサブデバイス構成(SSG/ADPCM-A/ADPCM-B)は同一で、違いはFMチャンネル数(無印=実効4ch、B=6ch)だけ。
 
-OPNA系の内蔵SSG部は実機仕様上φM/4で動作するため、`SubDeviceSpec::clockDivider`で分周したクロックをSSG部のドライバへ渡す。
+### クロック
+
+**チップドライバは、音程・再生レートをポートが報告するチップのクロック(`IPort::getClock()`、HWプラグインの`HWPlugin_GetClock`)から計算する。** エミュレーターでは、プラグイン設定に書いたクロックでチップが動くため、FITOM_X側で別の値を仮定すると、その比の分だけ音程がずれる。`DeviceFactory::create()`の`sampleRate`引数は音声出力のサンプルレートで、チップのクロックではない。
+
+- ポートが0を返す(クロックを報告しない)とき、FM系のドライバはチップの標準クロック(YM2203=3.9936MHz、YM2608/YM2612/YM2610=8MHz、YM2151/YM2414/YM3526/YM3812/YM2413=3.579545MHz)で計算する。PSG系とADPCM系は`sampleRate`で代用する
+- サブデバイスのドライバへは、`SubDeviceSpec::clockDivider`/`clockMultiplier`でチップのクロックを換算して渡す(`DeviceEntry`経由で`DeviceFactory::create()`へ届く)。換算が要るのは次のもの
+
+| サブデバイス | 換算 | 理由 |
+|---|---|---|
+| OPNA/OPNB/OPNBBの内蔵SSG | ÷4 | 実機仕様上φM/4で動作する |
+| OPL3の4OP/2OP/リズム | ÷4 | OPL系のドライバはYM3812と同じ「72クロックで1サンプル」の換算で計算する。YMF262は288クロックで1サンプル |
+| OPL4の4OP/2OP/リズム | ×2÷19 | YMF278BのFM部は684(19×36)クロックで1サンプル(ymfmの`ymf278b`による)。72÷684=2÷19 |
+
+FM部の1サンプルあたりのクロック数はチップごとに違い、ドライバの`fnumDivide`に持たせる。YM2203は72、YM2608/YM2612/YM2610は144で、同じF-Numberでもクロックが同じならYM2203の方が1オクターブ高く鳴る。`COPN`は単体(YM2203)なら72、`COPNA`のサブチップなら144で作る。
 
 ### 内蔵リズムのサブデバイスと rhythm_mode
 

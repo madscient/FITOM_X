@@ -25,7 +25,7 @@
 using namespace fitom;
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int masterClock);
 }
 
 namespace {
@@ -46,7 +46,7 @@ constexpr uint16_t kTlReg[4] = {0x40, 0x43, 0x48, 0x4b};
 // vol=127→vol=1でTLレジスタが変化するかで判定する。
 bool isCarrierByObservation(uint8_t al, int op) {
     RecordingPort port;
-    auto dev = fitom::createCOPL3(&port, 8000000);
+    auto dev = fitom::createCOPL3(&port, 0);
     dev->init();
 
     HwPatch patch{};

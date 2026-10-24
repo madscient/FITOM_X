@@ -43,15 +43,15 @@ struct DummyMidiCh : IMidiCh {
 } // namespace
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2);
-std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2);
-std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2);
+std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int masterClock, IPort* p2);
+std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int masterClock, IPort* p2);
+std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int masterClock, IPort* p2);
 std::unique_ptr<ISoundDevice> createCOPL4AWM(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int masterClock, bool rhythmMode = false);
 std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int masterClock, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int masterClock);
 std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType);
 }
@@ -59,7 +59,7 @@ std::unique_ptr<ISoundDevice> createCAdPcm(IPort* p, int sr, uint32_t deviceType
 TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000);
+    auto dev = createCOPN(&port, 0);
     dev->init();
 
     HwPatch patch{};
@@ -99,7 +99,7 @@ TEST_CASE("Round-robin channel reuse writes new note frequency", "[sounddevice]"
 TEST_CASE("Stolen channel is not owned by the original owner anymore", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch
+    auto dev = createCOPN(&port, 0); // 3ch
     dev->init();
 
     HwPatch patch{};
@@ -147,7 +147,7 @@ TEST_CASE("Stolen channel is not owned by the original owner anymore", "[soundde
 TEST_CASE("Rapid same-channel-count retrigger keeps register in sync with lastFnum", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch
+    auto dev = createCOPN(&port, 0); // 3ch
     dev->init();
 
     HwPatch patch{};
@@ -208,7 +208,7 @@ TEST_CASE("Rapid same-channel-count retrigger keeps register in sync with lastFn
 TEST_CASE("Rapid retrigger across CSpanDevice (OPNA 6ch) keeps registers in sync", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPNA(&port, 8000000, nullptr); // 6ch (port1: ch0-2, port2: ch3-5)
+    auto dev = createCOPNA(&port, 0, nullptr); // 6ch (port1: ch0-2, port2: ch3-5)
     dev->init();
 
     HwPatch patch{};
@@ -273,9 +273,9 @@ TEST_CASE("Rapid retrigger across CSpanDevice (OPNA 6ch) keeps registers in sync
 TEST_CASE("Rapid retrigger across nested multi-chip span (OPN2+OPNA+OPNB) keeps registers in sync", "[sounddevice]")
 {
     RecordingPort portA, portB, portC;
-    auto chipOpn2 = createCOPN2(&portA, 8000000, nullptr); // 6ch
-    auto chipOpna = createCOPNA(&portB, 8000000, nullptr); // 6ch
-    auto chipOpnb = createCOPNB(&portC, 8000000, nullptr); // 6ch addressable / ch0,3 disabled
+    auto chipOpn2 = createCOPN2(&portA, 0, nullptr); // 6ch
+    auto chipOpna = createCOPNA(&portB, 0, nullptr); // 6ch
+    auto chipOpnb = createCOPNB(&portC, 0, nullptr); // 6ch addressable / ch0,3 disabled
 
     ISoundDevice* rawOpn2 = chipOpn2.get();
     ISoundDevice* rawOpna = chipOpna.get();
@@ -368,7 +368,7 @@ TEST_CASE("Rapid retrigger across nested multi-chip span (OPN2+OPNA+OPNB) keeps 
 TEST_CASE("Forced steal of a Running channel owned by the same owner still sends Key Off before Key On", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch
+    auto dev = createCOPN(&port, 0); // 3ch
     dev->init();
 
     HwPatch patch{};
@@ -415,7 +415,7 @@ TEST_CASE("Forced steal of a Running channel owned by the same owner still sends
 TEST_CASE("Normal round-robin reuse of a Releasing channel still sends Key Off before Key On", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch (余裕あり、1noteしか使わない)
+    auto dev = createCOPN(&port, 0); // 3ch (余裕あり、1noteしか使わない)
     dev->init();
 
     HwPatch patch{};
@@ -469,7 +469,7 @@ TEST_CASE("Normal round-robin reuse of a Releasing channel still sends Key Off b
 TEST_CASE("Retriggering during Releasing phase (normal round-robin) sets wasReleasing and forces RR dump before Key On", "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch
+    auto dev = createCOPN(&port, 0); // 3ch
     dev->init();
 
     HwPatch patch{}; // ALG=0 → キャリアはop3のみ(kCarrierMask[0]=0x08)
@@ -539,7 +539,7 @@ TEST_CASE("CC#1 soft LFO forced push during the Assigned window (after assignCh,
           "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch
+    auto dev = createCOPN(&port, 0); // 3ch
     dev->init();
 
     HwPatch patch{}; // swPatch省略時は既定のSwPatch(LFR=0)が使われる
@@ -591,7 +591,7 @@ TEST_CASE("CC#1 residual survives an intervening drum note unless the drum "
           "[sounddevice]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000); // 3ch
+    auto dev = createCOPN(&port, 0); // 3ch
     dev->init();
 
     HwPatch melodyPatch{}; melodyPatch.id = 2; // swPatch省略=既定(LFR=0)

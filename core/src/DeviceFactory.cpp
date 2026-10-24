@@ -11,32 +11,32 @@
 // ================================================================
 namespace fitom {
 
-std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int sr, IPort* p2 = nullptr);
-std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int sr, IPort* p2 = nullptr);
-std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int sr, IPort* p2 = nullptr);
-std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int sr, IPort* p2 = nullptr);
-std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int sr, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPNA(IPort* p, int masterClock, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPNB(IPort* p, int masterClock, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN2(IPort* p, int masterClock, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN2C(IPort* p, int masterClock, IPort* p2 = nullptr);
+std::unique_ptr<ISoundDevice> createCOPN2L(IPort* p, int masterClock, IPort* p2 = nullptr);
 std::unique_ptr<ISoundDevice> createCOPNARhythm(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int sr, bool rhythmMode = false);
-std::unique_ptr<ISoundDevice> createC3801(IPort* p, int sr, bool rhythmMode = false);
-std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int sr, bool rhythmMode = false);
-std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int sr, bool rhythmMode = false);
-std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int sr, bool rhythmMode = false);
-std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t mode);
-std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int sr);
-std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPM(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPP(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPL(IPort* p, int masterClock, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createC3801(IPort* p, int masterClock, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPL2(IPort* p, int masterClock, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPL2EX(IPort* p, int masterClock, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPL3(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPL3_2(IPort* p, int masterClock, bool rhythmMode = false);
+std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int masterClock, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int masterClock, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int masterClock, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int masterClock, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int masterClock, uint8_t mode);
+std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPLRhythm(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCOPL2EXRhythm(IPort* p, int masterClock);
+std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int masterClock);
 std::unique_ptr<ISoundDevice> createCSSG(IPort* p, int sr);
 std::unique_ptr<ISoundDevice> createCSSGS(IPort* p, int sr, uint32_t deviceType);
 std::unique_ptr<ISoundDevice> createCEPSG(IPort* p, int sr);
@@ -64,16 +64,34 @@ bool opllFamilyAcceptsFallback(uint8_t sourceVoicePatchType, uint8_t selfVoicePa
 // ================================================================
 //  DeviceFactory::create
 // ================================================================
-// PSG系チップのトーン周期は「チップのマスタークロック÷周期値」で決まるため、
-// 音声出力のサンプルレート(sampleRate)ではなく実クロックが必要になる
-// (FM系チップはマスタークロックをドライバ側の定数として持つため
-//  sampleRate引数を使わない)。取得手段はcreateCAdPcm()と同じく
-// IPort::getClock()で、取得できない場合のみsampleRateへフォールバックする。
-static int psgMasterClock(IPort* port, int sampleRate, int clockDivider)
+// 音程・再生レートは「チップのクロック÷分周」で決まるため、音声出力の
+// サンプルレート(sampleRate)ではなく、ポートが報告するチップのクロック
+// (IPort::getClock()。エミュレーターならプラグイン設定のclock)を使う。
+// clockDivider/clockMultiplierは、そのクロックをサブデバイスのドライバが
+// 計算に使うクロックへ換算する比(DeviceEntry::clockDivider参照)。
+static int scaleClock(int clock, int clockDivider, int clockMultiplier)
+{
+    if (clockDivider < 1) clockDivider = 1;
+    if (clockMultiplier < 1) clockMultiplier = 1;
+    return static_cast<int>(static_cast<long long>(clock) * clockMultiplier / clockDivider);
+}
+
+// FM系: ポートがクロックを報告しないとき(0)は0を返し、ドライバが持つ
+// 標準クロックを使わせる。
+static int fmMasterClock(IPort* port, int clockDivider, int clockMultiplier)
+{
+    const int clock = port ? port->getClock() : 0;
+    return (clock > 0) ? scaleClock(clock, clockDivider, clockMultiplier) : 0;
+}
+
+// PSG系: クロックを取得できない場合のみsampleRateへフォールバックする
+// (createCAdPcm()と同じ)。
+static int psgMasterClock(IPort* port, int sampleRate, int clockDivider,
+                          int clockMultiplier)
 {
     int clock = port ? port->getClock() : 0;
     if (clock <= 0) clock = sampleRate;
-    return (clockDivider > 1) ? (clock / clockDivider) : clock;
+    return scaleClock(clock, clockDivider, clockMultiplier);
 }
 
 // SSGS系 (YMZ705/YMZ732) の SSG ブロック動作クロック。プロファイルに
@@ -90,9 +108,9 @@ static int psgMasterClock(IPort* port, int sampleRate, int clockDivider)
 // YMZ705の境界値は2つの規定値の中点。エミュレーションエンジン側
 // (EPSGemuEngine の ssgsInternalClock) と同じ規則にすること。
 static int ssgsSsgBlockClock(uint32_t deviceType, IPort* port, int sampleRate,
-                              int clockDivider)
+                              int clockDivider, int clockMultiplier)
 {
-    int clock = psgMasterClock(port, sampleRate, clockDivider);
+    int clock = psgMasterClock(port, sampleRate, clockDivider, clockMultiplier);
     if (deviceType == DEVICE_SSGS3) return clock / 8;
     if (deviceType == DEVICE_SSGS2) return clock / 6;
     return clock / ((clock >= 5120000) ? 3 : 2);
@@ -100,7 +118,7 @@ static int ssgsSsgBlockClock(uint32_t deviceType, IPort* port, int sampleRate,
 
 std::unique_ptr<ISoundDevice> DeviceFactory::create(
     uint32_t deviceType, IPort* port, int sampleRate, IPort* extraPort, bool rhythmMode,
-    int clockDivider)
+    int clockDivider, int clockMultiplier)
 {
     if (!port) {
         FITOM_LOG_ERR("DeviceFactory::create: port is null for device 0x"
@@ -109,63 +127,64 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     }
 
     const uint8_t mode = rhythmMode ? 1 : 0;
+    const int fmClock = fmMasterClock(port, clockDivider, clockMultiplier);
 
     switch (deviceType) {
     case DEVICE_OPN:
     case DEVICE_OPNC:
-        return createCOPN(port, sampleRate);
+        return createCOPN(port, fmClock);
 
     case DEVICE_OPNB:
         // YM2610無印: COPNA相当の6ch構成からch0/ch3を無効化した実効4ch
         // (COPNB参照)。extraPort が nullptr の場合 COPNA 内部で
         // OffsetPort を生成する。
-        return createCOPNB(port, sampleRate, extraPort);
+        return createCOPNB(port, fmClock, extraPort);
 
     case DEVICE_OPNA:
     case DEVICE_2610B:
     case DEVICE_F286:
     case DEVICE_OPN3:
         // extraPort が nullptr の場合 COPNA 内部で OffsetPort を生成する
-        return createCOPNA(port, sampleRate, extraPort);
+        return createCOPNA(port, fmClock, extraPort);
 
     case DEVICE_OPN2:
-        return createCOPN2(port, sampleRate, extraPort);
+        return createCOPN2(port, fmClock, extraPort);
     case DEVICE_OPN2C:
-        return createCOPN2C(port, sampleRate, extraPort);
+        return createCOPN2C(port, fmClock, extraPort);
     case DEVICE_OPN2L:
-        return createCOPN2L(port, sampleRate, extraPort);
+        return createCOPN2L(port, fmClock, extraPort);
 
     case DEVICE_OPNA_RHY:
         return createCOPNARhythm(port, sampleRate);
 
-    case DEVICE_OPM:       return createCOPM(port, sampleRate);
-    case DEVICE_OPP:       return createCOPP(port, sampleRate);
+    case DEVICE_OPM:       return createCOPM(port, fmClock);
+    case DEVICE_OPP:       return createCOPP(port, fmClock);
     case DEVICE_OPZ:
-    case DEVICE_OPZ2:      return createCOPZ(port, sampleRate);
+    case DEVICE_OPZ2:      return createCOPZ(port, fmClock);
 
-    case DEVICE_OPL:       return createCOPL(port, sampleRate, rhythmMode);
-    case DEVICE_Y8950:     return createC3801(port, sampleRate, rhythmMode);
-    case DEVICE_OPL2:      return createCOPL2(port, sampleRate, rhythmMode);
-    case DEVICE_OPL2EX:    return createCOPL2EX(port, sampleRate, rhythmMode);
+    case DEVICE_OPL:       return createCOPL(port, fmClock, rhythmMode);
+    case DEVICE_Y8950:     return createC3801(port, fmClock, rhythmMode);
+    case DEVICE_OPL2:      return createCOPL2(port, fmClock, rhythmMode);
+    case DEVICE_OPL2EX:    return createCOPL2EX(port, fmClock, rhythmMode);
     case DEVICE_OPL3:
-    case DEVICE_OPN3_L3:   return createCOPL3(port, sampleRate);
-    case DEVICE_OPL3_2:    return createCOPL3_2(port, sampleRate, rhythmMode);
-    case DEVICE_OPL_RHY:   return createCOPLRhythm(port, sampleRate);
-    case DEVICE_OPL2EX_RHY: return createCOPL2EXRhythm(port, sampleRate);
+    case DEVICE_OPN3_L3:   return createCOPL3(port, fmClock);
+    case DEVICE_OPL3_2:    return createCOPL3_2(port, fmClock, rhythmMode);
+    case DEVICE_OPL_RHY:   return createCOPLRhythm(port, fmClock);
+    case DEVICE_OPL2EX_RHY: return createCOPL2EXRhythm(port, fmClock);
 
-    case DEVICE_OPLL:      return createCOPLL(port, sampleRate, mode);
-    case DEVICE_OPLL2:     return createCOPLL2(port, sampleRate, mode);
-    case DEVICE_OPLLP:     return createCOPLLP(port, sampleRate, mode);
-    case DEVICE_OPLLX:     return createCOPLLX(port, sampleRate, mode);
-    case DEVICE_OPLLEX:    return createCOPLLEX(port, sampleRate, mode);
-    case DEVICE_VRC7:      return createCVRC7(port, sampleRate);
-    case DEVICE_OPLL_RHY:  return createCOPLLRhythm(port, sampleRate);
-    case DEVICE_OPLLEX_RHY: return createCOPLLEXRhythm(port, sampleRate);
+    case DEVICE_OPLL:      return createCOPLL(port, fmClock, mode);
+    case DEVICE_OPLL2:     return createCOPLL2(port, fmClock, mode);
+    case DEVICE_OPLLP:     return createCOPLLP(port, fmClock, mode);
+    case DEVICE_OPLLX:     return createCOPLLX(port, fmClock, mode);
+    case DEVICE_OPLLEX:    return createCOPLLEX(port, fmClock, mode);
+    case DEVICE_VRC7:      return createCVRC7(port, fmClock);
+    case DEVICE_OPLL_RHY:  return createCOPLLRhythm(port, fmClock);
+    case DEVICE_OPLLEX_RHY: return createCOPLLEXRhythm(port, fmClock);
 
     case DEVICE_SSG:
     case DEVICE_PSG:
     case DEVICE_SSGL:
-    case DEVICE_SSGLP:     return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_SSGLP:     return createCSSG(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier));
     // SSGS (YMZ705) / SSGS2 (YMZ732) / SSGS3 (YMZ771) は YM2149 相当の SSG を
     // 2系統内蔵し、chごとのパンポットを持つ 6ch チップのため CSSG そのもの
     // ではなく派生の CSSGS / CSSGS3 を使う。SSGSとSSGS2はレジスタマップが
@@ -175,25 +194,25 @@ std::unique_ptr<ISoundDevice> DeviceFactory::create(
     case DEVICE_SSGS2:
     case DEVICE_SSGS3:     return createCSSGS(
                                 port,
-                                ssgsSsgBlockClock(deviceType, port, sampleRate, clockDivider),
+                                ssgsSsgBlockClock(deviceType, port, sampleRate, clockDivider,
+                                                  clockMultiplier),
                                 deviceType);
     // Y8960 の SSG部は SSGS と同じ CSSGS 系だが、プロファイルに書くクロックは
     // SSG ブロックの動作クロックそのもの (単体の SSG と同じ意味) のため換算しない。
-    case DEVICE_SSGEX:     return createCSSGS(port, psgMasterClock(port, sampleRate, clockDivider),
+    case DEVICE_SSGEX:     return createCSSGS(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier),
                                               deviceType);
-    case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_EPSG:      return createCEPSG(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier));
 
-    case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_DCSG:      return createCDCSG(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier));
     // DSG (YM2163) はレジスタマップ・音色モデルともSSGとは全く別物のため
     // 専用ドライバを持つ。
-    case DEVICE_DSG:       return createCDSG(port, psgMasterClock(port, sampleRate, clockDivider));
-    case DEVICE_DSG_RHY:   return createCDSGRhythm(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_DSG:       return createCDSG(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier));
+    case DEVICE_DSG_RHY:   return createCDSGRhythm(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier));
     case DEVICE_SCC:
     case DEVICE_SCCP:
-    case DEVICE_SCCEX:     return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider),
+    case DEVICE_SCCEX:     return createCSCC(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier),
                                               deviceType);
-    // CSAA1099はマスタークロックをドライバ側の定数として持つため対象外。
-    case DEVICE_SAA:       return createCSAA1099(port, psgMasterClock(port, sampleRate, clockDivider));
+    case DEVICE_SAA:       return createCSAA1099(port, psgMasterClock(port, sampleRate, clockDivider, clockMultiplier));
 
     case DEVICE_ADPCMA:
     case DEVICE_ADPCMB:

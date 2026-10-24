@@ -160,7 +160,13 @@
 プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
 
 **準備**
-- [ ] FITOM_stagingの`bin/`を、今のFITOM_X・FitomEmuIF・各エンジンのビルドに入れ替える。今の`bin/`は8月のビルドで、10月の変更はそのままでは鳴らない(5節)
+- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。下の「FM系の音程」は10月25日の変更で、それより前のビルドには入っていない。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
+
+**FM系の音程(プラグインが報告するクロックから計算するよう直した)**
+- [ ] `emu_opn`/`emu_opn_stereo`/`emu_fmgen_opn`/`unified_preset`/`fmall`のOPN2/OPNA/OPNB/OPNBB(7,159,090Hz): A4が440Hzで鳴る。直す前は約190セント低かったはず(計算のみ)
+- [ ] `emu_pc88`/`emu_pc98`のOPN(YM2203、3,993,600Hz): 直す前より1オクターブ低くなり、A4が440Hzで鳴る。直す前は1オクターブ高かったはず(計算のみ。YM2203のFM部は72クロックで1サンプル、YM2608は144で、ドライバは両方を144で計算していた。72/144はymfm・fmgenのソースで**確認済み**)。同じプロファイルのOPNA(7,987,200Hz)は約3セント上がる
+- [ ] OPL4のFM部(33,868,800Hz): 約7セント上がり、A4が440Hzで鳴る(計算のみ。FM部が684クロックで1サンプルなのはymfmの`ymf278b`のソースで**確認済み**)
+- [ ] 上以外のFM系(OPM/OPZ/OPL2/Y8950/OPL3/OPLL系): 音程が以前と変わらない。サブプロファイルのクロックは以前の固定値と同じ(**確認済み**: FITOM_staging `ef55367`の`config/profiles/hw_plugins/`の`clock`を数えた。OPN系の値も同じ方法で確認)
 
 **`emu_ibmpc`(SAA×2 / OPL2 / OPL3 / OPM / DCSG)**
 - [ ] SAA1099の音程: A4が以前と同じ音程で鳴る(プラグインのクロックを読むように変えた。プラグイン設定の`clock`は8000000なので変わらないはず)。ピッチベンドが半音単位で効く。ソフトウェアLFOのある音色でビブラートがかかる。システム設定ダイアログでマスターピッチを430/450Hzへ変えると音程が追従する。FitomEmuIFはプラグイン設定の`clock`をそのまま`GetClock()`で返し、`clock`の無い設定は開く時点で拒否する(**確認済み**: FitomEmuIF `87d0a6c`のソースを読んで確認)
@@ -179,9 +185,9 @@
 - [ ] OPLLの内蔵リズムのSD/TOMが、ノート番号に応じてメロディ側と同じ音程で上下する(F-numberを9bitへ落とすよう直した)。テストはメロディ側と同じレジスタ値になることを見るだけ
 - [ ] パッチピッカーのOPLLEX: CH番号→パッチ選択→カテゴリ「OPLLEX」→バンク「ROM Preset」に、`OPLL: `/`OPLLX: `/`OPLLP: `/`VRC7: `の接頭辞つきで60音色が並ぶ。試聴でその音色が鳴る。確定後、MIDIモニターのパッチ名も同じ表記になる。`FITOMBridge`にはテストが無く、ビルドが通ることまで確かめた
 
-**`emu_msx2pp`(Y8960: OPLLEX[リズム] / OPL2EX / SCC / SSG / DCSG)**
+**`emu_msx2pp`(Y8960: OPLLEX[リズム] / OPL2EX / SSGEX / SCCEX / OPM)**
 - [ ] Y8960の拡張ブロックのうちOPLLEXとOPL2EX(内蔵ADPCM-B・リズムを含む)が鳴る。OPLLEXの内蔵リズムのSD/TOMの音程も上の項目と同じく確かめる。OPLLEXのリズムへのフォールバック(`resolveBuiltinRhythm()`)はコードを読んだだけ。OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)
-- [ ] Y8960のSSGEX/SCCEX/OPM。このプロファイルは使っていないので、確かめるにはプロファイルを足す必要がある(5節)
+- [ ] Y8960のSSGEX/SCCEX/OPMが鳴る。このプロファイルが5ブロックを1個ずつ載せていることは**確認済み**(FITOM_staging `ef55367`のプロファイルとサブプロファイルを読んだ)
 
 **`fmall`(OPL3 / OPL4 / OPLLEX[リズム] / OPNBB / OPZ)**
 - [ ] OPZの固定周波数モード(`ext.FIX`)。`COPM::updateVoice()`は`ext.FIX`が0でないとき実機のbit5を立てるが、固定周波数として働くかは確かめていない。利用者向けマニュアルは「未対応」としている
@@ -224,6 +230,8 @@
 - SCCの波形バンク番号が常に0: `CSCC::setWaveBankNo()`がどこからも呼ばれておらず、複数の`sccwave`バンクを音色データ側から使い分ける経路が無い。バンク0だけなら動作する
 - AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`docs/design/patch-resolution.md`)
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ
+- OPL系・OPLL系のF-Numberの精度が粗く、低めにずれる(**未確認の候補**、計算のみ)。F-Numberの表はA4を内部値580(OPL2、3.579545MHz)のように1024未満の値で持ち、`updateFreq()`がそれを切り捨てで縮めてレジスタへ書く(OPLは`>>1`、OPLLは`>>2`)。OPLLのレジスタ値は1オクターブで約85〜172しか使わず、低い側の音で最大十数セント低くなる計算。全ノートについて、レジスタ値から実チップの周波数を求めてセントの誤差を並べれば決まる(`tests/test_fm_clock.cpp`の換算式が使える)。直すなら、blockを1つ下げて上位ビットを使うか、丸めて縮める
+- `DEVICE_OPN3_L3`(YMF297のOPL3部)のクロックの換算は、OPL3と同じ÷4にしている(**未確認の候補**: YMF297のクロックとFM部の分周を確かめていない)。stagingにこのチップを使うプロファイルは無い
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
 - OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)が440Hz基準なら、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読んで確認。音では確かめていない
@@ -272,7 +280,7 @@
 | FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`は実機にミキサーが無いので実装不要。`IHWPlugin.h`の写しの同期(旧名FitomIFTestの修正を含む)は要る(origin `a2357ea`の写しは`d214ff9`の1つ前のFITOM_Xと同一)。依頼文: `docs/plans/request-FitomHwIF.md` |
 | FitomSf2IF | `IHWPlugin.h`の写しに部位ゲイン・マスターボリュームの節が無い。どちらも任意で、SF2のデバイスにはマスターボリュームをSysExで送るので、このままでもロードはでき、動作も変わらない(origin `ae15e91`)。依頼文: `docs/plans/request-FitomSf2IF.md` |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `bin/`の実行ファイル・プラグイン・エンジンがすべて8月のビルドで、10月の変更(部位ゲイン、Y8960の追従)はそのままでは鳴らせない。fmgenのプロファイルは`engines/FmGenEngine`を指すが、置かれているDLLは`FmGenEngineApi.dll`。`config_schema/`はFITOM_Xと構造が同一(10月23日に同期。**確認済み**: 同期前に、`description`/`_comment`を除いた構造が同一であることを比べた)。その後FITOM_X側で`profile.schema.json`の`master_volume`の`description`を変えたので、説明文だけ食い違う。`emu_msx2pp`プロファイルはOPLLEX・OPL2EXを各2個(`Y8960emuEngine`)で構成していて、SSGEX/SCCEX/OPMは使っていない。新仕様の1回路に合わせるかは未決。`emu_ibmpc`プロファイルの`_comment`に「SAAのclockはCSAA1099の既定値8MHz固定に合わせる必要がある」とあるが、SAA1099はプラグインが報告するクロックを使うようになったので古い(プラグイン設定の`clock`が8000000なので音程は変わらない)。スキーマの写しと`emu_ibmpc`の注記の依頼文: `docs/plans/request-FITOM_staging.md` |
+| FITOM_staging | `config_schema/`はFITOM_Xの`d214ff9`に同期済み、`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある(`dbd2499`)。その後FITOM_X側で`profile.schema.json`の`devices[].clock`の`description`を変えたので、説明文だけ食い違う(構造は同一)。FM系の音程の修正を含むFITOM_Xのビルドで、`emu_opn`等の音程を確かめてもらう(3節)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 

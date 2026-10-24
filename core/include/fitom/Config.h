@@ -67,11 +67,14 @@ struct DeviceEntry {
     std::unique_ptr<ISoundDevice>  device;
     uint32_t                       deviceType  = 0;
     int                            sampleRate  = 44100;
-    // チップのマスタークロックに対する、このデバイスが実際に使う分周比。
+    // ポートが報告するチップのクロックを、このデバイスのドライバが計算に
+    // 使うクロックへ換算する比 (×clockMultiplier÷clockDivider)。
     // composite展開されたサブデバイスが、親チップのクロックをそのまま
-    // 使うとは限らないため必要になる(例: YM2608のSSG部はφM/4で動作する)。
-    // 1 = ポートが報告するクロックをそのまま使う。
+    // 使うとは限らないため必要になる(例: YM2608のSSG部はφM/4で動作する。
+    // OPL4のFM部はOPL2の72クロックで1サンプルの換算で×2÷19)。
+    // 1/1 = ポートが報告するクロックをそのまま使う。
     int                            clockDivider = 1;
+    int                            clockMultiplier = 1;
     // 2ポートチップ用の2番目のポート（HW SPFM extra_slot）
     std::shared_ptr<IPort>         port2;        // nullptr = 1ポート
     int                            extraSlot   = -1; // -1 = 未使用
@@ -196,8 +199,9 @@ public:
     // devices[i] のサンプルレート (HW経由の場合、実際の値はHWプラグイン側が
     // 管理するため、この値はFnumber計算等の目安として使われる)。
     int              getDeviceSampleRate(int index) const;
-    // チップのマスタークロックに対する分周比 (DeviceEntry::clockDivider 参照)。
+    // チップのクロックからの換算比 (DeviceEntry::clockDivider 参照)。
     int              getDeviceClockDivider(int index) const;
+    int              getDeviceClockMultiplier(int index) const;
     // リズムモード (OPLL/OPL系等、チップ内蔵リズム音源の有効/無効)
     bool             getDeviceRhythmMode(int index) const;
     std::string      getDeviceLabel(int index)     const;
@@ -300,7 +304,8 @@ public:
         const char* labelSuffix;   // ラベルに付与する接尾辞 (例: "-SSG")
         bool        usesExtraPort; // 2ポート目 (extraPort) を必要とするか
         bool        rhythmCapable; // rhythm_mode をこのサブデバイスに適用するか
-        int         clockDivider = 1; // 親チップのクロックに対する分周比
+        int         clockDivider = 1;    // 親チップのクロックからの換算比
+        int         clockMultiplier = 1; // (DeviceEntry::clockDivider 参照)
     };
 
     // baseDeviceType (プロファイルの "chip" から解決した DEVICE_*) が

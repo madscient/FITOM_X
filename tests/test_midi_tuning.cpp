@@ -71,7 +71,7 @@ public:
 } // namespace
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPN(IPort* p, int masterClock);
 }
 
 // ----------------------------------------------------------------
@@ -168,7 +168,7 @@ TEST_CASE("NRPN Data Entry goes through the same MSB/LSB assembly", "[midi][nrpn
 TEST_CASE("setNoteFine: +64 kfs equals exactly one semitone up", "[sounddevice][tuning]")
 {
     RecordingPort port;
-    auto dev = createCOPN(&port, 8000000);
+    auto dev = createCOPN(&port, 0);
     dev->init();
 
     HwPatch patch{};

@@ -52,13 +52,13 @@ HwPatch makePatch() {
 } // namespace
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int sr);
+std::unique_ptr<ISoundDevice> createCOPZ(IPort* p, int masterClock);
 }
 
 TEST_CASE("COPZ key-on uses $20 bit6, not $08 slot mask", "[opz]")
 {
     RecordingPort port;
-    auto dev = createCOPZ(&port, 44100);
+    auto dev = createCOPZ(&port, 0);
     dev->init();
 
     HwPatch patch = makePatch();
@@ -82,7 +82,7 @@ TEST_CASE("COPZ key-on uses $20 bit6, not $08 slot mask", "[opz]")
 TEST_CASE("COPZ re-triggers key-on on the same channel", "[opz]")
 {
     RecordingPort port;
-    auto dev = createCOPZ(&port, 44100);
+    auto dev = createCOPZ(&port, 0);
     dev->init();
 
     HwPatch patch = makePatch();
@@ -110,7 +110,7 @@ TEST_CASE("COPZ keeps a channel audible at every panpot position", "[opz]")
     for (int8_t pan : {static_cast<int8_t>(-64), static_cast<int8_t>(0),
                        static_cast<int8_t>(63)}) {
         RecordingPort port;
-        auto dev = createCOPZ(&port, 44100);
+        auto dev = createCOPZ(&port, 0);
         dev->init();
 
         HwPatch patch = makePatch();

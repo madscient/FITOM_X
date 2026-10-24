@@ -33,6 +33,7 @@ COPNARhythm : CSoundDevice             (OPNA内蔵リズム、6パート、独�
   サブデバイスの自動生成により同一物理ポートを共有する別デバイス
   として生成される。
 - 音色のフィールド: `hw.FB`(3bit)、`hw.ALG`(3bit)、`hwOp[0-3]`のAR/DR/SL/SR/RR/TL/KSR/MUL/DT1、`hwOp[i].EGT`(SSG-EG、4bit。OPN/OPNA系のみ)。OPN2/OPNA系の`hw.AMS`/`hw.PMS`はハードウェアLFOに未対応のため発音に効かない
+- **F-Numberの分周はYM2203とそれ以外で違う**: FM部の1サンプルはYM2203が72クロック、YM2608/YM2612/YM2610が144クロック。`COPN`の`fnumDivide`は単体なら72、`COPNA`のサブチップなら144。クロックはポートが報告する値を使う(`docs/design/chip-drivers.md`の「クロック」)
 
 ### OPN FXモード
 
@@ -84,6 +85,7 @@ COPM : CSoundDevice                    (YM2151, 8ch)
 - **ノイズ(ch7専用)**: `ext.ALG_EXT`のbit0=1でノイズを有効にし、`queryCh`がch7固定を強制する
 - **ハードウェアLFO**: `setLFODepth()`/`setLFORate()`を実装しているのは`COPM`だけ(`docs/design/midi-processing.md`の「ハードウェアLFO」)。OPZの第2LFOには対応していない(`docs/proposals/opm-opz-hw-lfo.md`)
 - **OPZのオペレータ拡張**: `COPZ`は`hwOp[i].REV`(3bit)/`hwOp[i].EGS`(2bit)をレジスタ`0xC0+slot`の裏レジスタ(bit5=1で選択、オペレータ単位)に書く。`hwOp[i].WS`(3bit、OPZ独自波形)、`hwOp[i].DT3`(補助デチューン、OPZのratio mode)もオペレータ単位
+- **クロック**: KC/KFは3.579545MHzで鳴らす前提の`kMasterTuneBase`から求め、ポートが報告するクロックとの比(1オクターブ768ステップで`768×log2(3579545/clock)`)だけ`masterTune_`をずらす。同じKC/KFなら音程はクロックに比例するため
 - **固定周波数(`ext.FIX`)**: `COPM::updateVoice()`は`ext.FIX`が0でないときレジスタのbit5を立て、DT2を書かない。OPZの固定周波数モードとして働くかは確かめていない
 - **OPZはキーオンと出力イネーブルのレジスタ割り当てがOPMと異なる**ため、
   `COPZ`は`updateKey`/`updatePanpot`を独自にオーバーライドする。
@@ -120,7 +122,7 @@ COPLRhythm : CSoundDevice              (OPL系内蔵リズム、5パート)
 - 音色のフィールド: `hw.FB`(3bit)、`hw.ALG`(bit0のみ。0=FM/1=AM)、`hwOp[0-1]`のAR/DR/SL/SR/RR/TL/KSR/KSL/MUL/AM/VIB、`hwOp[i].WS`(OPL2以降、2bit)。`hwOp[i].EGT`はOPL系では使わない(実機のEGビットは`SR`から決まる)
 - **`TL`は等倍で書く**: `TL`の1段は全チップ共通で0.75dBで、OPL系の実機TLレジスタ(6bit、最大47.25dB)とOPN/OPM系(7bit、最大95.25dB)の違いはレンジだけ。OPL系へは縮めずにクランプして書く(`TL >> 1`にすると1段が1.5dBに読み替わり、減衰量が半分になる)
 - **B0レジスタのF-number上位は2bit**: `getFnumber()`は11bit精度の値を返すので、`fnum.fnum >> 9`は0-3の2bitになりうる。B0レジスタのbit1-0(Fnumber bit9-8)へマスクせずにそのままORする(`& 1`でマスクすると、1オクターブの上半分程度でbit9が落ち、音程が大きく狂う)。`COPL`/`COPL3`/`COPLRhythm`のいずれも同じ
-- **マスタークロックは定数で持つ**: `kMasterClock`(`COPL`=3579545Hz、`COPL3`=14318180Hz=`COPL`の4倍。`divide`(72/288)も4倍の関係で、両者は同一のFnumberを生成する)をコンストラクタで使う。コンストラクタの`sampleRate`引数は、ファクトリ関数のシグネチャを揃えるためだけに残していて使わない(オーディオのサンプルレートをマスタークロックとして使うと、Fnumberの計算結果が上限に張り付く)
+- **クロックはYM3812換算で受け取る**: `COPL`/`COPL3`/`COPL3_2`/`COPLRhythm`は、どれも「72クロックで1サンプル」の換算(`divide`=72)でFnumberを計算する。YMF262(288クロック)とYMF278BのFM部(684クロック)には、`DeviceFactory`がチップのクロックを換算して渡す(`docs/design/chip-drivers.md`の「クロック」)。換算を4OP・2OP・リズムのサブデバイスで揃えるため、`COPL3`も`COPL`と同じ`divide`を使う。ポートがクロックを報告しないときは`COPL::kDefaultClock`(3579545Hz)
 - **F-number上位バイトは`forceWrite=true`で書く**: B0レジスタにKONビットが同居し、キーオンのたびに値が変わる
 
 ### EGTとRRの動的な書き換え
@@ -193,7 +195,7 @@ COPLLRhythm : CSoundDevice             (OPLL内蔵リズム、5パート、独�
 - 音色のフィールド: `hw.FB`、`hwOp[0-1]`のAR/DR/SL/SR/RR/KSR/KSL/MUL/AM/VIB/WS。`hwOp[1].TL`(キャリア)は音量として`$30`下位4bit(3dB/step)に、`hwOp[0].TL`(モジュレータ)はユーザー音色レジスタ`$02`下位6bit(0.75dB/step)に反映される
 - **プリセット/ユーザー音色**: `ext.ALG_EXT`のbit0=1でプリセット音色(ROM、EGパラメータ変更不可)、0でユーザー音色。プリセットのときは`hw.ALG`がプリセット番号になる
 - **Fnumberのビットシフト**: `getFnumber()`は11bit精度を返すが、実機OPLLは9bit。`>>2`変換が必須。`COPLL2`はさらに独自のビット配置を持つため`updateFreq`を個別にオーバーライドしている
-- **マスタークロックは定数で持つ**: `kOpllMasterClock`(3579545Hz、`divide`=72)。OPL系と同じく、コンストラクタの`sampleRate`引数は使わない
+- **クロック**: ポートが報告するクロックで計算する(`divide`=72)。報告が無いときは`kOpllDefaultClock`(3579545Hz)
 
 ### EGTとRRの静的な変換
 
@@ -270,10 +272,9 @@ CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアL
   使われる)。この`0x10`オフセットはドライバ内部の表現で、HW I/Fプラグインへは常に元のアドレス+バンク選択の形でしか送られない。
 - **PSG系のマスタークロックは`IPort::getClock()`から取る**：`DeviceFactory::create()`の
   `sampleRate`引数はHW I/Fプラグインが報告する**音声出力のサンプルレート**
-  (既定44100)であり、チップクロックではない。FM系ドライバはマスタークロックを
-  自前の定数として持つためこの引数を使わないが、PSG系はトーン周期の算出に
-  実クロックが要る。ADPCM系(`createCAdPcm()`)と同じく`port->getClock()`を使い、
-  取得できない場合のみ`sampleRate`へフォールバックすること。さらにOPN系
+  (既定44100)であり、チップクロックではない。FM系・ADPCM系と同じく
+  `port->getClock()`を使い、取得できない場合のみ`sampleRate`へフォールバック
+  すること(`docs/design/chip-drivers.md`の「クロック」)。さらにOPN系
   (YM2608/YM2610/YM2610B)の内蔵SSG部は実機仕様上φM/4で動作するため、
   `DeviceEntry::clockDivider`(サブデバイスの展開時に`SubDeviceSpec`から設定)で
   分周してから渡す。単独チップのSSGはポートが報告するクロックがそのまま

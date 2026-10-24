@@ -16,13 +16,13 @@
 
 namespace fitom {
 
-// OPLL系(YM2413/YM2420/YMF281/YM2423/FS1001=VRC7)の実機マスタークロック。
-// OPL系と同じ3.579545MHz(NTSC colorburst由来)を使う共通ファミリーのため、
-// OPL_new.cppのkMasterClockと同値・同じdivide=72。
-// sampleRate引数は他チップドライバとのファクトリ関数シグネチャ一貫性のために
-// 残すが、Fnum計算には使用しない(fnumMasterに使うとFnumberが常に上限へ
-// クランプされ、意図した音程にならない)。
-constexpr int kOpllMasterClock = 3579545;
+// OPLL系(YM2413/YM2420/YMF281/YM2423/FS1001=VRC7)は72クロックで1サンプル
+// (OPL系と同じ)。F-Numberはポートが報告するクロックで計算し、報告が無い
+// とき(0)だけ標準のクロック(3.579545MHz、NTSC colorburst由来)を使う。
+constexpr int kOpllDefaultClock = 3579545;
+static int opllClock(int masterClock) {
+    return masterClock > 0 ? masterClock : kOpllDefaultClock;
+}
 
 class COPLL : public CSoundDevice {
 public:
@@ -32,10 +32,10 @@ public:
     //         maxChs自体で打ち切る(VRC7のmaxChs=6は現状常にmode=0で
     //         呼ばれるため実際には到達しないが、範囲外アクセス防止の
     //         防御的チェックとして残す)。
-    COPLL(IPort* port, int /*sampleRate*/, uint8_t mode = 0,
+    COPLL(IPort* port, int masterClock, uint8_t mode = 0,
           uint8_t devId = DEVICE_OPLL, uint8_t maxChs = 9, int regSize = 0x40)
         : CSoundDevice(devId, maxChs, port,
-                       kOpllMasterClock, 72,
+                       opllClock(masterClock), 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        regSize)
@@ -268,8 +268,8 @@ protected:
 // ================================================================
 class COPLL2 : public COPLL {
 public:
-    COPLL2(IPort* port, int sampleRate, uint8_t mode = 0)
-        : COPLL(port, sampleRate, mode, DEVICE_OPLL2) {}
+    COPLL2(IPort* port, int masterClock, uint8_t mode = 0)
+        : COPLL(port, masterClock, mode, DEVICE_OPLL2) {}
 protected:
     std::string chipLabel() const override { return "OPLL2 (YM2420)"; }
 
@@ -287,16 +287,16 @@ protected:
 
 class COPLLP : public COPLL {
 public:
-    COPLLP(IPort* port, int sampleRate, uint8_t mode = 0)
-        : COPLL(port, sampleRate, mode, DEVICE_OPLLP) {}
+    COPLLP(IPort* port, int masterClock, uint8_t mode = 0)
+        : COPLL(port, masterClock, mode, DEVICE_OPLLP) {}
 protected:
     std::string chipLabel() const override { return "OPLLP (YMF281B)"; }
 };
 
 class COPLLX : public COPLL {
 public:
-    COPLLX(IPort* port, int sampleRate, uint8_t mode = 0)
-        : COPLL(port, sampleRate, mode, DEVICE_OPLLX) {}
+    COPLLX(IPort* port, int masterClock, uint8_t mode = 0)
+        : COPLL(port, masterClock, mode, DEVICE_OPLLX) {}
 protected:
     std::string chipLabel() const override { return "OPLLX (YM2423-X)"; }
 };
@@ -319,8 +319,8 @@ protected:
 // ================================================================
 class COPLLEX : public COPLL {
 public:
-    COPLLEX(IPort* port, int sampleRate, uint8_t mode = 0)
-        : COPLL(port, sampleRate, mode, DEVICE_OPLLEX, 9, 0x60) {}
+    COPLLEX(IPort* port, int masterClock, uint8_t mode = 0)
+        : COPLL(port, masterClock, mode, DEVICE_OPLLEX, 9, 0x60) {}
 
     // BANKの初期値は仕様に記載が無く、シャドウの初期値(0)と同じ値の書き込みは
     // setReg()が省くため、チップとシャドウを明示的に揃えておく。定位も同様
@@ -360,8 +360,8 @@ protected:
 // ================================================================
 class CVRC7 : public COPLL {
 public:
-    CVRC7(IPort* port, int sampleRate)
-        : COPLL(port, sampleRate, /*mode=*/0, DEVICE_VRC7, 6) {}
+    CVRC7(IPort* port, int masterClock)
+        : COPLL(port, masterClock, /*mode=*/0, DEVICE_VRC7, 6) {}
 protected:
     std::string chipLabel() const override { return "VRC7 (FS1001)"; }
 };
@@ -379,10 +379,10 @@ protected:
 // ================================================================
 class COPLLRhythm : public CSoundDevice {
 public:
-    COPLLRhythm(IPort* port, int /*sampleRate*/,
+    COPLLRhythm(IPort* port, int masterClock,
                 uint8_t devId = DEVICE_OPLL_RHY, int regSize = 0x40)
         : CSoundDevice(devId, 5, port,
-                       kOpllMasterClock, 72,
+                       opllClock(masterClock), 72,
                        FNUM_OFFSET,
                        FnumTableType::Fnumber,
                        regSize)
@@ -475,8 +475,8 @@ protected:
 // ================================================================
 class COPLLEXRhythm : public COPLLRhythm {
 public:
-    COPLLEXRhythm(IPort* port, int sampleRate)
-        : COPLLRhythm(port, sampleRate, DEVICE_OPLLEX_RHY, 0x60) {}
+    COPLLEXRhythm(IPort* port, int masterClock)
+        : COPLLRhythm(port, masterClock, DEVICE_OPLLEX_RHY, 0x60) {}
 
     std::string getDescriptor() const override { return "OPLLEX Rhythm 5ch"; }
 
@@ -496,14 +496,14 @@ protected:
 } // namespace fitom
 
 namespace fitom {
-std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int sr, uint8_t m)  { return std::make_unique<COPLL>(p, sr, m); }
-std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLL2>(p, sr, m); }
-std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLP>(p, sr, m); }
-std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLX>(p, sr, m); }
-std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int sr, uint8_t m) { return std::make_unique<COPLLEX>(p, sr, m); }
-std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int sr)  { return std::make_unique<CVRC7>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int sr) { return std::make_unique<COPLLRhythm>(p, sr); }
-std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int sr) { return std::make_unique<COPLLEXRhythm>(p, sr); }
+std::unique_ptr<ISoundDevice> createCOPLL(IPort* p, int masterClock, uint8_t m)  { return std::make_unique<COPLL>(p, masterClock, m); }
+std::unique_ptr<ISoundDevice> createCOPLL2(IPort* p, int masterClock, uint8_t m) { return std::make_unique<COPLL2>(p, masterClock, m); }
+std::unique_ptr<ISoundDevice> createCOPLLP(IPort* p, int masterClock, uint8_t m) { return std::make_unique<COPLLP>(p, masterClock, m); }
+std::unique_ptr<ISoundDevice> createCOPLLX(IPort* p, int masterClock, uint8_t m) { return std::make_unique<COPLLX>(p, masterClock, m); }
+std::unique_ptr<ISoundDevice> createCOPLLEX(IPort* p, int masterClock, uint8_t m) { return std::make_unique<COPLLEX>(p, masterClock, m); }
+std::unique_ptr<ISoundDevice> createCVRC7(IPort* p, int masterClock)  { return std::make_unique<CVRC7>(p, masterClock); }
+std::unique_ptr<ISoundDevice> createCOPLLRhythm(IPort* p, int masterClock) { return std::make_unique<COPLLRhythm>(p, masterClock); }
+std::unique_ptr<ISoundDevice> createCOPLLEXRhythm(IPort* p, int masterClock) { return std::make_unique<COPLLEXRhythm>(p, masterClock); }
 
 // ================================================================
 //  フォールバック受け入れ判定
