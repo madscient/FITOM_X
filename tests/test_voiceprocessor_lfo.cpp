@@ -169,3 +169,63 @@ TEST_CASE("VoiceProcessor::setLfoDepthOverride() applies as a GM2-style offset "
     proc.onTick(voice);
     CHECK(proc.channelLfoValue() < 0);
 }
+
+// LFS=0(ノートオンで位相をリセットしない)の音色では、同じデバイス
+// チャンネルの次のノートオンがLFOをそのまま引き継ぐ。前のノートのキーオフで
+// 始まったフェードアウトも取り消さなければならない(取り消さないと、
+// リリース中のチャンネルを再利用したノートやモノの弾き直しで、LFOが
+// kReleasingHoldMs後に止まる)。
+TEST_CASE("VoiceProcessor: a note-on with LFS=0 cancels the previous note's LFO fadeout",
+          "[voiceprocessor][lfo]")
+{
+    VoiceProcessor proc;
+    FmVoice voice{};
+    voice.sw.LFR = 64;
+    voice.sw.LFS = 0;
+    voice.sw.LWF = 6;           // sine
+    voice.sw.LFM = 0;           // Repeat
+    voice.sw.depthCents = 100;
+
+    proc.onNoteOn(127, 127, 100, voice, 0);
+    for (int i = 0; i < 10; ++i) proc.onTick(voice);
+    proc.onNoteOff(2000);
+    proc.onTick(voice);
+    proc.onNoteOn(127, 127, 100, voice, 0);
+
+    for (int i = 0; i < 2100; ++i) proc.onTick(voice);
+    CHECK(proc.channelLfoActive());
+}
+
+TEST_CASE("LfoControl::cancelFadeout() restores the phase and depth from before the fadeout",
+          "[voiceprocessor][lfo]")
+{
+    SECTION("Running(フェードイン完了後)へ戻る") {
+        LfoControl lfo;
+        lfo.start(/*rate=*/64, /*delay_20ms=*/0, /*fadein=*/0, LfoMode::Repeat);
+        for (int i = 0; i < 5; ++i) lfo.tick();
+        REQUIRE(lfo.phase() == LfoControl::Phase::Running);
+        REQUIRE(lfo.fadeLevel() == 127);
+
+        lfo.fadeout(100);
+        for (int i = 0; i < 50; ++i) lfo.tick();
+        REQUIRE(lfo.phase() == LfoControl::Phase::FadingOut);
+        REQUIRE(lfo.fadeLevel() < 127);
+
+        lfo.cancelFadeout();
+        CHECK(lfo.phase() == LfoControl::Phase::Running);
+        CHECK(lfo.fadeLevel() == 127);
+    }
+    SECTION("Delaying中にフェードアウトしたらDelayingへ戻る") {
+        LfoControl lfo;
+        lfo.start(/*rate=*/64, /*delay_20ms=*/10, /*fadein=*/0, LfoMode::Repeat);
+        REQUIRE(lfo.phase() == LfoControl::Phase::Delaying);
+        lfo.fadeout(100);
+        lfo.cancelFadeout();
+        CHECK(lfo.phase() == LfoControl::Phase::Delaying);
+    }
+    SECTION("フェードアウト中でなければ何もしない") {
+        LfoControl lfo;
+        lfo.cancelFadeout();
+        CHECK(lfo.phase() == LfoControl::Phase::Stopped);
+    }
+}

@@ -177,6 +177,11 @@ void LfoControl::fadeout(uint16_t fadeout_ticks) noexcept
     if (phase_ == Phase::Stopped) return;
     if (fadeout_ticks == 0) { stop(); return; }
 
+    // 二重のNoteOffでフェードアウトをやり直すときは、最初の保存を残す
+    if (phase_ != Phase::FadingOut) {
+        phase_before_fadeout_      = phase_;
+        fade_level_before_fadeout_ = fade_level_;
+    }
     phase_        = Phase::FadingOut;
     fadeout_len_  = fadeout_ticks;
     fadeout_tick_ = 0;
@@ -188,6 +193,13 @@ void LfoControl::fadeout(uint16_t fadeout_ticks) noexcept
     // シンプルにするため cur から 0 への線形を維持
     fadeout_len_  = fadeout_ticks;
     (void)cur; // cur は fade_level_ 初期値として利用済み
+}
+
+void LfoControl::cancelFadeout() noexcept
+{
+    if (phase_ != Phase::FadingOut) return;
+    phase_      = phase_before_fadeout_;
+    fade_level_ = fade_level_before_fadeout_;
 }
 
 int8_t LfoControl::wave(uint8_t waveform) const noexcept
@@ -366,10 +378,14 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
         if (sw.LFR > 0) {
             // 音色固有 LFO: CC#1 は無視
             cc1LfoMode_ = false;
+            // 引き継ぐ場合も、前のノートのキーオフで始まったフェードアウトは
+            // 取り消す(このチャンネルで新しいノートが鳴り始めるため)。
             const bool do_start = sw.LFS || !chLfo_.active();
             if (do_start)
                 chLfo_.start(sw.LFR, sw.LFD, sw.LFI,
                              static_cast<LfoMode>(sw.LFM));
+            else
+                chLfo_.cancelFadeout();
         } else {
             // LFR=0: CC#1 駆動モード
             cc1LfoMode_ = true;
@@ -377,6 +393,8 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
                 chLfo_.start(kCC1DefaultRate, 0, 0, LfoMode::Repeat);
             else if (cc1Value_ == 0)
                 chLfo_.stop();
+            else
+                chLfo_.cancelFadeout();
         }
     }
 
@@ -390,6 +408,8 @@ void VoiceProcessor::onNoteOn(uint8_t vol, uint8_t exp, uint8_t vel,
                              static_cast<LfoMode>(sw.SLM));
         else if (sw.SLR == 0)
             opLfo_[op].stop();
+        else
+            opLfo_[op].cancelFadeout();
         effectiveTL_[op] = baseTL_[op];
     }
     chLfoValue_ = 0;

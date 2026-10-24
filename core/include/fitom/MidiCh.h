@@ -304,12 +304,19 @@ private:
         // やRPNで再計算(applyPitchBendToAll)が走った際、この端数を
         // 取りこぼさないために必要。
         int16_t swFineKfs = 0;
+        // 発音した時点のpatchSerial_。モノの次のノートが、このノートの
+        // デバイスチャンネルを同じ音色のまま引き継げるかの判定に使う。
+        uint32_t patchSerial = 0;
         bool isValid() const { return devCh != 0xFF; }
     };
     static constexpr int MAX_NOTES = 16;
     std::array<NoteHist, MAX_NOTES> notes_;
     int timbres_ = 0;   // 現在発音中のレイヤーエントリ数(notes_[]の有効件数)
     uint32_t noteSeq_ = 0;  // enterNote()の発音順を追跡する単調増加カウンタ
+    // 次のノートオンから使うHwPatch/SwPatchの選択が変わるたびに増やす
+    // (プログラムチェンジ、NRPN 96,3、NRPN 97のhwprog、SwPatchの上書き)。
+    // CC#76/78は選択ではなく演奏時のオフセットなので増やさない。
+    uint32_t patchSerial_ = 0;
 
     NoteHist* findNote(uint8_t note, int layerIdx = -1);
     void enterNote(int layerIdx, uint8_t devCh, uint8_t note, uint8_t devNote,

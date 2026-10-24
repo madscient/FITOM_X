@@ -147,6 +147,7 @@ void CInstCh::progChange(uint8_t prog)
     }
 
     resolver_.apply(resolved);
+    ++patchSerial_;
 
     // ポリフォニー数はデバイス依存: このパッチが使う全レイヤーのうち、
     // 最小のチャンネル数を持つデバイスが上限になる (どのレイヤーも
@@ -366,6 +367,8 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         uint8_t prevNote = 0xFF;
 
         uint8_t devCh = 0xFF;
+        // レガートで前のノートのボイスをそのまま引き継いだ(キーオンしない)か。
+        bool tied = false;
         if (rl->forcedCh >= 0) {
             // ハードウェア制約による強制チャンネル(ビルトインリズム等)。
             // 同一レイヤーでは常に同じ値(progChange時に解決・固定済み)
@@ -378,25 +381,38 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         } else if (phyCh_ != 127 && phyCh_ < dev->getChCount()) {
             devCh = dev->assignCh(phyCh_, this, patch, vel, effSwPatch, samplePatch);
         } else if (mono_ && timbres_ > 0) {
-            // モノ: 同一レイヤーの最初のノートを奪う
+            // モノ: 同一レイヤーの前のノートを引き継ぐ。前のノートの
+            // デバイスチャンネルを使い回せるのは、前のノートと同じ音色
+            // (patchSerial)で鳴らすときだけ。音色が変わっていれば前のノートを
+            // 離し、下のallocChWithFallbackで新しい音色のデバイスへ割り当てる
+            // (新しい音色は別のデバイスで鳴ることもある)。
             for (int hi = 0; hi < MAX_NOTES; ++hi) {
-                if (notes_[hi].isValid() && notes_[hi].layerIdx == li) {
-                    // ボイススティールで devCh が既に別の発音(別MIDIチャンネル等)に
-                    // 奪われていないか確認する。奪われていれば直接再利用できない
-                    // ため(assignCh()を経由しないここでの直接再利用はownerを
-                    // 更新しないので、確認せず使うと所有権が食い違ったまま
-                    // 別ownerのchを書き換えてしまう)、devCh=0xFFのままにして
-                    // 下のallocChWithFallback経路にフォールバックさせる。
-                    if (notes_[hi].dev && notes_[hi].dev->isChOwnedBy(notes_[hi].devCh, this)) {
-                        devCh = notes_[hi].devCh;
-                        // ポルタメント用に記録。ポルタメントが扱うのは
-                        // 実際に鳴っているノート(トランスポーズ適用後)。
-                        prevNote = notes_[hi].devNote;
-                        if (!legato_) dev->noteOff(devCh);
+                auto& h = notes_[hi];
+                if (!h.isValid() || h.layerIdx != li) continue;
+                // ボイススティールで既に別の発音(別MIDIチャンネル等)に
+                // 奪われていれば触らない(所有権が食い違ったまま別ownerの
+                // chを書き換えてしまう)。devCh=0xFFのままにして下の
+                // allocChWithFallback経路にフォールバックさせる。
+                if (h.dev && h.dev->isChOwnedBy(h.devCh, this)) {
+                    // ポルタメント用に記録。ポルタメントが扱うのは
+                    // 実際に鳴っているノート(トランスポーズ適用後)。
+                    prevNote = h.devNote;
+                    if (h.patchSerial != patchSerial_) {
+                        h.dev->noteOff(h.devCh);
+                    } else if (legato_) {
+                        // エンベロープもソフトウェアLFOも前のノートのまま続ける。
+                        dev   = h.dev;
+                        devCh = h.devCh;
+                        tied  = true;
+                    } else {
+                        // assignCh()が前のノートのキーオフと、VoiceProcessorの
+                        // 初期化(ベロシティ感度・ソフトウェアLFOの再始動)を行う。
+                        dev   = h.dev;
+                        devCh = dev->assignCh(h.devCh, this, patch, vel, effSwPatch, samplePatch);
                     }
-                    leaveNote(hi);
-                    break;
                 }
+                leaveNote(hi);
+                break;
             }
             if (devCh == 0xFF) {
                 auto [handoffDev, handoffCh] = allocChWithFallback(
@@ -514,7 +530,7 @@ void CInstCh::noteOn(uint8_t note, uint8_t vel)
         // 呼び出し時に直接渡し済み。
 
         // NoteOn
-        if (!mono_ || !legato_) {
+        if (!tied) {
             // 通常の NoteOn: エンベロープを再トリガーする
             dev->noteOn(devCh, vel);
         } else {
@@ -857,6 +873,7 @@ void CInstCh::setNRPNRegister(uint16_t reg, uint16_t val)
         // チェンジ受信まで有効。
         swBankOverride_ = pendingSwBankOverride_;
         swProgOverride_ = static_cast<int8_t>(val >> 7);
+        ++patchSerial_;
         break;
     default: break;
     }
@@ -891,6 +908,7 @@ void CInstCh::applyToneLayerOverride(uint16_t reg, uint16_t val)
             lov.pendingVoicePatchType, lov.pendingHwBank, msb,
             fitom_->getConfig(), lov.directStorage);
         lov.patchActive = lov.resolved.isValid();
+        ++patchSerial_;
         if (!lov.patchActive) {
             FITOM_LOG_WARN("CInstCh ch=" << (int)ch_ << " layer=" << (int)layer
                 << ": ToneLayer override resolveDirect failed (voicePatchType=0x"
@@ -1186,6 +1204,7 @@ void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, uint8_t devNo
             h.dev       = dev;
             h.seq       = seq;
             h.swFineKfs = swFineKfs;
+            h.patchSerial = patchSerial_;
             ++timbres_;
             return;
         }
@@ -1205,6 +1224,7 @@ void CInstCh::enterNote(int layerIdx, uint8_t devCh, uint8_t note, uint8_t devNo
     notes_[0].dev      = dev;
     notes_[0].seq      = seq;
     notes_[0].swFineKfs = swFineKfs;
+    notes_[0].patchSerial = patchSerial_;
     notes_[0].sostenutoHeld  = false;
     notes_[0].pendingRelease = false;
     FITOM_LOG_DEBUG("CInstCh ch=" << (int)ch_ << ": note history overflow");
@@ -1483,6 +1503,7 @@ bool CInstCh::mergeSwPatchOverride(uint8_t layer, const std::string& jsonText)
         }
         if (trimmed == "{}") {
             swPatchOverrideActive_[layer] = false;
+            ++patchSerial_;
             return true;
         }
     }
@@ -1505,6 +1526,7 @@ bool CInstCh::mergeSwPatchOverride(uint8_t layer, const std::string& jsonText)
         return false;
     }
     swPatchOverrideActive_[layer] = true;
+    ++patchSerial_;
     // 発音中のノートへの即時反映手段が無いため、次のノートオンから
     // 反映される(CC#76/78のRate/Delayオフセットと同じ制約)。
     return true;

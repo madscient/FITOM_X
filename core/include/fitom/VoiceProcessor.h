@@ -78,6 +78,10 @@ public:
     // FadingOut 完了後は Stopped に遷移する。
     void fadeout(uint16_t fadeout_ticks) noexcept;
 
+    // FadingOut中なら、fadeout()を呼ぶ前の段階とフェード係数へ戻す
+    // (位相はフェードアウト中に進んだ分を引き継ぐ)。それ以外では何もしない。
+    void cancelFadeout() noexcept;
+
     // 現在の正規化波形値 (-120〜+120)、フェードイン/アウト適用済み
     // waveform: 0=up-saw/1=square/2=triangle/3=S&H/4=down-saw/5=delta/6=sine
     int8_t wave(uint8_t waveform) const noexcept;
@@ -103,6 +107,8 @@ private:
 
     uint16_t fadeout_len_ = 0;   // フェードアウト全体 tick 数
     uint16_t fadeout_tick_= 0;   // フェードアウト経過 tick 数
+    Phase    phase_before_fadeout_      = Phase::Stopped;
+    uint8_t  fade_level_before_fadeout_ = 127;
 
     uint16_t seed_        = 0;   // S&H 用シード (インスタンス固有)
 };

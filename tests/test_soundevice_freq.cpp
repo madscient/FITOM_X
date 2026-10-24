@@ -632,13 +632,6 @@ TEST_CASE("CC#1 residual survives an intervening drum note unless the drum "
     CHECK_FALSE(dev->getChState(chB)->proc.channelLfoActive());
 }
 
-// NOTE: CInstCh::noteOn()のmono_&&timbres_>0自己スティール分岐(devChを
-// assignCh()経由せず直接使い回す)は、新たに解決されたpatch/effSwPatchを
-// deviceへ反映しない(dev->setVoice()もdev->assignCh()も呼ばれない)。
-// モノフォニックチャンネルでプログラムチェンジ(LFR>0の音色→LFR=0の音色)を
-// 挟んですぐ次のノートを弾くと、旧音色のchLfo_(音色固有LFO)が
-// フェードアウト完了まで残る。この経路はこのファイルでは検証していない。
-
 // OPL4のAWM(PCM)部は実チップ上、FM部(port1/port2、addr 0x000-0x1FF)とは
 // 独立した3つ目のレジスタバンク(addr 0x200以降、a_high=2)に配置される。
 // CFITOM::resolveHighBankPort()はCOPL4AWMにOffsetPort(port,0x200)経由で
