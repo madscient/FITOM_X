@@ -40,6 +40,8 @@ banks/           バンクファイルのフォーマット例示のみ(下記�
                  プロファイルの扱い」参照)
 config/          プロファイル・fitom.confのフォーマット例示のみ(同上)
 third_party/     git submodule(nlohmann-json / rtmidi / imgui / glfw)。編集しない
+tools/           開発用のスクリプト。render_measure/はfitom_renderで鳴らした音を
+                 numpyで測る(tools/render_measure/README.md参照)
 ```
 
 ## バンク・プロファイルの扱い

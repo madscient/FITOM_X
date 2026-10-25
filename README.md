@@ -148,6 +148,7 @@ FITOM_X/
 ├── spec/                   # 外部ツール向けの機械可読仕様 (chip-capabilities.json)
 ├── tests/                  # Catch2 テスト
 ├── third_party/            # git submodule (nlohmann-json / rtmidi / imgui / glfw)
+├── tools/                  # 開発用スクリプト(render_measure: fitom_render の出力を測る)
 ├── CMakeLists.txt
 ├── CMakePresets.json
 └── vcpkg.json
