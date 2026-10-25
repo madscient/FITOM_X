@@ -71,6 +71,24 @@ def note_off(ch, note):
     return bytes([0x80 | ch, note, 0])
 
 
+def pitch_bend(ch, value):
+    """value: -8192〜+8191。"""
+    v = max(0, min(16383, value + 8192))
+    return bytes([0xE0 | ch, v & 0x7F, v >> 7])
+
+
+def rpn(ch, msb, lsb, data_msb, data_lsb=0):
+    """RPN を設定して値を書き、RPN NULL に戻す列。"""
+    return [cc(ch, 101, msb), cc(ch, 100, lsb), cc(ch, 6, data_msb), cc(ch, 38, data_lsb),
+            cc(ch, 101, 127), cc(ch, 100, 127)]
+
+
+def fine_tune(ch, cents):
+    """チャンネルファインチューニング(RPN#1)。-100〜+100セント。"""
+    v = max(0, min(16383, 8192 + round(cents * 8192 / 100)))
+    return rpn(ch, 0, 1, v >> 7, v & 0x7F)
+
+
 def select_device_patch(ch, device_cc0, bank=0, prog=0):
     """直接デバイス選択モードで、チップ種別 device_cc0 の bank/prog を選ぶ列。"""
     return [cc(ch, 0, device_cc0), cc(ch, 32, bank), program(ch, prog)]
@@ -163,6 +181,19 @@ def peak_freq(x, rate, fmin, fmax, pad=8):
     return f, 20 * math.log10(spec[k] / (n / 4) + 1e-300)
 
 
+def pitch_track(x, rate, fmin, fmax, frame_sec=0.05, hop_sec=0.01):
+    """短い区間ごとの基音(Hz)の列。(時刻[秒], 周波数[Hz]) の配列の組を返す。"""
+    if x.ndim == 2:
+        x = x.mean(axis=1)
+    frame, hop = int(frame_sec * rate), int(hop_sec * rate)
+    times, freqs = [], []
+    for start in range(0, len(x) - frame, hop):
+        f, _ = peak_freq(x[start:start + frame], rate, fmin, fmax, pad=16)
+        times.append((start + frame / 2) / rate)
+        freqs.append(f)
+    return np.array(times), np.array(freqs)
+
+
 def cents(f, ref):
     return 1200 * math.log2(f / ref)
 
@@ -188,6 +219,14 @@ class Staging:
 
     def load(self, path):
         return json.loads(Path(path).read_text(encoding="utf-8"))
+
+    def find_chip(self, subprofile_name, chip_name):
+        """サブプロファイルから chip_name の最初のエントリを (エンジン, チップ) で返す。"""
+        for engine in self.load(self.hw_plugins / subprofile_name).get("engines", []):
+            for chip in engine.get("chips", []):
+                if chip.get("chip") == chip_name:
+                    return engine, chip
+        raise KeyError(f"{chip_name} not in {subprofile_name}")
 
     def emu_subprofiles(self):
         """FitomEmuIF を使うプロファイルが参照するサブプロファイルの {ファイル名: [プロファイル名]}。"""
@@ -224,8 +263,11 @@ def write_bankset(staging, workdir):
     return path
 
 
-def write_single_chip_profile(staging, subprofile_name, engine, chip, workdir, tag, master_pitch=440.0):
+def write_single_chip_profile(staging, subprofile_name, engine, chip, workdir, tag, master_pitch=440.0,
+                              rhythm=False):
     """サブプロファイルの1チップだけを載せたプロファイルを workdir に書き、そのパスを返す。
+
+    rhythm=True なら、そのチップの内蔵リズムを使う(ch6-8 を明け渡す)。
 
     エンジン・クロックなどチップの設定はサブプロファイルのものをそのまま使う。
     束ね・ステレオペアを外すため、チップは1個だけにする。
@@ -253,6 +295,8 @@ def write_single_chip_profile(staging, subprofile_name, engine, chip, workdir, t
             "auto_devices": True,
         }],
     }
+    if rhythm:
+        prof["hw_plugins"][0]["auto_devices_rhythm_mode"] = [chip["chip"]]
     prof_path = workdir / f"{tag}.profile.json"
     prof_path.write_text(json.dumps(prof, ensure_ascii=False, indent=2), encoding="utf-8")
     return prof_path

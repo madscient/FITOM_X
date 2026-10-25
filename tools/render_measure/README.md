@@ -40,11 +40,43 @@ FITOM_stagingのプロファイルが参照するFitomEmuIFのサブプロファ
 `--work`を省くと一時ディレクトリを作る。中に、チップごとのプロファイル・SMF・WAVと、
 `fitom_render.log`(最後に変換したもの)が残る。
 
+### `pitch_controls.py` — 音程を動かす操作
+
+```
+python pitch_controls.py --staging <FITOM_staging> --render <fitom_render.exe>
+                         [--emuif <FitomEmuIF.dll>] [--work <dir>] [--tolerance 5]
+```
+
+チップごとにA4を鳴らし、ピッチベンド(ベンド幅2半音で+1/+2/-2半音)・ファインチューン(RPN#1で±50セント)・
+`master_pitch`(430/450Hz)・ビブラート(SwPatchのLFO、CC#1)を1つずつ変えて、基音のずれを
+何もしないときの基音と比べる。比べる相手が同じチップの基音なので、サンプルの元の音程が
+分からないPCM系(OPL4 AWM)でも測れる。測り方の確認のために、音程が正しいと分かっている
+OPN2を並べている。
+
+ビブラートは、短い区間ごとの基音の列から振れ幅(2〜98パーセンタイルの半分)を求め、深さの0.5〜1.5倍なら合格。
+`docs/STATUS.md`の4節に載っている既知の未対応(AWMのマスターピッチとビブラート)は、測って
+`(unsupported)`と表示し、不合格に数えない。
+
+### `rhythm_pitch.py` — OPLL系の内蔵リズムの音程
+
+```
+python rhythm_pitch.py --staging <FITOM_staging> --render <fitom_render.exe>
+                       [--emuif <FitomEmuIF.dll>] [--work <dir>] [--tolerance 5]
+```
+
+内蔵リズム(CC#0=0x70、CC#32=0x28)のSD/TOMを、ノート番号を変えて鳴らす。スペクトルの最大の山を、
+同じノートのメロディ(基音だけの音色)の基音で割った比が、ノートによらず一定(楽器のMUL)かを見る。
+リズムがメロディ側と同じF-numberで鳴っていれば一定になる。
+
+スペクトル全体の相互相関でずれを求める方法は使わない。SDのノイズが強いエンジンでは、
+ずれないノイズの成分で相関の山が決まってしまう。
+
 ## `fitom_measure.py` — 部品
 
 SMFの組み立て(直接デバイス選択・HwPatch/SwPatchの上書きのSysExを含む)、`fitom_render`の実行、
 WAVの読み込み(16/24bit整数・32bit浮動小数)、基音とRMSの測定、FITOM_stagingの
-サブプロファイルから単体チップのプロファイルを作る処理を持つ。新しい測定はこれを使って書く。
+サブプロファイルから単体チップのプロファイルを作る処理(内蔵リズムを使う指定を含む)、
+ピッチベンド・RPN・短い区間ごとの基音の列を持つ。新しい測定はこれを使って書く。
 
 測定用のプロファイルは、FITOM_stagingのバンクセットを絶対パスに直した写しを使う。
 バンクセットの中の相対パスはプロファイルの位置から解決されるため。SF2のバンクは、
