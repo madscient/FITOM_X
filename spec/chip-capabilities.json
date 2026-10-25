@@ -375,7 +375,7 @@
         "DR": {"range": [0, 31], "quantum": 2, "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
         "SL": {"range": [0, 15], "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
         "SR": {"range": [0, 31], "quantum": 2, "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0},
-          "note": "0より大きいとパーカッシブモード。OPLL系はこの切り替えを音色設定時に一度だけ静的に行うため、SR>0のときは実機RRレジスタにSRが書かれたままとなり、キーオフ後のリリースもSRの速さになる(RRは効かない)。リリースをRRで制御したい場合はSR=0にする。"},
+          "note": "0より大きいとパーカッシブモード。OPLL系はこの切り替えを音色設定時に一度だけ静的に行うため、SR>0のときはEGビット=0のままキーオフし、キーオフ後はSR・RRに関係なくRR=7と同じ一定の速さで減衰する(RRは効かない。Nuked-OPLLで確かめた挙動で、実機では未確認)。リリースをRRで制御したい場合はSR=0にする。"},
         "RR": {"range": [0, 15], "register_bits": 4, "condition": {"param": "ALG_EXT", "mask": 1, "equals": 0}},
         "TL": {"condition": {"param": "ALG_EXT", "mask": 1, "equals": 0},
           "per_op": {
