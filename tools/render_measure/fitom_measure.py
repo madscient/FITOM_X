@@ -275,12 +275,22 @@ def write_single_chip_profile(staging, subprofile_name, engine, chip, workdir, t
     エンジン・クロックなどチップの設定はサブプロファイルのものをそのまま使う。
     束ね・ステレオペアを外すため、チップは1個だけにする。
     """
+    return write_engine_profile(staging, subprofile_name, engine, [chip], workdir, tag, master_pitch,
+                                [chip["chip"]] if rhythm else [])
+
+
+def write_engine_profile(staging, subprofile_name, engine, chips, workdir, tag, master_pitch=440.0,
+                         rhythm_chips=()):
+    """サブプロファイルの1エンジンに chips だけを載せたプロファイルを workdir に書き、そのパスを返す。
+
+    rhythm_chips に名前を挙げたチップは内蔵リズムを使う(ch6-8 を明け渡す)。
+    """
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     sub = staging.load(staging.hw_plugins / subprofile_name)
     # エンジンの相対パスは FitomEmuIF.dll の位置から解決されるため、ステージングの bin/ を
     # 起点に絶対パスにしておく(別の場所の FitomEmuIF.dll を使っても同じエンジンを読む)。
-    sub["engines"] = [dict(engine, dll=str(staging.bin / engine["dll"]), chips=[chip])]
+    sub["engines"] = [dict(engine, dll=str(staging.bin / engine["dll"]), chips=list(chips))]
     if "pcm_catalog" in sub:
         sub["pcm_catalog"] = str((staging.hw_plugins / sub["pcm_catalog"]).resolve())
     sub_path = workdir / f"{tag}.sub.json"
@@ -298,8 +308,8 @@ def write_single_chip_profile(staging, subprofile_name, engine, chip, workdir, t
             "auto_devices": True,
         }],
     }
-    if rhythm:
-        prof["hw_plugins"][0]["auto_devices_rhythm_mode"] = [chip["chip"]]
+    if rhythm_chips:
+        prof["hw_plugins"][0]["auto_devices_rhythm_mode"] = list(rhythm_chips)
     prof_path = workdir / f"{tag}.profile.json"
     prof_path.write_text(json.dumps(prof, ensure_ascii=False, indent=2), encoding="utf-8")
     return prof_path
