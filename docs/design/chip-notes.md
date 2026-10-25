@@ -447,7 +447,7 @@ SSGと同じ`hw.ALG`/`hw.NFQ`の意味に加え、Expand Mode(Bank A/B切替、
 | `hw.NFQ` (下位2bit) | 0x16 (ch0-2→bit0-1、ch3-5→bit4-5の2系統) | ノイズパラメータ（2系統: ch0-2/ch3-5共有） |
 | `hwOp[0].EGT` (bit3) | — (フラグのみ) | 1=HWエンベロープ使用（ch0-2/ch3-5の3ch単位で共有） |
 | 音量(計算値、左右独立) | 0x00-0x05 (ch0-5、下位4bit=左/上位4bit=右) | パンポットから等パワーパンニング(cos/sin)で左右音量を算出 |
-| Fnum | 0x08-0x0D(周波数8bit、ch0-5) + 0x10-0x12(オクターブ3bit×2ch/レジスタ) | 実機固有の周波数式(`freqReg = 511 - base*2^oct/hz`)を直接計算。他PSG系のFnumTable機構(`FnumTableType`)は使わずNone指定。Hzの求め方(ノート・kfs単位のファインチューン・チャンネルLFOを足し、マスターピッチを基準にする)と`ChState::Fnum`への詰め方(`block=oct` / `fnum=freqReg`)は`CDSG::getFnumber()`と同じ |
+| Fnum | 0x08-0x0D(周波数8bit、ch0-5) + 0x10-0x12(オクターブ3bit×2ch/レジスタ) | 実機固有の周波数式(`freqReg = 511 - base*2^oct/hz`、`base = clock/512`。8MHzで15625)を直接計算。エミュレータのSAASoundも同じ式を出力の周波数とし、その2倍の速さで出力を反転する。2倍の`2*clock/512`は反転の速さで、周波数の式に使うと1オクターブ低く鳴る。他PSG系のFnumTable機構(`FnumTableType`)は使わずNone指定。Hzの求め方(ノート・kfs単位のファインチューン・チャンネルLFOを足し、マスターピッチを基準にする)と`ChState::Fnum`への詰め方(`block=oct` / `fnum=freqReg`)は`CDSG::getFnumber()`と同じ |
 | 全チャンネル有効化 | 0x1C (bit0) | 初期化時に1回設定 |
 
 **HWエンベロープ（`EGT`bit3=1時）**: `ext.HWEP`の下位6bitを流用する。

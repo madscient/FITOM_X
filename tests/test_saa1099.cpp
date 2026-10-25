@@ -1,7 +1,7 @@
 // tests/test_saa1099.cpp
 // SAA1099 チップドライバ CSAA1099 の音程の回帰テスト。
 //
-// 発音周波数は f = (2×clock/512) × 2^oct / (511 - N) (N: 周波数レジスタ
+// 発音周波数は f = (clock/512) × 2^oct / (511 - N) (N: 周波数レジスタ
 // 0x08+ch、oct: オクターブレジスタ 0x10+ch/2 のnibble)。書かれたレジスタから
 // この式で周波数を逆算し、音程の入力(ノート・kfs単位の微調整・チャンネル
 // LFO・マスターピッチ)が他チップと同じ規約で反映されることを確かめる。
@@ -41,7 +41,7 @@ double writtenHz(RecordingPort& port, uint8_t ch)
     const uint8_t n = port.regs[static_cast<uint16_t>(0x08 + ch)];
     const uint8_t octReg = port.regs[static_cast<uint16_t>(0x10 + ch / 2)];
     const int oct = (ch % 2) ? ((octReg >> 4) & 7) : (octReg & 7);
-    return (2.0 * port.clock / 512.0) * std::pow(2.0, oct) / (511.0 - n);
+    return (port.clock / 512.0) * std::pow(2.0, oct) / (511.0 - n);
 }
 
 uint16_t writtenRegs(RecordingPort& port, uint8_t ch)
@@ -82,6 +82,25 @@ TEST_CASE("SAA1099 treats fineFreq as kfs (64 per semitone): note 60 + 64 "
     dev->noteOn(chB, 100);
 
     CHECK(writtenRegs(port, chA) == writtenRegs(port, chB));
+}
+
+// writtenHz() の式に頼らず、レジスタ値そのものを見る。
+// 8MHz: 15625 × 2^3 / (511 - 227) = 440.14Hz
+TEST_CASE("SAA1099 writes octave 3 and N=227 for A4 at 8MHz", "[saa1099]")
+{
+    RecordingPort port;
+    auto dev = DeviceFactory::create(DEVICE_SAA, &port, 44100);
+    REQUIRE(dev != nullptr);
+    dev->init();
+
+    HwPatch patch{};
+    patch.id = 1;
+    uint8_t ch = dev->allocCh(nullptr, &patch, 100);
+    REQUIRE(ch != 0xFF);
+    dev->setNoteFine(ch, 69, 0, true);
+    dev->noteOn(ch, 100);
+
+    CHECK(writtenRegs(port, ch) == ((3 << 8) | 227));
 }
 
 TEST_CASE("SAA1099 follows the master pitch", "[saa1099]")

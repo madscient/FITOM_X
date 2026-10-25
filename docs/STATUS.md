@@ -169,10 +169,10 @@
 プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
 
 **準備**
-- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。OPM/OPZ(OPP含む)のA4を正しい音程(KC=0x4A)で書く修正は、それより前のビルドに入っていない(前のビルドでは半音高く鳴る)。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
+- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。OPM/OPZ(OPP含む)のA4を正しい音程(KC=0x4A)で書く修正と、SAA1099を正しいオクターブで鳴らす修正は、それより前のビルドに入っていない(前のビルドでは、OPM/OPZは半音高く、SAA1099は1オクターブ低く鳴る)。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
 
 **`emu_ibmpc`(SAA×2 / OPL2 / OPL3 / OPM / DCSG)**
-- [ ] SAA1099の音程: A4が以前と同じ音程で鳴る(プラグインのクロックを読むように変えた。プラグイン設定の`clock`は8000000なので変わらないはず)。ピッチベンドが半音単位で効く。ソフトウェアLFOのある音色でビブラートがかかる。システム設定ダイアログでマスターピッチを430/450Hzへ変えると音程が追従する。FitomEmuIFはプラグイン設定の`clock`をそのまま`GetClock()`で返し、`clock`の無い設定は開く時点で拒否する(**確認済み**: FitomEmuIF `87d0a6c`のソースを読んで確認)
+- [ ] SAA1099: システム設定ダイアログ(GUI)でマスターピッチを430/450Hzへ変えると、発音中の音程が追従する。A4・ピッチベンド・ファインチューン・ビブラートと、プロファイルの`master_pitch`での追従は`tools/render_measure/pitch_controls.py`で測って確かめた
 
 **`emu_psg_stereo`(SAA / SSGS / SSGS2 / SSGS3 / DSG / EPSG / SCC / DCSG)**
 - [ ] SSGS/SSGS2/SSGS3のSSG部が鳴る
@@ -181,15 +181,13 @@
 - [ ] SCC・DCSGの音量レジスタ変換則、AY8930拡張モードのバンク切り替え
 
 **`emu_opl` / `emu_opl_stereo`(OPL3 / OPL4 / Y8950[リズム])**
-- [ ] OPL4 AWMのピッチベンド・ファインチューン・ソフトウェアLFOのビブラートが効く(kfs→1/128半音の換算を直した。直す前はほとんど動かなかったはず)。テストはレジスタ値を見るだけ
 - [ ] Y8950のチャンネル名がGUIで`FM1`〜と表示される。`fitom_cli`のデバイス一覧では`Y8950`。YM3526(`chip: "OPL"`)を使うプロファイルはstagingに無い
 
 **`emu_opll` / `emu_opll_stereo`(OPLL[リズム] / OPLLX / OPLLP / VRC7 / OPLLEX)**
-- [ ] OPLLの内蔵リズムのSD/TOMが、ノート番号に応じてメロディ側と同じ音程で上下する(F-numberを9bitへ落とすよう直した)。テストはメロディ側と同じレジスタ値になることを見るだけ
 - [ ] パッチピッカーのOPLLEX: CH番号→パッチ選択→カテゴリ「OPLLEX」→バンク「ROM Preset」に、`OPLL: `/`OPLLX: `/`OPLLP: `/`VRC7: `の接頭辞つきで60音色が並ぶ。試聴でその音色が鳴る。確定後、MIDIモニターのパッチ名も同じ表記になる。`FITOMBridge`にはテストが無く、ビルドが通ることまで確かめた
 
 **`emu_msx2pp`(Y8960: OPLLEX[リズム] / OPL2EX / SSGEX / SCCEX / OPM)**
-- [ ] Y8960の拡張ブロックのうちOPLLEXとOPL2EX(内蔵ADPCM-B・リズムを含む)が鳴る。OPLLEXの内蔵リズムのSD/TOMの音程も上の項目と同じく確かめる。OPLLEXのリズムへのフォールバック(`resolveBuiltinRhythm()`)はコードを読んだだけ。OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)
+- [ ] Y8960のOPL2EXの内蔵ADPCM-Bと内蔵リズムが鳴る。OPLLEX・OPL2EXの楽音、OPLLEXの内蔵リズムのSD/TOM(CC#32=0x28からOPLLEXへのフォールバックを含む)は、`tools/render_measure/`で鳴ること・音程を測って確かめた。OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)
 - [ ] Y8960のSSGEX/SCCEX/OPMが鳴る。このプロファイルが5ブロックを1個ずつ載せていることは**確認済み**(FITOM_staging `ef55367`のプロファイルとサブプロファイルを読んだ)
 
 **`fmall`(OPL3 / OPL4 / OPLLEX[リズム] / OPNBB / OPZ)**
@@ -232,13 +230,13 @@
 - チップファミリーをまたぐフォールバック(旧FITOMの互換リスト相当)。ファミリー内のフォールバックは`acceptsFallback`で実装済み(`docs/design/chip-drivers.md`「フォールバック」)。OPLL系のROMプリセットは、OPLLEXへ落ちるもの以外はチップ間でフォールバックしない(ROMの中身が実機ごとに違うため)
 - OPM/OPZ ハードウェアLFO: 設計検討完了。着手前の土台(`$38+ch`のドライバ側保持、`reset()`のLFOレジスタ初期化)は済み。波形・SELECTのCCと第2LFOは未着手。`docs/proposals/opm-opz-hw-lfo.md`
 - SCCの波形バンク番号が常に0: `CSCC::setWaveBankNo()`がどこからも呼ばれておらず、複数の`sccwave`バンクを音色データ側から使い分ける経路が無い。バンク0だけなら動作する
-- AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`docs/design/patch-resolution.md`)
+- AWM(YMF278)はSwPatchの参照を解決するが音に反映しない。チャンネルLFOも動かないので、SwPatchのビブラートもCC#1のビブラートも効かない(**確認済み**: `tools/render_measure/pitch_controls.py`で±0.1セント)。ピッチベンドとファインチューン(RPN#1)は効く。`COPL4AWM`は音量計算・`onNoteOn()`の対象外で、実機のLFO/VIBビット(レジスタ`0x80-0x97`)と波形側の設定を整合させる設計が要る(`docs/design/patch-resolution.md`)
 - CAdPcmZ280 (YMZ280B/PCMD8) の旧FITOM実装との詳細突き合わせ
 - OPL系・OPLL系のF-Numberの精度が粗く、低めにずれる(**未確認の候補**、計算のみ)。F-Numberの表はA4を内部値580(OPL2、3.579545MHz)のように1024未満の値で持ち、`updateFreq()`がそれを切り捨てで縮めてレジスタへ書く(OPLは`>>1`、OPLLは`>>2`)。OPLLのレジスタ値は1オクターブで約85〜172しか使わず、低い側の音で最大十数セント低くなる計算。全ノートについて、レジスタ値から実チップの周波数を求めてセントの誤差を並べれば決まる(`tests/test_fm_clock.cpp`の換算式が使える)。直すなら、blockを1つ下げて上位ビットを使うか、丸めて縮める
 - `DEVICE_OPN3_L3`(YMF297のOPL3部)のクロックの換算は、OPL3と同じ÷4にしている(**未確認の候補**: YMF297のクロックとFM部の分周を確かめていない)。stagingにこのチップを使うプロファイルは無い
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
-- OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)が440Hz基準なら、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読んで確認。音では確かめていない
+- OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)は440Hz基準で、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読み、`tools/render_measure/pitch_controls.py`で測った(GMバンク16番のA4が440.23Hz、`master_pitch`を430/450にしても変わらない)
 - ADPCM-BとYMZ280Bは、ラウドネス(GM2の`40·log10(L/127)`dBの目盛り)を線形のゲインのレジスタへそのまま写しているので、CC#7・ベロシティのdB上の効きがFM/PSGの半分になる。実機のレジスタが線形かは**未確認の候補**(YMZ280Bのエミュレータ[EPSGemuEngine、MAME由来]は線形。ADPCM-Bのエミュレータの扱いは見ていない。YMZ280Bのデータシートは記載が無い)。実機の出力を測るか、YM2608のアプリケーションマニュアル等でADPCM-Bのボリュームの定義を見れば決まる。直すなら、レジスタへ`(L/127)^2`に比例する値を書く
 
 **HWプラグインの部位ごとのゲイン**

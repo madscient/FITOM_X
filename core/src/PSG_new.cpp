@@ -1312,8 +1312,9 @@ protected:
                static_cast<uint8_t>(((rvol4 & 0xF) << 4) | (lvol4 & 0xF)), false);
     }
 
-    // 周波数: 実機式 freq = (2×masterClock/512) × 2^octave / (511 - freqReg) を
-    // freqReg について解き、0-255に収まるoctaveを探索する。
+    // 周波数: 実機式 freq = (masterClock/512) × 2^octave / (511 - freqReg) を
+    // freqReg について解き、0-255に収まるoctaveを探索する。8MHz では 15625×2^octave/(511-freqReg)。
+    // SAASound もこの値を出力の周波数とし、その2倍の速さで出力を反転する(2倍した値は周波数ではない)。
     // (FnumTableType::None で構築しており、共有のFnum/周期テーブルは使わない。
     //  音程の入力の扱いは CDSG::getFnumber() と同じ)
     //
@@ -1334,7 +1335,7 @@ protected:
                         * std::pow(2.0, semitones / 12.0);
         if (hz <= 0.0) return ret;
 
-        const double base = 2.0 * fnumMaster_ / 512.0;
+        const double base = fnumMaster_ / 512.0;
         int oct = 0;
         double freqRegF = 0.0;
         for (oct = 0; oct <= 7; ++oct) {
