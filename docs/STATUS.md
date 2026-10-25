@@ -146,7 +146,7 @@
 | 内蔵リズム音源 (COPNARhythm / COPLRhythm / COPLLRhythm、独立レジスタ体系) | ✅ | `docs/design/chip-notes.md` |
 | リリース中再トリガー対策 (wasReleasing、OPM/OPN/OPL/OPL3) | ✅ | `docs/design/chip-drivers.md` |
 | ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-notes.md` |
-| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。実機確認済みの確定仕様) | ✅ | `docs/design/chip-notes.md`, `docs/manuals/hwpatch-reference.md` |
+| OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。動的制御が実チップで効かないことをFITOM_Xとは別の環境で確かめた確定仕様) | ✅ | `docs/design/chip-notes.md`, `docs/manuals/hwpatch-reference.md` |
 | ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
 | PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/hwpatch-reference.md` |
 | pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/hwpatch-reference.md` |
@@ -160,9 +160,11 @@
 
 ## 3. 未確認事項
 
-作ったが、実機・エミュレータの音、またはGUIの目視で確かめていないもの。
+作ったが、エミュレータの音、またはGUIの目視で確かめていないもの。
 ビルドとテストが通ることまでは確かめてある。人間が確かめる。
 確かめたら行を消し、結果を`docs/worklog/`に書く(不具合が見つかったら4節へ移す)。
+
+実機(FitomHwIF)では、まだ何も鳴らしていない。環境が整っていないため、実機での確認は項目ごとには載せない。
 
 プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
 
@@ -205,7 +207,6 @@
 - [ ] システム設定ダイアログの部位ゲインのスライダー(GUI)と、その音。実物のFitomEmuIFと名前指定の部位ゲインに対応したエンジン(YMEngine/DSGemuEngine/DSAemuEngine)を組み合わせて鳴らしたことは無い。`CFITOM`/`FITOMBridge`層(物理チップの添字からポートへの対応とロック)はテストが通っておらず、`HWPlugin_Write`と並行しないことはロックを取る箇所を読んで判断しただけ
 - [ ] SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替(GUI)
 - [ ] レジスタダンプモニターのスクロールバー、チャンネルレベルメーターの束ねられたチップの表示(GUI。いずれも修正後の再確認)
-- [ ] 実機(FitomHwIF)のOPL3/OPL4で、CC#10を左へ振ると左から鳴る。OPL3の出力はCHA=L・CHB=Rとして書く(エミュレータ[YMFMEngine]では`fitom_render`で**確認済み**)。実機のボードがCHA=Lと配線しているかは**推測**(資料の記憶のみ)で、違えば実機だけ左右逆になる
 - [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る(Total Levelの向きを直した。直す前は最大音量で無音になっていたはず)。PCMD8を使うプロファイルはstagingに無い
 
 **外部との連携**
