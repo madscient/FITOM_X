@@ -5,11 +5,11 @@ FITOM_X側の実装は済んだ(決めたことと見送った案は`docs/worklo
 この文書には、まだ終わっていない作業だけを置く。全部終わったら、決定事項を
 `docs/worklog/`へ移してこの文書を消す。
 
-## 他のリポジトリの実装待ち
+## 実物のプラグインとの組み合わせ
 
-- [ ] FitomEmuIFがオフライン描画の組を実装する(依頼文: `request-FitomEmuIF.md`)
-- [ ] FitomSf2IFがオフライン描画の組を実装する(依頼文: `request-FitomSf2IF.md`)
-- [ ] 両方が済んだら、stagingのプロファイルで変換して音を確かめてもらう(`docs/STATUS.md`の3節)
+FitomEmuIF(`3d16a0f`)・FitomSf2IF(`12803b9`)はオフライン描画の組を実装済み。
+
+- [ ] stagingのプロファイルで変換して音を確かめてもらう(`docs/STATUS.md`の3節)
 
 ## SMFのポート指定
 

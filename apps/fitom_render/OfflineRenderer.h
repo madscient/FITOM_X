@@ -19,8 +19,15 @@ struct OfflineTarget {
 
 using SampleSink = std::function<void(const float*, uint32_t)>;
 
+// HWプラグインの契約(IHWPlugin.h の HWPlugin_Render)は、書き込みの反映を描画の先頭から
+// 数えて次の64フレーム境界まで遅らせてよいとしている(fluidsynthが64フレーム単位で
+// 合成するため)。全プラグインへ同じ境界でイベントを送れば、プラグイン間で揃う。
+// タイマーは格子に揃えない。SF2直行パスへの書き込みはMIDIイベントからしか出ないため。
+constexpr uint64_t kEventQuantumFrames = 64;
+
 // 曲の先頭から endTimeUs + tailUs までを描画して sink へ渡す。描画したフレーム数を返す。
-// イベントは、その時刻(サンプル単位に切り捨て)のフレームより前に送る。
+// イベントは、その時刻(サンプル単位に切り捨て)以降で最初の kEventQuantumFrames の倍数の
+// フレームより前に送る。
 // タイマーは k ミリ秒目のフレーム(k * sampleRate / 1000 に切り捨て)の直前に k 回目を呼ぶ。
 // render が失敗したら std::runtime_error を投げる。
 uint64_t renderSong(const SmfSong& song, uint32_t sampleRate, uint64_t tailUs,

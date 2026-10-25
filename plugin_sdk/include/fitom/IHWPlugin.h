@@ -205,7 +205,7 @@ FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_SetMasterVolume(
 //   サンプルレートの記述があっても、こちらを使う。
 //   扱えないサンプルレートは HW_ERR_INVALID_ARG。
 //   このモードでは、HWPlugin_GetLatencySamples は 0 を返すこと
-//   （書き込みは次の HWPlugin_Render の先頭から反映されるため）。
+//   （書き込みの反映の遅れは、下の 64 フレームの範囲で FITOM が吸収するため）。
 // HWPlugin_Render:
 //   開いている全デバイスの音を混ぜ、frames フレーム分を out へ書く。
 //   out は L/R インターリーブの float（frames * 2 要素）。1.0 = フルスケール。
@@ -213,7 +213,15 @@ FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_SetMasterVolume(
 //   FITOM が行う。部位ごとのゲイン・マスターボリューム・pan は、音声デバイスへ
 //   出すときと同じく掛けること。
 //   呼び出しより前に行った HWPlugin_Write / HWPlugin_WriteBlock は、
-//   描画する最初のフレームから反映すること。
+//   描画する最初のフレームから反映するのが原則。ただし、最初の
+//   HWPlugin_Render からの描画総数で数えて次の 64 の倍数のフレームまで
+//   遅らせてよい（fluidsynth が 64 フレーム単位で合成し、ブロックの途中から
+//   イベントを反映する手段を持たないため）。最初の HWPlugin_Render より前の
+//   書き込みは、最初のフレームから反映すること。
+//   FITOM は、MIDI イベントを描画総数が 64 の倍数の位置でだけ送るので、
+//   イベントによる書き込みはどのプラグインでも同じフレームから反映される。
+//   1ms タイマーによる書き込みは 64 の倍数に揃えないので、遅らせるプラグイン
+//   ではその分だけ遅れる。frames は 64 の倍数とは限らない。
 //   HWPlugin_InitOffline で初期化していなければ HW_ERR_INVALID_ARG。
 //   FITOM は HWPlugin_Write と同じスレッドから、交互に呼ぶ（同時には呼ばない）。
 FITOM_HWP_API HWResult    FITOM_HWP_CALL HWPlugin_InitOffline(

@@ -275,20 +275,28 @@ SmfEvent ev(uint64_t us, uint8_t note) { return {us, {0x90, note, 0x64}}; }
 
 } // namespace
 
-TEST_CASE("Offline renderer sends events and 1ms ticks at their sample positions",
+TEST_CASE("Offline renderer sends events on the 64-frame grid and 1ms ticks at their sample positions",
           "[render][offline]")
 {
     SmfSong song;
-    song.events    = {ev(0, 1), ev(1500, 2), ev(2000, 3)};
-    song.endTimeUs = 2000;
+    song.events    = {ev(0, 1), ev(1500, 2), ev(8000, 3), ev(8125, 4)};
+    song.endTimeUs = 8125;
 
     Recorder r;
-    // 8000Hz: 1ms = 8フレーム。曲の終わり 2000us + 余韻 1000us = 24フレーム
-    const uint64_t total = renderSong(song, 8000, 1000, r.target, r.sink);
-    CHECK(total == 24);
-    CHECK(r.frames == 24);
-    CHECK(r.log == std::vector<std::string>{
-        "midi1@0", "tick@8", "midi2@12", "tick@16", "midi3@16", "tick@24"});
+    // 8000Hz: 1ms = 8フレーム、イベントの格子 = 64フレーム = 8ms。
+    // 1500us(12フレーム)は64へ、8000us(64フレーム)はそのまま、8125us(65フレーム)は128へ送る。
+    // 曲の終わり 8125us + 余韻 8000us = 129フレーム
+    const uint64_t total = renderSong(song, 8000, 8000, r.target, r.sink);
+    CHECK(total == 129);
+    CHECK(r.frames == 129);
+
+    std::vector<std::string> expected{"midi1@0"};
+    for (int k = 1; k <= 16; ++k) {
+        expected.push_back("tick@" + std::to_string(k * 8));
+        if (k == 8)  { expected.push_back("midi2@64"); expected.push_back("midi3@64"); }
+        if (k == 16) expected.push_back("midi4@128");
+    }
+    CHECK(r.log == expected);
 }
 
 TEST_CASE("Offline renderer keeps 1000 ticks per second at a non-integer frames-per-ms rate",

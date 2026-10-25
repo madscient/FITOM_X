@@ -50,10 +50,13 @@ uint64_t renderSong(const SmfSong& song, uint32_t sampleRate, uint64_t tailUs,
 {
     if (sampleRate < 1000) throw std::invalid_argument("sample rate must be at least 1000 Hz");
     const auto toFrame = [sampleRate](uint64_t us) { return us * sampleRate / 1000000; };
+    const auto toEventFrame = [&toFrame](uint64_t us) {
+        return (toFrame(us) + kEventQuantumFrames - 1) / kEventQuantumFrames * kEventQuantumFrames;
+    };
 
     Clock clock(sampleRate, target, sink);
     for (const auto& e : song.events) {
-        clock.advanceTo(toFrame(e.timeUs));
+        clock.advanceTo(toEventFrame(e.timeUs));
         target.sendMidi(e.bytes.data(), e.bytes.size());
     }
     clock.advanceTo(toFrame(song.endTimeUs + tailUs));

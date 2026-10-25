@@ -86,7 +86,7 @@
 
 | ファイル | 状態 | 内容 |
 |---|---|---|
-| `apps/fitom_render/` | 🚧 | `fitom_render`。プロファイルでSMFを演奏してWAVへ書き出す。全HWプラグインがオフライン描画の組(`HWPlugin_InitOffline`/`HWPlugin_Render`)を持つときだけ変換する。SMFの読み込み・WAVの書き出し・時間の進め方は静的ライブラリ`fitom_render_lib`に分けてテストしている。FitomEmuIF・FitomSf2IFが組を実装するまで、実際のプロファイルでは変換できない(5節)。利用者向けは`docs/manuals/render-reference.md` |
+| `apps/fitom_render/` | 🚧 | `fitom_render`。プロファイルでSMFを演奏してWAVへ書き出す。全HWプラグインがオフライン描画の組(`HWPlugin_InitOffline`/`HWPlugin_Render`)を持つときだけ変換する。SMFの読み込み・WAVの書き出し・時間の進め方は静的ライブラリ`fitom_render_lib`に分けてテストしている。FitomEmuIF・FitomSf2IFは組を実装済みで、実際のプロファイルとの組み合わせは未確認(3節)。利用者向けは`docs/manuals/render-reference.md` |
 
 ### GUI
 
@@ -137,7 +137,7 @@
 | HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `docs/interfaces/plugin-hwif.md`, `docs/manuals/profile-reference.md` |
 | マスターボリュームのHWプラグインへの受け渡し (任意の`HWPlugin_SetMasterVolume`、デバイスごと、0-127)。チップのレジスタには掛けない | 🚧 | `docs/interfaces/plugin-hwif.md` |
-| SMF→WAVのオフライン変換 (`fitom_render`。HWプラグインの任意の組`HWPlugin_InitOffline`/`HWPlugin_Render`、描画したサンプル数で1msタイマーを進める。SMFのポート指定は読まず全トラックをMPU0へ) | 🚧 | `docs/manuals/render-reference.md`, `docs/interfaces/plugin-hwif.md` |
+| SMF→WAVのオフライン変換 (`fitom_render`。HWプラグインの任意の組`HWPlugin_InitOffline`/`HWPlugin_Render`、描画したサンプル数で1msタイマーを進める。MIDIイベントは64フレームの格子に揃えて送る。SMFのポート指定は読まず全トラックをMPU0へ) | 🚧 | `docs/manuals/render-reference.md`, `docs/interfaces/plugin-hwif.md` |
 | Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `docs/design/chip-drivers.md` |
 | 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `docs/design/chip-drivers.md` |
 | リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/manuals/profile-reference.md` |
@@ -211,9 +211,9 @@
 - [ ] 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`Config::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
 - [ ] 内部用MIDIパイプと実際のパッチエディタとの接続(PowerShellの簡易クライアントでの疎通確認までは実施済み)
 - [ ] 内部用MIDIパイプの10本目の接続(ch9、起動時はリズムチャンネル)で、`CC#0=0x79`によりメロディチャンネルへ切り替えてから直接デバイス選択で試聴できること。コードを読んで判断しただけ
-- [ ] マスターボリューム: FitomEmuIFが`HWPlugin_SetMasterVolume`を実装した後、システム設定ダイアログのスライダーとマスターボリュームのSysExで、エミュレータの出力の音量が変わる。FITOM_X側は、検証用プラグインが値を受け取ることまでテストで確かめた
+- [ ] マスターボリューム: FitomEmuIF(`3d16a0f`で`HWPlugin_SetMasterVolume`を実装済み)と組み合わせて、システム設定ダイアログのスライダーとマスターボリュームのSysExで、エミュレータの出力の音量が変わる。FITOM_X側は、検証用プラグインが値を受け取ることまでテストで確かめた
 - [ ] SF2直行パスのFitomSf2IFとFITOM_Xを組み合わせての音出し(FitomSf2IFは実装済み。同リポジトリの`docs/STATUS.md`も実機検証は未実施としている)
-- [ ] `fitom_render`: FitomEmuIF・FitomSf2IFがオフライン描画の組を実装した後、stagingのプロファイルでSMFを変換し、WAVを聴いて実時間で鳴らしたときと同じ音・同じテンポになっていること。`s16`/`s24`/`f32`それぞれが一般的なプレイヤーで開けること。FITOM_X側は、検証用プラグインで組の扱い・時刻とタイマーの位置・WAVのヘッダとサンプル値をテストで確かめただけで、実物のプラグインと組み合わせて動かしたことは無い
+- [ ] `fitom_render`: FitomEmuIF(`3d16a0f`)・FitomSf2IF(`12803b9`)はオフライン描画の組を実装済み。stagingのプロファイルでSMFを変換し、WAVを聴いて実時間で鳴らしたときと同じ音・同じテンポになっていること。SF2とFM/PSGの発音の時刻が揃っていること(イベントを64フレームの格子に揃えて送るため)。`s16`/`s24`/`f32`それぞれが一般的なプレイヤーで開けること。FITOM_X側は、検証用プラグインで組の扱い・時刻とタイマーの位置・WAVのヘッダとサンプル値をテストで確かめただけで、実物のプラグインと組み合わせて動かしたことは無い
 
 ---
 
@@ -280,14 +280,14 @@
 
 ## 5. 周辺リポジトリの追従状況
 
-2026年10月23日時点。FitomEmuIF・FitomHwIF・FitomSf2IF・FITOM_stagingは10月24日に見直した(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
+2026年10月23日時点。FITOM_stagingは10月24日、FitomEmuIF・FitomHwIF・FitomSf2IFは10月25日に見直した(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
 他のリポジトリへの作業の依頼文は`docs/plans/request-<リポジトリ名>.md`に置く。依頼先の作業が終わったら、この表を更新して依頼文を消す。
 
 | リポジトリ | 状況 |
 |---|---|
-| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(任意)は未実装で、実装するまでFM/PSGにマスターボリュームは効かない。オフライン描画の組(任意)も未実装で、実装するまで`fitom_render`で使えない。`IHWPlugin.h`の写しの同期も要る(origin `87d0a6c`の写しは`d214ff9`の1つ前のFITOM_Xと同一)。依頼文: `docs/plans/request-FitomEmuIF.md` |
-| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`は実機にミキサーが無いので実装不要。`IHWPlugin.h`の写しの同期(旧名FitomIFTestの修正を含む)は要る(origin `a2357ea`の写しは`d214ff9`の1つ前のFITOM_Xと同一)。依頼文: `docs/plans/request-FitomHwIF.md` |
-| FitomSf2IF | `IHWPlugin.h`の写しに部位ゲイン・マスターボリュームの節が無い。どちらも任意で、SF2のデバイスにはマスターボリュームをSysExで送るので、このままでもロードはでき、動作も変わらない(origin `ae15e91`)。オフライン描画の組(任意)は未実装。stagingの全プロファイルがFitomSf2IFを載せているので、実装するまでどのプロファイルも`fitom_render`で変換できない。依頼文: `docs/plans/request-FitomSf2IF.md` |
+| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(振幅は(値/127)²)とオフライン描画の組を実装済み(`3d16a0f`)。`IHWPlugin.h`の写しは`faaf183`の版と同一。その後FITOM_X側でオフライン描画の書き込みの反映を「64フレームの境界まで遅らせてよい」と緩めたが、コメントだけの変更でABIは変わらないので、同期しなくても動作は変わらない |
+| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`とオフライン描画の組は、実機なので実装しない。`IHWPlugin.h`の写しは`faaf183`の版と同一(`5a97edc`)。その後のFITOM_X側の変更はオフライン描画のコメントだけで、FitomHwIFには関係しない |
+| FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。FITOM_X側は契約をこれに合わせて緩め、`fitom_render`がMIDIイベントを64フレームの格子に揃えて送る。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
 | FITOM_staging | `config_schema/`はFITOM_Xの`d214ff9`に同期済み、`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある(`dbd2499`)。その後FITOM_X側で`profile.schema.json`の`devices[].clock`の`description`を変えたので、説明文だけ食い違う(構造は同一)。FM系の音程の修正を含むFITOM_Xのビルドで、`emu_opn`等の音程を確かめてもらう(3節)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
