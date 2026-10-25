@@ -66,7 +66,9 @@ master, divide, noteOffset_)`で`fnumTable_`を生成する際、`noteOffset_`�
 
 ### パンポットの向き
 
-`ChState::panpot`は-64〜+63で、**負値=L / 正値=R は全ドライバ共通の規約**。L/Rの出力ビットを持つチップの`updatePanpot()`はこの向きで書く(OPM: `0x20` bit7/6、OPL3: `0xC0` bit5/4、OPN2/OPNA: `0xB4` bit7/6)。
+`ChState::panpot`は-64〜+63で、**負値=L / 正値=R は全ドライバ共通の規約**。L/Rの出力ビットを持つチップの`updatePanpot()`はこの向きで書く(OPM: `0x20` bit7/6、OPL3: `0xC0` bit4=CHA=L / bit5=CHB=R、OPN2/OPNA: `0xB4` bit7/6)。
+
+OPL3のCHA/CHBは、どちらを左右へ配線するかがチップの外で決まる。CHA=Lとしているのは、ymfmが出力Aを先頭に出し、YMFMEngineがそれを左へ送るからである。実機のボードがこの向きでない場合、パンが左右逆になる。
 
 ### 公開しているチップ寄りのメソッド
 
@@ -178,7 +180,7 @@ GUIのレジスタダンプモニター(`RegisterDumpWindow`)は、物理ポー�
 グループ化キー: (VoicePatchType, IPort::getInterfaceDesc(), IPort::getPanpot())
 ```
 
-- **サブチップごとの`deviceType`/`rhythm_mode`は独立している**: 束ねられる複数のデバイスエントリは、`deviceType`(実装クラス。例: `DEVICE_OPNB`はch0/ch3を無効にする)や`rhythm_mode`(OPL/OPLL系のch6-8を内蔵リズム専用にする)がそれぞれ異なりうる。そのため`PortGroup`(`Config.h`)は`deviceType`・`rhythmMode`の両方をサブチップごとに保持し、`CFITOM::initDevices()`のサブチップ生成ループは代表の値ではなく`config_->getDeviceSpanGroupDeviceType(i,k)`/`getDeviceSpanGroupRhythmMode(i,k)`を使う
+- **サブチップごとの`deviceType`/`rhythm_mode`/クロックの換算比は独立している**: 束ねられる複数のデバイスエントリは、`deviceType`(実装クラス。例: `DEVICE_OPNB`はch0/ch3を無効にする)や`rhythm_mode`(OPL/OPLL系のch6-8を内蔵リズム専用にする)、クロックの換算比(OPL3のFM部は÷4、OPL4のFM部は×2÷19で、どちらも`DEVICE_OPL3`/`DEVICE_OPL3_2`)がそれぞれ異なりうる。そのため`PortGroup`(`Config.h`)はこれらをサブチップごと(ステレオペアならR側の換算比も)に保持し、`CFITOM::initDevices()`のサブチップ生成ループは代表の値ではなく`config_->getDeviceSpanGroupDeviceType(i,k)`/`getDeviceSpanGroupRhythmMode(i,k)`/`getDeviceSpanGroupClockDivider(i,k)`等を使う
 - **`allocCh()`のチップ試行順序はローテーションする**: `CSpanDevice::allocCh()`は、mode=1(奪取なし)→0(奪取あり)を試す前段階で、どのチップから先に空きchを探すかを`nextChipIdx_`(割り当て成功のたびに1つ進める)で毎回ずらす。常に`chips_[0]`から試すと、1台目に`Releasing`(ソフトウェア上は解放済みだが実際にはまだ減衰中)のchが1つでもある限り1台目だけが選ばれ続け、同じ物理chの再利用が早まって、まだ減衰中のノートを切ってしまう。各チップ固有の`queryCh`の制約(OPMのノイズはch7固定等)には手を加えず、チップの試行順序だけを変える
 - **束ねたADPCM-Bのバンクは、サブチップごとの`deviceType`で解決する**: OPNA/OPNB/OPNBB/Y8950のADPCM-Bは同一VoicePatchType(`VOICE_PATCH_ADPCMB`)なので1つの`CSpanDevice`へ束ねられるが、波形の配置(オフセットテーブル)はチップごとに違う。`CMultiDevice::setPcmRegistry()`は、各サブチップについてそのサブチップ自身の`getDeviceType()`で`findBankNoForDeviceType()`を引き直し、見つかればそれを使う(見つからなければ代表デバイス基準の`bankNo`を使う)
 
@@ -273,6 +275,11 @@ Y8960のOPL2EX/OPLLEX(FM部・ADPCM部・内蔵リズム)。これらはチャ�
 OPL3は`DEVICE_OPL3`+`DEVICE_OPL3_2`であり、AWM部を除いた部分集合の
 `deviceType`が一致する)。このときAWM部は独立したモノラルデバイスとして
 `devices_[]`に残る。
+
+ペアの2チップは`deviceType`が同じでも、クロックの換算比が違うことがある
+(OPL3のFM部は÷4、OPL4のFM部は×2÷19)。L側エントリはR側エントリの換算比を
+`stereoPairClockDivider`/`stereoPairClockMultiplier`に写し、`CFITOM::createLeveledDevice()`は
+R側のチップをこの値で作る。L側の値で作ると、R側の音程がクロックの比の分だけずれる。
 
 ### 動的ボイス割当とデチューン
 

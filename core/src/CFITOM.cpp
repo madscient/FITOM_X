@@ -506,7 +506,7 @@ std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     uint32_t deviceType, IPort* port, IPort* stereoPairPort,
     int sampleRate, IPort* extraPort, bool rhythmMode, bool stereoPairChipLevel,
     ISoundDevice** outLeftRaw, ISoundDevice** outRightRaw, int clockDivider,
-    int clockMultiplier)
+    int clockMultiplier, int pairClockDivider, int pairClockMultiplier)
 {
     auto dev = DeviceFactory::create(deviceType, port, sampleRate, extraPort, rhythmMode,
                                      clockDivider, clockMultiplier);
@@ -525,7 +525,7 @@ std::unique_ptr<ISoundDevice> CFITOM::createLeveledDevice(
     stereoPairPort = resolveHighBankPort(deviceType, stereoPairPort, nullptr);
 
     auto rdev = DeviceFactory::create(deviceType, stereoPairPort, sampleRate, nullptr, rhythmMode,
-                                      clockDivider, clockMultiplier);
+                                      pairClockDivider, pairClockMultiplier);
     if (!rdev) {
         FITOM_LOG_WARN("createLeveledDevice: stereo pair (R) creation failed, "
             "falling back to mono (L only)");
@@ -618,7 +618,9 @@ void CFITOM::initDevices()
                                        config_->getDeviceStereoPairChipLevel(i),
                                        &stereoLRaw, &stereoRRaw,
                                        config_->getDeviceClockDivider(i),
-                                       config_->getDeviceClockMultiplier(i));
+                                       config_->getDeviceClockMultiplier(i),
+                                       config_->getDeviceStereoPairClockDivider(i),
+                                       config_->getDeviceStereoPairClockMultiplier(i));
         if (!dev) {
             FITOM_LOG_ERR("Device[" << i << "] '"
                 << config_->getDeviceLabel(i)
@@ -680,8 +682,10 @@ void CFITOM::initDevices()
                     subDeviceType, sp, spStereo, sampleRate, nullptr, subRhythmMode,
                     config_->getDeviceSpanGroupStereoPairChipLevel(i, k),
                     &subLRaw, &subRRaw,
-                    config_->getDeviceClockDivider(i),
-                    config_->getDeviceClockMultiplier(i));
+                    config_->getDeviceSpanGroupClockDivider(i, k),
+                    config_->getDeviceSpanGroupClockMultiplier(i, k),
+                    config_->getDeviceSpanGroupStereoPairClockDivider(i, k),
+                    config_->getDeviceSpanGroupStereoPairClockMultiplier(i, k));
                 if (!subDev) {
                     FITOM_LOG_WARN("Device[" << i << "]: span sub-chip[" << k
                         << "] creation failed, skipped");

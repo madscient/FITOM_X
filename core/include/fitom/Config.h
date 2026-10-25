@@ -57,6 +57,14 @@ struct PortGroup {
     // rhythm_mode:false chipとspanGroupとして束ねられた場合、代表デバイスの
     // 値を流用すると束ねられた側のch6-8無効化が効かなくなるため)。
     bool                     rhythmMode = false;
+    // このポートグループ本来のクロック換算比 (DeviceEntry::clockDivider 参照)。
+    // deviceTypeと同じく代表デバイスの値を流用しない(OPL4のFM部はOPL3と
+    // 同じdeviceType・VoicePatchTypeで束ねられるが、換算比が違う)。
+    int                      clockDivider = 1;
+    int                      clockMultiplier = 1;
+    // stereoPair 側のチップの換算比 (DeviceEntry::stereoPairClockDivider 参照)。
+    int                      stereoPairClockDivider = 1;
+    int                      stereoPairClockMultiplier = 1;
 };
 
 struct DeviceEntry {
@@ -102,6 +110,10 @@ struct DeviceEntry {
     // (L/R両側とも stereo_pair:"L"/"R" で宣言された場合)。
     // CLinearPanDevice が束ねた2チップの ChState::panpot を左右端へ固定する。
     bool                            stereoPairChipLevel = false;
+    // 統合後に設定。R側のチップの換算比 (clockDivider 参照)。同じdeviceTypeでも
+    // L側と換算比が違う組がある(OPL3とOPL4のFM部)ため、R側のエントリから写す。
+    int                             stereoPairClockDivider = 1;
+    int                             stereoPairClockMultiplier = 1;
 
     // 同種デバイス自動束ね (CSpanDevice) 用の追加ポートグループ群。
     // 各要素は「モノラル1ポート」または「ステレオペア2ポート
@@ -240,6 +252,12 @@ public:
     // k番目の追加ポートグループがステレオペアの場合、それがチップ内L/R分離方式
     // (stereo_pair:"L"/"R") かどうか。getDeviceStereoPairChipLevel()と同じ意味。
     bool             getDeviceSpanGroupStereoPairChipLevel(int index, int k) const;
+    // k番目の追加ポートグループ本来のクロック換算比と、そのステレオペア側の
+    // 換算比 (PortGroup::clockDivider 参照)。
+    int              getDeviceSpanGroupClockDivider(int index, int k) const;
+    int              getDeviceSpanGroupClockMultiplier(int index, int k) const;
+    int              getDeviceSpanGroupStereoPairClockDivider(int index, int k) const;
+    int              getDeviceSpanGroupStereoPairClockMultiplier(int index, int k) const;
 
     // リニアステレオ化 (CLinearPanDevice): このデバイス自身がステレオペア化
     // されている場合、相手(R側)のポートを返す。nullptr = モノラル単体。
@@ -248,6 +266,9 @@ public:
     // (stereo_pair:"L"/"R") かどうか。false ならプラグイン側の出力ルーティング
     // (pan:1/2) でL/Rを分離する方式。
     bool             getDeviceStereoPairChipLevel(int index) const;
+    // R側のチップのクロック換算比 (DeviceEntry::stereoPairClockDivider 参照)。
+    int              getDeviceStereoPairClockDivider(int index) const;
+    int              getDeviceStereoPairClockMultiplier(int index) const;
 
     // ─── VoicePatchType (音色パッチ互換性分類) ──────────────────────────────
     // devices_[index] の deviceType (DEVICE_*) から対応する VoicePatchType
@@ -363,6 +384,10 @@ public:
     // いる (resolveCompositeSpec と同じ方針)。仕様は
     // mergeStereoPairDevices() の宣言部コメント参照。
     static void pairStereoDevices(std::vector<DeviceEntry>& devices);
+
+    // 同種デバイス自動束ね (CSpanDevice) の本体。pairStereoDevices() と同じ
+    // 方針でstaticにしている。仕様は mergeSpannableDevices() の宣言部コメント参照。
+    static void spanDevices(std::vector<DeviceEntry>& devices);
 
     int                getMidiInputCount()          const;
     const std::string& getMidiInputName(int index)  const;

@@ -647,12 +647,15 @@ private:
     // 生ポインタ)。チャンネルレベルメーターが物理チップ単位のch構成を
     // 取り出すのに使う。モノラル時はどちらも変更しない(戻り値のunique_ptr
     // 自身が唯一のデバイスであり、呼び出し元が .get() で取得できるため)。
+    // clockDivider/clockMultiplier はL側、pairClockDivider/pairClockMultiplier
+    // はR側のチップのクロック換算比(DeviceEntry::stereoPairClockDivider参照)。
     std::unique_ptr<ISoundDevice> createLeveledDevice(
         uint32_t deviceType, IPort* port, IPort* stereoPairPort,
         int sampleRate, IPort* extraPort, bool rhythmMode,
         bool stereoPairChipLevel = false,
         ISoundDevice** outLeftRaw = nullptr, ISoundDevice** outRightRaw = nullptr,
-        int clockDivider = 1, int clockMultiplier = 1);
+        int clockDivider = 1, int clockMultiplier = 1,
+        int pairClockDivider = 1, int pairClockMultiplier = 1);
 
     // ─── タイマースレッド ─────────────────────────────────────────
     std::thread         timerThread_;

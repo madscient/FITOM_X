@@ -1062,6 +1062,99 @@ TEST_CASE("FITOMConfig::pairStereoDevices: OPL4's FM sub-devices pair with an OP
     CHECK(devices[2].stereoPairPort == nullptr);
 }
 
+namespace {
+
+// OPL3(÷4)またはOPL4(×2÷19)のFM部のサブデバイス2つを足す。
+// 換算比はresolveCompositeSpec()と同じ値。
+void pushOplFm(std::vector<fitom::DeviceEntry>& devices, const std::string& label,
+               const std::shared_ptr<fitom::IPort>& port, int group, bool opl4,
+               fitom::StereoSide side)
+{
+    const bool paired = side != fitom::StereoSide::None;
+    for (uint32_t type : {uint32_t(DEVICE_OPL3), uint32_t(DEVICE_OPL3_2)}) {
+        auto e = makeEntry(label, type, port, paired, group, side);
+        e.clockDivider    = opl4 ? 19 : 4;
+        e.clockMultiplier = opl4 ? 2 : 1;
+        devices.push_back(std::move(e));
+    }
+}
+
+} // namespace
+
+// L/Rで換算比の違うチップの組(OPL3とOPL4のFM部)では、R側のチップを
+// R側自身の換算比で作れるよう、L側エントリへR側の換算比を写す。
+TEST_CASE("FITOMConfig::pairStereoDevices: the R chip keeps its own clock ratio",
+          "[config][stereo][clock]")
+{
+    auto portL = std::make_shared<StereoTestPort>(0, "FitomEmuIF"); // OPL3
+    auto portR = std::make_shared<StereoTestPort>(0, "FitomEmuIF"); // OPL4
+    std::vector<fitom::DeviceEntry> devices;
+    pushOplFm(devices, "OPL3", portL, 0, false, fitom::StereoSide::Left);
+    pushOplFm(devices, "OPL4", portR, 1, true,  fitom::StereoSide::Right);
+    fitom::FITOMConfig::pairStereoDevices(devices);
+
+    REQUIRE(devices.size() == 2);
+    for (const auto& e : devices) {
+        INFO(e.label << " type=0x" << std::hex << e.deviceType);
+        CHECK(e.stereoPairPort == portR);
+        CHECK(e.clockDivider == 4);
+        CHECK(e.clockMultiplier == 1);
+        CHECK(e.stereoPairClockDivider == 19);
+        CHECK(e.stereoPairClockMultiplier == 2);
+    }
+}
+
+// 束ねたチップも、代表と違う換算比をチップごとに持つ(モノラル・ステレオペアとも)。
+TEST_CASE("FITOMConfig::spanDevices: each spanned chip keeps its own clock ratio",
+          "[config][span][clock]")
+{
+    SECTION("モノラルのOPL3とOPL4のFM部") {
+        auto p3 = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+        auto p4 = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+        std::vector<fitom::DeviceEntry> devices;
+        pushOplFm(devices, "OPL3", p3, 0, false, fitom::StereoSide::None);
+        pushOplFm(devices, "OPL4", p4, 1, true,  fitom::StereoSide::None);
+        fitom::FITOMConfig::spanDevices(devices);
+
+        REQUIRE(devices.size() == 2);
+        for (const auto& e : devices) {
+            INFO(e.label << " type=0x" << std::hex << e.deviceType);
+            CHECK(e.clockDivider == 4);
+            REQUIRE(e.spanGroups.size() == 1);
+            CHECK(e.spanGroups[0].primary == p4);
+            CHECK(e.spanGroups[0].clockDivider == 19);
+            CHECK(e.spanGroups[0].clockMultiplier == 2);
+        }
+    }
+
+    SECTION("L/Rの組み方が逆のステレオペア2組") {
+        auto a3 = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+        auto a4 = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+        auto b4 = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+        auto b3 = std::make_shared<StereoTestPort>(0, "FitomEmuIF");
+        std::vector<fitom::DeviceEntry> devices;
+        pushOplFm(devices, "A-OPL3", a3, 0, false, fitom::StereoSide::Left);
+        pushOplFm(devices, "A-OPL4", a4, 1, true,  fitom::StereoSide::Right);
+        pushOplFm(devices, "B-OPL4", b4, 2, true,  fitom::StereoSide::Left);
+        pushOplFm(devices, "B-OPL3", b3, 3, false, fitom::StereoSide::Right);
+        fitom::FITOMConfig::pairStereoDevices(devices);
+        fitom::FITOMConfig::spanDevices(devices);
+
+        REQUIRE(devices.size() == 2);
+        for (const auto& e : devices) {
+            INFO(e.label << " type=0x" << std::hex << e.deviceType);
+            REQUIRE(e.spanGroups.size() == 1);
+            const auto& g = e.spanGroups[0];
+            CHECK(g.primary == b4);
+            CHECK(g.stereoPair == b3);
+            CHECK(g.clockDivider == 19);
+            CHECK(g.clockMultiplier == 2);
+            CHECK(g.stereoPairClockDivider == 4);
+            CHECK(g.stereoPairClockMultiplier == 1);
+        }
+    }
+}
+
 // OPL4同士をL/Rペアにした場合も、AWM部だけは両側とも独立したデバイスとして
 // 残る(L側のAWMがR側のAWMを吸収しない)。
 TEST_CASE("FITOMConfig::pairStereoDevices: an OPL4 L/R pair leaves both AWM parts "

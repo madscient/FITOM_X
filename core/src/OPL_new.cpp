@@ -9,7 +9,7 @@
 //   - KSL あり / DT1・DT2 なし
 //   - VIB あり / WS あり (OPL2 以降)
 //   - UpdateKey でキーオン/オフを Sustain とともに制御
-//   - パンポット: レジスタ 0xC0 の bit5/bit4 (OPL3 の出力ビット位置)
+//   - パンポット: レジスタ 0xC0 の bit4(CHA=L)/bit5(CHB=R) (OPL3 の出力ビット位置)
 
 #include "fitom/ISoundDevice.h"
 #include "fitom/MultiDevice.h"
@@ -34,6 +34,14 @@ public:
     static constexpr int kDefaultClock = 3579545;
     static int clockOrDefault(int masterClock) {
         return masterClock > 0 ? masterClock : kDefaultClock;
+    }
+
+    // OPL3の0xC0+chの出力イネーブル(bit5-4)。bit4がCHA、bit5がCHBで、
+    // CHA=L・CHB=Rとして書く。ymfmはbit4をdata[0]へ出し、YMFMEngineは
+    // data[0]を左へ送る(確認済み: 両者のソースと、fitom_renderでCC#10を
+    // 振った出力)。実機のボードもCHA=Lと配線するのは推測(資料の記憶のみ)。
+    static uint8_t outputEnableBits(int8_t pan) {
+        return (pan < -20) ? 0x10 : (pan > 20) ? 0x20 : 0x30;
     }
 
     // rhythmMode: trueならch6-8を内蔵リズム(COPLRhythm、DEVICE_OPL_RHY)
@@ -197,8 +205,7 @@ protected:
     }
 
     void updatePanpot(uint8_t ch) override {
-        int8_t pan = chState_[ch].panpot;
-        uint8_t lr = (pan > 20) ? 0x10 : (pan < -20) ? 0x20 : 0x30;
+        uint8_t lr = outputEnableBits(chState_[ch].panpot);
         uint8_t cur = getReg(static_cast<uint16_t>(0xC0 + ch)) & 0x0F;
         setReg(static_cast<uint16_t>(0xC0 + ch), static_cast<uint8_t>(lr | cur));
     }
@@ -556,8 +563,7 @@ protected:
     }
 
     void updatePanpot(uint8_t ch) override {
-        int8_t pan = chState_[ch].panpot;
-        uint8_t lr = (pan > 20) ? 0x10 : (pan < -20) ? 0x20 : 0x30;
+        uint8_t lr = COPL::outputEnableBits(chState_[ch].panpot);
         uint16_t rop = portBase(ch);
         uint8_t  dch = localCh(ch);
         uint16_t reg1 = static_cast<uint16_t>(0xC0 + rop + dch);

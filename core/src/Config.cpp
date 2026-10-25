@@ -1265,7 +1265,7 @@ FITOMConfig::ChipPanType FITOMConfig::getChipPanType(uint32_t deviceType) noexce
     // 指定自体が読み込み時警告になるが、実チップのbit6の役割が未確定の
     // ため現状は ThreeWay のままとしている。
     case DEVICE_OPZ: case DEVICE_OPZ2:
-    // FM: OPL3系 (レジスタ0xC0のbit5/bit4 = CHA/CHB)。OPL4のFM部は
+    // FM: OPL3系 (レジスタ0xC0のbit4/bit5 = CHA/CHB)。OPL4のFM部は
     // composite展開でDEVICE_OPL3/DEVICE_OPL3_2になるためこれで賄われる。
     case DEVICE_OPL3: case DEVICE_OPL3_2: case DEVICE_OPN3_L3:
     // FM: OPN2/OPNA/OPNB系 (レジスタ0xB4のbit7/bit6)。YM2203(DEVICE_OPN)は
@@ -1352,6 +1352,8 @@ void FITOMConfig::pairStereoDevices(std::vector<DeviceEntry>& devices)
                             && devices[r].stereoSide != StereoSide::None;
         devices[l].stereoPairPort     = devices[r].port;
         devices[l].stereoPairChipLevel = chipLevel;
+        devices[l].stereoPairClockDivider    = devices[r].clockDivider;
+        devices[l].stereoPairClockMultiplier = devices[r].clockMultiplier;
         removed[r] = true;
         FITOM_LOG_INFO("mergeStereoPairDevices: '" << devices[r].label
             << "' (R) merged into '" << devices[l].label
@@ -1472,6 +1474,11 @@ void FITOMConfig::pairStereoDevices(std::vector<DeviceEntry>& devices)
 // ================================================================
 void FITOMConfig::mergeSpannableDevices()
 {
+    spanDevices(devices_);
+}
+
+void FITOMConfig::spanDevices(std::vector<DeviceEntry>& devices)
+{
     // グループ化キー: (voicePatchType, interfaceDesc, panpot)。
     // ただし stereoPairPort 設定済み (mergeStereoPairDevices()でステレオ化済み) のエントリは
     // もはや単一のL/Rパンという概念を持たないため、panpot をキーから除外する
@@ -1486,56 +1493,58 @@ void FITOMConfig::mergeSpannableDevices()
                 && panpot         == o.panpot;
         }
     };
-    auto makeKey = [this](const DeviceEntry& e) -> Key {
+    auto makeKey = [](const DeviceEntry& e) -> Key {
         uint8_t vpt = deviceTypeToVoicePatchType(e.deviceType);
         int pan = e.stereoPairPort ? -1 : e.port->getPanpot();
         return Key{vpt, e.port->getInterfaceDesc(), pan};
     };
 
-    std::vector<bool> merged(devices_.size(), false);
+    std::vector<bool> merged(devices.size(), false);
 
-    for (size_t i = 0; i < devices_.size(); ++i) {
-        if (merged[i] || !devices_[i].port) continue;
-        uint8_t vptI = deviceTypeToVoicePatchType(devices_[i].deviceType);
+    for (size_t i = 0; i < devices.size(); ++i) {
+        if (merged[i] || !devices[i].port) continue;
+        uint8_t vptI = deviceTypeToVoicePatchType(devices[i].deviceType);
         if (vptI == VOICE_PATCH_NONE) continue; // 未分類デバイスは束ね対象外
 
-        Key keyI = makeKey(devices_[i]);
+        Key keyI = makeKey(devices[i]);
 
-        for (size_t j = i + 1; j < devices_.size(); ++j) {
-            if (merged[j] || !devices_[j].port) continue;
-            if (devices_[i].port.get() == devices_[j].port.get()) continue; // 同一ポートは対象外
-            uint8_t vptJ = deviceTypeToVoicePatchType(devices_[j].deviceType);
+        for (size_t j = i + 1; j < devices.size(); ++j) {
+            if (merged[j] || !devices[j].port) continue;
+            if (devices[i].port.get() == devices[j].port.get()) continue; // 同一ポートは対象外
+            uint8_t vptJ = deviceTypeToVoicePatchType(devices[j].deviceType);
             if (vptJ == VOICE_PATCH_NONE) continue;
 
-            Key keyJ = makeKey(devices_[j]);
+            Key keyJ = makeKey(devices[j]);
             if (!(keyI == keyJ)) continue;
 
-            // devices_[j] (モノラルまたはステレオペア済み) を devices_[i] に統合する。
-            // devices_[j]自身のdeviceType・rhythmModeを保持する(VoicePatchType
-            // が同じでも実装クラスやrhythm_mode指定が異なる場合があるため、
-            // 代表devices_[i]の値を流用してはならない。CFITOM::initDevices()
-            // 参照。rhythm_mode:trueのチップがfalseのチップとspanGroupとして
-            // 束ねられた場合、代表の値を流用すると束ねられた側のch6-8無効化が
-            // 効かなくなる)。
-            devices_[i].spanGroups.push_back(
-                {devices_[j].port, devices_[j].stereoPairPort,
-                 devices_[j].stereoPairChipLevel, devices_[j].deviceType,
-                 devices_[j].rhythmMode});
-            for (auto& g : devices_[j].spanGroups) devices_[i].spanGroups.push_back(g);
+            // devices[j] (モノラルまたはステレオペア済み) を devices[i] に統合する。
+            // devices[j]自身のdeviceType・rhythmMode・クロック換算比を保持する
+            // (VoicePatchTypeが同じでも実装クラスやrhythm_mode指定、換算比が
+            // 異なる場合があるため、代表devices[i]の値を流用してはならない。
+            // CFITOM::initDevices()参照。rhythm_mode:trueのチップがfalseの
+            // チップとspanGroupとして束ねられた場合、代表の値を流用すると
+            // 束ねられた側のch6-8無効化が効かなくなる)。
+            devices[i].spanGroups.push_back(
+                {devices[j].port, devices[j].stereoPairPort,
+                 devices[j].stereoPairChipLevel, devices[j].deviceType,
+                 devices[j].rhythmMode,
+                 devices[j].clockDivider, devices[j].clockMultiplier,
+                 devices[j].stereoPairClockDivider, devices[j].stereoPairClockMultiplier});
+            for (auto& g : devices[j].spanGroups) devices[i].spanGroups.push_back(g);
             merged[j] = true;
-            FITOM_LOG_INFO("mergeSpannableDevices: '" << devices_[j].label
-                << "' merged into '" << devices_[i].label
+            FITOM_LOG_INFO("mergeSpannableDevices: '" << devices[j].label
+                << "' merged into '" << devices[i].label
                 << "' (VoicePatchType=0x" << std::hex << (int)vptI << ")");
         }
     }
 
     // 統合された (merged==true) エントリを削除する
     std::vector<DeviceEntry> result;
-    result.reserve(devices_.size());
-    for (size_t i = 0; i < devices_.size(); ++i) {
-        if (!merged[i]) result.push_back(std::move(devices_[i]));
+    result.reserve(devices.size());
+    for (size_t i = 0; i < devices.size(); ++i) {
+        if (!merged[i]) result.push_back(std::move(devices[i]));
     }
-    devices_ = std::move(result);
+    devices = std::move(result);
 }
 
 int FITOMConfig::getDeviceSpanGroupCount(int index) const {
@@ -1586,6 +1595,46 @@ bool FITOMConfig::getDeviceSpanGroupStereoPairChipLevel(int index, int k) const 
     const auto& sg = devices_[index].spanGroups;
     if (k < 0 || k >= static_cast<int>(sg.size())) return false;
     return sg[k].stereoPairChipLevel;
+}
+
+namespace {
+const PortGroup* spanGroupAt(const std::vector<DeviceEntry>& devices, int index, int k) {
+    if (index < 0 || index >= static_cast<int>(devices.size())) return nullptr;
+    const auto& sg = devices[index].spanGroups;
+    if (k < 0 || k >= static_cast<int>(sg.size())) return nullptr;
+    return &sg[k];
+}
+int clockRatioOrOne(int v) { return (v > 0) ? v : 1; }
+} // namespace
+
+int FITOMConfig::getDeviceSpanGroupClockDivider(int index, int k) const {
+    const PortGroup* g = spanGroupAt(devices_, index, k);
+    return g ? clockRatioOrOne(g->clockDivider) : 1;
+}
+
+int FITOMConfig::getDeviceSpanGroupClockMultiplier(int index, int k) const {
+    const PortGroup* g = spanGroupAt(devices_, index, k);
+    return g ? clockRatioOrOne(g->clockMultiplier) : 1;
+}
+
+int FITOMConfig::getDeviceSpanGroupStereoPairClockDivider(int index, int k) const {
+    const PortGroup* g = spanGroupAt(devices_, index, k);
+    return g ? clockRatioOrOne(g->stereoPairClockDivider) : 1;
+}
+
+int FITOMConfig::getDeviceSpanGroupStereoPairClockMultiplier(int index, int k) const {
+    const PortGroup* g = spanGroupAt(devices_, index, k);
+    return g ? clockRatioOrOne(g->stereoPairClockMultiplier) : 1;
+}
+
+int FITOMConfig::getDeviceStereoPairClockDivider(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return 1;
+    return clockRatioOrOne(devices_[index].stereoPairClockDivider);
+}
+
+int FITOMConfig::getDeviceStereoPairClockMultiplier(int index) const {
+    if (index < 0 || index >= static_cast<int>(devices_.size())) return 1;
+    return clockRatioOrOne(devices_[index].stereoPairClockMultiplier);
 }
 
 // OPN系(YM2608/YM2610/YM2610B)に内蔵されるSSG部は、FM部と同じマスタークロック
