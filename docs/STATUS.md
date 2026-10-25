@@ -161,7 +161,7 @@
 ## 3. 未確認事項
 
 作ったが、エミュレータの音、またはGUIの目視で確かめていないもの。
-ビルドとテストが通ることまでは確かめてある。人間が確かめる。
+ビルドとテストが通ることまでは確かめてある。音程・音量・発音の有無のように波形から数値で決まるものは、`fitom_render`で鳴らして`tools/render_measure/`で測る。音色の良し悪しとGUIの表示は人間が確かめる。
 確かめたら行を消し、結果を`docs/worklog/`に書く(不具合が見つかったら4節へ移す)。
 
 実機(FitomHwIF)では、まだ何も鳴らしていない。環境が整っていないため、実機での確認は項目ごとには載せない。
@@ -169,13 +169,7 @@
 プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
 
 **準備**
-- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。下の「FM系の音程」と、OPL3/OPL4のステレオペア・パンの項目は10月25日の変更で、それより前のビルドには入っていない。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
-
-**FM系の音程(プラグインが報告するクロックから計算するよう直した)**
-- [ ] `emu_opn`/`emu_opn_stereo`/`emu_fmgen_opn`/`unified_preset`/`fmall`のOPN2/OPNA/OPNB/OPNBB(7,159,090Hz): A4が440Hzで鳴る。直す前は約190セント低かったはず(計算のみ)
-- [ ] `emu_pc88`/`emu_pc98`のOPN(YM2203、3,993,600Hz): 直す前より1オクターブ低くなり、A4が440Hzで鳴る。直す前は1オクターブ高かったはず(計算のみ。YM2203のFM部は72クロックで1サンプル、YM2608は144で、ドライバは両方を144で計算していた。72/144はymfm・fmgenのソースで**確認済み**)。同じプロファイルのOPNA(7,987,200Hz)は約3セント上がる
-- [ ] OPL4のFM部(33,868,800Hz): 約7セント上がり、A4が440Hzで鳴る(計算のみ。FM部が684クロックで1サンプルなのはymfmの`ymf278b`のソースで**確認済み**)
-- [ ] 上以外のFM系(OPM/OPZ/OPL2/Y8950/OPL3/OPLL系): 音程が以前と変わらない。サブプロファイルのクロックは以前の固定値と同じ(**確認済み**: FITOM_staging `ef55367`の`config/profiles/hw_plugins/`の`clock`を数えた。OPN系の値も同じ方法で確認)
+- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。OPM/OPZ(OPP含む)のA4を正しい音程(KC=0x4A)で書く修正は、それより前のビルドに入っていない(前のビルドでは半音高く鳴る)。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
 
 **`emu_ibmpc`(SAA×2 / OPL2 / OPL3 / OPM / DCSG)**
 - [ ] SAA1099の音程: A4が以前と同じ音程で鳴る(プラグインのクロックを読むように変えた。プラグイン設定の`clock`は8000000なので変わらないはず)。ピッチベンドが半音単位で効く。ソフトウェアLFOのある音色でビブラートがかかる。システム設定ダイアログでマスターピッチを430/450Hzへ変えると音程が追従する。FitomEmuIFはプラグイン設定の`clock`をそのまま`GetClock()`で返し、`clock`の無い設定は開く時点で拒否する(**確認済み**: FitomEmuIF `87d0a6c`のソースを読んで確認)
@@ -290,7 +284,8 @@
 | FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`とオフライン描画の組は、実機なので実装しない。`IHWPlugin.h`の写しは`faaf183`の版と同一(`5a97edc`)。その後のFITOM_X側の変更はオフライン描画のコメントだけで、FitomHwIFには関係しない |
 | FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。FITOM_X側は契約をこれに合わせて緩め、`fitom_render`がMIDIイベントを64フレームの格子に揃えて送る。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `config_schema/`はFITOM_Xの`d214ff9`に同期済み、`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある(`dbd2499`)。その後FITOM_X側で`profile.schema.json`の`devices[].clock`の`description`を変えたので、説明文だけ食い違う(構造は同一)。FM系の音程の修正を含むFITOM_Xのビルドで、`emu_opn`等の音程を確かめてもらう(3節)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
+| FITOM_staging | `config_schema/`はFITOM_Xの`d214ff9`に同期済み、`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある(`dbd2499`)。その後FITOM_X側で`profile.schema.json`の`devices[].clock`の`description`を変えたので、説明文だけ食い違う(構造は同一)。`bin/`のFitomEmuIF.dllはオフライン描画に対応していない(3節の「準備」)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
+| FmGenEngine | A4の音程が、出力のサンプルレートによって数セントずれる。`emu_fmgen_opn`のOPN系(7,159,090Hz)で、44.1kHzでは-3.6セント、48kHzでは+5.5セント、96kHzでは-7.6セント(**確認済み**: `tools/render_measure/fm_pitch.py`で測定)。同じドライバ・同じクロック・同じレートのYMFMEngineは±0.1セント以内なので、FITOM_Xの外の問題。**推測**: FmGenEngine(fmgen)のレート変換の丸め。コードは読んでいない |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
 | EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 

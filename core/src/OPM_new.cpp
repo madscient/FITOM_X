@@ -310,14 +310,16 @@ private:
         return fitom::linear2dB(effTL, RANGE96DB, STEP075DB, 7);
     }
 
-    // masterTune_: note=69(A4) → KC=0x4C(oct4,A), KF=0 になる基準オフセット
-    // 検証: note=69, noteOffset=-61 のとき
-    //   idx = 69*64 + (-61*64)/12 + (-442) = 4416 - 326 - 442 = 3648
-    //   oct = 3648/768 = 4, idx_norm = 576 = 9*64+0
-    //   KC = (4<<4)|kKeyCode[9] = (4<<4)|12 = 0x4C = A4 ✓
+    // masterTune_: note=69(A4) → KC=0x4A(oct4,A), KF=0 になる基準オフセット
+    // KC の下位4bitの音名は C#=0,D=1,D#=2,E=4,F=5,F#=6,G=8,G#=9,A=10,A#=12,B=13,C=14
+    // (kKeyCode の添字は C# 起点の半音)。note=69, noteOffset=-61 のとき
+    //   idx = 69*64 + (-61*64)/12 + (-507) = 4416 - 325 - 507 = 3584
+    //   ((-61*64)/12 は 0 方向への切り捨てで -325)
+    //   oct = 3584/768 = 4, idx_norm = 512 = 8*64+0
+    //   KC = (4<<4)|kKeyCode[8] = (4<<4)|10 = 0x4A = A4
     // kMasterTuneBase は kDefaultClock で鳴らしたときの値。KC/KF が同じなら
     // 音程はクロックに比例するため、クロックの比の分だけ masterTune_ をずらす。
-    static constexpr int16_t kMasterTuneBase = -442;
+    static constexpr int16_t kMasterTuneBase = -507;
     static constexpr int     kDefaultClock   = 3579545;
 
     // pitchHz から masterTune_ を計算する

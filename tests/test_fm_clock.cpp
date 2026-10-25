@@ -206,7 +206,7 @@ TEST_CASE("FM drivers fall back to the standard clock when the port reports none
     }
 }
 
-TEST_CASE("OPM and OPZ key codes shift by the clock ratio", "[fm][clock][opm]")
+TEST_CASE("OPM and OPZ write A4 as key code 0x4A and shift it by the clock ratio", "[fm][clock][opm]")
 {
     for (uint32_t type : {uint32_t(DEVICE_OPM), uint32_t(DEVICE_OPZ)}) {
         INFO("device=0x" << std::hex << type);
@@ -214,7 +214,12 @@ TEST_CASE("OPM and OPZ key codes shift by the clock ratio", "[fm][clock][opm]")
         auto base = DeviceFactory::create(type, &standard, 44100);
         REQUIRE(base != nullptr);
         base->init();
-        const int basePos = opmPosition(fnumForA4(*base));
+        const ChState::Fnum a4 = fnumForA4(*base);
+        // 3.579545MHz で KC=0x4A(オクターブ4・音名コード10=A)、KF=0 が 440Hz
+        CHECK(a4.block == 4);
+        CHECK(((a4.fnum >> 6) & 0x0F) == 10);
+        CHECK((a4.fnum & 0x3F) == 0);
+        const int basePos = opmPosition(a4);
 
         ClockPort silent(0);
         auto fallback = DeviceFactory::create(type, &silent, 44100);
