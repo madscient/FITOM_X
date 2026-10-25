@@ -183,9 +183,6 @@
 **`emu_opll` / `emu_opll_stereo`(OPLL[リズム] / OPLLX / OPLLP / VRC7 / OPLLEX)**
 - [ ] パッチピッカーのOPLLEX: CH番号→パッチ選択→カテゴリ「OPLLEX」→バンク「ROM Preset」に、`OPLL: `/`OPLLX: `/`OPLLP: `/`VRC7: `の接頭辞つきで60音色が並ぶ。試聴でその音色が鳴る。確定後、MIDIモニターのパッチ名も同じ表記になる。`FITOMBridge`にはテストが無く、ビルドが通ることまで確かめた
 
-**`fmall`(OPL3 / OPL4 / OPLLEX[リズム] / OPNBB / OPZ)**
-- [ ] OPZの固定周波数モード(`ext.FIX`)。`COPM::updateVoice()`は`ext.FIX`が0でないとき実機のbit5を立てるが、固定周波数として働くかは確かめていない。利用者向けマニュアルは「未対応」としている
-
 **プロファイルを問わないもの**
 - [ ] システム設定ダイアログの部位ゲインのスライダー(GUI)と、その音。実物のFitomEmuIFと名前指定の部位ゲインに対応したエンジン(YMEngine/DSGemuEngine/DSAemuEngine)を組み合わせて鳴らしたことは無い。`CFITOM`/`FITOMBridge`層(物理チップの添字からポートへの対応とロック)はテストが通っておらず、`HWPlugin_Write`と並行しないことはロックを取る箇所を読んで判断しただけ
 - [ ] SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替(GUI)
@@ -197,8 +194,8 @@
 - [ ] 内部用MIDIパイプと実際のパッチエディタとの接続(PowerShellの簡易クライアントでの疎通確認までは実施済み)
 - [ ] 内部用MIDIパイプの10本目の接続(ch9、起動時はリズムチャンネル)で、`CC#0=0x79`によりメロディチャンネルへ切り替えてから直接デバイス選択で試聴できること。コードを読んで判断しただけ
 - [ ] マスターボリューム: システム設定ダイアログ(GUI)のスライダーで、エミュレータの出力の音量が変わる。マスターボリュームのSysExでの変化は`tools/render_measure/levels.py`で測って確かめた(FitomEmuIF `3d16a0f`、全チップで`40·log10(v/127)`と0.01dB以内)
-- [ ] SF2直行パスのFitomSf2IFとFITOM_Xを組み合わせての音出し(FitomSf2IFは実装済み。同リポジトリの`docs/STATUS.md`も実機検証は未実施としている)
-- [ ] `fitom_render`: FitomEmuIF(`3d16a0f`)・FitomSf2IF(`12803b9`)はオフライン描画の組を実装済み。stagingのプロファイルでSMFを変換し、WAVを聴いて実時間で鳴らしたときと同じ音・同じテンポになっていること。SF2とFM/PSGの発音の時刻が揃っていること(イベントを64フレームの格子に揃えて送るため)。SMFの`FF 21`でMPU1〜3へ送ったトラックが、そのMPUの設定(`sf2_channel_windows`等)で鳴ること。`s16`/`s24`/`f32`それぞれが一般的なプレイヤーで開けること。FITOM_X側は、検証用プラグインで組の扱い・時刻とタイマーの位置・WAVのヘッダとサンプル値をテストで確かめた。実物のFitomEmuIF(`3d16a0f`のビルド)とYMFMEngineだけを載せたプロファイルでは、変換が通り、OPL3/OPL4の音程とパンが測れることを**確認済み**。FitomSf2IFとの組み合わせと、聴いての確認はしていない
+- [ ] SF2直行パスのFitomSf2IFとFITOM_Xを組み合わせて、実時間(音声デバイス)で鳴らす。`fitom_render`のオフライン描画では鳴ること、`sf2_channel_windows`への振り分けは`tools/render_measure/sf2_render.py`で測って確かめた(FitomSf2IF `12803b9`のビルド)
+- [ ] `fitom_render`: stagingのプロファイルでSMFを変換し、WAVを聴いて実時間で鳴らしたときと同じ音・同じテンポになっていること。`s16`/`s24`/`f32`それぞれが一般的なプレイヤーで開けること。FITOM_X側は、検証用プラグインで組の扱い・時刻とタイマーの位置・WAVのヘッダとサンプル値をテストで確かめた。実物のFitomEmuIF(`3d16a0f`のビルド)・FitomSf2IF(`12803b9`のビルド)と組み合わせて、変換が通り、FM/PSGの音程・音量、SF2で鳴ること、SF2とFMの発音の時刻が揃うこと(差0.1ms)、`FF 21`でMPU1へ送ったトラックがMPU1の`sf2_channel_windows`で鳴ることは、`tools/render_measure/`で測って**確認済み**
 
 ---
 
@@ -227,6 +224,7 @@
 - `DEVICE_OPN3_L3`(YMF297のOPL3部)のクロックの換算は、OPL3と同じ÷4にしている(**未確認の候補**: YMF297のクロックとFM部の分周を確かめていない)。stagingにこのチップを使うプロファイルは無い
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
+- OPZの固定周波数モード: 利用者向けマニュアルは未対応としている。`COPM::updateVoice()`は`ext.FIX`が0でないときレジスタ`$80`のbit5を立ててDT2を書かない。ymfmのOPZはこれで固定周波数モードに入り、音程はノートによらず一定になる(**確認済み**: `fitom_render`で測った)。周波数はymfmでは`$40`の上位(fix range)・下位(fix frequency)で決まり、OPMのDT1/MULと同じ位置なので、音色のDT1とMULで変わる。固定周波数を音色でどう指定するかは決めていない
 - SSGS/SSGS2のADPCM部のコーデックは、エミュレータ(EPSGemuEngine)がYMZ280Bと同じ4bit ADPCMと仮定している。鳴ることは測って確かめたが、実機と同じ音かは分からない
 - 周期で音程を決めるPSG系(DCSG・SCC等)は、共有の周期テーブルを高いオクターブへ右シフトで縮めるときに切り捨てるので、A6付近で約+15セントずれる(**確認済み**: `tools/render_measure/`で測った。DCSGはA2〜A5で+1.7セント、A6で+15.4セント)。シフトで四捨五入すれば、ずれはそのオクターブの1段の半分以内になる
 - OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)は440Hz基準で、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読み、`tools/render_measure/pitch_controls.py`で測った(GMバンク16番のA4が440.23Hz、`master_pitch`を430/450にしても変わらない)
@@ -274,7 +272,7 @@
 |---|---|
 | FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(振幅は(値/127)²)とオフライン描画の組を実装済み(`3d16a0f`)。PCMD8(YMZ280B)へは外部メモリのイメージを渡さない(`pcm_mappings_for_chip()`に項目が無い。**確認済み**: ソースを読んだ)ので、エミュレータのYMZ280Bは波形が無く鳴らない。`IHWPlugin.h`の写しは`faaf183`の版と同一。その後FITOM_X側でオフライン描画の書き込みの反映を「64フレームの境界まで遅らせてよい」と緩めたが、コメントだけの変更でABIは変わらないので、同期しなくても動作は変わらない |
 | FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`とオフライン描画の組は、実機なので実装しない。`IHWPlugin.h`の写しは`faaf183`の版と同一(`5a97edc`)。その後のFITOM_X側の変更はオフライン描画のコメントだけで、FitomHwIFには関係しない |
-| FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。FITOM_X側は契約をこれに合わせて緩め、`fitom_render`がMIDIイベントを64フレームの格子に揃えて送る。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
+| FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。FITOM_X側は契約をこれに合わせて緩め、`fitom_render`がMIDIイベントを64フレームの格子に揃えて送る。`fitom_render`と組み合わせて鳴り、FMと発音の時刻が揃うことを測った(`12803b9`のビルド、`tools/render_measure/sf2_render.py`)。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
 | FITOM_staging | `config_schema/`はFITOM_Xの`d214ff9`に同期済み、`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある(`dbd2499`)。その後FITOM_X側で`profile.schema.json`の`devices[].clock`の`description`を変えたので、説明文だけ食い違う(構造は同一)。`bin/`のFitomEmuIF.dllはオフライン描画に対応していない(3節の「準備」)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
 | FmGenEngine | A4の音程が、出力のサンプルレートによって数セントずれる。`emu_fmgen_opn`のOPN系(7,159,090Hz)で、44.1kHzでは-3.6セント、48kHzでは+5.5セント、96kHzでは-7.6セント(**確認済み**: `tools/render_measure/fm_pitch.py`で測定)。同じドライバ・同じクロック・同じレートのYMFMEngineは±0.1セント以内なので、FITOM_Xの外の問題。**推測**: FmGenEngine(fmgen)のレート変換の丸め。コードは読んでいない |

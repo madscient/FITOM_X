@@ -6,6 +6,7 @@ SMFを組み立て、fitom_render を呼び、出てきたWAVを numpy で読ん
 
 import json
 import math
+import os
 import struct
 import subprocess
 from pathlib import Path
@@ -107,13 +108,20 @@ def swpatch_override(ch, obj, layer=0):
 
 # ─── 変換 ────────────────────────────────────────────────────────────────────
 
-def run_render(render_exe, profile, mid, wav, rate=48000, fmt="f32", tail=0.5):
-    """fitom_render のログ(fitom_render.log)は、出力の WAV と同じディレクトリに出す。"""
+def run_render(render_exe, profile, mid, wav, rate=48000, fmt="f32", tail=0.5, dll_dirs=()):
+    """fitom_render のログ(fitom_render.log)は、出力の WAV と同じディレクトリに出す。
+
+    dll_dirs は PATH の先頭に足す。プラグインDLLを絶対パスで読んでも、それが依存するDLL
+    (FitomSf2IF の libfluidsynth 等)はプラグインと同じ場所からは探されないため。
+    """
+    env = dict(os.environ)
+    if dll_dirs:
+        env["PATH"] = os.pathsep.join([str(Path(d).resolve()) for d in dll_dirs] + [env.get("PATH", "")])
     # Windows の CreateProcess は、区切りが / の相対パスを実行ファイルとして見つけられない。
     r = subprocess.run([str(Path(render_exe).resolve()), str(profile), str(mid), str(wav),
                         "--rate", str(rate), "--format", fmt, "--tail", str(tail)],
                        capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       cwd=Path(wav).resolve().parent)
+                       cwd=Path(wav).resolve().parent, env=env)
     if r.returncode != 0:
         raise RuntimeError(f"fitom_render failed ({r.returncode}): {r.stderr.strip()}")
     return r.stderr
@@ -241,18 +249,19 @@ class Staging:
         return out
 
 
-def write_bankset(staging, workdir):
+def write_bankset(staging, workdir, keep_sf2=False):
     """ステージングのバンクセットを、ファイルのパスを絶対パスにして workdir に写す。
 
     バンクセットの中の相対パスはプロファイルの位置から解決されるため、別の場所に置いた
     プロファイルからはそのままでは読めない。SF2 のバンクは、SF2 のデバイスを載せない
-    測定用のプロファイルでは設定エラーになるので外す。
+    測定用のプロファイルでは設定エラーになるので外す(keep_sf2=True なら残す)。
     """
-    path = Path(workdir) / "measure.bankset.json"
+    path = Path(workdir) / ("measure_sf2.bankset.json" if keep_sf2 else "measure.bankset.json")
     if path.exists():
         return path
     bs = staging.load(staging.bankset)
-    bs.pop("sf2_banks", None)
+    if not keep_sf2:
+        bs.pop("sf2_banks", None)
 
     def absolutize(v):
         if isinstance(v, dict):

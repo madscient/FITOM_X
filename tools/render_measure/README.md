@@ -123,6 +123,22 @@ python epsg_expanded.py --staging <FITOM_staging> --render <fitom_render.exe>
 第2倍音と基音の比をパルス波の理論値と比べる。ch0はBank A、ch1/ch2はBank Bにデューティ比などのレジスタを
 持つので、バンクの切り替えを誤ると、デューティ比が効かないか音程が崩れる。
 
+### `sf2_render.py` — SF2直行パスとFMを一緒に鳴らす
+
+```
+python sf2_render.py --staging <FITOM_staging> --render <fitom_render.exe> --sf2if <FitomSf2IF.dll>
+                     [--emuif <FitomEmuIF.dll>] [--work <dir>] [--onset-ms 0.5]
+```
+
+OPNA(左だけに定位)とSF2を載せ、`sf2_channel_windows`でMPU1のch2をSF2へ回す。トラック1(MPU0)でOPNAのA4を、
+トラック2(`FF 21 01`でMPU1)でSF2のE5(右へ定位)を、同じ時刻に鳴らす。E5が右に出ること(対照として、
+`FF 21`を外すとSF2では鳴らないこと)と、左右の立ち上がりの差を見る。ノートは64フレームの格子から外れた時刻に
+置く(格子の上だと、イベントを格子に揃えて送る処理が無くても揃ってしまう)。SF2の窓はCC#32でSoundFontの
+バンクが決まるまでプログラムチェンジを読み捨てるので、CC#32を先に送る。
+
+FitomSf2IF.dllが依存する`libfluidsynth-3.dll`は、FitomSf2IF.dllと同じ場所からは探されないので、
+`fitom_render`を起動するときにその場所をPATHに足している(`run_render()`の`dll_dirs`)。
+
 ## `fitom_measure.py` — 部品
 
 SMFの組み立て(直接デバイス選択・HwPatch/SwPatchの上書きのSysExを含む)、`fitom_render`の実行、
