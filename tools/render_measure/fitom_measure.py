@@ -158,6 +158,9 @@ def segment(x, rate, start_sec, end_sec):
 
 
 def rms_db(x):
+    """直流分を除いた RMS(dB)。ymfm の YM2612 のように、無音でも直流を出すエンジンがあるため。"""
+    if len(x):
+        x = x - x.mean(axis=0)
     v = float(np.sqrt(np.mean(np.square(x)))) if len(x) else 0.0
     return 20 * math.log10(v) if v > 0 else -math.inf
 

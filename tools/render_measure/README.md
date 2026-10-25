@@ -71,10 +71,34 @@ python rhythm_pitch.py --staging <FITOM_staging> --render <fitom_render.exe>
 スペクトル全体の相互相関でずれを求める方法は使わない。SDのノイズが強いエンジンでは、
 ずれないノイズの成分で相関の山が決まってしまう。
 
+### `presence.py` — 鳴るか(と、音程のある音なら A4 の音程)
+
+```
+python presence.py --staging <FITOM_staging> --render <fitom_render.exe>
+                   [--emuif <FitomEmuIF.dll>] [--work <dir>] [--only <文字列>] [--tolerance 5]
+```
+
+チップ・部位ごとに1音鳴らし、発音直後0.3秒の RMS が -60dB を超えるかを見る。`CASES`の表に、
+サブプロファイル・チップ・内蔵リズムの有無・選ぶ音色(CC#0/CC#32/プログラム)・ノート・期待する基音・
+比べる相手を並べる。比べる相手を書いた場合は、相手とのスペクトルの最大の山の差(セント)を出す
+(同じ波形を別のエンジンで鳴らして、再生の速さが揃っているかを見る)。
+
+### `levels.py` — 音量を動かす操作
+
+```
+python levels.py --staging <FITOM_staging> --render <fitom_render.exe>
+                 [--emuif <FitomEmuIF.dll>] [--work <dir>] [--only <文字列>]
+```
+
+CC#7・ベロシティ・マスターボリューム(ユニバーサルSysEx)を127〜16に振り、発音直後の RMS(直流分を除く)を
+値127のときからの dB で求め、GM2 の`40·log10(v/127)`dBと比べる。チップの音量レジスタの刻みより細かくは
+合わないので、刻みの半分+0.5dBを許す。比較用の FM は OPNA。ymfm の OPN2(YM2612)は DAC の不連続を模していて、
+小さい音でひずみが-30dB付近に残るので使わない。FM のベロシティは音色の VTL で効き方が決まるので測らない。
+
 ## `fitom_measure.py` — 部品
 
 SMFの組み立て(直接デバイス選択・HwPatch/SwPatchの上書きのSysExを含む)、`fitom_render`の実行、
-WAVの読み込み(16/24bit整数・32bit浮動小数)、基音とRMSの測定、FITOM_stagingの
+WAVの読み込み(16/24bit整数・32bit浮動小数)、基音とRMS(直流分を除く)の測定、FITOM_stagingの
 サブプロファイルから単体チップのプロファイルを作る処理(内蔵リズムを使う指定を含む)、
 ピッチベンド・RPN・短い区間ごとの基音の列を持つ。新しい測定はこれを使って書く。
 
