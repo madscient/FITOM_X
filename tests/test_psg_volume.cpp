@@ -207,9 +207,9 @@ TEST_CASE("CSCC uses the K051649 / K052539 register layouts", "[psg][scc]")
         // 周波数
         int period = port.regs[static_cast<uint16_t>(L.frequency + ch * 2)]
                    | (port.regs[static_cast<uint16_t>(L.frequency + ch * 2 + 1)] << 8);
-        double expected = master / (32.0 * noteHz(69));
+        double expected = master / (32.0 * noteHz(69)) - 1.0;
         INFO("period=" << period << " expected=" << expected);
-        CHECK(std::abs(period - expected) <= 1.0);
+        CHECK(std::abs(period - expected) < 1.0);
 
         // 音量(最大ラウドネス)
         CHECK((port.regs[static_cast<uint16_t>(L.amplitude + ch)] & 0x0F) == 15);
@@ -228,8 +228,9 @@ TEST_CASE("CSCC uses the K051649 / K052539 register layouts", "[psg][scc]")
     SECTION("SCC+ (K052539)") { run(DEVICE_SCCP, kLayoutSCCP); }
 }
 
-// SCCのトーン周期は period = master / (32 * freq)。
-TEST_CASE("CSCC tone period matches master/(32*freq)", "[psg][scc]")
+// SCCのトーン周期は f = master / (32 * (period + 1))。
+// emu2212・Y8960SccCore(DSAemuEngine)も incr = base / (freq + 1) で同じ。
+TEST_CASE("CSCC tone period matches master/(32*freq) - 1", "[psg][scc]")
 {
     const int master = 3579545;
     for (int note : {48, 60, 69, 81}) {
@@ -244,9 +245,11 @@ TEST_CASE("CSCC tone period matches master/(32*freq)", "[psg][scc]")
 
         int period = port.regs[static_cast<uint16_t>(kLayoutSCC.frequency + ch * 2)]
                    | (port.regs[static_cast<uint16_t>(kLayoutSCC.frequency + ch * 2 + 1)] << 8);
-        double expected = master / (32.0 * noteHz(note));
+        double expected = master / (32.0 * noteHz(note)) - 1.0;
         INFO("note=" << note << " period=" << period << " expected=" << expected);
-        CHECK(std::abs(period - expected) <= 1.0);
+        CHECK(std::abs(period - expected) < 1.0);
+        // 3.579545MHz: 3579545 / (32 * (253 + 1)) = 440.40Hz
+        if (note == 69) CHECK(period == 253);
     }
 }
 

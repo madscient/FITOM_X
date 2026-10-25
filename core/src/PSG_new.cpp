@@ -938,9 +938,12 @@ protected:
     }
 
     // トーン周期は12bit (LSB 8bit + MSB 4bit の2バイト)。
+    // SCC は f = master / (32 * (N + 1)) で、周期テーブル(DCSG と共有の
+    // master / (32 * f))より1小さい値を書く。
     void updateFreq(uint8_t ch, const ChState::Fnum* fn) override {
         ChState::Fnum fnum = fn ? *fn : getFnumber(ch);
         uint16_t period = tonePeriod(fnum, 0x0FFF);
+        if (period > 0) --period;
         setReg(static_cast<uint16_t>(reg_.frequency + ch * 2),
                static_cast<uint8_t>(period & 0xFF), false);
         setReg(static_cast<uint16_t>(reg_.frequency + ch * 2 + 1),

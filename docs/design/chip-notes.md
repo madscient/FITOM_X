@@ -353,7 +353,7 @@ PSG系の周波数レジスタは F-number ではなく**周期**であり、音
 | テーブル型 | 生成式 | 使用チップ |
 |---|---|---|
 | `FnumTableType::SSG` | `master / (16 * freq)` | SSG(YM2149/AY-3-8910)、AY8930 |
-| `FnumTableType::TonePeriod` | `master / (32 * freq)` | DCSG(SN76489)、SCC |
+| `FnumTableType::TonePeriod` | `master / (32 * freq)` | DCSG(SN76489)、SCC(SCCは書くときに1を引く。SCCの表を参照) |
 
 分周比がテーブルと異なるチップは`tonePeriod()`の`chipShift`で差分を吸収
 する(AY8930のExpand Modeは1/8分周のため`chipShift=-1`)。
@@ -408,7 +408,7 @@ DCSGはアドレス指定レジスタを持たず、`writeRaw`によるコマン
 | フィールド | 無印SCC (K051649) | SCC+ (K052539) | 意味 |
 |---|---|---|---|
 | `hwOp[0].WS` (7bit) | 0x00-0x7F | 0x00-0x9F | 波形メモリ(32バイト/ch)。波形番号を`SccWaveRegistry`経由で引いて書き込む |
-| Fnum(TonePeriod) | 0x80+ch*2 | 0xA0+ch*2 | 下位8bit / 上位4bit の2バイト。周期テーブル(`master/(32*freq)`)を12bitへスケーリング |
+| Fnum(TonePeriod) | 0x80+ch*2 | 0xA0+ch*2 | 下位8bit / 上位4bit の2バイト。周期テーブル(`master/(32*freq)`)を12bitへスケーリングし、1を引いて書く。SCCは`f = master / (32 * (N + 1))`で、DCSGの`master / (32 * N)`と1違う(emu2212・DSAemuEngineのY8960SccCoreも`incr = base / (N + 1)`) |
 | 音量(計算値) | 0x8A+ch | 0xAA+ch | 0=無音/15=最大。**リニア乗算**(`out = wave × vol/15`)であり対数DACではない |
 | チャンネル有効 | 0x8F | 0xAF | bit0-4=ch0-4 |
 | deform | 0xC0 | 0xC0 | 8bit/4bit周波数モード・波形ローテーション制御。`init()`が0クリアする |
@@ -594,7 +594,7 @@ D7=0でデータ」の2回書き込みで駆動する実チップだが、この
 - **周波数は共有の周期テーブルを使わず、Hzから直接分解する**。
   発音周波数は `f = clock / (DV * 2^(3-oct))`、`oct = B2*2+B1` (0-3)、
   `DV`はDV7〜DV¼を並べた10bit整数(LSB=DV¼、データシートの分周数ΣDViの4倍値)。
-  共有の`FnumTableType::TonePeriod`テーブルはSN76489/SCCの
+  共有の`FnumTableType::TonePeriod`テーブルはSN76489の
   `f = master/(32*N)` 用に量子化されており(基準オクターブでのテーブル値が
   119〜239程度しか無い)、総分周比が32倍細かいYM2163に流用すると基準
   オクターブでの丸めがそのまま乗算され、最悪14セント近い音痴になる。

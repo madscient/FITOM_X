@@ -169,16 +169,14 @@
 プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
 
 **準備**
-- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。OPM/OPZ(OPP含む)のA4を正しい音程(KC=0x4A)で書く修正と、SAA1099を正しいオクターブで鳴らす修正は、それより前のビルドに入っていない(前のビルドでは、OPM/OPZは半音高く、SAA1099は1オクターブ低く鳴る)。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
+- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。OPM/OPZ(OPP含む)のA4を正しい音程(KC=0x4A)で書く修正、SAA1099を正しいオクターブで鳴らす修正、SCCの周期を1つ小さく書く修正は、それより前のビルドに入っていない(前のビルドでは、OPM/OPZは半音高く、SAA1099は1オクターブ低く、SCCは高い音ほど低く[A4で約-7セント、A6で約-27セント]鳴る)。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
 
 **`emu_ibmpc`(SAA×2 / OPL2 / OPL3 / OPM / DCSG)**
 - [ ] SAA1099: システム設定ダイアログ(GUI)でマスターピッチを430/450Hzへ変えると、発音中の音程が追従する。A4・ピッチベンド・ファインチューン・ビブラートと、プロファイルの`master_pitch`での追従は`tools/render_measure/pitch_controls.py`で測って確かめた
 
 **`emu_psg_stereo`(SAA / SSGS / SSGS2 / SSGS3 / DSG / EPSG / SCC / DCSG)**
-- [ ] SSGS/SSGS2/SSGS3のSSG部が鳴る
-- [ ] `CSSGSAdPcm`が鳴る。エミュレータ(EPSGemuEngine)はコーデックをYMZ280Bと同じ4bit ADPCMと仮定している。FitomEmuIFはSSGS/SSGS2の`PCM`へカタログ種別`SSGS_ADPCM`のイメージを渡す(**確認済み**: FitomEmuIF `2d0e443`のソースを読んで確認)。鳴ったとしても、コーデックが仮定のため実機と同じ音かは判断できない
-- [ ] DSG(YM2163)の音。GUI: パッチピッカーのDSGカテゴリにビルトインの20音色が並ぶ。内蔵リズム(CC#0=0x70)の一覧にDSGが出て、5パートが鳴る
-- [ ] SCC・DCSGの音量レジスタ変換則、AY8930拡張モードのバンク切り替え
+- [ ] DSG(YM2163)のGUI: パッチピッカーのDSGカテゴリにビルトインの20音色が並ぶ。内蔵リズム(CC#0=0x70)の一覧にDSGが出る。楽音と内蔵リズムの5パートが鳴ることは`tools/render_measure/presence.py`で測って確かめた
+- [ ] AY8930拡張モードのバンク切り替え
 
 **`emu_opl` / `emu_opl_stereo`(OPL3 / OPL4 / Y8950[リズム])**
 - [ ] Y8950のチャンネル名がGUIで`FM1`〜と表示される。`fitom_cli`のデバイス一覧では`Y8950`。YM3526(`chip: "OPL"`)を使うプロファイルはstagingに無い
@@ -187,8 +185,6 @@
 - [ ] パッチピッカーのOPLLEX: CH番号→パッチ選択→カテゴリ「OPLLEX」→バンク「ROM Preset」に、`OPLL: `/`OPLLX: `/`OPLLP: `/`VRC7: `の接頭辞つきで60音色が並ぶ。試聴でその音色が鳴る。確定後、MIDIモニターのパッチ名も同じ表記になる。`FITOMBridge`にはテストが無く、ビルドが通ることまで確かめた
 
 **`emu_msx2pp`(Y8960: OPLLEX[リズム] / OPL2EX / SSGEX / SCCEX / OPM)**
-- [ ] Y8960のOPL2EXの内蔵ADPCM-Bと内蔵リズムが鳴る。OPLLEX・OPL2EXの楽音、OPLLEXの内蔵リズムのSD/TOM(CC#32=0x28からOPLLEXへのフォールバックを含む)は、`tools/render_measure/`で鳴ること・音程を測って確かめた。OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)
-- [ ] Y8960のSSGEX/SCCEX/OPMが鳴る。このプロファイルが5ブロックを1個ずつ載せていることは**確認済み**(FITOM_staging `ef55367`のプロファイルとサブプロファイルを読んだ)
 
 **`fmall`(OPL3 / OPL4 / OPLLEX[リズム] / OPNBB / OPZ)**
 - [ ] OPZの固定周波数モード(`ext.FIX`)。`COPM::updateVoice()`は`ext.FIX`が0でないとき実機のbit5を立てるが、固定周波数として働くかは確かめていない。利用者向けマニュアルは「未対応」としている
@@ -199,7 +195,7 @@
 - [ ] システム設定ダイアログの部位ゲインのスライダー(GUI)と、その音。実物のFitomEmuIFと名前指定の部位ゲインに対応したエンジン(YMEngine/DSGemuEngine/DSAemuEngine)を組み合わせて鳴らしたことは無い。`CFITOM`/`FITOMBridge`層(物理チップの添字からポートへの対応とロック)はテストが通っておらず、`HWPlugin_Write`と並行しないことはロックを取る箇所を読んで判断しただけ
 - [ ] SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替(GUI)
 - [ ] レジスタダンプモニターのスクロールバー、チャンネルレベルメーターの束ねられたチップの表示(GUI。いずれも修正後の再確認)
-- [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る(Total Levelの向きを直した。直す前は最大音量で無音になっていたはず)。PCMD8を使うプロファイルはstagingに無い
+- [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る(Total Levelの向きを直した。直す前は最大音量で無音になっていたはず)。PCMD8を使うプロファイルはstagingに無い。FitomEmuIFはPCMD8へ外部メモリのイメージを渡さないので、エミュレータでは鳴らせず、測れない(5節)
 
 **外部との連携**
 - [ ] 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`Config::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
@@ -236,8 +232,10 @@
 - `DEVICE_OPN3_L3`(YMF297のOPL3部)のクロックの換算は、OPL3と同じ÷4にしている(**未確認の候補**: YMF297のクロックとFM部の分周を確かめていない)。stagingにこのチップを使うプロファイルは無い
 - OPLLEX: hwbank.jsonの`builtin`エントリ(`patch_type="OPLLEX"`)経由の名指し参照は未配線(ALGフィールドからは0-7を直接指定できる)
 - SSGS3のAMM(MPEG Audioコーデック)部
+- SSGS/SSGS2のADPCM部のコーデックは、エミュレータ(EPSGemuEngine)がYMZ280Bと同じ4bit ADPCMと仮定している。鳴ることは測って確かめたが、実機と同じ音かは分からない
+- 周期で音程を決めるPSG系(DCSG・SCC等)は、共有の周期テーブルを高いオクターブへ右シフトで縮めるときに切り捨てるので、A6付近で約+15セントずれる(**確認済み**: `tools/render_measure/`で測った。DCSGはA2〜A5で+1.7セント、A6で+15.4セント)。シフトで四捨五入すれば、ずれはそのオクターブの1段の半分以内になる
 - OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)は440Hz基準で、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読み、`tools/render_measure/pitch_controls.py`で測った(GMバンク16番のA4が440.23Hz、`master_pitch`を430/450にしても変わらない)
-- ADPCM-BとYMZ280Bは、ラウドネス(GM2の`40·log10(L/127)`dBの目盛り)を線形のゲインのレジスタへそのまま写しているので、CC#7・ベロシティのdB上の効きがFM/PSGの半分になる。実機のレジスタが線形かは**未確認の候補**(YMZ280Bのエミュレータ[EPSGemuEngine、MAME由来]は線形。ADPCM-Bのエミュレータの扱いは見ていない。YMZ280Bのデータシートは記載が無い)。実機の出力を測るか、YM2608のアプリケーションマニュアル等でADPCM-Bのボリュームの定義を見れば決まる。直すなら、レジスタへ`(L/127)^2`に比例する値を書く
+- SCC・SAA1099・ADPCM-B・YMZ280Bは、ラウドネス(GM2の`40·log10(L/127)`dBの目盛り)を線形のゲインのレジスタへそのまま写しているので、CC#7・ベロシティのdB上の効きがFM・SSG・DCSGの半分になる。**確認済み**(SCC・SAA1099。`tools/render_measure/levels.py`): CC#7=16でSCCは-17.8dB、SAA1099は-20.9dB、OPNA・SSG・DCSGは-36〜-39dB(DCSGは-28dBより下を消音にする)。SCC・SAA1099は実機も線形の掛け算(`docs/design/chip-notes.md`「音量レジスタの変換則」)。実機のレジスタが線形かは**未確認の候補**(YMZ280Bのエミュレータ[EPSGemuEngine、MAME由来]は線形。ADPCM-Bのエミュレータの扱いは見ていない。YMZ280Bのデータシートは記載が無い)。実機の出力を測るか、YM2608のアプリケーションマニュアル等でADPCM-Bのボリュームの定義を見れば決まる。直すなら、レジスタへ`(L/127)^2`に比例する値を書く
 
 **HWプラグインの部位ごとのゲイン**
 - `devices[]`側の記述を変えると`params`が一致しなくなり、保存済みの`part_gains`が掛からなくなる(読み込み時に警告は出る)。GUIから付け替える手段は無い
@@ -247,6 +245,7 @@
 
 **Y8960**
 - カートリッジ側のミキサー(ブロックごとの音量 0x7FF7-0x7FFE)はカートリッジのメモリマップドI/Oで、チップドライバの対象外。扱うならHW I/Fプラグイン側の部位ゲインとして実装する
+- OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)。DSAemuEngineも同じ前提で、同じ波形・同じノートをY8950(YMFMEngine)と同じ速さで再生する(**確認済み**: `tools/render_measure/presence.py`、差は+0.07セント)
 - 仕様は変更が続いている。仕様書が変わったら`docs/design/chip-notes.md`「Y8960 の拡張ブロック」を見直す
 
 **GUI**
@@ -278,7 +277,7 @@
 
 | リポジトリ | 状況 |
 |---|---|
-| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(振幅は(値/127)²)とオフライン描画の組を実装済み(`3d16a0f`)。`IHWPlugin.h`の写しは`faaf183`の版と同一。その後FITOM_X側でオフライン描画の書き込みの反映を「64フレームの境界まで遅らせてよい」と緩めたが、コメントだけの変更でABIは変わらないので、同期しなくても動作は変わらない |
+| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(振幅は(値/127)²)とオフライン描画の組を実装済み(`3d16a0f`)。PCMD8(YMZ280B)へは外部メモリのイメージを渡さない(`pcm_mappings_for_chip()`に項目が無い。**確認済み**: ソースを読んだ)ので、エミュレータのYMZ280Bは波形が無く鳴らない。`IHWPlugin.h`の写しは`faaf183`の版と同一。その後FITOM_X側でオフライン描画の書き込みの反映を「64フレームの境界まで遅らせてよい」と緩めたが、コメントだけの変更でABIは変わらないので、同期しなくても動作は変わらない |
 | FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`とオフライン描画の組は、実機なので実装しない。`IHWPlugin.h`の写しは`faaf183`の版と同一(`5a97edc`)。その後のFITOM_X側の変更はオフライン描画のコメントだけで、FitomHwIFには関係しない |
 | FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。FITOM_X側は契約をこれに合わせて緩め、`fitom_render`がMIDIイベントを64フレームの格子に揃えて送る。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
