@@ -57,7 +57,7 @@ uint64_t renderSong(const SmfSong& song, uint32_t sampleRate, uint64_t tailUs,
     Clock clock(sampleRate, target, sink);
     for (const auto& e : song.events) {
         clock.advanceTo(toEventFrame(e.timeUs));
-        target.sendMidi(e.bytes.data(), e.bytes.size());
+        target.sendMidi(e.port, e.bytes.data(), e.bytes.size());
     }
     clock.advanceTo(toFrame(song.endTimeUs + tailUs));
     return clock.pos();

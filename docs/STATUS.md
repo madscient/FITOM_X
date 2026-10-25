@@ -137,7 +137,7 @@
 | HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWプラグインの部位ごとのゲイン (任意の組、プロファイルの`part_gains`に保存) | 🚧 | `docs/interfaces/plugin-hwif.md`, `docs/manuals/profile-reference.md` |
 | マスターボリュームのHWプラグインへの受け渡し (任意の`HWPlugin_SetMasterVolume`、デバイスごと、0-127)。チップのレジスタには掛けない | 🚧 | `docs/interfaces/plugin-hwif.md` |
-| SMF→WAVのオフライン変換 (`fitom_render`。HWプラグインの任意の組`HWPlugin_InitOffline`/`HWPlugin_Render`、描画したサンプル数で1msタイマーを進める。MIDIイベントは64フレームの格子に揃えて送る。SMFのポート指定は読まず全トラックをMPU0へ) | 🚧 | `docs/manuals/render-reference.md`, `docs/interfaces/plugin-hwif.md` |
+| SMF→WAVのオフライン変換 (`fitom_render`。HWプラグインの任意の組`HWPlugin_InitOffline`/`HWPlugin_Render`、描画したサンプル数で1msタイマーを進める。MIDIイベントは64フレームの格子に揃えて送る。SMFの`FF 21` MIDI Portでトラックごとに送り先のMPUを選び、無ければMPU0。4以上は警告して捨てる) | 🚧 | `docs/manuals/render-reference.md`, `docs/interfaces/plugin-hwif.md` |
 | Sub-device自動生成 (OPNA→FM+SSG+ADPCM-B+Rhythm 等) | ✅ | `docs/design/chip-drivers.md` |
 | 同種デバイス自動束ね (CSpanDevice、VoicePatchType基準、チップ試行順はローテーション) | ✅ | `docs/design/chip-drivers.md` |
 | リニアステレオ化 (CLinearPanDevice、`stereo_pair`)。左右の分離は2方式: `true`=プラグイン側の出力ルーティング(`pan:1/2`) / `"L"`・`"R"`=チップ自身のL/R出力ビット | ✅ | `docs/design/chip-drivers.md`, `docs/manuals/profile-reference.md` |
@@ -215,7 +215,7 @@
 - [ ] 内部用MIDIパイプの10本目の接続(ch9、起動時はリズムチャンネル)で、`CC#0=0x79`によりメロディチャンネルへ切り替えてから直接デバイス選択で試聴できること。コードを読んで判断しただけ
 - [ ] マスターボリューム: FitomEmuIF(`3d16a0f`で`HWPlugin_SetMasterVolume`を実装済み)と組み合わせて、システム設定ダイアログのスライダーとマスターボリュームのSysExで、エミュレータの出力の音量が変わる。FITOM_X側は、検証用プラグインが値を受け取ることまでテストで確かめた
 - [ ] SF2直行パスのFitomSf2IFとFITOM_Xを組み合わせての音出し(FitomSf2IFは実装済み。同リポジトリの`docs/STATUS.md`も実機検証は未実施としている)
-- [ ] `fitom_render`: FitomEmuIF(`3d16a0f`)・FitomSf2IF(`12803b9`)はオフライン描画の組を実装済み。stagingのプロファイルでSMFを変換し、WAVを聴いて実時間で鳴らしたときと同じ音・同じテンポになっていること。SF2とFM/PSGの発音の時刻が揃っていること(イベントを64フレームの格子に揃えて送るため)。`s16`/`s24`/`f32`それぞれが一般的なプレイヤーで開けること。FITOM_X側は、検証用プラグインで組の扱い・時刻とタイマーの位置・WAVのヘッダとサンプル値をテストで確かめた。実物のFitomEmuIF(`3d16a0f`のビルド)とYMFMEngineだけを載せたプロファイルでは、変換が通り、OPL3/OPL4の音程とパンが測れることを**確認済み**。FitomSf2IFとの組み合わせと、聴いての確認はしていない
+- [ ] `fitom_render`: FitomEmuIF(`3d16a0f`)・FitomSf2IF(`12803b9`)はオフライン描画の組を実装済み。stagingのプロファイルでSMFを変換し、WAVを聴いて実時間で鳴らしたときと同じ音・同じテンポになっていること。SF2とFM/PSGの発音の時刻が揃っていること(イベントを64フレームの格子に揃えて送るため)。SMFの`FF 21`でMPU1〜3へ送ったトラックが、そのMPUの設定(`sf2_channel_windows`等)で鳴ること。`s16`/`s24`/`f32`それぞれが一般的なプレイヤーで開けること。FITOM_X側は、検証用プラグインで組の扱い・時刻とタイマーの位置・WAVのヘッダとサンプル値をテストで確かめた。実物のFitomEmuIF(`3d16a0f`のビルド)とYMFMEngineだけを載せたプロファイルでは、変換が通り、OPL3/OPL4の音程とパンが測れることを**確認済み**。FitomSf2IFとの組み合わせと、聴いての確認はしていない
 
 ---
 
@@ -265,7 +265,6 @@
 
 **記録・出力**
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`。SMFからのVGM出力は、サンプル単位の時計を持つ`fitom_render`に足す方針(`docs/plans/smf-to-wav.md`)
-- `fitom_render`はSMFのポート指定(`FF 09` Device Name・`FF 21` MIDI Port)を読まず、全トラックをMPU0へ送る。DAWが書き出すSMFでの使われ方を見てから決める(`docs/plans/smf-to-wav.md`)
 
 **ビルド**
 - 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認

@@ -11,17 +11,6 @@ FitomEmuIF(`3d16a0f`)・FitomSf2IF(`12803b9`)はオフライン描画の組を�
 
 - [ ] stagingのプロファイルで変換して音を確かめてもらう(`docs/STATUS.md`の3節)
 
-## SMFのポート指定
-
-今は`FF 09`(Device Name)・`FF 21`(MIDI Port)を読まず、全トラックをMPU0へ送る。
-ユーザーがDAWで書き出したSMFを用意し、ポート指定がどう入っているかを見てから決め直す。
-変える費用はSMFの読み込み部(`apps/fitom_render/SmfReader.cpp`)と`main.cpp`の数行と、
-利用者向けマニュアル(`docs/manuals/render-reference.md`)の「SMFの扱い」節。
-
-規格上の位置づけ(どちらも**推測**):
-- `FF 09`はMMAのRP-019で定められた公式のメタイベント(midi.orgのRP-019の紹介ページの記述による。RP-019の原文は読んでいない)
-- `FF 21 01 pp`は規格外で、シーケンサが慣習的に使ってきたもの(midi.orgのフォーラムの利用者の発言による。MMAの公式な記述は見つけていない)
-
 ## VGM出力
 
 SMFからのVGM出力は、`fitom_render`に足す(ユーザーの方針)。`fitom_render`はサンプル単位の

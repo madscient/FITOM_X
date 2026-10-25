@@ -12,9 +12,9 @@
 namespace fitom::render {
 
 struct OfflineTarget {
-    std::function<void(const uint8_t*, std::size_t)> sendMidi;   // MIDIバイト列を1イベント分
-    std::function<void()>                            tick;       // 1ms タイマー
-    std::function<bool(float*, uint32_t)>            render;     // L/R インターリーブ。false = 失敗
+    std::function<void(uint8_t, const uint8_t*, std::size_t)> sendMidi;   // ポート、MIDIバイト列を1イベント分
+    std::function<void()>                                     tick;       // 1ms タイマー
+    std::function<bool(float*, uint32_t)>                     render;     // L/R インターリーブ。false = 失敗
 };
 
 using SampleSink = std::function<void(const float*, uint32_t)>;

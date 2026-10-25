@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -159,6 +160,48 @@ TEST_CASE("SMF SMPTE division ignores tempo", "[render][smf]")
     CHECK(song.events[0].timeUs == 100000);
 }
 
+TEST_CASE("SMF MIDI Port meta event sets the port of later events in its own track", "[render][smf]")
+{
+    auto song = parseSmf(smf(1, 96, {
+        track({0x00, 0x90, 0x3C, 0x64,                        // FF 21 の前: 0
+               0x00, 0xFF, 0x21, 0x01, 0x02,
+               0x00, 0x90, 0x3D, 0x64,                        // 2
+               0x00, 0xF0, 0x02, 0x7E, 0xF7,                  // SysEx も 2
+               0x00, 0xFF, 0x21, 0x02, 0x03, 0x00,            // 長さが1でなければ読まない
+               0x00, 0x90, 0x3E, 0x64}),                      // 2 のまま
+        track({0x00, 0x91, 0x40, 0x64})                       // 他のトラックの FF 21 は効かない
+    }));
+    REQUIRE(song.events.size() == 5);
+    CHECK(song.events[0].port == 0);
+    CHECK(song.events[1].port == 2);
+    CHECK(song.events[2].bytes == Bytes{0xF0, 0x7E, 0xF7});
+    CHECK(song.events[2].port == 2);
+    CHECK(song.events[3].port == 2);
+    CHECK(song.events[4].bytes == Bytes{0x91, 0x40, 0x64});
+    CHECK(song.events[4].port == 0);
+}
+
+TEST_CASE("SMF events on ports outside the range are removed, and tempo still applies",
+          "[render][smf]")
+{
+    auto song = parseSmf(smf(1, 96, {
+        track({0x00, 0xFF, 0x21, 0x01, 0x04,
+               0x00, 0xFF, 0x51, 0x03, 0x0F, 0x42, 0x40,      // 1000000us/四分音符
+               0x00, 0x90, 0x3C, 0x64,
+               0x00, 0x90, 0x3D, 0x64}),
+        track({0x00, 0xFF, 0x21, 0x01, 0x07,
+               0x00, 0x91, 0x3C, 0x64}),
+        track({0x00, 0xFF, 0x21, 0x01, 0x03,
+               0x60, 0x92, 0x3C, 0x64})                       // tick 96
+    }));
+    const auto removed = removeEventsOutsidePorts(song, 4);
+    CHECK(removed == std::map<uint8_t, std::size_t>{{4, 2}, {7, 1}});
+    REQUIRE(song.events.size() == 1);
+    CHECK(song.events[0].bytes == Bytes{0x92, 0x3C, 0x64});
+    CHECK(song.events[0].port == 3);
+    CHECK(song.events[0].timeUs == 1000000);
+}
+
 TEST_CASE("SMF rejects format 2 and truncated data", "[render][smf]")
 {
     CHECK_THROWS_AS(parseSmf(smf(2, 96, {track({})})), std::runtime_error);
@@ -259,8 +302,9 @@ struct Recorder {
     SampleSink               sink;
 
     Recorder() {
-        target.sendMidi = [this](const uint8_t* d, std::size_t) {
-            log.push_back("midi" + std::to_string(d[1]) + "@" + std::to_string(frames));
+        target.sendMidi = [this](uint8_t port, const uint8_t* d, std::size_t) {
+            log.push_back("midi" + std::to_string(d[1]) + "@" + std::to_string(frames)
+                          + (port ? "p" + std::to_string(port) : ""));
         };
         target.tick   = [this]() { log.push_back("tick@" + std::to_string(frames)); };
         target.render = [](float* out, uint32_t n) {
@@ -271,7 +315,7 @@ struct Recorder {
     }
 };
 
-SmfEvent ev(uint64_t us, uint8_t note) { return {us, {0x90, note, 0x64}}; }
+SmfEvent ev(uint64_t us, uint8_t note, uint8_t port = 0) { return {us, {0x90, note, 0x64}, port}; }
 
 } // namespace
 
@@ -279,12 +323,13 @@ TEST_CASE("Offline renderer sends events on the 64-frame grid and 1ms ticks at t
           "[render][offline]")
 {
     SmfSong song;
-    song.events    = {ev(0, 1), ev(1500, 2), ev(8000, 3), ev(8125, 4)};
+    song.events    = {ev(0, 1), ev(1500, 2), ev(8000, 3, 2), ev(8125, 4)};
     song.endTimeUs = 8125;
 
     Recorder r;
     // 8000Hz: 1ms = 8フレーム、イベントの格子 = 64フレーム = 8ms。
     // 1500us(12フレーム)は64へ、8000us(64フレーム)はそのまま、8125us(65フレーム)は128へ送る。
+    // 8000us のイベントはポート2で、そのまま渡る。
     // 曲の終わり 8125us + 余韻 8000us = 129フレーム
     const uint64_t total = renderSong(song, 8000, 8000, r.target, r.sink);
     CHECK(total == 129);
@@ -293,7 +338,7 @@ TEST_CASE("Offline renderer sends events on the 64-frame grid and 1ms ticks at t
     std::vector<std::string> expected{"midi1@0"};
     for (int k = 1; k <= 16; ++k) {
         expected.push_back("tick@" + std::to_string(k * 8));
-        if (k == 8)  { expected.push_back("midi2@64"); expected.push_back("midi3@64"); }
+        if (k == 8)  { expected.push_back("midi2@64"); expected.push_back("midi3@64p2"); }
         if (k == 16) expected.push_back("midi4@128");
     }
     CHECK(r.log == expected);

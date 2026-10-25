@@ -19,6 +19,7 @@ struct RawEvent {
     Kind                 kind = Kind::Midi;
     uint32_t             tempo = 0;    // Kind::Tempo のときだけ有効(四分音符あたりのマイクロ秒)
     std::vector<uint8_t> bytes;
+    uint8_t              port = 0;
 };
 
 class Reader {
@@ -79,6 +80,7 @@ std::vector<RawEvent> parseTrack(Reader& r)
     std::vector<RawEvent> out;
     uint64_t tick = 0;
     uint8_t running = 0;
+    uint8_t port = 0;
 
     while (!r.atEnd()) {
         tick += r.vlq();
@@ -95,6 +97,8 @@ std::vector<RawEvent> parseTrack(Reader& r)
                 e.kind  = Kind::Tempo;
                 e.tempo = (static_cast<uint32_t>(data[0]) << 16) | (data[1] << 8) | data[2];
                 out.push_back(std::move(e));
+            } else if (type == 0x21 && len == 1) {
+                port = data[0];
             } else if (type == 0x2F) {
                 RawEvent e;
                 e.tick = tick;
@@ -110,6 +114,7 @@ std::vector<RawEvent> parseTrack(Reader& r)
             uint32_t len = r.vlq();
             RawEvent e;
             e.tick = tick;
+            e.port = port;
             if (b == 0xF0) e.bytes.push_back(0xF0);
             std::vector<uint8_t> data = r.bytes(len);
             e.bytes.insert(e.bytes.end(), data.begin(), data.end());
@@ -134,6 +139,7 @@ std::vector<RawEvent> parseTrack(Reader& r)
         }
         RawEvent e;
         e.tick = tick;
+        e.port = port;
         e.bytes.push_back(status);
         e.bytes.push_back(first);
         const uint8_t type = status & 0xF0;
@@ -189,7 +195,7 @@ SmfSong parseSmf(const std::vector<uint8_t>& data)
         for (auto& e : all) {
             const uint64_t t = static_cast<uint64_t>(std::llround(e.tick * 1e6 / ticksPerSec));
             song.endTimeUs = std::max(song.endTimeUs, t);
-            if (e.kind == Kind::Midi) song.events.push_back({t, std::move(e.bytes)});
+            if (e.kind == Kind::Midi) song.events.push_back({t, std::move(e.bytes), e.port});
         }
         return song;
     }
@@ -207,10 +213,24 @@ SmfSong parseSmf(const std::vector<uint8_t>& data)
         switch (e.kind) {
         case Kind::Tempo:      if (e.tempo != 0) tempo = e.tempo; break;
         case Kind::EndOfTrack: break;
-        case Kind::Midi:       song.events.push_back({t, std::move(e.bytes)}); break;
+        case Kind::Midi:       song.events.push_back({t, std::move(e.bytes), e.port}); break;
         }
     }
     return song;
+}
+
+std::map<uint8_t, std::size_t> removeEventsOutsidePorts(SmfSong& song, uint8_t portCount)
+{
+    std::map<uint8_t, std::size_t> removed;
+    auto& ev = song.events;
+    ev.erase(std::remove_if(ev.begin(), ev.end(),
+                            [&](const SmfEvent& e) {
+                                if (e.port < portCount) return false;
+                                ++removed[e.port];
+                                return true;
+                            }),
+             ev.end());
+    return removed;
 }
 
 SmfSong readSmf(const std::filesystem::path& path)

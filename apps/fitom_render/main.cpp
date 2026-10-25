@@ -150,6 +150,11 @@ int main(int argc, char** argv)
         std::cerr << "SMFの読み込みに失敗しました (" << opt->input.string() << "): " << e.what() << "\n";
         return 1;
     }
+    constexpr auto kPorts = static_cast<uint8_t>(CFITOM::getMpuCount());
+    for (const auto& [port, count] : render::removeEventsOutsidePorts(song, kPorts)) {
+        std::cerr << "警告: MIDI Port " << static_cast<int>(port) << " のイベント " << count
+                  << " 個を捨てました(使えるのは 0〜" << kPorts - 1 << ")\n";
+    }
 
     auto config   = std::make_unique<FITOMConfig>();
     auto patchMgr = std::make_unique<PatchManager>();
@@ -200,7 +205,9 @@ int main(int argc, char** argv)
     // タイマースレッドは起動しない。時間は描画したサンプル数で進める。
     uint32_t tick = 0;
     render::OfflineTarget target;
-    target.sendMidi = [&fitom](const uint8_t* d, std::size_t n) { fitom.receiveMpuByte(0, d, n, 0); };
+    target.sendMidi = [&fitom](uint8_t port, const uint8_t* d, std::size_t n) {
+        fitom.receiveMpuByte(port, d, n, 0);
+    };
     target.tick     = [&fitom, &tick]() { fitom.timerCallback(++tick); };
     target.render   = [&registry](float* out, uint32_t frames) {
         return registry.renderOffline(out, frames) == HW_OK;
