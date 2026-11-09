@@ -187,6 +187,7 @@
 - [ ] システム設定ダイアログの部位ゲインのスライダー(GUI)と、その音。実物のFitomEmuIFと名前指定の部位ゲインに対応したエンジン(YMEngine/DSGemuEngine/DSAemuEngine)を組み合わせて鳴らしたことは無い。`CFITOM`/`FITOMBridge`層(物理チップの添字からポートへの対応とロック)はテストが通っておらず、`HWPlugin_Write`と並行しないことはロックを取る箇所を読んで判断しただけ
 - [ ] SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替(GUI)
 - [ ] レジスタダンプモニターのスクロールバー、チャンネルレベルメーターの束ねられたチップの表示(GUI。いずれも修正後の再確認)
+- [ ] RtMidi 6.1.0(`third_party/rtmidi`)で、実際のMIDI鍵盤からの入力で鳴る。鳴らしながらMIDIポート設定ダイアログ(GUI)でポートを付け替えても、終了しても落ちない。Windowsでのビルドと、WinMMのポートの列挙(`fitom_midi_rtmidi.dll`を直接呼んで、WinMMが返すポート数と一致)は確かめた。Linux(ALSA)・macOS(CoreMIDI)ではビルドしていない
 - [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る(Total Levelの向きを直した。直す前は最大音量で無音になっていたはず)。PCMD8を使うプロファイルはstagingに無い。FitomEmuIFはPCMD8へ外部メモリのイメージを渡さないので、エミュレータでは鳴らせず、測れない(5節)
 
 **外部との連携**

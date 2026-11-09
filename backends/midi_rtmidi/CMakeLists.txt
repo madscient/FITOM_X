@@ -40,10 +40,16 @@ set(RTMIDI_BUILD_TESTING OFF)
 
 # Linux開発機に偶然JACKが入っていても、意図せずJACK依存を持ち込まないよう
 # 明示的に無効化する(LinuxではALSAのみを土台にする)。
-# なお RtMidi 本体の CMakeLists.txt は ALSA サポート自体を
-# find_package(ALSA) の可否だけで自動的に有効化する(RTMIDI_API_ALSA
-# オプションの値は実際には参照されない)ため、ALSA側は明示設定不要。
+# ALSAはRtMidi側の既定(RTMIDI_API_ALSAの初期値がfind_package(ALSA)の可否)の
+# ままでよい。ALSAの開発用ファイルが無いLinuxでは、RtMidiが警告を出して
+# ALSA無しで組む。
 set(RTMIDI_API_JACK OFF)
+
+# Windows MIDI Services(Windows.Devices.Midi2)のバックエンドは、Windowsが
+# そのAPIを内蔵するまでアプリ側にDLLの同梱が要り、C++20も要る。FITOMは
+# WindowsではWinMMだけを土台にするため、RtMidi側の既定(OFF)が将来変わっても
+# 持ち込まないよう明示的に無効化する。
+set(RTMIDI_API_WMS OFF)
 
 # CoreMIDI(macOS)・WinMM(Windows)はRtMidi側の既定(APPLE/WIN32から自動判定)
 # のままで問題ないため明示指定不要。
