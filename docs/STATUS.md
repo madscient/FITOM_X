@@ -154,7 +154,7 @@
 | SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `docs/manuals/midi-message-reference.md` |
 | 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |
 | MIDIバックエンドのRtMidi単一実装 | ✅ | `docs/interfaces/plugin-midi.md` |
-| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書10月20日版に追従) | 🚧 | `docs/design/chip-notes.md`「Y8960 の拡張ブロック」 |
+| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書はY8960_Cartridge `e9094fa`(10月26日、v0.9.4)の版に追従。**確認済み**: 仕様書の各シートの番地を設計文書の表とドライバのコードに突き合わせた) | 🚧 | `docs/design/chip-notes.md`「Y8960 の拡張ブロック」 |
 
 ---
 
@@ -239,7 +239,7 @@
 **Y8960**
 - カートリッジ側のミキサー(ブロックごとの音量 0x7FF7-0x7FFE)はカートリッジのメモリマップドI/Oで、チップドライバの対象外。扱うならHW I/Fプラグイン側の部位ゲインとして実装する
 - OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)。DSAemuEngineも同じ前提で、同じ波形・同じノートをY8950(YMFMEngine)と同じ速さで再生する(**確認済み**: `tools/render_measure/presence.py`、差は+0.07セント)
-- 仕様は変更が続いている。仕様書が変わったら`docs/design/chip-notes.md`「Y8960 の拡張ブロック」を見直す
+- 仕様は変更が続いている。仕様書が変わったかは、Y8960_Cartridgeで`git log -1 --format=%h -- doc/spec/Y8960_Specifications.xlsx`が`e9094fa`のままかで分かる。同じなら、Y8960の仕様変更への追従は済んでいる。変わっていたら`docs/design/chip-notes.md`「Y8960 の拡張ブロック」を見直す
 
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線
