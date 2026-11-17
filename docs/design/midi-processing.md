@@ -80,7 +80,7 @@ Device IDは見ず、常に自分宛として処理する。Universal Non-Realti
 
 | Sub-ID1 | Sub-ID2 | 名称 | 実装の要点 |
 |---|---|---|---|
-| 0x04 | 0x01 | Master Volume | MSBだけ使う(7bit)。`CFITOM::setMasterVolume()`は値をプロファイル設定に保存し、SF2直行パスのデバイスへ転送するだけで、FM/PSGのチップの音量には反映しない(`CSoundDevice::setMasterVolume()`は呼ばれず、`masterVolume_`も読まれていない) |
+| 0x04 | 0x01 | Master Volume | MSBだけ使う(7bit)。`CFITOM::setMasterVolume()`は値をプロファイル設定に保存し、HWプラグインへは`applyMasterVolumeToHwPlugins()`(`HWPlugin_SetMasterVolume`)で、SF2直行パスのデバイスへはGM2のSysExで渡す(`docs/design/sf2-direct-path.md`「マスターボリュームとマスターピッチ」)。チップのレジスタには反映しない |
 | 0x04 | 0x03 | Master Fine Tuning | 14bitを使う、±100セント |
 | 0x04 | 0x04 | Master Coarse Tuning | MSBだけ有効、±64半音 |
 | 0x08 | 0x08 | Scale/Octave Tuning(1byte形式) | 簡略実装(「ピッチの計算」節) |
@@ -303,7 +303,7 @@ NoteOff:   sostenutoHeld なノートは実際の noteOff() を呼ばず
 
 デバイス側のチャンネルはMIDIチャンネルをまたいで共有される(同一チップに複数MIDIチャンネルの音色を割り当てた場合等)。`findBestCh()`の強制奪取(allowSteal、score=1)は、元のownerに通知せずにチャンネルを奪う。このため、`notes_[]`/`noteSlots_[]`のエントリを持ったまま後から`noteOff()`する経路は、すべて`ISoundDevice::isChOwnedBy(devCh, this)`でそのチャンネルがまだ自分の発音のままかを確かめてから解放する。確かめずに呼ぶと、既に別のMIDIチャンネルや別のノートに奪われたチャンネルの発音を誤って止める。
 
-該当する経路: `CInstCh::noteOff()`/`allNoteOff()`/`allSoundOff()`/`stealOldestNoteIfNeeded()`/モノフォニックの同一レイヤー内スティール、ソステヌートの`releaseSostenutoNotes()`、`CRhythmCh::NoteSlots::stopAll()`。
+該当する経路: `CInstCh::noteOff()`/`allNoteOff()`/`allSoundOff()`/`stealOldestNoteIfNeeded()`/モノフォニックの同一レイヤー内スティール、ソステヌートの`releaseSostenutoNotes()`、`CRhythmCh::NoteSlots::release()`/`choke()`(`LayerSlot::isValidRef()`で、`isChOwnedBy()`に加えてノートオン時の`noteOnSeq`が変わっていないことも確かめる)。
 
 ## ノートオフとチャンネルの再利用の規則
 

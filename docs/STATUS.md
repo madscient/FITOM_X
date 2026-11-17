@@ -215,6 +215,7 @@
 - `PatchManager::loadDrumBankJson()`は呼び出し元が無い(実際に使うのは`loadDrumKitJson()`)。**確認済み**: grep
 
 **チップドライバ**
+- OPN2/OPNA系のハードウェアLFOは使わない。`COPNA::init()`がレジスタ`$22`に0を書き、`$B4+ch`にはL/Rのビットだけを書くので、音色の`hw.AMS`/`hw.PMS`とCC#14/15は効かない(**確認済み**: `OPN2_new.cpp`・`OPN_new.cpp`を読んだ)。対応するなら、OPM/OPZのハードウェアLFO(`docs/proposals/opm-opz-hw-lfo.md`)と揃える
 - OPK(YM7116)/OPK2(YM7129)のドライバ(旧実装は`legacy/src/OPK.cpp`にある。**確認済み**: `DeviceFactory.cpp`に生成処理が無く、`Config.cpp`に`chip`名の対応も無いことをgrepで確認)
 - SD1/MA3/MA5/MA7のドライバ(パッチ種別とVoiceGroupの対応表だけがある。**確認済み**: `DeviceFactory.cpp`に生成処理が無いことと`Config.cpp`の対応表を読んで確認)
 - チップファミリーをまたぐフォールバック(旧FITOMの互換リスト相当)。ファミリー内のフォールバックは`acceptsFallback`で実装済み(`docs/design/chip-drivers.md`「フォールバック」)。OPLL系のROMプリセットは、OPLLEXへ落ちるもの以外はチップ間でフォールバックしない(ROMの中身が実機ごとに違うため)
@@ -231,6 +232,10 @@
 - 周期で音程を決めるPSG系(DCSG・SCC等)は、共有の周期テーブルを高いオクターブへ右シフトで縮めるときに切り捨てるので、A6付近で約+15セントずれる(**確認済み**: `tools/render_measure/`で測った。DCSGはA2〜A5で+1.7セント、A6で+15.4セント)。シフトで四捨五入すれば、ずれはそのオクターブの1段の半分以内になる
 - OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)は440Hz基準で、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読み、`tools/render_measure/pitch_controls.py`で測った(GMバンク16番のA4が440.23Hz、`master_pitch`を430/450にしても変わらない)
 - SCC・SAA1099・ADPCM-B・YMZ280Bは、ラウドネス(GM2の`40·log10(L/127)`dBの目盛り)を線形のゲインのレジスタへそのまま写しているので、CC#7・ベロシティのdB上の効きがFM・SSG・DCSGの半分になる。**確認済み**(SCC・SAA1099。`tools/render_measure/levels.py`): CC#7=16でSCCは-17.8dB、SAA1099は-20.9dB、OPNA・SSG・DCSGは-36〜-39dB(DCSGは-28dBより下を消音にする)。SCC・SAA1099は実機も線形の掛け算(`docs/design/chip-notes.md`「音量レジスタの変換則」)。実機のレジスタが線形かは**未確認の候補**(YMZ280Bのエミュレータ[EPSGemuEngine、MAME由来]は線形。ADPCM-Bのエミュレータの扱いは見ていない。YMZ280Bのデータシートは記載が無い)。実機の出力を測るか、YM2608のアプリケーションマニュアル等でADPCM-Bのボリュームの定義を見れば決まる。直すなら、レジスタへ`(L/127)^2`に比例する値を書く
+
+**設定の読み込み**
+- YMZ771(SSGS3)の`stereo_pair`: `FITOMConfig::subDeviceAcceptsStereoPair()`はSSGS3を組の対象外にしているが、SSGS3は複合デバイスに展開されないのでこの判定を通らず、単独のチップとして組になる、というのが点検役のコード読み(`Config.cpp`の組み合わせ処理)。`docs/manuals/profile-reference.md`の`stereo_pair`の注意は「YMZ771は組にならない」と書いている(**未確認の候補**: YMZ771を2台並べたプロファイルを読み込み、ログに`mergeStereoPairDevices`が出るかを見れば決まる)。組になるなら、コードと文書のどちらに合わせるかは未決
+- `auto_devices`が返すデバイスは`hw_plugins`のループの中で作られ、`loadSf2Banks()`より前になる。プラグインの`auto_devices`が`chip:"SF2"`を返すと、`soundfonts`の一覧が渡らないかもしれない(**未確認の候補**: FitomSf2IFの`HWPlugin_Enumerate`が`SF2`を返すかを見れば決まる)
 
 **HWプラグインの部位ごとのゲイン**
 - `devices[]`側の記述を変えると`params`が一致しなくなり、保存済みの`part_gains`が掛からなくなる(読み込み時に警告は出る)。GUIから付け替える手段は無い
@@ -258,6 +263,7 @@
 - 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
 
 **設定スキーマ**
+- `profile.schema.json`の`hw_banks[].group`の`enum`は`EPSG`/`DCSG`/`SAA`/`SCC`/`SCCP`を許すが、読み込みは警告を出してそのバンクを捨てる(PSG系は`SSG`のバンク空間を共有するため)。スキーマの検証は通るのに読まれない。`enum`から外すか、説明に書くかは未決(**確認済み**: `FITOMConfig::loadDrumBanks()`のPSG系の分岐と、スキーマの`enum`を読んだ)
 - `profile.schema.json`の`devices[].engine`の`examples`が`"YMEngine"`/`"AYEngine"`のまま。実際のプロファイルが書く値は`"engines/YMFMEngine"`等(**確認済み**: FITOM_stagingの全プロファイルの`engine`の値を数えた)。FITOM_stagingの写しも同じで、原本の修正を待っている
 
 **プラグイン SDK**

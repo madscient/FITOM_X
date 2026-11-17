@@ -87,7 +87,7 @@ COPM : CSoundDevice                    (YM2151, 8ch)
 - **OPZのオペレータ拡張**: `COPZ`は`hwOp[i].REV`(3bit)/`hwOp[i].EGS`(2bit)をレジスタ`0xC0+slot`の裏レジスタ(bit5=1で選択、オペレータ単位)に書く。`hwOp[i].WS`(3bit、OPZ独自波形)、`hwOp[i].DT3`(補助デチューン、OPZのratio mode)もオペレータ単位
 - **キーコード**: KCの下位4bitの音名は、C#=0・D=1・D#=2・E=4・F=5・F#=6・G=8・G#=9・A=10・A#=12・B=13・C=14(3・7・11・15は使わない)。`kKeyCode`の添字はC#起点の半音で、3.579545MHzではA4(ノート69)がKC=0x4A・KF=0になるように`kMasterTuneBase`を決めている(ymfmの`opm_key_code_to_phase_step`の表で、KC=0x4Aは439.94Hz)
 - **クロック**: KC/KFは3.579545MHzで鳴らす前提の`kMasterTuneBase`から求め、ポートが報告するクロックとの比(1オクターブ768ステップで`768×log2(3579545/clock)`)だけ`masterTune_`をずらす。同じKC/KFなら音程はクロックに比例するため
-- **固定周波数(`ext.FIX`)**: `COPM::updateVoice()`は`ext.FIX`が0でないときレジスタのbit5を立て、DT2を書かない。OPZの固定周波数モードとして働くかは確かめていない
+- **固定周波数(`ext.FIX`)**: `COPM::updateVoice()`は`ext.FIX`が0でないときレジスタ`$80`のbit5を立て、DT2を書かない(`$C0`の上位2bitを0にする)。OPZの固定周波数モードとしての挙動を測った結果と、固定周波数を音色でどう指定するかが決まっていないことは、`docs/STATUS.md`の「既知の未対応・将来課題」の「チップドライバ」にある
 - **OPZはキーオンと出力イネーブルのレジスタ割り当てがOPMと異なる**ため、
   `COPZ`は`updateKey`/`updatePanpot`を独自にオーバーライドする。
 

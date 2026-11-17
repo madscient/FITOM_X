@@ -116,7 +116,7 @@ OPNAとOPM(pc88のサブプロファイル)で、次を測る。モノの3つは
 
 ```
 python epsg_expanded.py --staging <FITOM_staging> --render <fitom_render.exe>
-                        [--emuif <FitomEmuIF.dll>] [--work <dir>]
+                        [--emuif <FitomEmuIF.dll>] [--work <dir>] [--tolerance 5]
 ```
 
 3音を同時に鳴らして3チャンネルを全部使い、デューティ比(50%・25%・12.5%)を変えて、各ノートの基音の音程と、

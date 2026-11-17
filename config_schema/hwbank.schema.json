@@ -245,7 +245,7 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 19,
-                "description": "ROM/ビルトイン音色番号。値域はpatch_typeごとに異なる。OPLL系: 1-15(initOpllRomPatches()のkNames[][]参照。0はユーザー音色との衝突回避のため無音として予約)。DSG: 0-19(prog = 波形*4 + エンベロープ、0も正規の音色)。"
+                "description": "ROM/ビルトイン音色番号。値域はpatch_typeごとに異なる。OPLL系: 1-15(initOpllRomPatches()のkNames[][]参照。0はチップのユーザー音色の番号でROM音色ではないため使わない)。DSG: 0-19(prog = 波形*4 + エンベロープ、0も正規の音色)。"
               }
             },
             "required": [

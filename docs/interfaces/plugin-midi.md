@@ -66,7 +66,7 @@ DLLソースでカバーする。
 ## コールバック仕様
 
 ```c
-typedef void (*MidiInCallback)(
+typedef void (FITOM_MIDIP_CALL *MidiInCallback)(
     const uint8_t* data,       // MIDI 1.0 バイト列 (status [+ data1 [+ data2]])
     size_t         len,        // バイト数 (1〜3、または SysEx の場合はそれ以上)
     uint64_t       timestamp_ns, // 受信タイムスタンプ [ナノ秒]。不明な場合は 0
@@ -74,6 +74,7 @@ typedef void (*MidiInCallback)(
 );
 ```
 
+- `FITOM_MIDIP_CALL` は `IMidiPlugin.h` が定義する呼び出し規約のマクロ(Windows では `__cdecl`、それ以外では空)。エクスポート関数と同じ規約で呼ぶ
 - コールバックは DLL 内部のスレッドから呼ばれる
 - FITOM コアはコールバックのスレッド上でロックを取り、受け取ったバイト列をその場で処理してから戻る。処理中はタイマー処理や他のポートからの入力と直列化されるため、コールバックの呼び出しが詰まるとMIDI処理全体が止まる。プラグイン側でコールバックを呼ぶスレッドに、他の重い処理を載せないこと
 - SysEx はひとまとまりで渡すこと（分割禁止）

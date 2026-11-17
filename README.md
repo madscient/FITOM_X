@@ -16,9 +16,12 @@
 ## アーキテクチャ概要
 
 ```
-apps/fitom_gui (Dear ImGui) / apps/fitom_cli
-  │  gui/bridge (FITOMBridge)
+apps/fitom_gui (Dear ImGui)
+  │
   ▼
+gui/bridge (FITOMBridge)    apps/fitom_cli    apps/fitom_render (SMF→WAV)
+  │                           │                 │
+  ▼                           ▼                 ▼
 fitom_core (static lib)
   CFITOM / CInstCh / CRhythmCh / PatchManager / FITOMConfig
   ├─ チップドライバ (ISoundDevice: COPN / COPM / COPL3 / CSSG / CSCC ...)
@@ -55,7 +58,7 @@ MIDI入力
 | **OPM 系 FM** | `OPM` / `OPP` / `OPZ` | YM2151 / YM2164 / YM2414 |
 | **OPL 系 FM** | `OPL` / `OPL2` / `Y8950` / `OPL3` / `OPL3_2` / `OPL4` | YM3526 / YM3812 / Y8950 / YMF262 (`OPL3_2` は 2 オペレータで使う構成) / YMF278 (FM 部 + AWM 部) |
 | **OPLL 系 FM** | `OPLL` / `OPLL2` / `OPLLP` / `OPLLX` / `VRC7` | YM2413 / YM2420 / YMF281 / YM2423 / VRC7 |
-| **PSG 系** | `SSG` / `PSG` / `EPSG` / `DCSG` / `SAA` | YM2149 / AY-3-891x / AY8930 / SN76489 / SAA1099 |
+| **PSG 系** | `SSG` / `PSG` / `EPSG` / `DCSG` / `SAA` (`SAA1099` とも書ける) | YM2149 / AY-3-891x / AY8930 / SN76489 / SAA1099 |
 | **SSG 互換部を持つチップ** | `SSGS` / `SSGS2` / `SSGS3` (`YMZ705` / `YMZ732` / `YMZ771` とも書ける) | YMZ705 / YMZ732 / YMZ771 ※ |
 | **SCC** | `SCC` / `SCCP` | K051649 / SCC+ |
 | **DSG** | `DSG` (`YM2163` とも書ける) | YM2163 ※ |
@@ -136,6 +139,7 @@ FITOM_X/
 │   ├── design/             # 本体の内部設計
 │   ├── interfaces/         # プラグイン・外部ツールとの契約
 │   ├── proposals/          # 未実装の設計検討
+│   ├── plans/              # 進行中の作業計画
 │   ├── worklog/            # 変更・修正・調査の経緯
 │   └── STATUS.md           # 実装状況
 ├── gui/
@@ -322,7 +326,9 @@ cmake --build --preset macos-release
 - [docs/design/sf2-direct-path.md](docs/design/sf2-direct-path.md) — SoundFont 音源への直行パス
 - [docs/design/terminology.md](docs/design/terminology.md) — 用語
 - [docs/proposals/](docs/proposals/) — 未実装の設計検討(VGM 記録、OPM/OPZ のハードウェア LFO)
+- [docs/plans/](docs/plans/) — 進行中の作業計画
 - [docs/worklog/](docs/worklog/) — 変更・修正・調査の経緯(月ごと)
+- [tools/render_measure/README.md](tools/render_measure/README.md) — `fitom_render` で鳴らした音を測るスクリプト
 
 ---
 

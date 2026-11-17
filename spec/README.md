@@ -50,6 +50,10 @@ chips[]                   チップごとの定義
 | `patch_kind` | 音色データの形式(`patch_kinds`参照) |
 | `operator_count` | `ops[]`の要素数。可変の場合はオブジェクト |
 | `params` | このチップで意味を持つパラメータ **のみ** |
+| `same_params_as` | パラメータの定義を共有するチップの`id`(下の「読み方の要点」参照) |
+| `builtin_presets` | ROM内蔵の音色を持つチップの、音色の種類(`patch_type`)と番号の範囲(`patch_no_range`) |
+| `builtin_programs` | ROM固定の音色だけを持つチップ(DSG)の、音色の数・プログラム番号の決め方・波形とエンベロープの一覧 |
+| `sample_zone` | 波形メモリのサンプルで鳴らすチップの、バンクファイルのスキーマ(`schema`)・音程を変えられるか(`pitch_variable`)・使うPCMバンクのグループ(`pcm_bank_group`) |
 | `notes` | 補足 |
 
 ### 読み方の要点

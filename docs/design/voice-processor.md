@@ -80,12 +80,16 @@ NoteOn 時:
   VoiceProcessor::onNoteOn(vol, exp, vel, voice, carrierMask)
     → baseTL[i] = ベロシティ/エクスプレッション補正(VTL) を全opに適用したTL
                   → さらに carrierMask の bit[i]=1 の op のみ calcLinearLevel(evol, TL)
-    → 各 opLfo[i].start(swOp[i].SLY, swOp[i].SLR, swOp[i].SLI, swOp[i].SLM)
+    → SLR>0 の op で、SLS=1 か LFO が止まっていれば
+        opLfo[i].start(swOp[i].SLR, swOp[i].SLY, swOp[i].SLI, swOp[i].SLM)
+        (引数は rate, delay, fadein, mode の順)
 
 tick (1ms) 時:
   VoiceProcessor::onTick(voice)
     → opLfo[i].tick() → recalcOpLfo(i, voice)
-      → effectiveTL[i] = getLfoWave(SLW, SLR) * level * SLD + baseTL[i]
+      → dep = SLD (0〜63 はそのまま、64〜127 は -64〜-1)
+      → effectiveTL[i] = clamp(baseTL[i] + opLfo[i].wave(SLW) * dep / 120, 0, 127)
+        (wave() はフェードイン/アウトを掛けた -120〜+120)
     → チップドライバが proc.effectiveTL(i) をTLレジスタへ書く
 ```
 
@@ -109,12 +113,16 @@ OPLLだけは制約がある。モジュレータTLはユーザー音色レジ�
 
 ```
 NoteOn 時:
-  chLfo.start(sw.LFD, sw.LFR, sw.LFI, sw.LFM)
+  LFR>0 で、LFS=1 か LFO が止まっていれば
+    chLfo.start(sw.LFR, sw.LFD, sw.LFI, sw.LFM)
+    (引数は rate, delay, fadein, mode の順。LFR=0 の音色は CC#1 で動かす。
+     「CC#1 との関係」節)
 
 tick (1ms) 時:
   chLfo.tick() → recalcChLfo(voice)
-    → depthKfs = sw.depthCents * 64 / 100
-    → chLfoValue = getLfoWave(LWF, LFR) * depthKfs / 120
+    → depthCents = clamp(sw.depthCents + CC#77 のオフセット, -1200, 1200)
+    → depthKfs = depthCents * 64 / 100
+    → chLfoValue = clamp(chLfo.wave(LWF) * depthKfs / 120, -768, 768)
   → チップドライバが周波数のオフセットに chLfoValue を加える
 ```
 

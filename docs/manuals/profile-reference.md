@@ -39,12 +39,12 @@ FITOM_Xの設定ファイル(プロファイル`*.profile.json`と、システ�
 
 | フィールド | 既定値 | 説明 |
 |---|---|---|
-| `log.level` | `"info"` | 出力する最小のログレベル。`trace` / `debug` / `info` / `warning` / `error` / `fatal` |
-| `log.file` | `""` | ログファイルのパス。空文字でファイルに出さない |
-| `log.console` | `true` | コンソールへ出すか |
+| `log.level` | アプリごとに違う(下記) | 出力する最小のログレベル。`trace` / `debug` / `info` / `warning` / `error` / `fatal` |
+| `log.file` | アプリごとに違う(下記) | ログファイルのパス。空文字でファイルに出さない |
+| `log.console` | アプリごとに違う(下記) | コンソールへ出すか |
 | `profiles.root` | `"."` | `fitom_gui`のプロファイル選択画面が`*.profile.json`を探すディレクトリ。相対パスは**カレントディレクトリ**を起点にする(実行ファイルのディレクトリではない) |
 
-`fitom.conf.json`が無い場合は、各アプリの既定値で動きます(`fitom_cli`: level=debug・ファイル`fitom_cli.log`・コンソールに出す、`fitom_gui`: level=info・ファイルなし・コンソールに出す、`fitom_render`: level=info・ファイル`fitom_render.log`・コンソールに出さない)。
+`fitom.conf.json`が無い場合や、`log`の項目を省略した場合は、各アプリの既定値で動きます(`fitom_cli`: level=debug・ファイル`fitom_cli.log`・コンソールに出す、`fitom_gui`: level=info・ファイルなし・コンソールに出す、`fitom_render`: level=info・ファイル`fitom_render.log`・コンソールに出さない)。
 
 ---
 
@@ -138,7 +138,7 @@ FITOM_X自身が読むフィールド:
 | プラグイン | フィールド |
 |---|---|
 | FitomEmuIF(エミュレータ) | `type`(`"FMHWIF"`固定)、`engine`(エンジン名)、`chip`、`index`(チップの番号)、`pan` |
-| FitomHwIF(実機) | `type`(`RE1`/`RE4`/`SPFM_TOWER`/`SPFM_LIGHT`)、`serial`(RE1/RE4)、`port`(SPFM系のCOMポート)、`index`、`slot`(チップのスロット)、`pan` |
+| FitomHwIF(実機) | `type`(`RE1`/`RE4`/`SPFM_TOWER`/`SPFM_LIGHT`)、`serial`(RE1/RE4)、`port`(SPFM系のCOMポート)、`index`、`slot`(チップのスロット)、`pan`、`sample_rate`(サンプルレート[Hz]。省略時44100) |
 
 `pan`は0=ステレオ、1=Lのみ、2=Rのみ、3=モノラル。
 
@@ -173,7 +173,8 @@ OPLL/OPL/PSG系のように、チップ自体がモノラル出力しか持た�
 ```
 
 - `true`の方式は、モノラル出力しか持たないチップ(OPLL系等)でも使えます
-- `"L"`/`"R"`の方式は、チップ自身がL/R出力を持つものだけで使えます: OPM/OPP・OPZ/OPZ2・OPL3・OPL4(FM部)・OPN2/OPNA/OPNB/OPNBB系とそのADPCM-A/ADPCM-B。それ以外に指定すると、読み込み時に警告が出ます。プラグイン側の`pan`を0のままにできるので、同じチップの他の部分(OPL4のAWM部等)が自分のパンをそのまま使えます
+- `"L"`/`"R"`の方式は、チップ自身がチャンネルごとのL/R出力か連続的なパンを持つものだけで使えます: OPM/OPP・OPZ/OPZ2・OPL3・OPL4(FM部)・OPN2/OPNA/OPNB/OPNBB系とそのADPCM-A/ADPCM-B・SAA1099・PCM-D8(YMZ280B)・Y8960のSSG部(SSGEX)とSCC部(SCCEX)。モノラル出力しか持たないチップに指定すると、読み込み時に警告が出ます。プラグイン側の`pan`を0のままにできるので、同じチップの他の部分(OPL4のAWM部等)が自分のパンをそのまま使えます
+- OPZ/OPZ2は、チップが左だけに出力する設定を持たないため、L側のチップの音が左右両方から出て、左右にきちんと分かれません(警告は出ません)
 - OPNAのSSG部のように、チップの中にL/Rを分ける仕組みが無い部分は、`"L"`/`"R"`の方式でも左右に分かれません(パンを振ると、定位ではなく音量だけが変わります)
 - 片方が`"L"`/`"R"`、もう片方が`true`という混ぜた指定は、`true`の方式として扱います
 - 内蔵リズムやSSG等を持つチップも、まとめて組になります。チップごとのパンを持つ部分(OPL4のAWM部、YMZ705/YMZ732/YMZ771のSSG部・ADPCM部、Y8960の拡張OPL2部・拡張OPLL部)は組にならず、それぞれ独立した音源として残ります。このため、「OPL4のFM部」と「OPL3」を組にすることもできます

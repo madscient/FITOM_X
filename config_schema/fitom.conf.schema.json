@@ -8,7 +8,7 @@
   "properties": {
     "log": {
       "type": "object",
-      "description": "ロギング設定。省略したフィールドは各アプリの既定値を使う(fitom_cli: level=debug/file=fitom_cli.log、fitom_gui: level=info/file=なし。いずれもconsole=trueが既定)。",
+      "description": "ロギング設定。省略したフィールドは各アプリの既定値を使う(fitom_cli: level=debug/file=fitom_cli.log/console=true、fitom_gui: level=info/file=なし/console=true、fitom_render: level=info/file=fitom_render.log/console=false)。",
       "additionalProperties": false,
       "properties": {
         "level": {
@@ -25,12 +25,11 @@
         },
         "file": {
           "type": "string",
-          "description": "ログファイルパス。省略時・空文字列でファイル出力なし。ローテーションは 10MB 単位で行う。"
+          "description": "ログファイルパス。空文字列でファイル出力なし。省略時は各アプリの既定値(logの説明を参照)。ローテーションは 10MB 単位で行う。"
         },
         "console": {
           "type": "boolean",
-          "default": true,
-          "description": "コンソール（標準出力）にもログを出力するか。"
+          "description": "コンソール（標準出力）にもログを出力するか。省略時は各アプリの既定値(fitom_renderだけfalse、他はtrue)。"
         },
         "_comment": {
           "description": "開発者向けの補足説明(JSON自体はコメント非対応のため)。文字列1個、または文字列の配列(複数行相当)のどちらでも書ける。バリデーション・読み込み処理の両方から無視される。",
@@ -46,7 +45,7 @@
     },
     "profiles": {
       "type": "object",
-      "description": "プロファイル(*.profile.json)選択の設定。GUI(fitom_gui)がプロファイル未指定で起動した場合に、ここで指定したディレクトリ配下の*.profile.jsonを一覧し、選択画面から選んで起動できるようにする(fitom_cliは対象外で、プロファイルを引数で必ず指定する)。",
+      "description": "プロファイル(*.profile.json)選択の設定。GUI(fitom_gui)がプロファイル未指定で起動した場合に、ここで指定したディレクトリ配下の*.profile.jsonを一覧し、選択画面から選んで起動できるようにする(fitom_cli・fitom_renderは対象外で、プロファイルを引数で必ず指定する)。",
       "additionalProperties": false,
       "properties": {
         "root": {

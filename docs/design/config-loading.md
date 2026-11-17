@@ -18,7 +18,7 @@ HWプラグイン(実機・エミュレータ)と音声出力の設定は、`fit
 
 ## fitom.conf.json
 
-`fitom_cli`と`gui/bridge`(`FITOMBridge::init`)は、実行ファイルと同じディレクトリに`fitom.conf.json`があれば`FITOMConfig::loadSystemConf()`で読み、`getLogLevel()`/`getLogFile()`/`getLogConsole()`の値で`Log::init()`を呼ぶ。ログはBoost.Logを使い、`fitom/Log.h`のマクロで全翻訳単位から使う。
+`fitom_cli`・`fitom_render`と`gui/bridge`(`FITOMBridge::init`)は、実行ファイルと同じディレクトリに`fitom.conf.json`があれば`FITOMConfig::loadSystemConf()`で読み、`getLogLevel()`/`getLogFile()`/`getLogConsole()`の値で`Log::init()`を呼ぶ。ログはBoost.Logを使い、`fitom/Log.h`のマクロで全翻訳単位から使う。
 
 `profiles.root`は、`fitom_gui`のプロファイル選択画面が使う(`FITOMBridge::listAvailableProfiles()`→`FITOMConfig::listProfiles()`、指定ディレクトリの直下だけを見る)。相対パスはカレントワーキングディレクトリを起点にする。
 
@@ -43,8 +43,13 @@ HWプラグイン(実機・エミュレータ)と音声出力の設定は、`fit
    または上記の選択画面での選択)
    └─ hw_plugins[] の DLL を HWPluginRegistry に登録し、HWPlugin_Init() を呼ぶ
       (auto_devices なら HWPlugin_Enumerate() の結果から devices を作る)
+   └─ banks / bank_overrides を解決し、sf2_banks を読む (devices[] の
+      chip:"SF2" に渡す soundfonts の一覧を作るため、devices[] より前)
    └─ devices[] から IPort を生成する (HWPort)。part_gains を適用する
-   └─ sf2_banks / sf2_channel_windows を読み、構成の矛盾を検査する
+   └─ sf2_channel_windows を読み、検証する
+   └─ drum_banks / hw_banks / sw_banks / patch_banks / scc_wave_banks /
+      pcm_banks を PatchManager に読み込む
+   └─ SF2 の構成の矛盾を検査する
    └─ midi_backend.dll (省略時はプラットフォーム既定) を解決する
    └─ midi_inputs を開く (MidiPlugin_OpenIn)
 

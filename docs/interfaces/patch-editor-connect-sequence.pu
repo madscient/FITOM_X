@@ -3,10 +3,11 @@ actor User
 participant FITOM_X
 participant PatchEditor
 
-User -> FITOM_X: double-click patch in MIDI monitor
-FITOM_X -> PatchEditor: execute as kiosk mode
-PatchEditor -> FITOM_X: connect to FITOM_X with named pipe
-FITOM_X -> PatchEditor: assign MIDI channel with sysex
-PatchEditor -> FITOM_X: send CC#0/CC#32/Prog.chg for target patch
+User -> FITOM_X: double-click Bank/Program in MIDI monitor
+FITOM_X -> PatchEditor: launch as a separate process\nargs: <profile.json> <kind> <bank-file> <prog>
+PatchEditor -> FITOM_X: connect to named pipe / UNIX domain socket
+FITOM_X -> PatchEditor: channel assignment SysEx\nF0 00 48 01 03 <ch> F7
+PatchEditor -> FITOM_X: CC#0=0x79 (make <ch> a melody channel)
+PatchEditor -> FITOM_X: CC#0=<VoicePatchType> / CC#32=<HwBank> / Prog.chg <HwProg>
 
 @enduml

@@ -21,6 +21,7 @@ FM音源エンジン + MIDIアプリケーションです(C++17)。
 ```
 apps/
   fitom_cli/     CLIアプリケーション
+  fitom_render/  SMF→WAV変換器(オフライン描画に対応したHWプラグインを使う)
   fitom_gui/     Dear ImGui GUIアプリケーション(gui/bridge経由でコアに接続)
 gui/
   bridge/        UIフレームワーク非依存のコアブリッジ(FITOMBridge)。

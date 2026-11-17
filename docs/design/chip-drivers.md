@@ -225,16 +225,25 @@ L/R各ポートに`DeviceFactory::create()`を呼んだ上で`CLinearPanDevice`�
 後者(チップ内L/R分離方式)では、`CLinearPanDevice`が束ねた2チップ自身の
 `ChState::panpot`を左右端(-64 / +63)へ固定し、各ドライバの`updatePanpot()`が
 チップのL/R出力ビットを書く(「パンポットの向き」節の規約)。
-対応の可否は`FITOMConfig::deviceHasChipLevelPanpot()`が`deviceType`側の索引
-として持つ(真の情報源は各ドライバの`updatePanpot()`実装であり、
-`updatePanpot()`を実装・変更したら必ずこの一覧も見直すこと)。非対応チップに
-`"L"`/`"R"`を指定した場合は読み込み時に警告を出す(モノラルチップでは
-`updatePanpot()`が no-op のため、黙って左右に分離されないという静かな失敗に
-なるのを防ぐ)。
+対応の可否は`FITOMConfig::deviceHasChipLevelPanpot()`が判定し、その中身は
+**`FITOMConfig::getChipPanType()`が`Mono`以外を返すこと**である。チップ名の
+一覧は持たず、チャンネルレベルメーターのL/R分割表示(「チャンネルレベル
+メーターでの扱い」節)と同じ索引を使う。`getChipPanType()`は`deviceType`側の
+索引で、真の情報源は各ドライバの`updatePanpot()`実装である
+(`updatePanpot()`を実装・変更したら必ず`getChipPanType()`の分類も見直すこと)。
+L/Rイネーブルビットを持つチップ(`ThreeWay`)と連続的なパンポットレジスタを
+持つチップ(`Continuous`)が対応し、`updatePanpot()`が no-op のモノラル出力の
+チップ(`Mono`。OPLL系・OPL/OPL2・SSG/PSG系・YM2203等)は非対応になる。
+非対応チップに`"L"`/`"R"`を指定した場合は読み込み時にログを出す(黙って左右に
+分離されないという静かな失敗になるのを防ぐ。出し分けは下記)。
 
-対応チップ: **OPM/OPP・OPZ/OPZ2・OPL3/OPL3_2(=OPL4のFM部)・OPN2/OPNA/OPNB/
-OPNBB系とそのADPCM-A/ADPCM-Bサブデバイス**。OPLL系・OPL/OPL2・SSG/PSG系・
-YM2203は非対応(モノラル出力)。
+**OPZ/OPZ2は`ThreeWay`に分類しているが、L側は左右に分離されない。** OPZには
+L単独の定位を表すビットが無く(出力イネーブルは`$20+ch` bit7(R)と`$30+ch`
+bit0のOR)、`COPZ::updatePanpot()`は左寄せを両出力として書くので、L側の
+チップは左右の両方から鳴る。R側は右だけになる。`Mono`へ移すと指定自体が
+読み込み時の警告になるが、実チップのbit6の役割が確定していないため、
+`ThreeWay`のままにしている。このため、OPZ/OPZ2に`"L"`/`"R"`を指定しても
+警告は出ない。
 
 なお片側だけ`"L"`/`"R"`・もう片側は`true`という混在指定の場合は、プラグイン側の
 ルーティングが絡んで意図が確定しないため、従来方式(プラグイン側で分離)に倒す。
@@ -322,6 +331,9 @@ SAA1099・SSGS系・Y8960の拡張ブロック)は等パワーパンニングの
 なお`stereo_pair:"L"/"R"`(チップ内L/R分離方式)では、各物理チップのパンポットが
 左右端に固定されるため、物理ビューではL側チップの全バーが左半分だけ、R側
 チップの全バーが右半分だけ点灯する(実際にハードパンされていることが見える)。
+ただしOPZ/OPZ2のL側チップは、表示は左半分だけだが、実際には左右の両方から
+鳴る(「左右をどこで分離するか」節)。表示は`ThreeWay`の閾値で`ChState::panpot`
+から求めており、`COPZ::updatePanpot()`の書き方を見ていないため。
 
 ---
 
