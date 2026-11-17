@@ -139,7 +139,7 @@ FITOM_X/
 │   ├── design/             # 本体の内部設計
 │   ├── interfaces/         # プラグイン・外部ツールとの契約
 │   ├── proposals/          # 未実装の設計検討
-│   ├── plans/              # 進行中の作業計画
+│   ├── plans/              # 進行中の作業計画(作業中のときだけある)
 │   ├── worklog/            # 変更・修正・調査の経緯
 │   └── STATUS.md           # 実装状況
 ├── gui/
@@ -326,7 +326,7 @@ cmake --build --preset macos-release
 - [docs/design/sf2-direct-path.md](docs/design/sf2-direct-path.md) — SoundFont 音源への直行パス
 - [docs/design/terminology.md](docs/design/terminology.md) — 用語
 - [docs/proposals/](docs/proposals/) — 未実装の設計検討(VGM 記録、OPM/OPZ のハードウェア LFO)
-- [docs/plans/](docs/plans/) — 進行中の作業計画
+- `docs/plans/` — 進行中の作業計画(作業中のときだけある)
 - [docs/worklog/](docs/worklog/) — 変更・修正・調査の経緯(月ごと)
 - [tools/render_measure/README.md](tools/render_measure/README.md) — `fitom_render` で鳴らした音を測るスクリプト
 
