@@ -7,7 +7,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       }
     },
     {
@@ -17,18 +18,10 @@
       "generator": "Visual Studio 17 2022",
       "architecture": "x64",
       "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
         "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_BUILD_TESTS": "ON"
-      }
-    },
-    {
-      "name": "windows-vs2022-x64-vcpkg",
-      "displayName": "Windows (VS2022 / x64 / vcpkg で boost を取得)",
-      "inherits": "windows-vs2022-x64",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
     },
     {
@@ -38,18 +31,10 @@
       "generator": "Visual Studio 18 2026",
       "architecture": "x64",
       "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
         "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_BUILD_TESTS": "ON"
-      }
-    },
-    {
-      "name": "windows-vs2026-x64-vcpkg",
-      "displayName": "Windows (VS2026 / x64 / vcpkg で boost を取得)",
-      "inherits": "windows-vs2026-x64",
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
     },
     {

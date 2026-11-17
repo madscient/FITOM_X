@@ -13,7 +13,7 @@
 WinMM・ALSA・CoreMIDI などの MIDI 実装の差異を  
 FITOM コアから完全に隠蔽するプラグイン。  
 コアは MIDI 1.0 バイト列のみを扱う。同梱の実装は [RtMidi](https://github.com/thestk/rtmidi)
-(`third_party/rtmidi`、git submodule)に委譲し、Windows/Linux/macOSを1つの
+(vcpkgから取得して静的リンクする)に委譲し、Windows/Linux/macOSを1つの
 DLLソースでカバーする。
 
 ---
@@ -114,10 +114,9 @@ typedef void (*MidiInCallback)(
 **実装ファイル**: `backends/midi_rtmidi/src/MidiRtMidi.cpp`
 
 ### ビルド環境
-- [RtMidi](https://github.com/thestk/rtmidi) 本体を `third_party/rtmidi` に git submodule として配置する
-  (`git submodule update --init --recursive`)
-- RtMidi自身が `cmake_minimum_required(VERSION 3.24)` を要求するため、
-  ビルド環境側も CMake 3.24 以上が必要
+- [RtMidi](https://github.com/thestk/rtmidi) 本体はvcpkgから取得する。上流のvcpkgの
+  ポートは6.0.0までなので、6.1.0を`vcpkg-ports/rtmidi`のoverlay portで持つ
+  (JACKとWindows MIDI ServicesのバックエンドはOFF、ALSAはLinuxだけで有効)
 - RtMidiは静的リンクする(`fitom_midi_rtmidi.dll`/`.so`/`.dylib` 単体で完結し、
   追加のランタイムDLLインストールは不要)
 - プラットフォームAPI選択はRtMidi側が自動判定する: Windows→WinMM、

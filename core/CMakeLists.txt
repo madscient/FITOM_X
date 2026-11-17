@@ -54,8 +54,6 @@ target_include_directories(fitom_core
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_compile_definitions(fitom_core PUBLIC BOOST_LOG_DYN_LINK)
-
 # Boost::format はヘッダオンリーのため Boost::headers を使う
 # (vcpkg では独立した Boost::format ターゲットは存在しない)
 target_link_libraries(fitom_core

@@ -2,12 +2,37 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "fitom",
   "version": "2.0.0",
-  "description": "vcpkg は必須ではありません。既定のビルドでは nlohmann-json は git submodule (third_party/nlohmann-json) から、boost はシステムパッケージマネージャ (apt 等) または各プラットフォームの標準的な入手手段から取得します。Windows で boost を手元に用意しづらい場合など、vcpkg 経由で取得したい場合にのみこのマニフェストを使用してください (CMake実行時に -DFITOM_USE_VCPKG_JSON=ON、および CMakePresets.json の該当プリセットで vcpkg toolchain を指定します)。",
+  "description": "FITOM_X の依存ライブラリ。vcpkg のツールチェーンを指定して configure すると取得される。",
   "dependencies": [
     { "name": "boost-thread",       "platform": "!emscripten" },
     { "name": "boost-format",       "platform": "!emscripten" },
-    { "name": "boost-log",          "platform": "!emscripten" }
+    { "name": "boost-log",          "platform": "!emscripten" },
+    "nlohmann-json",
+    {
+      "name": "rtmidi",
+      "features": [ { "name": "alsa", "platform": "linux" } ]
+    },
+    "catch2"
   ],
-  "overrides": [],
-  "builtin-baseline": "930ecc42b512b564571d767f70775d284a6fa307"
+  "features": {
+    "gui": {
+      "description": "Dear ImGui GUI (apps/fitom_gui)。FITOM_GUI_IMGUI=ON のときに CMakeLists.txt が選ぶ",
+      "dependencies": [
+        "glfw3",
+        {
+          "name": "imgui",
+          "features": [ "glfw-binding", "opengl3-binding" ]
+        }
+      ]
+    }
+  },
+  "$comment-overrides": "ImGui は apps/fitom_gui を確かめた 1.92.8 に固定する。上げるときは GUI の目視確認とセットで行う",
+  "overrides": [
+    { "name": "imgui", "version": "1.92.8", "port-version": 1 }
+  ],
+  "$comment-overlay": "rtmidi は上流のポートが 6.0.0 までなので、6.1.0 を vcpkg-ports/rtmidi に持つ",
+  "vcpkg-configuration": {
+    "overlay-ports": [ "./vcpkg-ports" ]
+  },
+  "builtin-baseline": "528cfa41f4b1578b16ac6b2f6d2e6f98e5308d2d"
 }

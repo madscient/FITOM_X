@@ -39,7 +39,8 @@ tests/           Catch2テスト
 banks/           バンクファイルのフォーマット例示のみ(下記「バンク・
                  プロファイルの扱い」参照)
 config/          プロファイル・fitom.confのフォーマット例示のみ(同上)
-third_party/     git submodule(nlohmann-json / rtmidi / imgui / glfw)。編集しない
+vcpkg-ports/     vcpkgのoverlay port(上流のvcpkgに無い版のRtMidi)。依存ライブラリは
+                 すべてvcpkg.jsonから取得する
 tools/           開発用のスクリプト。render_measure/はfitom_renderで鳴らした音を
                  numpyで測る(tools/render_measure/README.md参照)
 ```
@@ -71,8 +72,9 @@ GUI(Dear ImGui)も含める場合は、configureプリセット
 `windows-vs2026-x64-gui-imgui`(`FITOM_GUI_IMGUI=ON`)を使う。対応する
 buildプリセットは無いので、`cmake --build build/windows-vs2026-x64-gui-imgui --config Release`
 でビルドし、`ctest --test-dir build/windows-vs2026-x64-gui-imgui -C Release`
-でテストする。`third_party/imgui`・`third_party/glfw`はgit submoduleとして
-別途取得する(`git submodule update --init --recursive`)。
+でテストする。依存ライブラリはvcpkgが`vcpkg.json`から取得するので、configureには
+環境変数`VCPKG_ROOT`が要る。GUIの依存(Dear ImGui・GLFW)は`vcpkg.json`の`gui`機能に
+分けてあり、`FITOM_GUI_IMGUI=ON`のときだけ入る。
 
 ## 作業時の必須ルール
 

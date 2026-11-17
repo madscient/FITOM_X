@@ -184,10 +184,11 @@
 - [ ] パッチピッカーのOPLLEX: CH番号→パッチ選択→カテゴリ「OPLLEX」→バンク「ROM Preset」に、`OPLL: `/`OPLLX: `/`OPLLP: `/`VRC7: `の接頭辞つきで60音色が並ぶ。試聴でその音色が鳴る。確定後、MIDIモニターのパッチ名も同じ表記になる。`FITOMBridge`にはテストが無く、ビルドが通ることまで確かめた
 
 **プロファイルを問わないもの**
+- [ ] vcpkgから取ったDear ImGui 1.92.8・GLFW 3.5.1で組んだ`fitom_gui`(GUI)が起動し、表示と操作が前と変わらない。版はサブモジュールのときと同じだが、GLFWは共有ライブラリになり、`glfw3.dll`が実行ファイルの隣に置かれる。ビルドとテストまでは確かめた
 - [ ] システム設定ダイアログの部位ゲインのスライダー(GUI)と、その音。実物のFitomEmuIFと名前指定の部位ゲインに対応したエンジン(YMEngine/DSGemuEngine/DSAemuEngine)を組み合わせて鳴らしたことは無い。`CFITOM`/`FITOMBridge`層(物理チップの添字からポートへの対応とロック)はテストが通っておらず、`HWPlugin_Write`と並行しないことはロックを取る箇所を読んで判断しただけ
 - [ ] SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替(GUI)
 - [ ] レジスタダンプモニターのスクロールバー、チャンネルレベルメーターの束ねられたチップの表示(GUI。いずれも修正後の再確認)
-- [ ] RtMidi 6.1.0(`third_party/rtmidi`)で、実際のMIDI鍵盤からの入力で鳴る。鳴らしながらMIDIポート設定ダイアログ(GUI)でポートを付け替えても、終了しても落ちない。Windowsでのビルドと、WinMMのポートの列挙(`fitom_midi_rtmidi.dll`を直接呼んで、WinMMが返すポート数と一致)は確かめた。Linux(ALSA)・macOS(CoreMIDI)ではビルドしていない
+- [ ] RtMidi 6.1.0(`vcpkg-ports/rtmidi`)で、実際のMIDI鍵盤からの入力で鳴る。鳴らしながらMIDIポート設定ダイアログ(GUI)でポートを付け替えても、終了しても落ちない。Windowsでのビルドと、WinMMのポートの列挙(`fitom_midi_rtmidi.dll`を直接呼んで、WinMMが返すポート数と一致)は確かめた。Linux(ALSA)・macOS(CoreMIDI)ではビルドしていない
 - [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る(Total Levelの向きを直した。直す前は最大音量で無音になっていたはず)。PCMD8を使うプロファイルはstagingに無い。FitomEmuIFはPCMD8へ外部メモリのイメージを渡さないので、エミュレータでは鳴らせず、測れない(5節)
 
 **外部との連携**
@@ -252,6 +253,8 @@
 - VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`。SMFからのVGM出力は、サンプル単位の時計を持つ`fitom_render`に足す方針
 
 **ビルド**
+- `vcpkg-ports/rtmidi`は、上流のvcpkgのrtmidiが6.0.0までしか無いために持っているoverlay port。上流が6.1.0以上になったら、このディレクトリと`vcpkg.json`の`overlay-ports`を消す
+- 依存ライブラリをvcpkgから取る構成は、Windows(`windows-vs2026-x64`、x64-windows)でだけ組んだ。Linux・macOSでは組んでいない(vcpkgの既定のtripletは静的リンクで、Boost.Logのリンク方式の定義はvcpkgのBoostが伝える前提)
 - 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
 
 **設定スキーマ**

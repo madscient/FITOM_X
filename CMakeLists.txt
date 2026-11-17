@@ -1,5 +1,21 @@
 cmake_minimum_required(VERSION 3.24)
+
+# GUIの依存(Dear ImGui / GLFW)はvcpkg.jsonの"gui"機能に分けてある。vcpkgの
+# ツールチェーンはproject()の中でマニフェストを解決するため、機能の選択は
+# project()より前に決めておく。
+option(FITOM_GUI_IMGUI "Dear ImGui GUI (apps/fitom_gui) をビルド" OFF)
+if(FITOM_GUI_IMGUI)
+    list(APPEND VCPKG_MANIFEST_FEATURES "gui")
+endif()
+
 project(FITOM VERSION 2.0.0 LANGUAGES CXX)
+
+if(NOT VCPKG_TOOLCHAIN)
+    message(FATAL_ERROR
+        "依存ライブラリは vcpkg で取得します。vcpkg のツールチェーンが指定されていません。\n"
+        "  環境変数 VCPKG_ROOT に vcpkg のルートを設定してプリセットで configure するか、\n"
+        "  -DCMAKE_TOOLCHAIN_FILE=<vcpkg のルート>/scripts/buildsystems/vcpkg.cmake を指定してください。")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,8 +25,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 同一の.pdbファイルへ同時書き込みしようとして衝突する
 # (C1041: プログラム データベースを開けません) ことがあるため、
 # mspdbsrv.exe経由でPDB書き込みを直列化する /FS を全ターゲットに適用する。
-# (FetchContentで取得するCatch2等、サブディレクトリ側のプロジェクトにも
-#  確実に適用されるよう、トップレベルでグローバルに設定する)
+# (サブディレクトリ側のターゲットにも確実に適用されるよう、トップレベルで
+#  グローバルに設定する)
 if(MSVC)
     add_compile_options(/FS)
 endif()
@@ -19,7 +35,7 @@ endif()
 #  ビルドオプション
 # -------------------------------------------------------
 option(FITOM_BUILD_BACKEND_HWIF      "HW I/F バックエンド DLL をビルド"           ON)
-# RtMidi (third_party/rtmidi) によるクロスプラットフォームMIDIバックエンド。
+# RtMidi によるクロスプラットフォームMIDIバックエンド。
 # Windows(WinMM API)/Linux(ALSA)/macOS(CoreMIDI)を1つのDLLでカバーする。
 option(FITOM_BUILD_BACKEND_MIDI_RTMIDI "RtMidi MIDI バックエンド DLL (クロスプラットフォーム)" ON)
 # 名前付きパイプ(Windows)/UNIXドメインソケット(Linux/macOS)経由の内部専用
@@ -27,9 +43,7 @@ option(FITOM_BUILD_BACKEND_MIDI_RTMIDI "RtMidi MIDI バックエンド DLL (ク�
 # ローカルのみでFITOM_Xへメッセージを送るための、クロスプラットフォームな
 # バックエンド。詳細はdocs/interfaces/plugin-midi-pipe.md参照。
 option(FITOM_BUILD_BACKEND_MIDI_PIPE "内部用MIDIパイプ バックエンド DLL (クロスプラットフォーム)" OFF)
-option(FITOM_GUI_IMGUI                "Dear ImGui GUI (apps/fitom_gui) をビルド"    OFF)
 option(FITOM_BUILD_TESTS             "Catch2 テストをビルド"                       ON)
-option(FITOM_USE_VCPKG_JSON          "nlohmann-json を submodule でなく vcpkg (find_package) から取得" OFF)
 
 # -------------------------------------------------------
 #  コンパイラ設定
@@ -56,42 +70,22 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # -------------------------------------------------------
-#  依存ライブラリ
+#  依存ライブラリ(すべて vcpkg.json から取得する)
 #  Boost: コードが使うのは log(と date_time)と format だけ。
 #         format はヘッダオンリー。thread はコードから直接は使っていないが、
 #         find_package の必須コンポーネントに残っている。
-#
-#  nlohmann-json は git submodule (third_party/nlohmann-json) で取得する。
-#  vcpkg は必須ではない。Windows で boost を手元に用意しづらい場合の
-#  選択肢としてのみ vcpkg.json を置いている (任意)。
 # -------------------------------------------------------
+find_package(nlohmann_json CONFIG REQUIRED)
 
-# nlohmann-json: 既定は git submodule (ヘッダオンリー)。
-#   git submodule add https://github.com/nlohmann/json.git third_party/nlohmann-json
-# vcpkg 経由で取得したい場合は -DFITOM_USE_VCPKG_JSON=ON を指定する。
-if(FITOM_USE_VCPKG_JSON)
-    find_package(nlohmann_json CONFIG REQUIRED)
-else()
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/nlohmann-json/CMakeLists.txt")
-        message(FATAL_ERROR
-            "third_party/nlohmann-json が見つかりません。\n"
-            "  git submodule update --init --recursive\n"
-            "を実行してください。(vcpkg を使う場合は代わりに\n"
-            "-DFITOM_USE_VCPKG_JSON=ON を指定してください)")
-    endif()
-    set(JSON_BuildTests OFF CACHE INTERNAL "")
-    add_subdirectory(third_party/nlohmann-json)
-endif()
-# nlohmann/json 公式 CMakeLists.txt が nlohmann_json::nlohmann_json という
-# INTERFACE ターゲットを定義するため、vcpkg 版と同じ名前でリンクできる。
-
+# Boost.Log は共有ライブラリか静的ライブラリかで名前空間が変わる
+# (v2_mt_* / v2s_mt_*)。vcpkg の Boost::log はリンク方式に合った
+# BOOST_LOG_DYN_LINK を自分で伝えるので、ここでは定義しない(vcpkg の既定の
+# triplet は、Windows が共有、Linux/macOS が静的)。
 find_package(Boost 1.71 REQUIRED COMPONENTS
     thread
     log             # Boost.Log (ロギング)
     log_setup
 )
-# Boost.Log は ヘッダオンリーでないため DLL/静的リンクを明示
-add_compile_definitions(BOOST_LOG_DYN_LINK)
 
 # -------------------------------------------------------
 #  サブプロジェクト
@@ -135,33 +129,10 @@ endif()
 
 # GUI
 if(FITOM_GUI_IMGUI)
-    # GLFW: 例示/テスト/ドキュメントはビルド不要
-    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
-    set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
-    set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
-    if(UNIX AND NOT APPLE)
-        # Wayland開発ツール(wayland-scanner等)が無い環境でも構成できる
-        # よう、既定ではX11のみでビルドする。Wayland対応が必要な場合は
-        # 呼び出し側で -DGLFW_BUILD_WAYLAND=ON を指定すること。
-        set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
-        set(GLFW_BUILD_X11     ON  CACHE BOOL "" FORCE)
-    endif()
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/glfw/CMakeLists.txt")
-        message(FATAL_ERROR
-            "third_party/glfw が見つかりません。\n"
-            "  git submodule add https://github.com/glfw/glfw.git third_party/glfw\n"
-            "  (または https://github.com/glfw/glfw/releases から取得して配置してください)")
-    endif()
-    add_subdirectory(third_party/glfw)
-
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/third_party/imgui/imgui.cpp")
-        message(FATAL_ERROR
-            "third_party/imgui が見つかりません(素のimguiリポジトリを配置してください。\n"
-            "  ビルドラッパーは third_party/imgui_cmake/ 側にあります)。\n"
-            "  git submodule add https://github.com/ocornut/imgui.git third_party/imgui")
-    endif()
-    add_subdirectory(third_party/imgui_cmake)
+    # vcpkgのglfw3は、waylandの機能を選ばない限りLinuxではX11だけで組まれる。
+    find_package(glfw3 CONFIG REQUIRED)
+    find_package(imgui CONFIG REQUIRED)
+    find_package(OpenGL REQUIRED)
 
     add_subdirectory(gui/bridge)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/fitom_gui/CMakeLists.txt")

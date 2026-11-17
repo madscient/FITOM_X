@@ -17,11 +17,12 @@
 TEST_CASE("Test case names are ASCII only", "[meta]")
 {
     std::vector<std::string> offenders;
-    for (const auto* info :
-         Catch::getRegistryHub().getTestCaseRegistry().getAllInfos()) {
-        for (unsigned char c : info->name) {
+    for (const auto& handle :
+         Catch::getRegistryHub().getTestCaseRegistry().getAllTests()) {
+        const auto& info = handle.getTestCaseInfo();
+        for (unsigned char c : info.name) {
             if (c >= 0x80) {
-                offenders.push_back(info->name);
+                offenders.push_back(info.name);
                 break;
             }
         }

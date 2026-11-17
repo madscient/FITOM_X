@@ -147,8 +147,8 @@ FITOM_X/
 │       └── IMidiPlugin.h
 ├── spec/                   # 外部ツール向けの機械可読仕様 (chip-capabilities.json)
 ├── tests/                  # Catch2 テスト
-├── third_party/            # git submodule (nlohmann-json / rtmidi / imgui / glfw)
 ├── tools/                  # 開発用スクリプト(render_measure: fitom_render の出力を測る)
+├── vcpkg-ports/            # vcpkg の overlay port (上流の vcpkg に無い版の RtMidi)
 ├── CMakeLists.txt
 ├── CMakePresets.json
 └── vcpkg.json
@@ -162,10 +162,11 @@ FITOM_X/
 |---|---|
 | C++ 標準 | C++17 |
 | CMake | 3.24 以上 |
-| Boost | 1.71 以上 (log / log_setup / thread。format はヘッダーのみ使用) |
-| nlohmann/json | git submodule (`third_party/nlohmann-json`) |
-| RtMidi | git submodule (`third_party/rtmidi`) |
-| Dear ImGui / GLFW | git submodule (`third_party/imgui` / `third_party/glfw`)。GUI をビルドするときのみ |
+| [vcpkg](https://github.com/microsoft/vcpkg) | 必須 |
+
+依存ライブラリ(Boost・nlohmann/json・RtMidi・Catch2、GUI をビルドするときは Dear ImGui・GLFW)は、
+configure のときに vcpkg が `vcpkg.json` に従って取得します。RtMidi は、上流の vcpkg に無い 6.1.0 を
+`vcpkg-ports/rtmidi` に持っています。
 
 ---
 
@@ -173,17 +174,20 @@ FITOM_X/
 
 ### 共通（初回）
 
+vcpkg を取得して、環境変数 `VCPKG_ROOT` にそのディレクトリを設定します。
+
 ```bash
-git submodule update --init --recursive
+git clone https://github.com/microsoft/vcpkg.git <vcpkg のルート>
+<vcpkg のルート>/bootstrap-vcpkg.sh      # Windows は bootstrap-vcpkg.bat
 ```
 
-Boost は各プラットフォームの手段で用意します。
+各プリセットは `$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake` をツールチェーンに指定しているので、
+最初の configure で依存ライブラリが取得・ビルドされます(Boost のビルドに時間がかかります)。
+`vcpkg.json` の `builtin-baseline` は vcpkg のコミットを指しています。手元の vcpkg がそれより古いと
+configure が失敗するので、vcpkg のルートで `git pull` してから `bootstrap-vcpkg` を実行し直してください。
 
-- Ubuntu/Debian: `apt install libboost-dev libboost-log-dev libboost-thread-dev`
-- Windows: 公式バイナリ配布、MSYS2、または vcpkg。vcpkg を使う場合は、configure 時に
-  vcpkg のツールチェーン(`-DCMAKE_TOOLCHAIN_FILE=<vcpkg のルート>/scripts/buildsystems/vcpkg.cmake`)を
-  指定すると、`vcpkg.json` に従って Boost が取得されます(`windows-vs2022-x64-vcpkg` /
-  `windows-vs2026-x64-vcpkg` プリセットはこれを指定済み)
+Linux で GUI をビルドするときは、GLFW が使う X11 の開発用パッケージが別に要ります
+(Ubuntu では `libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`)。
 
 ### Linux
 
