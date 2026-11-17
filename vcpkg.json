@@ -6,8 +6,7 @@
   "dependencies": [
     { "name": "boost-thread",       "platform": "!emscripten" },
     { "name": "boost-format",       "platform": "!emscripten" },
-    { "name": "boost-log",          "platform": "!emscripten" },
-    { "name": "boost-interprocess", "platform": "!emscripten" }
+    { "name": "boost-log",          "platform": "!emscripten" }
   ],
   "overrides": [],
   "builtin-baseline": "930ecc42b512b564571d767f70775d284a6fa307"

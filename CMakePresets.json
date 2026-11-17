@@ -17,10 +17,8 @@
       "generator": "Visual Studio 17 2022",
       "architecture": "x64",
       "cacheVariables": {
-        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
         "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
-        "FITOM_GUI_MFC": "OFF",
         "FITOM_BUILD_TESTS": "ON"
       }
     },
@@ -40,10 +38,8 @@
       "generator": "Visual Studio 18 2026",
       "architecture": "x64",
       "cacheVariables": {
-        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
         "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
-        "FITOM_GUI_MFC": "OFF",
         "FITOM_BUILD_TESTS": "ON"
       }
     },
@@ -70,7 +66,6 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
         "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_BUILD_TESTS": "ON"
@@ -90,7 +85,6 @@
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "FITOM_BUILD_BACKEND_FMENGINE": "ON",
         "FITOM_BUILD_BACKEND_HWIF": "ON",
         "FITOM_BUILD_BACKEND_MIDI_PIPE": "ON",
         "FITOM_BUILD_TESTS": "ON"

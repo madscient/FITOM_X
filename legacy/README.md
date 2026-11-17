@@ -10,6 +10,3 @@ CMakeLists.txtからも`add_subdirectory`されていません)。
 参照することは想定していません。
 
 - `src/` : 旧チップドライバ・旧MIDI処理・旧パッチ管理等の実装(`.cpp`/`.h`)
-- `include/fitom/` : `core/include/fitom/`と同名だが中身が異なる、
-  旧実装専用のヘッダ(`core/src/`側の同名ファイルと内容が重複しているため、
-  ここに集約しています)

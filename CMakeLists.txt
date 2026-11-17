@@ -28,7 +28,6 @@ option(FITOM_BUILD_BACKEND_MIDI_RTMIDI "RtMidi MIDI バックエンド DLL (ク�
 # バックエンド。詳細はdocs/interfaces/plugin-midi-pipe.md参照。
 option(FITOM_BUILD_BACKEND_MIDI_PIPE "内部用MIDIパイプ バックエンド DLL (クロスプラットフォーム)" OFF)
 option(FITOM_GUI_IMGUI                "Dear ImGui GUI (apps/fitom_gui) をビルド"    OFF)
-option(FITOM_GUI_QT                  "Qt6 GUI をビルド"                           OFF)
 option(FITOM_BUILD_TESTS             "Catch2 テストをビルド"                       ON)
 option(FITOM_USE_VCPKG_JSON          "nlohmann-json を submodule でなく vcpkg (find_package) から取得" OFF)
 
@@ -169,13 +168,6 @@ if(FITOM_GUI_IMGUI)
         add_subdirectory(apps/fitom_gui)
     else()
         message(WARNING "FITOM_GUI_IMGUI=ON ですが apps/fitom_gui/ が存在しません。スキップします。")
-    endif()
-endif()
-if(FITOM_GUI_QT)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gui/qt/CMakeLists.txt")
-        add_subdirectory(gui/qt)
-    else()
-        message(WARNING "FITOM_GUI_QT=ON ですが gui/qt/ が存在しません。スキップします。")
     endif()
 endif()
 

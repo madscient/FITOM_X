@@ -249,12 +249,10 @@
 - チャンネルレベルメーターのサブデバイスの表示順(現状はConfig側の生成順)
 
 **記録・出力**
-- VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`。SMFからのVGM出力は、サンプル単位の時計を持つ`fitom_render`に足す方針(`docs/plans/smf-to-wav.md`)
+- VGMレコーディング: 設計検討完了・実装未着手。`docs/proposals/vgm-recording.md`。SMFからのVGM出力は、サンプル単位の時計を持つ`fitom_render`に足す方針
 
 **ビルド**
 - 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
-- `gui/mfc_shim/`はどの`CMakeLists.txt`からも`add_subdirectory`されておらず、ビルド対象外。中身は廃止済みの`FmEnginePort`等を参照していて古い。`CMakePresets.json`が設定する`FITOM_GUI_MFC`もどこからも読まれない。残すかは未決(**確認済み**: grep)
-- `vcpkg.json`の依存に`boost-interprocess`が残っているが、コードはBoost.Interprocessを使っていない(**確認済み**: `core`/`apps`/`gui`/`backends`で`boost/interprocess`のインクルードが無いことをgrepで確認)。依存を外すかは未決
 
 **設定スキーマ**
 - `profile.schema.json`の`devices[].engine`の`examples`が`"YMEngine"`/`"AYEngine"`のまま。実際のプロファイルが書く値は`"engines/YMFMEngine"`等(**確認済み**: FITOM_stagingの全プロファイルの`engine`の値を数えた)。FITOM_stagingの写しも同じで、原本の修正を待っている

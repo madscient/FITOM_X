@@ -227,7 +227,6 @@ cmake --build --preset macos-release
 | `FITOM_BUILD_BACKEND_MIDI_RTMIDI` | ON | RtMidi MIDI バックエンド DLL（Windows/Linux/macOS共通）|
 | `FITOM_BUILD_BACKEND_MIDI_PIPE` | OFF | 内部用MIDIパイプ DLL(パッチエディタ連携)。各プリセットでは ON |
 | `FITOM_GUI_IMGUI` | OFF | Dear ImGui GUI（`gui/bridge` + `apps/fitom_gui`）|
-| `FITOM_GUI_QT` | OFF | Qt6 GUI（未実装）|
 | `FITOM_BUILD_TESTS` | ON | Catch2 テスト |
 
 ---
