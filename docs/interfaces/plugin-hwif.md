@@ -464,7 +464,7 @@ Y8960 カートリッジの拡張ブロックが FITOM から書かれる番地�
 ## SoundFont プラグインへの追加の約束
 
 プロファイルで `chip: "SF2"` と書いたデバイスは、レジスタではなく MIDI バイト列を受け取る。
-SoundFont プラグインは、新しい関数を足さずに既存の関数だけでこれを受け取る。
+SoundFont プラグイン専用の関数は無く、他の HW プラグインと同じ関数でこれを受け取る。
 
 - **`HWPlugin_Open`**: `params_json` に、FITOM が `soundfonts`(SF2 ファイルの絶対パスの配列)を足して渡す。FITOM はプロファイルの `banks.sf2_banks[].file` から重複を除いてこの配列を作る。配列の0起算の位置を `soundfont_index` と呼ぶ。同じファイルは配列に1回しか現れないので、ファイルのロードは各要素につき1回でよい
 - **`HWPlugin_WriteBlock`**: `startAddr` は常に 0 で、`data` に MIDI バイト列が1メッセージずつ入る。FITOM は `HWPlugin_Write` を使わない

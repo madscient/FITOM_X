@@ -60,7 +60,7 @@ DrumBank (番号0固定。drum_banks[]の1ファイル = 1プログラム)
 | `deviceType` (`DEVICE_*`) | `DeviceFactory::create()` でどのチップドライバクラスを生成するか | `DEVICE_OPNA`=4 |
 | `voicePatchType` (`VOICE_PATCH_*`) | どの音色データと互換性があるか | `VOICE_PATCH_OPN2`=0x11 |
 
-`Config::getVoicePatchType(deviceIndex)`が`deviceType → voicePatchType`を変換する(`Config::deviceTypeToVoicePatchType()`、一覧は`docs/design/chip-drivers.md`の「VoicePatchType 対応表」)。`VOICE_PATCH_*`は、CC#0の直接モードのチップ選択にそのまま使うため、`0x01`-`0x6F`に収める。
+`FITOMConfig::getVoicePatchType(deviceIndex)`が`deviceType → voicePatchType`を変換する(`FITOMConfig::deviceTypeToVoicePatchType()`、一覧は`docs/design/chip-drivers.md`の「VoicePatchType 対応表」)。`VOICE_PATCH_*`は、CC#0の直接モードのチップ選択にそのまま使うため、`0x01`-`0x6F`に収める。
 
 `voicePatchTypeToVoiceGroup()`が返す`VoiceGroup`(OPNA/OPM/OPL2/OPL3/OPLL/PSG/PCM等の粗い分類)は、チップ族の括りを問う用途(フォールバック候補の探索、ログの表示)にだけ使い、バンクの検索キーには使わない。特にサンプル系はADPCM-B/ADPCM-A/PCM-D8/AWM/SSGS-ADPCMがすべて`VOICE_GROUP_PCM`になるので、`VoiceGroup`をキーにすると、チップ族の違うバンクどうしが番号を共有して上書きし合う。
 
@@ -78,7 +78,7 @@ DrumBank (番号0固定。drum_banks[]の1ファイル = 1プログラム)
 - **`voicePatchType == VOICE_PATCH_BUILTIN_RHYTHM`(0x70)**は内蔵リズム音源専用バンクへ分岐する(「内蔵リズム音源専用バンク」節)
 - OPLL系で`hwBank==0`のときはROM音色へ分岐する(「OPLL系のROM音色」節)
 - サンプル系の`voicePatchType`はSampleZoneBankへ分岐する(「サンプル系」節)
-- それ以外は、HwBankから音色を引き、`Config::findDeviceIndexByVoicePatchType()`で完全に一致するデバイスを探す。無ければ`findFallbackDeviceIndex()`で、同じファミリーのデバイスのうち`acceptsFallback`がその音色を受け入れるものを探す(`docs/design/chip-drivers.md`の「フォールバック」)。PSG系だけは別の手順を取る(「PSG系共有バンク」節)
+- それ以外は、HwBankから音色を引き、`FITOMConfig::findDeviceIndexByVoicePatchType()`で完全に一致するデバイスを探す。無ければ`findFallbackDeviceIndex()`で、同じファミリーのデバイスのうち`acceptsFallback`がその音色を受け入れるものを探す(`docs/design/chip-drivers.md`の「フォールバック」)。PSG系だけは別の手順を取る(「PSG系共有バンク」節)
 
 ## 解決の3つのモード
 
@@ -153,7 +153,7 @@ ROM音色はチップに固定された既知のデータ(プリセットフラ�
 OPLL系ROM音色(`opllRomPatches_`)とDSGのビルトイン音色(`dsgBuiltinPatches_`)は内部で機械的に作るので、`HwPatch::swBank`/`swProg`は常に-1のまま。これらにSwPatchを紐づけるために、パッチを書く人が明示的に指定する識別子(`BuiltinRef`)で紐づける専用のメタバンクを持つ(書き方は`docs/manuals/bank-reference.md`)。
 
 - プロファイルの`hw_banks[]`で`role="builtin_swpatch_meta"`を指定したファイルは、通常のHwBankRegistryには登録せず、`PatchManager::builtinMetaBank_`という専用の保持スロットに入れる(`loadBuiltinMetaBankJson()`)。スロットは1つで、複数指定すると後勝ち
-- `PatchManager::resolveOpllRomVoice()`は`(variantSel, instIndex)`、`resolveDsgBuiltinVoice()`は`(BUILTIN_TYPE_DSG, hwProg)`で、`HwBank::findByBuiltinRef()`を線形探索し、一致するエントリの`sw_bank`/`sw_prog`でSwPatchを解決する
+- `PatchManager::resolveOpllRomVoice()`は`(variantSel, instIndex)`、`resolveDsgBuiltinVoice()`は`(BUILTIN_TYPE_DSG, hwProg)`で、`HwBank::findByBuiltinRef()`を線形探索し、一致するエントリの`swBank`/`swProg`でSwPatchを解決する
 - `BuiltinRef`の未設定の印は`0`ではなく`-1`(`isValid()`は`patchNo >= 0`を要求する)。DSGは`patch_no: 0`が正規の音色なので、ここを`>= 1`にするとそのエントリだけが黙って一致しなくなる
 - `HwBank::patches`は128要素の配列1本で、`patch_type`ごとの名前空間ではないので、`prog`(格納位置)が重なると後勝ちで上書きされる。`loadBuiltinMetaBankJson()`は`prog`の重複・範囲外と、`builtin`を欠くエントリ(`findByBuiltinRef()`で永久に一致しない)をログに警告する
 - `hwbank.schema.json`は、`prog`の必須/任意を`ops`/`builtin`の`oneOf`の分岐で切り替える。通常の音色(`ops`)の`prog`はProgram Change番号そのもので、`loadHwBankJson()`は`prog`の無いエントリを読み飛ばすので必須。`builtin`のエントリの`prog`は格納位置にすぎず、ローダーが自動採番するので任意(スキーマで一律必須にすると、エントリを生成する側に使いもしない`prog`を採番させ、かえって衝突を招く)
@@ -170,7 +170,7 @@ resolveTriple(voicePatchType, hwBank, hwProg, ...)
         で SampleZonePatch を取得 (HwBankRegistryは参照しない)
     → 見つからなければ失敗 (フォールバック判定はHwPatchの内容を見るが、
       SampleZonePatchにはその概念が無いため)
-    → Config::findDeviceIndexByVoicePatchType(voicePatchType)でデバイスを解決
+    → FITOMConfig::findDeviceIndexByVoicePatchType(voicePatchType)でデバイスを解決
     → ResolvedTriple::samplePatch に結果を格納
 ```
 
@@ -214,7 +214,7 @@ CC#0/#32 → PatchManager::resolveTriple(0x70, chipSel, hwProg, ...)
 | COPLLRhythm(OPLL) | 0-4 (5ch) | 0=HH, 1=CYM, 2=TOM, 3=SD, 4=BD |
 | CDSGRhythm(DSG) | 0-4 (5パート) | 0=BD, 1=HC, 2=SDN, 3=HHO, 4=HHD |
 
-範囲外のhwProgは解決自体を失敗させる(警告ログを出し、`ResolvedTriple::isValid()`がfalseになる)。**動的チャンネル割り当て(`allocCh`)へは逃がさない**——誤った楽器が鳴るより、鳴らない方が安全という判断。
+範囲外のhwProgは解決自体を失敗させる(警告ログを出し、`ResolvedTriple::isValid()`がfalseになる)。**DVA(`allocCh`)へは逃がさない**——誤った楽器が鳴るより、鳴らない方が安全という判断。
 
 **GUIのパッチピッカーでの列挙**: この経路もHwBankRegistry/SampleZoneBankRegistryを経由しないので、`FITOMBridge`(`getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`)が、CC#0のカテゴリに`0x70`を、バンクの階層に対象チップを、プログラムの階層に各チップの内蔵リズムのパート名(チャンネル番号順)を固定の表として列挙する。パート数がチップごとに違うので、チップごとに別々の配列にしている(`DeviceFactory::defaultChCount()`が返すチャンネル数と一致させる)。表はハードコードで、対応チップの一覧は`gui/bridge/FITOMBridge.cpp`の`kBuiltinRhythmChips[]`、パート名は同じファイルの`getBuiltinRhythmNames()`が持つ。カテゴリ(CC#0)の`0x70`は`apps/fitom_gui/PatchPickerDialog.cpp`の`kCategories[]`にあり、チップ名は持たない。新しい内蔵リズム搭載チップを足したら、`kBuiltinRhythmChips[]`と`getBuiltinRhythmNames()`も更新する(コア側の`resolveBuiltinRhythm()`だけを直しても、GUIからは選べないままになる)。
 
@@ -222,7 +222,7 @@ CC#0/#32 → PatchManager::resolveTriple(0x70, chipSel, hwProg, ...)
 
 OPL系の内蔵リズム(`COPLRhythm`)は`0x70`の経路を使わない。OPLのリズム音はBD(2op)以外が1オペレータの実際のFM音色パラメータを要求し、標準の`HwPatch`の形に収まるので、`VOICE_PATCH_OPL_RHY`(0x23)という通常の`VoicePatchType`を持ち、他の直接モードのチップと同じ経路(`resolveTriple`→`HwBankRegistry`)で音色を解決する(`docs/design/chip-drivers.md`の「特殊ルーティングの判断基準」)。HwBankの名前空間も`VOICE_PATCH_OPL_RHY`で独立している。
 
-「チャンネル番号=楽器」という制約は`0x70`と同じだが、OPL_RHYは任意の音色をHwBankから選べる設計なので、`hwProg`(格納位置)をそのままチャンネル番号には使えない(1チャンネルにつき音色を1つしか持てなくなる)。代わりに、**HwPatch自身が持つ`ext.rhythm_ch`**(0=HH/1=CYM/2=TOM/3=SD/4=BD)を`resolveTriple()`が参照し、`ResolvedTriple::forcedCh`に設定する。未設定(255)または範囲外は解決失敗(無音、警告ログ)。`hwProg`(どの音色か)と`ext.rhythm_ch`(どの楽器向けか)は独立した軸なので、同じ楽器の音色のバリエーションを別のスロットに置ける(各スロットの`rhythm_ch`を正しく設定するのは音色を書く側の責任)。
+「チャンネル番号=楽器」という制約は`0x70`と同じだが、OPL_RHYは任意の音色をHwBankから選べる設計なので、`hwProg`(格納位置)をそのままチャンネル番号には使えない(1チャンネルにつき音色を1つしか持てなくなる)。代わりに、**HwPatch自身が持つ`ext.rhythmCh`**(0=HH/1=CYM/2=TOM/3=SD/4=BD)を`resolveTriple()`が参照し、`ResolvedTriple::forcedCh`に設定する。未設定(255)または範囲外は解決失敗(無音、警告ログ)。`hwProg`(どの音色か)と`ext.rhythmCh`(どの楽器向けか)は独立した軸なので、同じ楽器の音色のバリエーションを別のスロットに置ける(各スロットの`rhythm_ch`を正しく設定するのは音色を書く側の責任)。
 
 ## チョークグループと発音の参照
 

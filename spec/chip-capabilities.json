@@ -486,8 +486,8 @@
         "サステインペダル(CC#64)はSR/RRとは独立に実機のSUSビットで制御される。",
         "内蔵リズムはOPLLのビルトインリズム(BUILTIN_RHYTHM 0x70でOPLLを選択、findDeviceIndexByDeviceType経由)として鳴る。レジスタ体系は標準OPLLと同一だが、使う物理chの定位を書くためdeviceTypeはDEVICE_OPLLEX_RHY。標準OPLLのリズムが無い構成ではこちらで鳴る。専用のRHYTHM VoicePatchTypeは無い。",
         "*.hwbank.jsonのALGフィールド(スキーマ上限7)から直接指定できるプリセットは0-7まで。8-15を含む音色は、CC#0=OPLLEX・バンク0のProgram Change番号で選ぶ(下の項)。hwbank.jsonのbuiltinエントリ(role=\"builtin_swpatch_meta\"バンク)は演奏特性の紐づけ専用で、patch_typeにOPLLEXは書けない(鳴らすBANKのチップ名OPLL/OPLLX/OPLLP/VRC7を書く)。",
-        "OPLL/OPLLX/OPLLP/VRC7側の暗黙のROMプリセットバンク(bank0固定)は、要求されたチップが未接続の場合にOPLLEXへフォールバックする(2026年8月〜)。OPLLEXはOPLL/OPLL-X/OPLL-P/VRC7の4バンクを全て内蔵しているため、生成される暗黙のHwPatch自体に対応するBANK値(ext.ALG_EXTのbit2-1)が最初から焼き込まれている。標準OPLL系どうしの相互フォールバック(実機ROMデータが異なる)は引き続き行わない。",
-        "OPLLEX自身のCC#0(voice_patch_type=0x2c)・バンク0(CC#32=0)を直接選んだ場合も、標準4チップと同じ暗黙のROMプリセットバンクをそのまま使える(2026年8月〜)。hwProgの上位3bit(0-3)がOPLLEX自身のBANK選択、下位4bit(1-15)が音色番号となり、prog直接指定だけで各BANK15音色・計60音色すべてにアクセスできる(ALGフィールドの0-7上限の制約を受けない)。演奏特性(SwPatch)も標準4チップと同じビルトイン音色用メタバンクから(variantSel, instIndex)で解決される。",
+        "OPLL/OPLLX/OPLLP/VRC7側の暗黙のROMプリセットバンク(bank0固定)は、要求されたチップが未接続の場合にOPLLEXへフォールバックする。OPLLEXはOPLL/OPLL-X/OPLL-P/VRC7の4バンクを全て内蔵しているため、生成される暗黙のHwPatch自体に対応するBANK値(ext.ALG_EXTのbit2-1)が最初から焼き込まれている。標準OPLL系どうしの相互フォールバックは行わない(実機ROMデータが異なるため)。",
+        "OPLLEX自身のCC#0(voice_patch_type=0x2c)・バンク0(CC#32=0)を直接選んだ場合も、標準4チップと同じ暗黙のROMプリセットバンクをそのまま使える。Program Change番号の上位3bit(0-3)がOPLLEX自身のBANK選択、下位4bit(1-15)が音色番号となり、Program Changeだけで各BANK15音色・計60音色すべてにアクセスできる(ALGフィールドの0-7上限の制約を受けない)。演奏特性(SwPatch)も標準4チップと同じビルトイン音色用メタバンクから解決される。メタバンクのエントリは、Program Change番号の上位3bitが示すチップ名(0=OPLL/1=OPLLX/2=OPLLP/3=VRC7)をbuiltin.patch_typeに、下位4bitをbuiltin.patch_noに書いたもので探される。",
         "chごとの定位(0x50-0x58)はMIDIのCC#10で制御され、HwPatchには現れない。"
       ]
     },

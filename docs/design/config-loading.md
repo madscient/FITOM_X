@@ -69,7 +69,7 @@ HWプラグイン(実機・エミュレータ)と音声出力の設定は、`fit
 
 `HWPlugin_Init()`が失敗したプラグインは登録しない(`Enumerate`/`Open`を呼べない状態のプラグインを残すのは危険なため)。プラグイン自身の設定ファイルの内容と`devices[]`の記述(`engine`/`chip`/`index`等)が合わない場合は、`HWPlugin_Init()`は成功し、後の`HWPlugin_Open()`が`HW_ERR_NOT_FOUND`を返す。
 
-`channel_map`等の既に使っていないキーは、読み込みでは単に読まないだけで、エラーにしない(スキーマの検証ではトップレベルが`additionalProperties: false`なので誤りになる)。
+`channel_map`等の読まないキーは、読み込みでは無視し、エラーにしない(スキーマの検証ではトップレベルが`additionalProperties: false`なので誤りになる)。
 
 ## 書き戻し
 

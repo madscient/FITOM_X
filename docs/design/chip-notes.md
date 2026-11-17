@@ -224,7 +224,7 @@ RRレジスタに関係なく速さ7(RR=7と同じ)で減衰し、`SR`・`RR`フ
 OPL系と異なり、発音中のEGTビット書き換えが期待どおりに効かない
 （動的制御を入れた状態では音が想定どおりに減衰しない）。FITOM_Xとは別の環境での実チップの検証でこの差異を確かめたため、**OPLL系は静的変換を確定仕様とする**。
 チップファミリー間の一貫性という原則に対する意図的な例外であり、
-「OPL系に合わせて動的制御へ戻す」方向の変更は行わないこと
+OPL系に合わせて動的制御に変えないこと
 （実機挙動の差異が理由であり、実装上の未整備ではない）。OPLL/OPLL2/OPLLP/OPLLX/VRC7/OPLLEXは`COPLL`を共有するため全て同じ挙動。
 
 この理由はNuked-OPLL(v1.0.2、YM2413モデル)の挙動とは合わない。Nuked-OPLLでは、
@@ -251,7 +251,7 @@ EGTビットの0/1の向きはOPL系と同じ(「EGTとRRの動的な書き換�
 OPL系(`COPLRhythm`)とOPLL系(`COPLLRhythm`)の内蔵リズムは、5つの楽器(BD/SD/TOM/CYM/HH)をFM本体のch6-8の3ch分のレジスタで鳴らす。
 
 - **`COPLLRhythm`のレジスタ**: レジスタ`0x0E`（キーオン）、`0x36-0x38`（音量、2パート/レジスタでnibble共有）を独立して操作する。親`COPLL`インスタンスへの参照を持たず、同一の物理ポートを共有していることを利用して直接`setReg`する(レジスタアドレス空間はどちらのオブジェクトが書いても同じ効果になる)
-- **パート番号**: `COPLLRhythm`は音色データの`hw.ALG`(下位3bit)でパート番号を受け、`queryCh`がその値で特定のchを強制する(内蔵リズム音源専用バンク[CC#0=0x70]経由では、`PatchManager`が解決したチャンネルを`forcedCh`として渡す)。`COPLRhythm`は`ext.rhythm_ch`でパートを指定する(`docs/design/patch-resolution.md`の「内蔵リズム音源専用バンク」)
+- **パート番号**: `COPLLRhythm`は音色データの`hw.ALG`(下位3bit)でパート番号を受け、`queryCh`がその値で特定のchを強制する(内蔵リズム音源専用バンク[CC#0=0x70]経由では、`PatchManager`が解決したチャンネルを`forcedCh`として渡す)。`COPLRhythm`は`ext.rhythmCh`でパートを指定する(`docs/design/patch-resolution.md`の「内蔵リズム音源専用バンク」と「OPL系の内蔵リズム」)
 - **音程**: `COPLLRhythm`・`COPLRhythm`は、ノート番号に応じてFnum/Blockレジスタを計算し、内蔵ドラム音のピッチシフト演奏を可能にしている(基底クラス`CSoundDevice::getFnumber()`の標準的なノート→Fnum変換をそのまま使う)。`COPNARhythm`は各チャンネルが固定ピッチの打楽器を鳴らすだけで、ノート番号に依存する処理は無い
 - **共有チャンネル**: 5つの楽器に対し3ch分のFnumレジスタしかなく、HH/SD(ch7)、CYM/TOM(ch8)が同じレジスタを共有する。HH・CYMはノイズ性の発振でFnumがほぼ発音に寄与しないため、HH・CYM側はFnumを更新しない。結果として、共有チャンネルのFnumはSD・TOM側が排他的に制御する。BDはch6を単独で使う
 - **共有チャンネルの音色レジスタ**: `COPLRhythm`のFB/ALG/Pan(0xC0+物理ch)は物理ch単位のレジスタで、ch7(HH/SD)・ch8(TOM/CYM)は共有するため、後に書いた方が勝つ(仕様として許容している)
@@ -753,7 +753,7 @@ DEVICE_ADPCMB_OPL2EX  (66) → Y8960   (Y8950と同じ配置 + 定位)
 DEVICE_ADPCMB        (117) → OPNB/OPNBB (kOPNB_DeltaT)
 ```
 
-`DEVICE_ADPCM`(119)は旧い汎用名で、`DEVICE_ADPCMB_Y8950`を使う。
+`DEVICE_ADPCM`(119)は、定数と`CFITOM.cpp`の表(デバイス名・レジスタ空間の大きさ・チャンネル名の接頭辞)には載っているが、担当するチップドライバが無く(`DeviceFactory::create()`は作らない)、プロファイルの`chip`の名前にもサブデバイスの展開にも現れないので、この値のデバイスは作られない。Y8950のADPCM-Bは`DEVICE_ADPCMB_Y8950`。
 
 - **音色データ**: すべてSampleZonePatchを使い、HwPatchの`hwOp[]`は使わない。再生する波形は、ノートとベロシティで選んだゾーンの`SampleZone::waveIndex`(PCMバンクのエントリ番号)で決まる(`SampleZonePatch::resolveZone()`)
 - **音量レジスタの向き**: ADPCM-Bのボリュームと、YMZ280BのTotal Level(reg `$02+ch*4`)はゲインで、値が大きいほど大きい音。`VoiceProcessor::effectiveTL()`はラウドネス空間(0=無音、127=最大)の値なので、反転せずに書く。YMZ280Bのデータシート(英語版・日本語版とも)は「256ステップ」とだけ書いて向きを書いていないので、エミュレータ(MAME由来。出力を`sample*level/256`で求める)に合わせている。ラウドネスはGM2の`40·log10(L/127)`dBの目盛りで、線形のレジスタへそのまま写すとdB上の効きは半分になる。ADPCM-Bも同じ写し方で、両者を揃えている

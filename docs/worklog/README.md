@@ -36,3 +36,7 @@ STATUS.md内の位置関係を指すため、別の件や別の月のファイ�
 | `vgm-recording.md` / `opm-opz-hw-lfo.md` | `docs/proposals/`の同名ファイル |
 | `voice-parameter-reference.md` | 削除。利用者向けの内容は`docs/manuals/hwpatch-reference.md`、チップごとのレジスタと内部処理は`docs/design/chip-notes.md` |
 | `DESIGN.md` / `chip-driver-migration.md` | 削除(2026年10月の「`docs/DESIGN.md`と`docs/chip-driver-migration.md`を削除した」の件) |
+| `CHANGES.md` | 削除(コミット`5eaf5f1`) |
+| `doc-reorganization.md` | 削除(2026年10月の「文書再編の作業計画を、決定事項と見送った案をここへ移して消した」の件) |
+| `request-FitomEmuIF.md` / `request-FitomHwIF.md` / `request-FitomSf2IF.md` / `request-FITOM_staging.md` | 削除。`docs/plans/`に置いた他のリポジトリへの依頼文で、依頼先の作業が終わってから消した(FITOM_stagingの`request-FITOM_X.md`はFITOM_staging側の文書) |
+| `smf-to-wav.md` | 削除(2026年11月の「使われていないファイルとビルド設定を消し、終わった計画`docs/plans/smf-to-wav.md`を消した」の件) |

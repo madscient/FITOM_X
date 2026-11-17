@@ -131,7 +131,7 @@
 | 無音バンク (CC#0=127、`VOICE_PATCH_SILENCE`) | ✅ | `docs/design/patch-resolution.md` |
 | PSGソフトウェアエンベロープ (SoftEnvelope, FM実機準拠ADSR) | ✅ | `docs/design/voice-processor.md` |
 | AY-3-8910 HW EG (ext.HWEP)、AY8930拡張モードのバンク切り替え | ✅ | `docs/design/chip-notes.md` |
-| リズムモード汎用フィールド (`rhythm_mode`)、ビルトインリズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `docs/manuals/profile-reference.md` |
+| リズムモード汎用フィールド (`rhythm_mode`)、内蔵リズムのプロファイル明示化(`auto_devices`経由を含む) | ✅ | `docs/manuals/profile-reference.md` |
 | HWデバイス レイテンシ同期 (GetLatencySamples/SetDelaySamples) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWPlugin_Shutdown (任意API、二重実行防止) | ✅ | `docs/interfaces/plugin-hwif.md` |
 | HWプラグインへ渡すレジスタアドレスは常に実チップのもの(契約) | ✅ | `docs/interfaces/plugin-hwif.md` |
@@ -166,7 +166,7 @@
 
 実機(FitomHwIF)では、まだ何も鳴らしていない。環境が整っていないため、実機での確認は項目ごとには載せない。
 
-プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
+プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `45b5517`の各プロファイルの`devices[].chip`を数えた。見出しにはSF2を書いていない)。
 
 **準備**
 - [ ] FITOM_stagingの`bin/`を、FITOM_X `9e3831c`以降のビルドに入れ替える。それより前のビルドでは、OPM/OPZ(OPP含む)は半音高く、SAA1099は1オクターブ低く、SCCは高い音ほど低く(A4で約-7セント、A6で約-27セント)鳴る。今のビルドは`glfw3.dll`とBoost 1.92のDLLを実行ファイルの隣に置くので、それらも一緒に写す。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
@@ -192,7 +192,7 @@
 - [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る。PCMD8を使うプロファイルはstagingに無い。FitomEmuIFはPCMD8へ外部メモリのイメージを渡さないので、エミュレータでは鳴らせず、測れない(5節)
 
 **外部との連携**
-- [ ] 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`Config::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
+- [ ] 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`FITOMConfig::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
 - [ ] 内部用MIDIパイプと実際のパッチエディタとの接続(PowerShellの簡易クライアントでの疎通確認までは実施済み)
 - [ ] 内部用MIDIパイプの10本目の接続(ch9、起動時はリズムチャンネル)で、`CC#0=0x79`によりメロディチャンネルへ切り替えてから直接デバイス選択で試聴できること。コードを読んで判断しただけ
 - [ ] マスターボリューム: システム設定ダイアログ(GUI)のスライダーで、エミュレータの出力の音量が変わる。マスターボリュームのSysExでの変化は`tools/render_measure/levels.py`で測って確かめた(FitomEmuIF `3d16a0f`、全チップで`40·log10(v/127)`と0.01dB以内)
@@ -230,6 +230,9 @@
 - OPL4 AWMはマスターピッチを読まない。`COPL4AWM::getFnumber()`はALSAと同じ基準点からの計算で、F-numberテーブルもマスターピッチも使わない。ROM波形の校正値(`pitch_offset`)は440Hz基準で、マスターピッチを変えてもAWMだけ音程が変わらない。**確認済み**: コードを読み、`tools/render_measure/pitch_controls.py`で測った(GMバンク16番のA4が440.23Hz、`master_pitch`を430/450にしても変わらない)
 - SCC・SAA1099・ADPCM-B・YMZ280Bは、ラウドネス(GM2の`40·log10(L/127)`dBの目盛り)を線形のゲインのレジスタへそのまま写しているので、CC#7・ベロシティのdB上の効きがFM・SSG・DCSGの半分になる。**確認済み**(SCC・SAA1099。`tools/render_measure/levels.py`): CC#7=16でSCCは-17.8dB、SAA1099は-20.9dB、OPNA・SSG・DCSGは-36〜-39dB(DCSGは-28dBより下を消音にする)。SCC・SAA1099は実機も線形の掛け算(`docs/design/chip-notes.md`「音量レジスタの変換則」)。実機のレジスタが線形かは**未確認の候補**(YMZ280Bのエミュレータ[EPSGemuEngine、MAME由来]は線形。ADPCM-Bのエミュレータの扱いは見ていない。YMZ280Bのデータシートは記載が無い)。実機の出力を測るか、YM2608のアプリケーションマニュアル等でADPCM-Bのボリュームの定義を見れば決まる。直すなら、レジスタへ`(L/127)^2`に比例する値を書く
 
+**パッチの解決**
+- `docs/manuals/layered-patch-reference.md`はレイヤーの`voice_patch_type`を「実際に使うのは1–0x6Fと0x7F」と書くが、レイヤーごとに`PatchManager::resolveTriple()`を通るので、0x70(内蔵リズム)も効くかもしれない(**未確認の候補**、点検役のコード読み。レイヤーに`voice_patch_type: 112`を書いたパッチを`fitom_render`で鳴らすか、`resolveTriple()`の0x70の分岐を読めば決まる)
+
 **設定の読み込み**
 - YMZ771(SSGS3)の`stereo_pair`: `FITOMConfig::subDeviceAcceptsStereoPair()`はSSGS3を組の対象外にしているが、SSGS3は複合デバイスに展開されないのでこの判定を通らず、単独のチップとして組になる、というのが点検役のコード読み(`Config.cpp`の組み合わせ処理)。`docs/manuals/profile-reference.md`の`stereo_pair`の注意は「YMZ771は組にならない」と書いている(**未確認の候補**: YMZ771を2台並べたプロファイルを読み込み、ログに`mergeStereoPairDevices`が出るかを見れば決まる)。組になるなら、コードと文書のどちらに合わせるかは未決
 - `auto_devices`が返すデバイスは`hw_plugins`のループの中で作られ、`loadSf2Banks()`より前になる。プラグインの`auto_devices`が`chip:"SF2"`を返すと、`soundfonts`の一覧が渡らないかもしれない(**未確認の候補**: FitomSf2IFの`HWPlugin_Enumerate`が`SF2`を返すかを見れば決まる)
@@ -266,7 +269,7 @@
 
 ## 5. 周辺リポジトリの追従状況
 
-2026年10月23日時点。FITOM_stagingは10月24日、FitomEmuIF・FitomHwIF・FitomSf2IFは10月25日に見直した(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
+各行は、その行に書いた版(コミット)を読んだ時点の状態。FitomEmuIF・FitomHwIF・FitomSf2IF・FITOM_stagingは2026年10月25〜26日、Y8960_Cartridgeは11月9日に見直した(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
 
 | リポジトリ | 状況 |
 |---|---|

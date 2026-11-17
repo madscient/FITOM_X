@@ -46,7 +46,7 @@ MIDIバックエンドDLLのコールバック(DLLのスレッド)
 | 66 | `setSostenuto()` | 「ソステヌート」節 |
 | 76, 77, 78 | `setSoftLfoRate()` / `setSoftLfoDepth()` / `setSoftLfoDelay()` | GM2のSound Controller 7/8/9。ソフトウェアLFOへのオフセット |
 | 98–101 | NRPN/RPNの番号の選択 | |
-| 120 | `allSoundOff()` | 「CC#120とCC#123」節 |
+| 120 | `allSoundOff()` | 「CC#120 と CC#123」節 |
 | 121 | `resetAllCtrl()` | ボリューム・エクスプレッション・パン・ピッチベンドとそのレンジ・RPN#1・ペダル類・ポルタメントとソース指定・ハードウェアLFO・ソフトウェアLFOのオフセットを初期値に戻す。HwPatch/SwPatch/ToneLayerのオーバーライドは消さない(プログラムチェンジで消える) |
 | 123 | `allNoteOff()` | 通常のnoteOff。サステイン中なら保持される |
 | 126, 127 | `setMonoMode()` / `setPolyMode()` | 「モノモードとボイス数上限」節 |
@@ -291,7 +291,7 @@ NoteOff:   sostenutoHeld なノートは実際の noteOff() を呼ばず
 - **`CInstCh::noteOff()`は、ノート番号が一致するエントリを全レイヤー分解放する。** `notes_[]`はレイヤー単位のエントリで、レイヤードパッチでは同じノート番号のエントリが複数ある。最初の1件で打ち切ると、残りのレイヤーのチャンネルが鳴り続ける
 - **レガート中でも`noteOff()`は通常どおり処理する。** レガートで前の音を奪うときは、`noteOn()`の`mono_ && timbres_>0`分岐が`leaveNote()`/`enterNote()`で`notes_[]`のノート番号を新しいノートへ差し替えているので、奪われた古いノート番号のnoteOffは一致判定で自然に無視される
 - **Running中のチャンネルを奪うときは、ownerが自分かどうかに関わらず必ず先に`noteOff()`する**(`CSoundDevice::assignCh()`)。OPN系等のKey On/Offはエッジトリガなので、Key Offを挟まずにKey Onを書くとエンベロープが再アタックしない
-- **`wasReleasing`は`ChState::assign()`で確定させる。** `assign()`がstatusをAssignedに書き換えるより前に判定する。`assign()`を経由しない経路(モノの自己スティール等)では、従来どおり`run()`が判定する。チップドライバのリリース中再トリガー対策(`updateKey()`の`if (keyOn && wasReleasing)`分岐)はこの値で発動する
+- **`wasReleasing`は`ChState::assign()`で確定させる。** `assign()`がstatusをAssignedに書き換えるより前に判定する。`assign()`を経由しない経路(モノの自己スティール等)では、`run()`が判定する。チップドライバのリリース中再トリガー対策(`updateKey()`の`if (keyOn && wasReleasing)`分岐)はこの値で発動する
 
 ## レガートとポルタメント (CC#68 / CC#65)
 
@@ -344,7 +344,7 @@ GM2のグラフとは全域で概ね一致する。cc5=64-88付近(1tickあた�
 | 120 | `forceDamp()`。サステインを無視し、RRを最大化(OPLL系はSUSビット解除)して急速に減衰させる。ALGでキャリアを判定する |
 | 123 | 通常の`noteOff()`。サステイン中なら保持される |
 
-リズムチャンネル(`CRhythmCh`)も`allSoundOff()`を持つ。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、`forceDamp()`でダンプビットを書く。詳細は`docs/design/patch-resolution.md`の「チョークグループ」節。
+リズムチャンネル(`CRhythmCh`)も`allSoundOff()`を持つ。ADPCM-A(`CAdPcm2610A`)とOPNA内蔵リズム(`COPNARhythm`)は`updateKey(ch,false)`が意図的にno-opでNoteOffでは消音しないため、`forceDamp()`でダンプビットを書く。詳細は`docs/design/patch-resolution.md`の「NoteOffで止まらないデバイスの`forceDamp()`」節。
 
 ## モノモードとボイス数上限 (CC#126 / CC#127)
 

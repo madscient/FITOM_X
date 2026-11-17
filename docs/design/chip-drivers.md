@@ -21,7 +21,7 @@ ISoundDevice (抽象インターフェース)
   │
   └── CMultiDevice           複数 ISoundDevice を束ねる共通基盤
         ├── CSpanDevice      グローバルch→実チップ+ローカルchに変換して委譲
-        │                    (サブデバイスの自動生成・同種デバイスの束ねで使う)
+        │                    (COPNA/COPL3_2の内部・同種デバイスの束ねで使う)
         └── CUnison          全チップに同一ch番号をブロードキャスト
               └── CLinearPanDevice  L/Rに配線した同一チップ2台をステレオ化
 ```
@@ -87,8 +87,8 @@ OPL3のCHA/CHBは、どちらを左右へ配線するかがチップの外で決
 
 **1つの物理/エミュレーターチップ指定から、内部的に複数の`ISoundDevice`インスタンスを
 自動生成する仕組み。** 実機の1チップが複数の独立した音源機能（FM本体・SSG・ADPCM・
-内蔵リズム等）を持つ場合に対応する。`Config::resolveCompositeSpec()`が展開ルールを持ち、
-`Config::pushDeviceEntries()`が実際に複数の`DeviceEntry`を生成する。
+内蔵リズム等）を持つ場合に対応する。`FITOMConfig::resolveCompositeSpec()`が展開ルールを持ち、
+`FITOMConfig::pushDeviceEntries()`が実際に複数の`DeviceEntry`を生成する。
 
 ```cpp
 struct SubDeviceSpec {
@@ -141,7 +141,7 @@ FM部の1サンプルあたりのクロック数はチップごとに違い、�
 
 ### 内蔵リズムのサブデバイスと rhythm_mode
 
-- **OPL系/OPLL系の内蔵リズム(`DEVICE_OPL_RHY`/`DEVICE_OPLL_RHY`/`DEVICE_OPLLEX_RHY`/`DEVICE_OPL2EX_RHY`)は、そのチップインスタンスの`rhythm_mode`が`true`のときだけ生成する。** 内蔵リズムはFM本体のch6-8とレジスタを共有し、`rhythm_mode`のときFM本体側のch6-8を無効にする。内蔵リズムと通常の楽音chをまたいだDVA(動的ボイス割当)は無いので、両方を有効にするとレジスタを奪い合う。`resolveCompositeSpec()`の第2引数に、そのインスタンス自身の`rhythm_mode`の値を渡す
+- **OPL系/OPLL系の内蔵リズム(`DEVICE_OPL_RHY`/`DEVICE_OPLL_RHY`/`DEVICE_OPLLEX_RHY`/`DEVICE_OPL2EX_RHY`)は、そのチップインスタンスの`rhythm_mode`が`true`のときだけ生成する。** 内蔵リズムはFM本体のch6-8とレジスタを共有し、`rhythm_mode`のときFM本体側のch6-8を無効にする。内蔵リズムと通常の楽音chをまたいだDVA(ダイナミックボイスアサイン)は無いので、両方を有効にするとレジスタを奪い合う。`resolveCompositeSpec()`の第2引数に、そのインスタンス自身の`rhythm_mode`の値を渡す
 - OPL3/OPL4はch6-8が`COPL3_2`側のport1サブチップにあるため、`rhythm_mode`時はport1のch6-8だけを無効にし、port2側の3chは通常の2OPとして使える
 - **OPNA系の`DEVICE_OPNA_RHY`とDSGの`DEVICE_DSG_RHY`は常に生成する。** レジスタ空間がFM本体・楽音部と完全に独立していて、共有もDVAの調整も要らないため(`resolveCompositeSpec()`の第2引数は無視される)
 - **ADPCM-B(Y8950・OPL2EX・OPNA)も常に生成する。** レジスタ空間がFM本体のオペレータレジスタ・リズム用ch6-8と独立しているため
@@ -171,7 +171,7 @@ GUIのレジスタダンプモニター(`RegisterDumpWindow`)は、物理ポー�
 `deviceType`の一致ではなく**`VoicePatchType`の一致**で、たとえば`DEVICE_OPNA`と
 `DEVICE_2610B`のFM部分はどちらも`VOICE_PATCH_OPN2`なので束ねられる。
 
-`Config::mergeSpannableDevices()`が`buildDevice()`完了後（**サブデバイスの展開の後**）に
+`FITOMConfig::mergeSpannableDevices()`が`buildDevice()`完了後（**サブデバイスの展開の後**）に
 1回実行され、統合されたエントリは`devices_[]`から削除される。実際のマルチチップ
 `ISoundDevice`生成は`CFITOM::initDevices()`側が担当し、束ね候補ポートそれぞれに
 `DeviceFactory::create()`を呼んだ上で`CSpanDevice`にラップする。
@@ -199,7 +199,7 @@ GUIのレジスタダンプモニター(`RegisterDumpWindow`)は、物理ポー�
 
 **自動検出はしない。** プロファイルの`devices[]`エントリ**両方**に
 `stereo_pair`を明示指定した場合にのみ発動する
-(`config_schema/profile.schema.json`)。`Config::mergeStereoPairDevices()`が
+(`config_schema/profile.schema.json`)。`FITOMConfig::mergeStereoPairDevices()`が
 `buildDevice()`完了後・`mergeSpannableDevices()`より**前**に1回実行され、
 R側エントリは`devices_[]`から削除された上で、L側エントリの`stereoPairPort`に
 統合される。実際の`ISoundDevice`生成は`CFITOM::createLeveledDevice()`が担当し、
@@ -246,7 +246,7 @@ bit0のOR)、`COPZ::updatePanpot()`は左寄せを両出力として書くので
 警告は出ない。
 
 なお片側だけ`"L"`/`"R"`・もう片側は`true`という混在指定の場合は、プラグイン側の
-ルーティングが絡んで意図が確定しないため、従来方式(プラグイン側で分離)に倒す。
+ルーティングが絡んで意図が確定しないため、`true`の方式(プラグイン側で分離)に倒す。
 
 この方式の利点は、**プラグイン側の`pan`を`0`(Stereo)に保てる**こと。同一物理
 チップ上の他のサブデバイス(OPL4のAWM部等)が、自前のハードウェアパンポットを
@@ -292,7 +292,7 @@ R側のチップをこの値で作る。L側の値で作ると、R側の音程�
 
 ### 動的ボイス割当とデチューン
 
-**動的ボイス割当(DVA)**: `CLinearPanDevice`は`CUnison`を基底とするため、
+**DVA**: `CLinearPanDevice`は`CUnison`を基底とするため、
 `queryCh()`は代表チップ(`chips_[0]`)の判断を採用し、他チップは同じchが同じ
 条件で使えるかだけを確認する。**この確認の基準は`mode`と一致させること**
 (mode=1→`Empty`または`Releasing`、mode=0→`Disabled`でなければ可)。
@@ -339,7 +339,7 @@ SAA1099・SSGS系・Y8960の拡張ブロック)は等パワーパンニングの
 
 ## VoicePatchType 対応表
 
-`Config::deviceTypeToVoicePatchType()`が`deviceType`(DEVICE_*)→`VoicePatchType`
+`FITOMConfig::deviceTypeToVoicePatchType()`が`deviceType`(DEVICE_*)→`VoicePatchType`
 (VOICE_PATCH_*)を変換する。サブデバイスの自動生成・同種デバイスの束ねは全てこの値を
 基準に動作する。パッチの解決での使われ方は`docs/design/patch-resolution.md`参照。
 
@@ -390,7 +390,7 @@ CC#0の`0x70`(`VOICE_PATCH_BUILTIN_RHYTHM`)と`0x7F`(`VOICE_PATCH_SILENCE`)は�
 
 新しいデバイス種別を追加する際、`resolveTriple()`の通常経路
 (`voicePatchType`→`HwBankRegistry`検索→`findDeviceIndexByVoicePatchType`)
-にそのまま乗せられるか、`0x70`(ビルトインリズム)のような専用バイパス
+にそのまま乗せられるか、`0x70`(内蔵リズム音源専用バンク)のような専用バイパス
 や、`isSampleBasedVoicePatchType`のような個別分岐が必要になるかは、
 「リズム専用かどうか」ではなく、**そのデバイスの音色データが、標準の
 `HwPatch`という形状でソフトウェア側に実在するかどうか**で決まる。
@@ -419,4 +419,4 @@ CC#0の`0x70`(`VOICE_PATCH_BUILTIN_RHYTHM`)と`0x7F`(`VOICE_PATCH_SILENCE`)は�
 | OPL/OPL2/OPL3_2 | OPL2は、OPLの音色を常に、OPL3_2の音色を全オペレータのWSが4未満のとき受け入れる。OPLは、OPL2/OPL3_2の音色を全オペレータのWSが0のとき受け入れる |
 | OPLL/OPLLP/OPLLX/VRC7/OPLLEX | ユーザー音色(`ext.ALG_EXT`のbit0=0)なら相互に許可する。ROMプリセットは実機ごとにROMの中身が違うので許可しない |
 
-この判定を前提に、バンクを書く人には「同じファミリーの中では、最も機能の多いチップの`VoicePatchType`で宣言する」ことを勧めている(利用者向けの説明は`docs/design/patch-resolution.md`)。
+この判定を前提に、バンクを書く人には「同じファミリーの中では、最も機能の多いチップの`VoicePatchType`で宣言する」ことを勧めている(利用者向けの説明は`docs/manuals/bank-reference.md`の「同じファミリーでは最上位のチップで登録する」)。
