@@ -55,11 +55,11 @@
 | `OPL_new.cpp` | ✅ | OPL/OPL2/COPL3(4OPモード)/COPL3_2(2OP、CSpanDevice)/COPLRhythm(内蔵リズム5パート)/COPL2EX(Y8960拡張OPL2部、chごとの定位つき)+COPL2EXRhythm |
 | `OPLL_new.cpp` | ✅ | OPLL/OPLL2/OPLLP/OPLLX/VRC7/COPLLRhythm/COPLLEX(Y8960拡張OPLL部。chごとのROMプリセットバンク選択と定位)+COPLLEXRhythm。ROMプリセットの解決規則は`docs/design/patch-resolution.md` |
 | `PSG_new.cpp` | ✅ | SSG/EPSG/DCSG/SCC/SAA1099と、SSG互換部を持つチップ: CSSGS(YMZ705=SSGS / YMZ732=SSGS2)、CSSGS3(YMZ771=SSGS3。AMM部は非対応)、CSSGEX(Y8960のSSG部)。CSCCはY8960のSCC部(SCCEX)も担当する |
-| `DSG_new.cpp` | 🚧 | CDSG (YM2163楽音4ch) / CDSGRhythm (内蔵リズム5パート)。ROM固定の20音色をPatchManagerが暗黙のバンクとして生成する。`VOICE_PATCH_DSG`は`isPsgFamilyVoicePatchType()`に含めない(HwBankを持たないため、含めるとパッチピッカーのDSGカテゴリにSSGのバンクが並ぶ)。音とGUIは未確認(3節) |
+| `DSG_new.cpp` | 🚧 | CDSG (YM2163楽音4ch) / CDSGRhythm (内蔵リズム5パート)。ROM固定の20音色をPatchManagerが暗黙のバンクとして生成する。GUIは未確認(3節) |
 | `OPL4.cpp` | ✅ | COPL4AWM (YMF278のAWM部) |
 | `MultiDev_new.cpp` / `include/fitom/MultiDevice.h` | ✅ | CMultiDevice/CSpanDevice/CUnison/CLinearPanDevice |
 | `ADPCM_new.cpp` | ✅ | CYmDelta(Y8950/OPNA/OPNB。OPL2EX内蔵ADPCM-BはCY8960Delta)/CAdPcm2610A/CAdPcmZ280/CSSGSAdPcm |
-| └ `CSSGSAdPcm` | 🚧 | YMZ705/YMZ732内蔵ADPCM 8ch。書くのは6bitのボイス番号だけで、再生ピッチは変えられない(サンプリング周波数4択)。コーデック・音量4bitの解釈・サンプリング周波数のビット対応はデータシートに記載が無く、実機での確認が要る(3節) |
+| └ `CSSGSAdPcm` | 🚧 | YMZ705/YMZ732内蔵ADPCM 8ch(`docs/design/chip-notes.md`)。コーデック・音量4bitの解釈・サンプリング周波数のビット対応はデータシートに記載が無く、実機で確かめていない(エミュレータの前提は4節「チップドライバ」) |
 | `include/fitom/DeviceFactory.h` / `.cpp` | ✅ | IPort → ISoundDevice ファクトリ |
 
 #### MIDI 処理
@@ -148,13 +148,13 @@
 | ADPCM RegMap (Y8950/OPNA/OPNB個別マップ) | ✅ | `docs/design/chip-notes.md` |
 | OPLL EGT/RR静的変換 (`SR>0`ならEGT=0+RRレジスタ=SR。OPL系とは別方式。動的制御が実チップで効かないことをFITOM_Xとは別の環境で確かめた確定仕様) | ✅ | `docs/design/chip-notes.md`, `docs/manuals/hwpatch-reference.md` |
 | ドラムのチョークグループ (`DrumPatch::chokeGroups`) | ✅ | `docs/design/patch-resolution.md` |
-| PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/hwpatch-reference.md` |
-| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/hwpatch-reference.md` |
+| PCMバンクの複数併用、パッチピッカー用named patchの自動合成 | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/bank-reference.md` |
+| pcmbank/samplezonebankへのSwPatch紐づけ (AWMは非対応、4節) | ✅ | `docs/design/patch-resolution.md`, `docs/manuals/bank-reference.md`, `docs/manuals/hwpatch-reference.md` |
 | プロファイルの`banks`の外部ファイル分離、`bank_overrides` | ✅ | `docs/manuals/profile-reference.md` |
 | SF2直行パス (FITOM_X本体側: 設定・MIDIディスパッチ・プライベートSysEx・`phdr`パース・GUI表示) | ✅ | `docs/design/sf2-direct-path.md`, `docs/manuals/midi-message-reference.md` |
 | 内部用MIDIパイプ (多接続、チャンネル自動割り当て) | ✅ | `docs/interfaces/plugin-midi-pipe.md` |
 | MIDIバックエンドのRtMidi単一実装 | ✅ | `docs/interfaces/plugin-midi.md` |
-| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書はY8960_Cartridge `e9094fa`(10月26日、v0.9.4)の版に追従。**確認済み**: 仕様書の各シートの番地を設計文書の表とドライバのコードに突き合わせた) | 🚧 | `docs/design/chip-notes.md`「Y8960 の拡張ブロック」 |
+| Y8960の拡張ブロック (OPLLEX/OPL2EX/SSGEX/SCCEX、chごとの8bit定位。仕様書への追従は5節) | 🚧 | `docs/design/chip-notes.md`「Y8960 の拡張ブロック」、`docs/interfaces/plugin-hwif.md`「Y8960 の拡張レジスタ」 |
 
 ---
 
@@ -211,9 +211,6 @@
 - `CInstCh::getLastDeviceIndex()`(GUIのMIDIモニターと`fitom_cli`のDevice表示)は、ノートが実際に鳴っているデバイス(`NoteHist::dev`)ではなく、レイヤーが解決したデバイス(`deviceIndex`)を返す。空きが無くフォールバック先のデバイスへ渡ったノートでは、表示が実際と食い違うはず。**確認済み**: コードを読んで確認。表示では確かめていない
 - 外部MIDIクロック(0xF8)への同期は無い。コアには受け口(`MidiProcessor`の`clockEnabled_`→`CInstCh::midiClockCallback()`)があるが処理は空で、RtMidiバックエンドはTiming Clockを受信時に捨てている(`ignoreTypes`)。**確認済み**: コードを読んで確認
 
-**パッチの解決**
-- `PatchManager::loadDrumBankJson()`は呼び出し元が無い(実際に使うのは`loadDrumKitJson()`)。**確認済み**: grep
-
 **チップドライバ**
 - OPN2/OPNA系のハードウェアLFOは使わない。`COPNA::init()`がレジスタ`$22`に0を書き、`$B4+ch`にはL/Rのビットだけを書くので、音色の`hw.AMS`/`hw.PMS`とCC#14/15は効かない(**確認済み**: `OPN2_new.cpp`・`OPN_new.cpp`を読んだ)。対応するなら、OPM/OPZのハードウェアLFO(`docs/proposals/opm-opz-hw-lfo.md`)と揃える
 - OPK(YM7116)/OPK2(YM7129)のドライバ(旧実装は`legacy/src/OPK.cpp`にある。**確認済み**: `DeviceFactory.cpp`に生成処理が無く、`Config.cpp`に`chip`名の対応も無いことをgrepで確認)
@@ -246,7 +243,6 @@
 **Y8960**
 - カートリッジ側のミキサー(ブロックごとの音量 0x7FF7-0x7FFE)はカートリッジのメモリマップドI/Oで、チップドライバの対象外。扱うならHW I/Fプラグイン側の部位ゲインとして実装する
 - OPL2EX内蔵ADPCM-Bの分周比をY8950と同一としているのは**推測**(仕様書に記載が無い。レジスタ配置がY8950と同一であることから類推)。DSAemuEngineも同じ前提で、同じ波形・同じノートをY8950(YMFMEngine)と同じ速さで再生する(**確認済み**: `tools/render_measure/presence.py`、差は+0.07セント)
-- 仕様は変更が続いている。仕様書が変わったかは、Y8960_Cartridgeで`git log -1 --format=%h -- doc/spec/Y8960_Specifications.xlsx`が`e9094fa`のままかで分かる。同じなら、Y8960の仕様変更への追従は済んでいる。変わっていたら`docs/design/chip-notes.md`「Y8960 の拡張ブロック」を見直す
 
 **GUI**
 - 他画面(デバイス一覧・パッチ一覧・音色エディタ等)への導線
@@ -260,7 +256,7 @@
 **ビルド**
 - `vcpkg-ports/rtmidi`は、上流のvcpkgのrtmidiが6.0.0までしか無いために持っているoverlay port。上流が6.1.0以上になったら、このディレクトリと`vcpkg.json`の`overlay-ports`を消す
 - 依存ライブラリをvcpkgから取る構成は、Windows(`windows-vs2026-x64`、x64-windows)でだけ組んだ。Linux・macOSでは組んでいない(vcpkgの既定のtripletは静的リンクで、Boost.Logのリンク方式の定義はvcpkgのBoostが伝える前提)
-- 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
+- 呼び出し元の無いコード: `ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)、`core/src/Fnum.h`/`Fnum.cpp`の`CFnumTable`(グローバル`theFnum`は生成される)、`CFITOM::getDeviceVoiceType()`、`calcEffectiveLevel`(宣言のみで定義が無い)と`linearToDb`(`VoiceProcessor.h`)、`CAdPcmBase::resolvePcmEntry()`、`PatchManager::loadDrumBankJson()`(実際に使うのは`loadDrumKitJson()`)、内部用MIDIパイプの`MidiInDevice::listenPipe`。**確認済み**: grepで参照を数えて確認
 
 **設定スキーマ**
 - `profile.schema.json`の`hw_banks[].group`の`enum`は`EPSG`/`DCSG`/`SAA`/`SCC`/`SCCP`を許すが、読み込みは警告を出してそのバンクを捨てる(PSG系は`SSG`のバンク空間を共有するため)。スキーマの検証は通るのに読まれない。`enum`から外すか、説明に書くかは未決(**確認済み**: `FITOMConfig::loadDrumBanks()`のPSG系の分岐と、スキーマの`enum`を読んだ)
@@ -281,4 +277,5 @@
 | FITOM_staging | `config_schema/`の写しはFITOM_Xの`d214ff9`の版(`dbd2499`。`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある)。現行との差は、説明文(`profile.schema.json`の`devices[].clock`、`hwbank.schema.json`の`patch_no`、`fitom.conf.schema.json`の`log`)と、`fitom.conf.schema.json`の`log.console`の`default`の有無だけで、検証の構造は同じ。`bin/`のFitomEmuIF.dllはオフライン描画に対応していない(3節の「準備」)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
 | FmGenEngine | A4の音程が、出力のサンプルレートによって数セントずれる。`emu_fmgen_opn`のOPN系(7,159,090Hz)で、44.1kHzでは-3.6セント、48kHzでは+5.5セント、96kHzでは-7.6セント(**確認済み**: `tools/render_measure/fm_pitch.py`で測定)。同じドライバ・同じクロック・同じレートのYMFMEngineは±0.1セント以内なので、FITOM_Xの外の問題。**推測**: FmGenEngine(fmgen)のレート変換の丸め。コードは読んでいない |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
+| Y8960_Cartridge | 仕様書`doc/spec/Y8960_Specifications.xlsx`の`e9094fa`(10月26日、v0.9.4)の版に追従済み(**確認済み**: 仕様書の各シートの番地を、設計文書・契約の表とドライバのコードに突き合わせた)。仕様は変更が続いている。仕様書が変わったかは、Y8960_Cartridgeで`git log -1 --format=%h -- doc/spec/Y8960_Specifications.xlsx`が`e9094fa`のままかで分かる。変わっていたら`docs/interfaces/plugin-hwif.md`「Y8960 の拡張レジスタ」と`docs/design/chip-notes.md`「Y8960 の拡張ブロック」を見直す |
 

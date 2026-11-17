@@ -37,15 +37,13 @@ CC#0(Bank Select MSB)=0（通常モード）でCC#32が選択するPatchBankに
 ### ハードウェアパッチ / デバイスパッチ (Hardware Patch / Device Patch)
 
 チップのレジスタに書く音色パラメータ(`HwPatch`)。HwBankに入っている。
-レイヤードパッチの各`ToneLayer`から参照されるほか、CC#0=**0x01-0x6F**
-（直接モード）で直接選ぶこともできる。直接モードでは、CC#0の値そのものが
-`VOICE_PATCH_*`（対象チップ種別）を指定し、CC#32がそのチップ種別用に
-登録されたHwBankのインデックスを、Program Changeがそのバンク内の
-プログラム番号を選択する。PatchBank/ToneLayerを経由しない、単層のパッチ
-として鳴る。
+レイヤードパッチの各`ToneLayer`から参照されるほか、**直接モード**(CC#0の値で
+チップ種別を指定し、PatchBank/ToneLayerを経由せず単層で鳴らす選び方)で
+直接選ぶこともできる。
 
-CC#0の値の割り当て全体は`docs/design/midi-processing.md`の
-「Bank Select 方式」節を参照。
+CC#0・CC#32・Program Changeの割り当ては`docs/design/midi-processing.md`の
+「Bank Select 方式」節、直接モードの解決の流れは`docs/design/patch-resolution.md`の
+「直接モード（CC#0=0x01-0x6F）」節を参照。
 
 ### ソフトウェアパッチ / パフォーマンスパッチ (Software Patch / Performance Patch)
 
@@ -98,26 +96,18 @@ MIDIチャンネルごとの役割。メロディチャンネルはバンクと�
 
 ### 無音バンク (CC#0=0x7F)
 
-`PatchManager::resolveTriple()`が、`hwBank`/`hwProg`もデバイスリストも
-一切参照せずに「解決成功・ただし発音しない」を返す唯一の経路。
-チップ種別に依存しないため、チップ族ごとに無音用の`HwPatch`を
-用意しなくてよい。
-
-「存在しないバンク/プログラムを指定する」こととは明確に区別される。
-そちらは**解決失敗**であり、`CInstCh::progChange()`が直前のパッチを
-維持するため無音にならない。確実に音を止めたい箇所、および
-`ToneLayer`/`DrumNote`のプレースホルダには、未定義の番号ではなく
-この値を使う。実装上の要点は
-`docs/design/midi-processing.md`の「無音バンク」節を参照。
+「解決は成功したが発音しない」ことを表す、チップ種別に依存しないバンク選択値。
+存在しないバンク/プログラムの指定(**解決失敗**で、直前の音色が残る)とは別物で、
+確実に音を止めたい箇所や`ToneLayer`/`DrumNote`のプレースホルダにはこちらを使う。
+実装は`docs/design/midi-processing.md`の「無音バンク」節を参照。
 
 ### 内蔵リズム音源専用バンク (CC#0=0x70)
 
-OPNA(YM2608)/OPLL(YM2413)などが持つ、ROM固定のドラム音を鳴らす内蔵リズム
-ユニット(`COPNARhythm`/`COPLLRhythm`等)へのアクセス経路。CC#32で対象の
-チップを、Program Changeで楽器(=内蔵リズムのチャンネル番号)を選ぶ。
-OPL系の内蔵リズム(`COPLRhythm`)はこの経路を使わず、通常の
-VoicePatchType(`VOICE_PATCH_OPL_RHY`)を持つ。
-詳細は`docs/design/patch-resolution.md`の「内蔵リズム音源専用バンク」節を参照。
+ROM固定のドラム音を鳴らす内蔵リズムユニットを、CC#32で対象のチップを、
+Program Changeで楽器(=内蔵リズムのチャンネル番号)を選んで鳴らすための
+バンク選択値。対象チップと解決の流れは`docs/design/patch-resolution.md`の
+「内蔵リズム音源専用バンク」節、OPL系の内蔵リズムがこの経路を使わないことは
+同じ文書の「OPL系の内蔵リズム」節を参照。
 
 ---
 

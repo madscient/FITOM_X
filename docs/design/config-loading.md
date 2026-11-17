@@ -65,7 +65,7 @@ HWプラグイン(実機・エミュレータ)と音声出力の設定は、`fit
 
 ## 読み込みで問題があったときの扱い
 
-利用者向けの一覧は`docs/manuals/profile-reference.md`の「読み込みで問題があったとき」。読み込みを中止する(`FITOMConfig`の読み込みが`false`を返す)のは、プロファイルが見つからない・JSONの構文誤り、`sf2_channel_windows`の検証の失敗(`loadSf2ChannelWindows()`)、SF2の構成の矛盾(`chip: "SF2"`のデバイスが2つ以上、または`sf2_banks`/`sf2_channel_windows`があるのに`chip: "SF2"`のデバイスが無い)だけ。それ以外(プラグインのDLLが読めない、`HWPlugin_Init()`の失敗、`devices[].plugin`が未登録、MIDIのポートが見つからない等)は、ログに出してその要素を飛ばし、読み込みを続ける。
+利用者向けの一覧は`docs/manuals/profile-reference.md`の「読み込みで問題があったとき」。読み込みを中止する(`FITOMConfig`の読み込みが`false`を返す)のは、プロファイルが見つからない・JSONの構文誤り、`sf2_channel_windows`の検証の失敗、SF2の構成の矛盾だけ。SF2の2つの条件の中身と理由は`docs/design/sf2-direct-path.md`の「窓」と「デバイスの登録と起動時の検査」にある。それ以外(プラグインのDLLが読めない、`HWPlugin_Init()`の失敗、`devices[].plugin`が未登録、MIDIのポートが見つからない等)は、ログに出してその要素を飛ばし、読み込みを続ける。
 
 `HWPlugin_Init()`が失敗したプラグインは登録しない(`Enumerate`/`Open`を呼べない状態のプラグインを残すのは危険なため)。プラグイン自身の設定ファイルの内容と`devices[]`の記述(`engine`/`chip`/`index`等)が合わない場合は、`HWPlugin_Init()`は成功し、後の`HWPlugin_Open()`が`HW_ERR_NOT_FOUND`を返す。
 
@@ -87,8 +87,8 @@ HWプラグイン(実機・エミュレータ)と音声出力の設定は、`fit
 | 何のパスか | 起点 |
 |---|---|
 | `hw_plugins[].dll`、`midi_backend.dll` | 実行ファイルのディレクトリ |
-| `banks.*[].file`、`banks`/`bank_overrides`に書いた外部ファイル | プロファイルファイルのディレクトリ |
-| `*.pcmbank.json`の中の`adpcm_json`/`bin_file` | その`*.pcmbank.json`のディレクトリ |
+| `banks.*[].file`(hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks/sf2_banks)、`banks`/`bank_overrides`に書いた外部ファイル | プロファイルファイルのディレクトリ |
+| `*.pcmbank.json`の中の`adpcm_json`/`bin_file` | その`*.pcmbank.json`のディレクトリ(`PatchManager::loadPcmBankJson()`) |
 | `fitom.conf.json`の`profiles.root` | カレントワーキングディレクトリ |
 
 `banks`系は、どちらも「参照元のファイルの置き場所を起点にする」という考え方で揃えている。プロファイルとバンク一式をどこに置いても、起動時のカレントディレクトリに依存せず同じ結果になる。

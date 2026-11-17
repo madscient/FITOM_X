@@ -88,7 +88,7 @@ buildプリセットは無いので、`cmake --build build/windows-vs2026-x64-gu
 - 新しいgetter/setterを追加する前に、既存のインターフェース(`IMidiCh`・`ISoundDevice`等)に既に同等のものが無いか確認する
 - JSONスキーマ(`config_schema/`)を変更したら、対応する利用者向けマニュアル(`docs/manuals/`の`profile-reference.md`・`bank-reference.md`・`hwpatch-reference.md`等)も更新する
 - **テストケース名(`TEST_CASE`の第1引数)はASCIIに限る。** Windowsのctestが非ASCIIの名前を見つけられず失敗するため(`tests/test_test_names.cpp`が検査する)。日本語の説明はSECTION名やコメントに書く
-- チップドライバがHwPatchのどのフィールドを参照するか(または値の変換方法)を変えたら、`spec/chip-capabilities.json`も同じセッション内で更新する
+- チップドライバがHwPatchのどのフィールドを参照するか(または値の変換方法)を変えたら、`spec/chip-capabilities.json`と`docs/manuals/hwpatch-reference.md`も同じセッション内で更新する。新しい`VoicePatchType`を足したら`chip-capabilities.json`の`chips[]`にも足す
 - **コミットのauthor/committerは、このリポジトリの履歴で使われている単一のIDに揃える。** マシンのグローバル設定とは別なので、クローンごとに`git log -1 --format='%an <%ae>' origin/main`の値を`git config --local user.name`/`user.email`へ設定してからコミットする
 
 ## ドキュメントの地図
@@ -131,8 +131,6 @@ buildプリセットは無いので、`cmake --build build/windows-vs2026-x64-gu
 - 実際のオーディオデバイスが無い環境(CI・サンドボックス等)では、
   `HWPlugin_Init`はRtAudio等のストリームオープンに失敗するのが正常。
   これは環境側の制約であり、コードの不具合ではない
-- 変更後は必ずフルビルド+`tests/fitom_tests`を実行し、警告が新たに
-  増えていないか確認してから完了とする
 - **Windows環境(ユーザーの実機)では、`fitom_gui`のスクリーンショットに
   よる目視確認を自分で行おうとしない。** ユーザーの実デスクトップ上での
   ウィンドウキャプチャは、フォーカス制御が意図通りに働かない場合に

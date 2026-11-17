@@ -35,7 +35,7 @@ MIDIバックエンドDLLのコールバック(DLLのスレッド)
 |---|---|---|
 | 0 | `bankSelMSB()` | 0x78/0x79はここで消費してチャンネルロールを切り替え、`bankSelMSB()`には渡さない(「Bank Select 方式」節) |
 | 1 | `setModulation()` | ソフトウェアLFO用。`sw.LFR=0`の音色だけに効く(「ソフトウェアLFO」節) |
-| 2, 4 | `setBreathCtrl()` / `setFootCtrl()` | 空実装。操作するパラメータが無い |
+| 2, 4 | `setBreathCtrl()` / `setFootCtrl()` | 空実装(「対応しないもの」節) |
 | 5 | `setPortTime()` | 「レガートとポルタメント」節 |
 | 6, 38, 96, 97 | Data Entry MSB/LSB、Data Increment/Decrement | 選択中のRPN/NRPNへ。Increment/Decrementの刻みはレジスタごとに違う(MSBだけ有効なパラメータは128刻み、LSBだけ有効なパラメータは1刻み等。`dataIncrement()`) |
 | 7, 10, 11 | `setVolume()` / `setPanpot()` / `setExpression()` | パンはパンを持つデバイスでだけ効き、持たないデバイスでは無視される |
@@ -51,7 +51,7 @@ MIDIバックエンドDLLのコールバック(DLLのスレッド)
 | 123 | `allNoteOff()` | 通常のnoteOff。サステイン中なら保持される |
 | 126, 127 | `setMonoMode()` / `setPolyMode()` | 「モノモードとボイス数上限」節 |
 
-これ以外のCC(CC#67 Soft Pedal、CC#122 Local Control、CC#124/125 Omni Off/On等)は無視する。
+これ以外のCCは無視する。理由のあるものは「対応しないもの」節に書く。
 
 ## RPN と NRPN
 
@@ -101,20 +101,9 @@ Device IDは見ず、常に自分宛として処理する。Universal Non-Realti
 
 **sub-cmd 0x01/0x02(HwPatch/SwPatchのオーバーライド)**
 
-```
-[0..2] 00 48 01 (呼び出し元processSysEx()で確認済み)
-[3]    sub-cmd (0x01=HwPatch / 0x02=SwPatch)
-[4]    target-type (0x00=チャンネル / 0x01=プリセットバンク)
-[5..]  target-addr (sub-cmd・target-typeにより1/2/3byte、下記)
-[layerOffset]  layer
-[jsonOffset..] JSONペイロード(ASCII)
-```
+電文の形(バイト配置、`target-addr`の中身、JSONの要素の意味)は`docs/manuals/midi-message-reference.md`の「8.1 パッチパラメータオーバーライド(プライベートSysEx、非標準)」を正とする。`target-addr`の長さがsub-cmdと`target-type`で変わるので、`processPrivateSysEx()`は`layer`とJSONの位置をその組み合わせから求める。SwPatchのプリセットバンク指定に VoicePatchType が無いのは、`SwBankRegistry`がチップ種別で分かれない単一の番号空間だから。
 
-- `target-addr`(target-type=0x00、sub-cmd共通): `[5]`=MIDIチャンネル(0-15)
-- `target-addr`(target-type=0x01、sub-cmd=0x01/HwPatch): `[5]`=VoicePatchType `[6]`=HwBankインデックス `[7]`=HwProg (3byte)
-- `target-addr`(target-type=0x01、sub-cmd=0x02/SwPatch): `[5]`=SwBankインデックス `[6]`=SwProg (2byte。SwBankRegistryはVoiceGroupを持たない単一の番号空間のため、HwPatchと異なりVoicePatchTypeが不要)
-
-JSONのフィールドマージは`PatchManager::mergeHwPatchFromJsonText()`/`mergeSwPatchFromJsonText()`(内部的にはそれぞれ匿名名前空間の`mergeHwPatchFromJson()`/`mergeSwPatchFromJson()`に委譲)で行う。既存の`jsonToHwPatch()`/SwBank読み込みロジックと異なり、まっさらなインスタンスからではなく既存の`target`へ差分マージする点が違い。`"ops"`配列は`null`/`{}`要素をスキップとして扱う(疎な指定に対応)。`id`/`name`/`builtin`はこの経路では対象外。SwPatch側のJSONキー名は`saveSwBankJson()`が出力する形式(`"sw":{...}`・`"ops":[...]`・`"fine_transpose"`)に合わせている。
+JSONのフィールドマージは`PatchManager::mergeHwPatchFromJsonText()`/`mergeSwPatchFromJsonText()`(内部的にはそれぞれ匿名名前空間の`mergeHwPatchFromJson()`/`mergeSwPatchFromJson()`に委譲)で行う。既存の`jsonToHwPatch()`/SwBank読み込みロジックと異なり、まっさらなインスタンスからではなく既存の`target`へ差分マージする点が違い。SwPatch側のJSONキー名は`saveSwBankJson()`が出力する形式に合わせている。
 
 target-type=0x00(チャンネル):
 - HwPatch: `IMidiCh::mergeHwPatchOverride(layer, jsonText)` → `CInstCh`実装。`hwPatchOverride_[layer]`(`std::array<HwPatch, MAX_TONE_LAYERS>`)へマージし、`hwPatchOverrideActive_[layer]`を立てる。初回マージ時は`resolver_.layer(layer)->hwPatch`を起点にコピーする(2回目以降は前回のオーバーライド結果に積み上げる)。`noteOn()`で`rl->hwPatch`の代わりに使う(`patch`変数の決定ロジック)ほか、`ISoundDevice::setVoice(ch, patch, true)`で発音中の同レイヤーの全ノートへ即座に反映する。
@@ -128,20 +117,12 @@ target-type=0x01(プリセットバンク):
 
 **sub-cmd 0x06/0x07(レイヤードパッチ・ドラムキットの直接編集)**
 
-外部パッチエディタがバンクファイルへの保存と対にして送る、編集結果をメモリ上のバンクへ確定させるためのメッセージ。sub-cmd 0x01/0x02の`target-type=0x01`と同じ性質だが、対象が`Patch`/`DrumPatch`なので`target-type`/`layer`の枠組みは使わない(この単位のチャンネルスコープの一時上書きは、NRPN 97とドラム用NRPNが担う)。
-
-```
-[0..2] 00 48 01
-[3]    sub-cmd (0x06=Patch / 0x07=DrumPatch)
-[4]    バンク番号 (sub-cmd=0x06: PatchBank番号 / sub-cmd=0x07: DrumBank番号)
-[5]    prog番号
-[6..]  JSONペイロード(ASCII)
-```
+電文の形とJSONの要素の意味は`docs/manuals/midi-message-reference.md`の「8.1.1 レイヤードパッチ / ドラムキットの直接編集(永続化)」を正とする。sub-cmd 0x01/0x02の`target-type=0x01`と同じ性質のメッセージだが、対象が`Patch`/`DrumPatch`なので`target-type`/`layer`のバイトを持たない。
 
 JSONのフィールドマージは`PatchManager::mergePatchFromJsonText()`/`mergeDrumPatchFromJsonText()`(内部的にはそれぞれ匿名名前空間の`mergePatchFromJson()`/`mergeDrumPatchFromJson()`に委譲)で行う。既存プリセットの編集専用で、対象スロットが`isValid()==false`の場合は無視する点、メモリ上のみの変更でディスクへは保存しない点はHwPatch/SwPatchと同じ。
 
-- sub-cmd=0x06(Patch): `PatchManager::findMutablePatchBank()`で対象`PatchBank`を取得し、`bank->patches[prog]`へマージする。JSONフィールドは`name`/`poly`/`layers`(0-4要素の可変長配列、`patchbank.schema.json`の`layers[]`と同じキー名で各`ToneLayer`へ差分マージ)。`layers[]`の各要素は3通りの意味を持つ: `null`または`{}`=そのインデックスは変更しない、文字列`"remove"`=そのレイヤーを削除する(`ToneLayer`をデフォルト値へリセットし、`enabled=false`で事実上無音にする)、オブジェクト=既存の`ToneLayer`へ差分マージ。
-- sub-cmd=0x07(DrumPatch): `DrumBankRegistry::findMutable()`で対象`DrumPatchBank`を取得し、`bank->patches[prog]`へマージする。JSONフィールドは`name`/`choke_groups`(指定時は全置換)/`notes`(オブジェクト、キー=MIDIノート番号の文字列"0"-"127"、値は`drumkit.schema.json`の`notes[]`要素と同じキー名で各`DrumNote`へ差分マージ)。`notes{}`の各値は`layers[]`と同じ3通りの意味を持つ。
+- sub-cmd=0x06(Patch): `PatchManager::findMutablePatchBank()`で対象`PatchBank`を取得し、`bank->patches[prog]`へマージする。`layers[]`の要素は各`ToneLayer`へ差分マージし、`"remove"`は`ToneLayer`を既定値へ戻して`enabled=false`にする
+- sub-cmd=0x07(DrumPatch): `DrumBankRegistry::findMutable()`で対象`DrumPatchBank`を取得し、`bank->patches[prog]`へマージする。`notes{}`の値は各`DrumNote`へ差分マージする
 
 ## ピッチの計算
 
@@ -392,7 +373,7 @@ OPM/OPZ(`COPM`/`COPZ`)だけが実装し、他のチップは基底クラスのn
 
 ## ソフトウェアLFO (CC#1 / CC#76 / CC#77 / CC#78)
 
-**CC#1**: `sw.LFR=0`(音色がLFOを持たない)の音色にだけ効くビブラート。波形はsine、周期は`kCC1DefaultRate`(rate=70、約6.23Hz)、最大デプスはRPN#5で変えられる(`VoiceProcessor`)。`sw.LFR>0`の音色では、音色自身のLFOが優先されCC#1は無視される。
+**CC#1**: `sw.LFR=0`(音色がLFOを持たない)の音色にだけ効くビブラート。波形・周期・デプスの決まり方は`docs/design/voice-processor.md`の「CC#1 との関係」。
 
 **CC#76/77/78**: GM2のSound Controllerに合わせ、値64を「補正なし」とするオフセット方式。
 
@@ -405,9 +386,8 @@ OPM/OPZ(`COPM`/`COPZ`)だけが実装し、他のチップは基底クラスのn
 
 ## 対応しないもの
 
-- Poly Pressure / Channel Pressure(SF2直行パスの窓では、そのまま転送する)
+対応しないメッセージの一覧は`docs/manuals/midi-message-reference.md`の「9. 対応していないメッセージ・既知の制限」にある。ここには、対応しない理由や受けたときの扱いの設計を持つものだけを書く。SF2直行パスの窓に含まれるチャンネルのメッセージは、ここに挙げたものも含めて窓の経路で扱う(`docs/design/sf2-direct-path.md`の「パッチベイに徹する」)。
+
 - CC#2(Breath Controller)/CC#4(Foot Controller): 操作するパラメータが無く空実装。ソフトウェアAM(トレモロ)相当の仕組みを作るなら、割り当ての候補
-- CC#67 Soft Pedal(FM音源に対応するパラメータが無い)
-- CC#122 Local Control、CC#124/125 Omni Off/On(受けても状態は変わらない。常にOmni Offとして動く)
-- Scale/Octave Tuningの2byte形式、Universal Non-Realtime SysEx
-- OPZの第2LFO
+- CC#67 Soft Pedal: FM音源に対応するパラメータが無い
+- CC#124/125 Omni Off/On: 受けても状態は変わらない。常にOmni Offとして動く

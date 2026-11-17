@@ -117,6 +117,7 @@ OPLL系のROM音色と、DSG(YM2163)のビルトイン音色は、音色デー�
 | `OPLL` / `OPLLX` / `OPLLP` / `VRC7` | 1〜15 | OPLL系のROM音色(0はROM音色ではありません) |
 | `DSG` | 0〜19 | DSGのビルトイン音色。**0も正規の音色**です([HwPatch リファレンス](./hwpatch-reference.md)の「10.1 DSG」) |
 
+- CC#0でOPLLEXを選んで鳴らすROM音色にも、このメタバンクで演奏特性を付けられます。`patch_type`には`OPLLEX`ではなく、鳴らすROMのチップ名(Program Changeの上位3bitが2なら`OPLLP`)を書きます
 - OPLL系とDSGのエントリは1つのファイルに混ぜて書けます。メタバンクは1つしか持てず、`"role": "builtin_swpatch_meta"`を複数指定すると後に書いたものだけが使われるので、必ず1ファイルにまとめてください
 - **`prog`は音色の識別子ではなく、ファイル内の格納位置**です。対象は`patch_type`と`patch_no`だけで探されます。同じ`prog`を2回使うと後のものが前のものを上書きして消すので、`prog`は省略する(自動で採番されます)か、チップごとに範囲を分けてください(例: OPLL系 0〜59、DSG 60〜79)。重複や`builtin`の書き忘れはログに警告が出ます
 - 通常の音色エントリ(`ops`を持つもの)では、`prog`は省略できません
@@ -199,7 +200,7 @@ OPLL系のROM音色と、DSG(YM2163)のビルトイン音色は、音色デー�
 
 ## 4. PCMバンク(`*.pcmbank.json`)
 
-ADPCM-B・ADPCM-A・PCM-D8・SSGS-ADPCMの波形データの目録です。どの波形がメモリのどこにあるか(`entries[]`)と、波形データのファイル(`bin_file`)を持ちます。
+ADPCM-B・ADPCM-A・PCM-D8・SSGS-ADPCMの波形データの目録です。どの波形がメモリのどこにあるか(`entries[]`)と、波形データのファイル(`bin_file`)を持ちます。`entries[]`は、adpcm_packerが出力した目録のJSONを`adpcm_json`で指定して読み込ませるか、直接書きます。
 
 プロファイルの`pcm_banks[]`のエントリには、次のキーを書けます。
 
@@ -215,10 +216,10 @@ ADPCM-B・ADPCM-A・PCM-D8・SSGS-ADPCMの波形データの目録です。ど�
 { "group": "ADPCMA", "bank": 1, "file": "banks/PCM/pss680/pss680_opnb.pcmbank.json" }
 ```
 
-**音色の自動作成**: `group`を指定すると、`entries[]`の各波形から、`prog`=波形の番号・名前=波形の名前・ゾーン1つ(全ノート・全ベロシティ、`wave_index`=波形の番号、`root_note`=波形の`root_note`[省略時69])の音色を自動で作ります。`*.samplezonebank.json`を手で書かなくても、パッチピッカーで個々の波形を選んで鳴らせます。音色のバンク番号は`pcm_banks[]`の`bank`で、チップ種別ごとに独立しています(AWMのバンク0とADPCM-Bのバンク0は別のものです)。
+**音色の自動作成**: `group`を指定すると、`entries[]`の各波形から、`prog`=波形の番号・名前=波形の名前・ゾーン1つ(全ノート・全ベロシティ、`wave_index`=波形の番号、`root_note`=波形の`root_note`[省略時69])の音色を自動で作ります。`*.samplezonebank.json`を手で書かなくても、手で書いた音色と同じように、パッチピッカー(CC#0にそのチップ種別を選んだとき)で個々の波形を選んで鳴らせます。音色のバンク番号は`pcm_banks[]`の`bank`で、チップ種別ごとに独立しています(AWMのバンク0とADPCM-Bのバンク0は別のものです)。
 
 **演奏特性を付ける**: `*.pcmbank.json`のトップレベルの`swpatches[]`に`{ "entry_no": 波形の番号, "sw_bank": …, "sw_prog": … }`を並べると、自動で作る音色にその演奏特性が付きます。
 
-SSGS-ADPCM(YMZ705/YMZ732)は、波形の開始/終了アドレスをチップ自身がメモリ先頭の表から読むため、`entries[]`のアドレスは音に関係しません(波形の有無と名前にだけ使われます)。音程は変えられず、`sample_rate`(4000/8000/16000/32000のいずれか)がそのままチップの再生レートになります。
+SSGS-ADPCM(YMZ705/YMZ732)は、波形の開始/終了アドレスをチップ自身がメモリ先頭の表から読むため、`entries[]`のアドレス(`start_offset`/`end_offset`)は音に関係しません(波形の有無と名前にだけ使われます)。音程は変えられず、`sample_rate`(4000/8000/16000/32000のいずれか)がそのままチップの再生レートになります。
 
 AWMの音色(`*.samplezonebank.json`)の書き方は、[HwPatch リファレンス](./hwpatch-reference.md)の「14. ADPCM-B / ADPCM-A / PCM-D8 / AWM」を参照してください。

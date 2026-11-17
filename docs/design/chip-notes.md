@@ -33,7 +33,8 @@ COPNARhythm : CSoundDevice             (OPNA内蔵リズム、6パート、独�
   サブデバイスの自動生成により同一物理ポートを共有する別デバイス
   として生成される。
 - 音色のフィールド: `hw.FB`(3bit)、`hw.ALG`(3bit)、`hwOp[0-3]`のAR/DR/SL/SR/RR/TL/KSR/MUL/DT1、`hwOp[i].EGT`(SSG-EG、4bit。OPN/OPNA系のみ)。OPN2/OPNA系の`hw.AMS`/`hw.PMS`はハードウェアLFOに未対応のため発音に効かない
-- **F-Numberの分周はYM2203とそれ以外で違う**: FM部の1サンプルはYM2203が72クロック、YM2608/YM2612/YM2610が144クロック。`COPN`の`fnumDivide`は単体なら72、`COPNA`のサブチップなら144。クロックはポートが報告する値を使う(`docs/design/chip-drivers.md`の「クロック」)
+- **F-Numberの分周はYM2203とそれ以外で違う**: FM部の1サンプルはYM2203が72クロック、YM2608/YM2612/YM2610が144クロック。`COPN`の`fnumDivide`は単体なら72、`COPNA`のサブチップなら144。同じF-Numberでもクロックが同じならYM2203の方が1オクターブ高く鳴る
+- **クロック**: ポートがクロックを報告しないときは、YM2203(`COPN`単体)が3.9936MHz、`COPNA`とその派生(YM2608/YM2612/YM2610)が8MHzで計算する。ポートが報告する値を使う仕組みは`docs/design/chip-drivers.md`の「クロック」
 
 ### OPN FXモード
 
@@ -86,7 +87,7 @@ COPM : CSoundDevice                    (YM2151, 8ch)
 - **ハードウェアLFO**: `setLFODepth()`/`setLFORate()`を実装しているのは`COPM`だけ(`docs/design/midi-processing.md`の「ハードウェアLFO」)。OPZの第2LFOには対応していない(`docs/proposals/opm-opz-hw-lfo.md`)
 - **OPZのオペレータ拡張**: `COPZ`は`hwOp[i].REV`(3bit)/`hwOp[i].EGS`(2bit)をレジスタ`0xC0+slot`の裏レジスタ(bit5=1で選択、オペレータ単位)に書く。`hwOp[i].WS`(3bit、OPZ独自波形)、`hwOp[i].DT3`(補助デチューン、OPZのratio mode)もオペレータ単位
 - **キーコード**: KCの下位4bitの音名は、C#=0・D=1・D#=2・E=4・F=5・F#=6・G=8・G#=9・A=10・A#=12・B=13・C=14(3・7・11・15は使わない)。`kKeyCode`の添字はC#起点の半音で、3.579545MHzではA4(ノート69)がKC=0x4A・KF=0になるように`kMasterTuneBase`を決めている(ymfmの`opm_key_code_to_phase_step`の表で、KC=0x4Aは439.94Hz)
-- **クロック**: KC/KFは3.579545MHzで鳴らす前提の`kMasterTuneBase`から求め、ポートが報告するクロックとの比(1オクターブ768ステップで`768×log2(3579545/clock)`)だけ`masterTune_`をずらす。同じKC/KFなら音程はクロックに比例するため
+- **クロック**: KC/KFは3.579545MHzで鳴らす前提の`kMasterTuneBase`から求め、ポートが報告するクロックとの比(1オクターブ768ステップで`768×log2(3579545/clock)`)だけ`masterTune_`をずらす。同じKC/KFなら音程はクロックに比例するため。ポートがクロックを報告しないときは3.579545MHz(`COPM`の`kDefaultClock`)で計算する
 - **固定周波数(`ext.FIX`)**: `COPM::updateVoice()`は`ext.FIX`が0でないときレジスタ`$80`のbit5を立て、DT2を書かない(`$C0`の上位2bitを0にする)。OPZの固定周波数モードとしての挙動を測った結果と、固定周波数を音色でどう指定するかが決まっていないことは、`docs/STATUS.md`の「既知の未対応・将来課題」の「チップドライバ」にある
 - **OPZはキーオンと出力イネーブルのレジスタ割り当てがOPMと異なる**ため、
   `COPZ`は`updateKey`/`updatePanpot`を独自にオーバーライドする。
@@ -123,7 +124,7 @@ COPLRhythm : CSoundDevice              (OPL系内蔵リズム、5パート)
 - 音色のフィールド: `hw.FB`(3bit)、`hw.ALG`(bit0のみ。0=FM/1=AM)、`hwOp[0-1]`のAR/DR/SL/SR/RR/TL/KSR/KSL/MUL/AM/VIB、`hwOp[i].WS`(OPL2以降、2bit)。`hwOp[i].EGT`はOPL系では使わない(実機のEGビットは`SR`から決まる)
 - **`TL`は等倍で書く**: `TL`の1段は全チップ共通で0.75dBで、OPL系の実機TLレジスタ(6bit、最大47.25dB)とOPN/OPM系(7bit、最大95.25dB)の違いはレンジだけ。OPL系へは縮めずにクランプして書く(`TL >> 1`にすると1段が1.5dBに読み替わり、減衰量が半分になる)
 - **B0レジスタのF-number上位は2bit**: `getFnumber()`は11bit精度の値を返すので、`fnum.fnum >> 9`は0-3の2bitになりうる。B0レジスタのbit1-0(Fnumber bit9-8)へマスクせずにそのままORする(`& 1`でマスクすると、1オクターブの上半分程度でbit9が落ち、音程が大きく狂う)。`COPL`/`COPL3`/`COPLRhythm`のいずれも同じ
-- **クロックはYM3812換算で受け取る**: `COPL`/`COPL3`/`COPL3_2`/`COPLRhythm`は、どれも「72クロックで1サンプル」の換算(`divide`=72)でFnumberを計算する。YMF262(288クロック)とYMF278BのFM部(684クロック)には、`DeviceFactory`がチップのクロックを換算して渡す(`docs/design/chip-drivers.md`の「クロック」)。換算を4OP・2OP・リズムのサブデバイスで揃えるため、`COPL3`も`COPL`と同じ`divide`を使う。ポートがクロックを報告しないときは`COPL::kDefaultClock`(3579545Hz)
+- **クロックはYM3812換算で受け取る**: `COPL`/`COPL3`/`COPL3_2`/`COPLRhythm`は、どれも「72クロックで1サンプル」の換算(`divide`=72)でFnumberを計算する。YMF262とYMF278BのFM部には、サブデバイスの生成時にチップのクロックをこの換算へ直して渡す(換算比は`docs/design/chip-drivers.md`の「クロック」)。換算を4OP・2OP・リズムのサブデバイスで揃えるため、`COPL3`も`COPL`と同じ`divide`を使う。ポートがクロックを報告しないときは`COPL::kDefaultClock`(3579545Hz)
 - **F-number上位バイトは`forceWrite=true`で書く**: B0レジスタにKONビットが同居し、キーオンのたびに値が変わる
 
 ### EGTとRRの動的な書き換え
@@ -293,15 +294,11 @@ CPSGBase : CSoundDevice                (ソフトウェアEG/ソフトウェアL
   レジスタダンプへは`ISoundDevice::getBankedRegisterView()`でこの内部
   シャドウを渡す(非対応チップは`false`を返し、HWPortのシャドウが
   使われる)。この`0x10`オフセットはドライバ内部の表現で、HW I/Fプラグインへは常に元のアドレス+バンク選択の形でしか送られない。
-- **PSG系のマスタークロックは`IPort::getClock()`から取る**：`DeviceFactory::create()`の
-  `sampleRate`引数はHW I/Fプラグインが報告する**音声出力のサンプルレート**
-  (既定44100)であり、チップクロックではない。FM系・ADPCM系と同じく
-  `port->getClock()`を使い、取得できない場合のみ`sampleRate`へフォールバック
-  すること(`docs/design/chip-drivers.md`の「クロック」)。さらにOPN系
-  (YM2608/YM2610/YM2610B)の内蔵SSG部は実機仕様上φM/4で動作するため、
-  `DeviceEntry::clockDivider`(サブデバイスの展開時に`SubDeviceSpec`から設定)で
-  分周してから渡す。単独チップのSSGはポートが報告するクロックがそのまま
-  SSG部のクロックなので分周しない。
+- **PSG系のクロック**: FM系・ADPCM系と同じくポートが報告するクロック
+  (`IPort::getClock()`)を使い、報告が無いときだけ`sampleRate`で代用する。
+  OPN系の内蔵SSG部へは分周したクロックを渡す。仕組みと分周比は
+  `docs/design/chip-drivers.md`の「クロック」。単独チップのSSGはポートが
+  報告するクロックがそのままSSG部のクロックなので分周しない。
 - **`CSSG`はレジスタアドレスを仮想の索引メソッド経由で決める**：YMZ705(SSGS)の
   ようにYM2149相当のSSGブロックを複数内蔵するチップに備え、`CSSG`のレジスタ
   アクセスは`unitBase(ch)`(=`(ch/3)*0x20`)と`unitCh(ch)`(=`ch%3`)を必ず経由する。
@@ -636,9 +633,9 @@ prog = 波形番号(0-4) * 4 + エンベロープ番号(0-3)
 `role=="builtin_swpatch_meta"`のメタバンクで、
 `builtin: { "patch_type": "DSG", "patch_no": <prog 0-19> }`として紐づける
 (`PatchManager::resolveDsgBuiltinVoice()`が`findByBuiltinRef()`で探索する。`docs/design/patch-resolution.md`の「ROM/ビルトイン音色へのパフォーマンスパッチ紐づけ」)。
-`patch_no`は**0から**有効(prog 0 = `St.Percussive`が正規の音色)。
-`BuiltinRef::isValid()`が`patchNo >= 0`である理由がこれで、`>= 1`にすると
-prog 0 のエントリだけが黙って一致しなくなる。
+`patch_no`は**0から**有効(prog 0 の`St.Percussive`も正規の音色)。これに合わせた
+`BuiltinRef::isValid()`の条件は、上と同じ`docs/design/patch-resolution.md`の
+「ROM/ビルトイン音色へのパフォーマンスパッチ紐づけ」に書いてある。
 
 ### エンベロープとサスティン(SUS)の関係
 
@@ -680,35 +677,38 @@ SUSは音色パラメータではなくサスティンペダル(CC#64)で動く�
 
 ### GUIへの列挙
 
-内蔵リズムもDSGのビルトイン音色も、通常の`HwBankRegistry`を一切経由しないため、パッチピッカーへは
-自動的には現れない。対応チップ・パート名は
-`gui/bridge/FITOMBridge.cpp`の`kBuiltinRhythmChips[]`/
-`getBuiltinRhythmNames()`、カテゴリ(CC#0)は
-`apps/fitom_gui/PatchPickerDialog.cpp`の`kCategories[]`が情報源で、
-いずれもハードコードされた表。新しい内蔵リズム搭載チップを足したら
-ここも更新すること(コア側の`resolveBuiltinRhythm()`だけ直しても
-GUIからは選べないままになる)。
+DSGのビルトイン音色は`HwBankRegistry`を経由しないので、パッチピッカーへは
+自動的には現れない。`FITOMBridge`の`getHwBankList()`/`getHwBankPatches()`/
+`getChannelMonitors()`が、`VOICE_PATCH_DSG`のカテゴリに固定のバンク1つ
+(「Builtin」)を合成し、20音色を`HwPatch::id`(=Program Changeの値)で並べる。
+`resolveDsgBuiltinVoice()`がバンク番号を見ないので、MIDIモニターもバンク番号に
+関わらずビルトイン音色として名前を引く。
+
+内蔵リズム(`CDSGRhythm`)の列挙は他チップの内蔵リズムと共通で、
+`docs/design/patch-resolution.md`の「内蔵リズム音源専用バンク」に書いてある。
 
 ## Y8960 の拡張ブロック
 
 Y8960(MSX用サウンドカートリッジ)は、既存チップの互換ブロックにチャンネル
 ごとの拡張レジスタを足した構成をとる。仕様の正本は Y8960_Cartridge
-リポジトリの `doc/spec/Y8960_Specifications.xlsx`。4ブロックとも
+リポジトリの `doc/spec/Y8960_Specifications.xlsx`。拡張レジスタの番地は
+`docs/interfaces/plugin-hwif.md`の「Y8960 の拡張レジスタ」を正とし、ここには
+ドライバがどれを書くかだけを書く。4ブロックとも
 **チャンネルごとの8bit定位**(1=左端 / 128=中央 / 255=右端、リセット値128)を
 持ち、MIDIのパンポット(-64..+63)からの変換は共通の`fitom::y8960PanValue()`
 (`VolumeUtils.h`)が行う。値からL/Rレベルへの定パワー則は実機がハードウェアで
 実装している(仕様書には記載が無く、利用者からの情報)ため、FITOM側は線形に
 写すだけでよい。
 
-| deviceType | ドライバ | 互換元 | 追加レジスタ |
+| deviceType | ドライバ | 互換元 | 書く拡張レジスタ |
 |---|---|---|---|
-| `DEVICE_OPLLEX` | `COPLLEX : COPLL` | YM2413 | BANK `0x40`-`0x48`(ROMプリセットバンク)、定位 `0x50`-`0x58` |
-| `DEVICE_OPLLEX_RHY` | `COPLLEXRhythm : COPLLRhythm` | YM2413 内蔵リズム | 使う物理chの定位 `0x56`-`0x58` |
-| `DEVICE_OPL2EX` | `COPL2EX : COPL2` | YM3812 | 定位 `0xF6`-`0xFE` |
-| `DEVICE_OPL2EX_RHY` | `COPL2EXRhythm : COPLRhythm` | YM3812 内蔵リズム | 使う物理chの定位 `0xFC`-`0xFE` |
-| `DEVICE_ADPCMB_OPL2EX` | `CY8960Delta : CYmDelta` | Y8950 ADPCM-B | 定位 `0xFF` |
-| `DEVICE_SSGEX` | `CSSGEX : CSSGS` | YM2149 × 2 | SSG-2 が `0x10` から。chごとの音量 `0x20`-`0x22`/`0x24`-`0x26`、定位 `0x28`-`0x2A`/`0x2C`-`0x2E` |
-| `DEVICE_SCCEX` | `CSCC` | K051649 (無印SCC) | 定位 `0x100`-`0x104`(実機の `0x9900`-`0x9904`) |
+| `DEVICE_OPLLEX` | `COPLLEX : COPLL` | YM2413 | chごとのROMプリセットバンク(BANK)、chごとの定位 |
+| `DEVICE_OPLLEX_RHY` | `COPLLEXRhythm : COPLLRhythm` | YM2413 内蔵リズム | 使う物理ch(ch6-8)の定位 |
+| `DEVICE_OPL2EX` | `COPL2EX : COPL2` | YM3812 | chごとの定位 |
+| `DEVICE_OPL2EX_RHY` | `COPL2EXRhythm : COPLRhythm` | YM3812 内蔵リズム | 使う物理ch(ch6-8)の定位 |
+| `DEVICE_ADPCMB_OPL2EX` | `CY8960Delta : CYmDelta` | Y8950 ADPCM-B | ADPCMの定位 |
+| `DEVICE_SSGEX` | `CSSGEX : CSSGS` | YM2149 × 2 | chごとの音量、chごとの定位 |
+| `DEVICE_SCCEX` | `CSCC` | K051649 (無印SCC) | chごとの定位 |
 
 - **内蔵リズムを標準のOPLL/OPL2と別の`deviceType`にしている理由**: レジスタ体系
   (`0x0E`/`0x36`-`0x38`、`0xBD`)は標準と同一だが、定位レジスタを書くかどうかを
@@ -722,7 +722,7 @@ Y8960(MSX用サウンドカートリッジ)は、既存チップの互換ブロ�
 - **`init()`で拡張レジスタをチップとシャドウの両方へ揃える**: OPLLEXのBANKの
   リセット値は仕様に記載が無く、シャドウの初期値(0)と同じ値の書き込みは
   `setReg()`が省くため。定位も仕様上のリセット値128をシャドウへ載せておく。
-- **SSGEX**: YM2149相当を2系統内蔵した6chで、YMZ705(SSGS)と同じ「ユニットごと」の配置だが、ユニットの間隔(SSG-2が`$10`から)と定位が違う。プロファイルに書くクロックはSSGブロックの動作クロックそのもの
+- **SSGEX**: YM2149相当を2系統内蔵した6chで、YMZ705(SSGS)と同じ「ユニットごと」の配置だが、ユニットの間隔と定位が違う。プロファイルに書くクロックはSSGブロックの動作クロックそのもの
   (単体のSSGと同じ意味)で、SSGS系のような分周比の換算はしない。FITOMは音量を
   YM2149互換の4bit音量レジスタ(`$08`-`$0A` / `$18`-`$1A`)で作るため、chごとの音量(0-128)は常に128で固定する。
 - **SCCEX**は無印SCCと同じ配置のため、ch3/ch4の波形メモリ共有の制約もそのまま
@@ -779,8 +779,8 @@ DEVICE_ADPCMB        (117) → OPNB/OPNBB (kOPNB_DeltaT)
   「0→0で変化なし」と判定され一度も呼ばれない。そのため`CYmDelta`の
   NoteOn処理は上位のdirtyフラグに関係なく`updatePanpot(ch)`を無条件に呼ぶ
   （このチップ固有の対応、他デバイスのパンレジスタは追従不要）。
-- **`createCAdPcm()`のmasterクロックは`port->getClock()`を使う**：DeltaN算出のmasterにはサンプルレート
-  ではなく実クロックを渡す(取得不可時のみサンプルレートにフォールバック)。
+- **DeltaN算出の`master`には、ポートが報告するクロックを渡す**(`createCAdPcm()`。
+  報告が無いときの扱いは`docs/design/chip-drivers.md`の「クロック」)。
 - **`updateKey`の役割分担**：Start/End(`updateVoice`)・
   DeltaN(`updateFreq`)・Volume(`updateVolExp`)は個別のフックで設定し、
   `updateKey`は`stopPcm()`（4段階の停止シーケンス）+固定値`0xa0`による

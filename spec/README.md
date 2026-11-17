@@ -141,7 +141,6 @@ AY8930(EPSG)はHWエンベロープの周期指定に`ext.HWEP`ではなくエ�
 
 ## 更新のルール
 
-チップドライバ(`core/src/*_new.cpp`)がHwPatchのどのフィールドを参照
-するか、あるいはレジスタへの変換方法を変更した場合は、同じセッション内で
-`chip-capabilities.json`と`docs/manuals/hwpatch-reference.md`の両方を
-更新する。新しい`VoicePatchType`を追加した場合は`chips[]`への追加も必須。
+`chip-capabilities.json`は、FITOM_X本体のチップドライバがHwPatchのどのフィールドを
+参照するか、あるいはレジスタへどう変換するかを変えたときに、`docs/manuals/hwpatch-reference.md`と
+一緒に更新される。新しいチップ種別(`VoicePatchType`)が増えたときは`chips[]`に要素が足される。

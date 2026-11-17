@@ -41,7 +41,7 @@ class Sf2BankRegistry {
 public:
     // banks.sf2_banks配列をパースする。file の相対パスは baseDir を起点に
     // 絶対パス化する(他の banks.*[].file と同じ規約、
-    // docs/design/patch-resolution.md「相対パスの解決基点」参照)。
+    // docs/design/config-loading.md「パスの解決基点」参照)。
     // 不正なエントリ(bank/sf2_bankが範囲外、fileが空)は警告して読み飛ばす。
     // 同一bankが複数回指定された場合は後勝ち(警告ログを出す)。
     // 新規に登場したfileごとに一度だけparseSf2PresetHeaders()を呼び、

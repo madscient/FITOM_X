@@ -216,7 +216,7 @@ CC#0/#32 → PatchManager::resolveTriple(0x70, chipSel, hwProg, ...)
 
 範囲外のhwProgは解決自体を失敗させる(警告ログを出し、`ResolvedTriple::isValid()`がfalseになる)。**動的チャンネル割り当て(`allocCh`)へは逃がさない**——誤った楽器が鳴るより、鳴らない方が安全という判断。
 
-**GUIのパッチピッカーでの列挙**: この経路もHwBankRegistry/SampleZoneBankRegistryを経由しないので、`FITOMBridge`(`getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`)が、CC#0のカテゴリに`0x70`を、バンクの階層に対象チップを、プログラムの階層に各チップの内蔵リズムのパート名(チャンネル番号順)を固定の表として列挙する(`docs/design/chip-notes.md`の「DSG」の「GUIへの列挙」)。パート数がチップごとに違うので、チップごとに別々の配列にしている(`DeviceFactory::defaultChCount()`が返すチャンネル数と一致させる)。
+**GUIのパッチピッカーでの列挙**: この経路もHwBankRegistry/SampleZoneBankRegistryを経由しないので、`FITOMBridge`(`getHwBankList()`/`getHwBankPatches()`/`getChannelMonitors()`)が、CC#0のカテゴリに`0x70`を、バンクの階層に対象チップを、プログラムの階層に各チップの内蔵リズムのパート名(チャンネル番号順)を固定の表として列挙する。パート数がチップごとに違うので、チップごとに別々の配列にしている(`DeviceFactory::defaultChCount()`が返すチャンネル数と一致させる)。表はハードコードで、対応チップの一覧は`gui/bridge/FITOMBridge.cpp`の`kBuiltinRhythmChips[]`、パート名は同じファイルの`getBuiltinRhythmNames()`が持つ。カテゴリ(CC#0)の`0x70`は`apps/fitom_gui/PatchPickerDialog.cpp`の`kCategories[]`にあり、チップ名は持たない。新しい内蔵リズム搭載チップを足したら、`kBuiltinRhythmChips[]`と`getBuiltinRhythmNames()`も更新する(コア側の`resolveBuiltinRhythm()`だけを直しても、GUIからは選べないままになる)。
 
 ## OPL系の内蔵リズム
 
@@ -280,4 +280,4 @@ PSG系の共有バンクには、`findFallbackDeviceIndex`(内容を見てチッ
 
 ## 相対パスの解決基点
 
-`banks.*[].file`(hw_banks/sw_banks/patch_banks/drum_banks/scc_wave_banks/pcm_banks/sf2_banks)の相対パスは、プロファイルファイルのディレクトリを起点に解決する(起動時のカレントディレクトリは関係しない)。`*.pcmbank.json`の中の`adpcm_json`/`bin_file`は、その`*.pcmbank.json`のディレクトリを起点に解決する(`PatchManager::loadPcmBankJson()`)。どちらも「参照元のファイルの置き場所を起点にする」という同じ考え方。`hw_plugins[].dll`/`midi_backend.dll`は実行ファイルのディレクトリが起点で、解決基点が違う(`docs/design/config-loading.md`)。
+バンクファイルの相対パス(`banks.*[].file`と、`*.pcmbank.json`の中の`adpcm_json`/`bin_file`)の起点は、他のパスと合わせて`docs/design/config-loading.md`の「パスの解決基点」にまとめてある。
