@@ -208,7 +208,7 @@ COPLLRhythm : CSoundDevice             (OPLL内蔵リズム、5パート、独�
 | `SR == 0` | 1 (sustained) | `RR` |
 
 EGT=0側でRRレジスタに`RR`ではなく`SR`由来の値を書くのは、EGT=0の音色
-データではRRフィールドが未使用（レジスタイメージ由来では0のことが多い）で
+データではRRフィールドが未使用で
 あり、そのまま書くと減衰しなくなるため。
 プリセット音色はROMのためEGパラメータ変更自体が不可で、対象外。
 
@@ -236,8 +236,7 @@ EGT=1と`RR`を書けば、キャリアはOPL系の動的な書き換えと同�
 イメージのまま鳴らしてもEGT=0でキーオフするので、静的変換のキーオフ後の減衰
 (速さ7)と一致する(実チップでも速さ7かは上のとおり未確認)。
 動的な書き換えにすると、この種の音色はキーオフ後に`RR`の速さで減衰するように
-変わる(FITOM_stagingの`banks/OPLL/opll_presets.hwbank.json`では125音色中69音色が
-これに当たり、いずれも`RR`=元のRRレジスタ値を持つ)。
+変わる。
 
 動的な書き換えで得られるのは、ユーザー音色のキャリアのキーオフ後の減衰を`RR`で
 決められることだけである。ROM音色はEGパラメータを書けないので対象外で、
@@ -417,8 +416,6 @@ DCSGはアドレス指定レジスタを持たず、`writeRaw`によるコマン
 
 **ch3/ch4の波形メモリ共有**: 無印SCC(K051649)と、同じ配置を持つY8960のSCC部(`DEVICE_SCCEX`)は、ch3とch4が物理的に波形メモリを共有する。`queryCh`が「ch3が既に確保している波形と完全一致する場合のみch4を割り当てる」制御を行う(`CSCC::sharesCh34Wave()`)。SCC+(K052539、`DEVICE_SCCP`)はこの制約が無い。
 
-`CSCC::setWaveBankNo()`はどこからも呼ばれておらず、波形バンク番号は常に0(STATUS 4節)。
-
 ### AY8930 — `CEPSG`
 
 SSGと同じ`hw.ALG`/`hw.NFQ`の意味に加え、Expand Mode(Bank A/B切替、
@@ -564,10 +561,10 @@ CDSG : CSoundDevice                    (YM2163 楽音部, 4ch)
 CDSGRhythm : CSoundDevice              (YM2163 内蔵リズム, 5パート)
 ```
 
-波形メモリ方式のNMOS音源。単一のバスアドレスに対し「D7=1でアドレスラッチ /
-D7=0でデータ」の2回書き込みで駆動する実チップだが、この2回書き込みはHW I/F
-プラグイン側が吸収するため、ドライバは通常どおり`setReg(0x80〜0x9F, data)`で
-書く。ポートは1本のみ(`SplitPort`/`extraPort`は使わない)。
+波形メモリ方式のNMOS音源。ドライバは通常どおり`setReg(0x80〜0x9F, data)`で
+書く。ポートは1本のみ(`SplitPort`/`extraPort`は使わない)。実チップは単一の
+バスアドレスへの2回書き込みで駆動するが、その変換はHW I/Fプラグイン側が
+吸収する(`docs/interfaces/plugin-hwif.md`の「アドレス変換規則」)。
 
 **ユーザー音色は存在しない**ため、音色パラメータを持つHwBank(JSONプリセット)を作ることはできない。
 音色は「エンベロープ4種 × 波形5種」の20通りが、Program Changeの値から
@@ -696,8 +693,7 @@ GUIからは選べないままになる)。
 
 Y8960(MSX用サウンドカートリッジ)は、既存チップの互換ブロックにチャンネル
 ごとの拡張レジスタを足した構成をとる。仕様の正本は Y8960_Cartridge
-リポジトリの `doc/spec/Y8960_Specifications.xlsx`で、この節は`e9094fa`の版に
-合わせてある。4ブロックとも
+リポジトリの `doc/spec/Y8960_Specifications.xlsx`。4ブロックとも
 **チャンネルごとの8bit定位**(1=左端 / 128=中央 / 255=右端、リセット値128)を
 持ち、MIDIのパンポット(-64..+63)からの変換は共通の`fitom::y8960PanValue()`
 (`VolumeUtils.h`)が行う。値からL/Rレベルへの定パワー則は実機がハードウェアで
@@ -736,7 +732,6 @@ Y8960(MSX用サウンドカートリッジ)は、既存チップの互換ブロ�
 - Y8960のOPM(YM2151)は拡張レジスタを持たない標準のYM2151で、クロックはMSXスロットの
   システムクロック3.579545MHz(仕様書には記載が無く、利用者からの情報)。`chip:"OPM"`として
   既存の`COPM`をそのまま使う(`COPM`は3.579545MHz基準のKC表で音程を出す)。
-- Y8960の仕様は変更が続いている。仕様書が変わったらこの節を見直すこと。
 
 ## ADPCM系
 
@@ -819,7 +814,7 @@ DEVICE_ADPCMB        (117) → OPNB/OPNBB (kOPNB_DeltaT)
 COPL4AWM : CSoundDevice                (YMF278のAWM/PCM部, 24ch)
 ```
 
-OPL4を指定すると、サブデバイスの自動生成で`COPL3`(4OP)+`COPL3_2`(2OP)+`COPL4AWM`の3つに展開される。AWM部はFM部と別の3つ目のレジスタバンク(0x200以降)にあり、オフセット0x200のポートで書く(`docs/design/chip-drivers.md`の「高位バンクのポート」)。音色データはSampleZonePatchで、AWMはソフトウェアLFO等のSwPatchを音に反映しない(STATUS 4節)。
+OPL4を指定すると、サブデバイスの自動生成で`COPL3`(4OP)+`COPL3_2`(2OP)+`COPL4AWM`の3つに展開される。AWM部はFM部と別の3つ目のレジスタバンク(0x200以降)にあり、オフセット0x200のポートで書く(`docs/design/chip-drivers.md`の「高位バンクのポート」)。音色データはSampleZonePatch。
 
 - **波形番号の書き込み順**: `COPL4AWM::updateVoice()`は、波形番号の上位1bit(reg 0x20+ch bit0)を下位8bit(reg 0x08+ch)より**先に**書く。reg 0x08-0x1Fへの書き込みで波形ヘッダの読み込みが始まり、その時点のreg 0x20+ch bit0と組み合わせて9bitの波形番号が決まるため。逆にすると、前のノートのbit8のまま読み込まれ、256ずれた別の波形が鳴る。エミュレーションコアymfm(`pcm_engine::write()`がreg 0x08-0x1Fへの書き込みで`load_wavetable()`を呼ぶ)と、ALSAの`snd_opl4_note_on()`(`OPL4_REG_F_NUMBER`を`OPL4_REG_TONE_NUMBER`より先に書き、後者に「triggers header loading」とコメントしている)で確かめた
 - **F-numberとOctaveはAWM専用の式で求める**: 共通の`getFnumberFromHz()`(FM合成のFnum用)は使わない。AWMの再生速度は`step=((0x400|fnum)<<(octave+7))>>2`(ymfm)で、Octave(reg 0x38 bit7-4)は符号付き4bit(-8〜+7)。`COPL4AWM::getFnumber()`は、ALSAの`snd_opl4_update_pitch()`と同じ基準点(note=60・オフセット0で`pitch=60*128=7680`→octave=-3, fnum=0)で計算する

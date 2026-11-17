@@ -169,7 +169,7 @@
 プロファイル名はFITOM_stagingの`config/profiles/`のもの(**確認済み**: FITOM_staging `acb733a`の各プロファイルの`devices[].chip`を数えた)。
 
 **準備**
-- [ ] FITOM_stagingの`bin/`を、今のFITOM_Xのビルドに入れ替える。OPM/OPZ(OPP含む)のA4を正しい音程(KC=0x4A)で書く修正、SAA1099を正しいオクターブで鳴らす修正、SCCの周期を1つ小さく書く修正は、それより前のビルドに入っていない(前のビルドでは、OPM/OPZは半音高く、SAA1099は1オクターブ低く、SCCは高い音ほど低く[A4で約-7セント、A6で約-27セント]鳴る)。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
+- [ ] FITOM_stagingの`bin/`を、FITOM_X `9e3831c`以降のビルドに入れ替える。それより前のビルドでは、OPM/OPZ(OPP含む)は半音高く、SAA1099は1オクターブ低く、SCCは高い音ほど低く(A4で約-7セント、A6で約-27セント)鳴る。今のビルドは`glfw3.dll`とBoost 1.92のDLLを実行ファイルの隣に置くので、それらも一緒に写す。`bin/`のFitomEmuIF.dllはオフライン描画の組をエクスポートしていない(**確認済み**: `fitom_render`のログ)ので、`fitom_render`で使うにはFitomEmuIF `3d16a0f`以降のビルドに入れ替える。`bin/`はgit管理外でマシンごとに中身が違う(FITOM_stagingの`docs/STATUS.md`の「`bin/`」節)
 
 **`emu_ibmpc`(SAA×2 / OPL2 / OPL3 / OPM / DCSG)**
 - [ ] SAA1099: システム設定ダイアログ(GUI)でマスターピッチを430/450Hzへ変えると、発音中の音程が追従する。A4・ピッチベンド・ファインチューン・ビブラートと、プロファイルの`master_pitch`での追従は`tools/render_measure/pitch_controls.py`で測って確かめた
@@ -189,7 +189,7 @@
 - [ ] SF2直行パスのMIDIモニター表示と、CH設定ダイアログの窓の切替(GUI)
 - [ ] レジスタダンプモニターのスクロールバー、チャンネルレベルメーターの束ねられたチップの表示(GUI。いずれも修正後の再確認)
 - [ ] RtMidi 6.1.0(`vcpkg-ports/rtmidi`)で、実際のMIDI鍵盤からの入力で鳴る。鳴らしながらMIDIポート設定ダイアログ(GUI)でポートを付け替えても、終了しても落ちない。Windowsでのビルドと、WinMMのポートの列挙(`fitom_midi_rtmidi.dll`を直接呼んで、WinMMが返すポート数と一致)は確かめた。Linux(ALSA)・macOS(CoreMIDI)ではビルドしていない
-- [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る(Total Levelの向きを直した。直す前は最大音量で無音になっていたはず)。PCMD8を使うプロファイルはstagingに無い。FitomEmuIFはPCMD8へ外部メモリのイメージを渡さないので、エミュレータでは鳴らせず、測れない(5節)
+- [ ] YMZ280B(PCMD8)で、CC#7を上げるほど大きく鳴る。PCMD8を使うプロファイルはstagingに無い。FitomEmuIFはPCMD8へ外部メモリのイメージを渡さないので、エミュレータでは鳴らせず、測れない(5節)
 
 **外部との連携**
 - [ ] 外部パッチエディタの4引数キオスク起動が、layered/device/drumそれぞれで正しい編集画面を開くこと。`kind="device"`は、プロファイルの`devices[]`に対応するHWプラグインDLLがロードできないと解決に失敗する(`Config::buildDevice()`がDeviceEntryを作らないため)が、その場合の挙動は未検証
@@ -266,24 +266,19 @@
 - `profile.schema.json`の`hw_banks[].group`の`enum`は`EPSG`/`DCSG`/`SAA`/`SCC`/`SCCP`を許すが、読み込みは警告を出してそのバンクを捨てる(PSG系は`SSG`のバンク空間を共有するため)。スキーマの検証は通るのに読まれない。`enum`から外すか、説明に書くかは未決(**確認済み**: `FITOMConfig::loadDrumBanks()`のPSG系の分岐と、スキーマの`enum`を読んだ)
 - `profile.schema.json`の`devices[].engine`の`examples`が`"YMEngine"`/`"AYEngine"`のまま。実際のプロファイルが書く値は`"engines/YMFMEngine"`等(**確認済み**: FITOM_stagingの全プロファイルの`engine`の値を数えた)。FITOM_stagingの写しも同じで、原本の修正を待っている
 
-**プラグイン SDK**
-
-
 ---
 
 ## 5. 周辺リポジトリの追従状況
 
 2026年10月23日時点。FITOM_stagingは10月24日、FitomEmuIF・FitomHwIF・FitomSf2IFは10月25日に見直した(**確認済み**: 各リポジトリをfetchし、origin側の最新を読んで確認)。
-他のリポジトリへの作業の依頼文は`docs/plans/request-<リポジトリ名>.md`に置く。依頼先の作業が終わったら、この表を更新して依頼文を消す。
 
 | リポジトリ | 状況 |
 |---|---|
-| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(振幅は(値/127)²)とオフライン描画の組を実装済み(`3d16a0f`)。PCMD8(YMZ280B)へは外部メモリのイメージを渡さない(`pcm_mappings_for_chip()`に項目が無い。**確認済み**: ソースを読んだ)ので、エミュレータのYMZ280Bは波形が無く鳴らない。`IHWPlugin.h`の写しは`faaf183`の版と同一。その後FITOM_X側でオフライン描画の書き込みの反映を「64フレームの境界まで遅らせてよい」と緩めたが、コメントだけの変更でABIは変わらないので、同期しなくても動作は変わらない |
-| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`とオフライン描画の組は、実機なので実装しない。`IHWPlugin.h`の写しは`faaf183`の版と同一(`5a97edc`)。その後のFITOM_X側の変更はオフライン描画のコメントだけで、FitomHwIFには関係しない |
-| FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。FITOM_X側は契約をこれに合わせて緩め、`fitom_render`がMIDIイベントを64フレームの格子に揃えて送る。`fitom_render`と組み合わせて鳴り、FMと発音の時刻が揃うことを測った(`12803b9`のビルド、`tools/render_measure/sf2_render.py`)。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
+| FitomEmuIF | 部位ゲインに追従済み。外部メモリの対応表にOPL2EXの`ADPCM_B`、SSGS/SSGS2の`PCM`がある(`2d0e443`)。`HWPlugin_SetMasterVolume`(振幅は(値/127)²)とオフライン描画の組を実装済み(`3d16a0f`)。PCMD8(YMZ280B)へは外部メモリのイメージを渡さない(`pcm_mappings_for_chip()`に項目が無い。**確認済み**: ソースを読んだ)ので、エミュレータのYMZ280Bは波形が無く鳴らない。`IHWPlugin.h`の写しは`faaf183`の版。現行との差は、オフライン描画の書き込みの反映を「64フレームの境界まで遅らせてよい」とするコメントだけで、ABIは同じ |
+| FitomHwIF | 部位ゲインに追従済み(部位を0個返す実装)。`HWPlugin_SetMasterVolume`とオフライン描画の組は、実機なので実装しない。`IHWPlugin.h`の写しは`faaf183`の版(`5a97edc`)。現行との差はオフライン描画のコメントだけで、FitomHwIFには関係しない |
+| FitomSf2IF | オフライン描画の組を実装済み(`12803b9`)。部位ゲインと`HWPlugin_SetMasterVolume`はエクスポートしない(SF2のデバイスにはマスターボリュームをSysExで送る)。`IHWPlugin.h`の写しは`faaf183`の版と同一。fluidsynthが64フレーム単位で合成するので、書き込みの反映は次の64フレームの境界まで遅れる(FitomSf2IFのテストで**確認済み**、`b64b307`)。契約はこれに合わせて、書き込みの反映を次の64フレームの境界まで遅らせてよいとしており、`fitom_render`はMIDIイベントを64フレームの格子に揃えて送る。`fitom_render`と組み合わせて鳴り、FMと発音の時刻が揃うことを測った(`12803b9`のビルド、`tools/render_measure/sf2_render.py`)。FitomSf2IFの`docs/STATUS.md`は同期の方法を「描画の頭に空フレームを置く」と書いていて、実際の方法と食い違う。FitomSf2IF側で直す |
 | DSAemuEngine | Y8960のSSG部を`SSGEX`の名前で公開し、旧名`SSGS`を受け付けない(`46c2fbe`) |
-| FITOM_staging | `config_schema/`はFITOM_Xの`d214ff9`に同期済み、`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある(`dbd2499`)。その後FITOM_X側で`profile.schema.json`の`devices[].clock`の`description`を変えたので、説明文だけ食い違う(構造は同一)。`bin/`のFitomEmuIF.dllはオフライン描画に対応していない(3節の「準備」)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
+| FITOM_staging | `config_schema/`の写しはFITOM_Xの`d214ff9`の版(`dbd2499`。`emu_ibmpc`の`_comment`のSAAのクロックの注記も直してある)。現行との差は、説明文(`profile.schema.json`の`devices[].clock`、`hwbank.schema.json`の`patch_no`、`fitom.conf.schema.json`の`log`)と、`fitom.conf.schema.json`の`log.console`の`default`の有無だけで、検証の構造は同じ。`bin/`のFitomEmuIF.dllはオフライン描画に対応していない(3節の「準備」)。FITOM_stagingからの依頼文`docs/plans/request-FITOM_X.md`は、FITOM_staging側で消す約束になっている。`emu_msx2pp`プロファイルは、Y8960の5ブロック(OPLLEX/OPL2EX/SSGEX/SCCEX/OPM)を1個ずつ載せている(10月25日にorigin `ef55367`まで読んで確認) |
 | FmGenEngine | A4の音程が、出力のサンプルレートによって数セントずれる。`emu_fmgen_opn`のOPN系(7,159,090Hz)で、44.1kHzでは-3.6セント、48kHzでは+5.5セント、96kHzでは-7.6セント(**確認済み**: `tools/render_measure/fm_pitch.py`で測定)。同じドライバ・同じクロック・同じレートのYMFMEngineは±0.1セント以内なので、FITOM_Xの外の問題。**推測**: FmGenEngine(fmgen)のレート変換の丸め。コードは読んでいない |
 | FITOM_patch_editor | コードにOPLLEX/SSGEX/SCCEXが無い。SSGS_ADPCMとSILENCEは手元に写した`chip-capabilities.json`に出てくるだけ |
-| EPSGemuEngine | 手元がoriginより1件遅れている(早送りで追いつける) |
 

@@ -17,11 +17,10 @@ FITOM コアは `IHWPlugin` C API を通じてすべてのオーディオデバ�
 
 ```
 FITOM core
-  └── HWPort (IPort アダプター)
-        └── IHWPlugin C API
-              ├── fitom_hw.dll     ← 物理チップ (FitomHwIF)
-              ├── FitomEmuIF.dll   ← FMエンジン内蔵 + 音声出力 (FitomEmuIF)
-              └── FitomSf2IF.dll   ← SoundFont 音源 + 音声出力 (FitomSf2IF)
+  └── IHWPlugin C API
+        ├── fitom_hw.dll     ← 物理チップ (FitomHwIF)
+        ├── FitomEmuIF.dll   ← FMエンジン内蔵 + 音声出力 (FitomEmuIF)
+        └── FitomSf2IF.dll   ← SoundFont 音源 + 音声出力 (FitomSf2IF)
 ```
 
 FM エンジン内蔵のプラグインは、複数の FM エンジン DLL を内部で束ね、
@@ -218,8 +217,8 @@ void HWPlugin_SetDelaySamples(HWHandle h, uint32_t delay) {
 デバイスをすべて開いた後、FITOM は全デバイスに対して以下を実行する。
 
 ```
-1. 全 HWPort の GetLatencySamples() を収集 → max_latency を決定
-2. 全 HWPort に SetDelaySamples(max_latency) を設定
+1. 開いた全デバイスの HWPlugin_GetLatencySamples() を集め、最大値を max_latency とする
+2. 開いた全デバイスに HWPlugin_SetDelaySamples(max_latency) を呼ぶ(max_latency が 0 なら呼ばない)
 ```
 
 これにより「物理チップ + FMエンジン内蔵hwif」混在構成でも
@@ -451,6 +450,14 @@ Y8960 カートリッジの拡張ブロックが FITOM から書かれる番地�
 `SSGEX` は YMZ705 の `SSGS` とはユニットの間隔・定位の位置と分解能が異なる別の
 チップである。エンジンが Y8960 の SSG 部を列挙するときのチップ名は `SSGEX` とすること
 （`SSGS` と列挙すると、FITOM は YMZ705 の配置で書き込む）。
+
+### DSG（YM2163）の 2 回書き込み
+
+実チップの DSG（`chip: "DSG"`）は単一のバスアドレスを持ち、レジスタ 1 つを書くのに
+「D7=1 でアドレスをラッチ / D7=0 でデータ」の 2 回の書き込みを要する。FITOM は他の
+チップと同じく、1 回の `HWPlugin_Write(handle, addr, data)` で、`addr` に実チップの
+レジスタアドレス（0x80-0x9F）、`data` にそのレジスタへ書く値を渡す。これを実チップの
+2 回の書き込みに分けるのは**プラグイン/エンジン側の責務**である。
 
 ---
 
