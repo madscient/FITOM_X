@@ -35,6 +35,7 @@
 |---|---|---|---|
 | 3 FMのドライバ | `e88bf08` | 9/2/11/11 | 51件(不具合12)と区切りの外3件 |
 | 4 PSG・PCMのドライバ | `0b3d6e2` | 5/4/9/8 | 48件(不具合14) |
+| 5 共通部と契約 | `0ec7b60` | 1/2/3/9 | 30件(不具合14) |
 
 ## 区切り3 FMのドライバ(2026年11月18日、HEAD `e88bf08`)
 
@@ -51,6 +52,7 @@
 - **3-03** 1 / `core/src/OPN_new.cpp:147` — OPNのFXモードで、オペレータごとの周波数(`updateFxModeFreq()`)が一度も書かれない。`updateFreq()`は`fn`が無いときだけFXの分岐に入るが、コアで唯一の呼び出し元の`CSoundDevice::updateFnumber()`(`SoundDevImpl.cpp:604`)は必ず`&fnum`を渡す。`$27`を立てても`$A8-$AE`は0のままで、スロット1〜3の周波数が0になり、3つのモードのどれも働かない。OPL3は同じ問題を`updateFnumber()`の上書きで避けている(`OPL_new.cpp:406-413`)。STATUSの2節は✅、`docs/manuals/hwpatch-reference.md`も使える前提で書いている。テストは無い。補足: `$27`に書く`0x80`(bit7=1、bit6=0)は、ymfmではCSMモードとして読まれる(`ymfm_opn.h`の`csm()`)。タイマーAを動かさないので副作用は無いと見ている(推測: ymfmのCSMはタイマーAの桁あふれでだけキーオンする)。旧実装も`0x80`。確度: 確認済み(`updateFreq(`の呼び出し元をgrepで数えた)。判断: 未
 - **3-04** 1 / `core/src/OPN_new.cpp:166-171`(legacy `OPN.cpp:103-116`) — FXモードの周波数レジスタで、スロット2と3が逆。`hwOp[1]`(スロット2、`$38+ch`)を`$A8/$AC`に、`hwOp[2]`(スロット3、`$34+ch`)を`$AA/$AE`に書いている。ymfm(`ymfm_opn.cpp`の`cache_operator_data()`)はスロット2を`$AA/$AE`、スロット3を`$A8/$AC`から読み、旧実装もその対応で書いていた。3-03を直すと表に出る。根拠: 不具合であることは強(ymfm・旧実装)。違いの根拠は無。確度: 確認済み(ymfmと旧実装の行を読んだ)。判断: 未
 - **3-05** 1 / `core/src/OPN_new.cpp:46-53`、`core/include/fitom/MultiDevice.h:212-236`(legacy `SpanDev.cpp:103`・`115`) — OPNA・OPN2・OPNBのFX音色が、およそ半分の割り当てで後半のサブチップ(FXのレジスタが無い)へ行き、FXなしで鳴る。`CSpanDevice::allocCh()`が試すチップの順を毎回回すため。旧実装は`prior_dev`を更新せず、いつも前半から試していた。指示(X01-B201)は、FX音色をch2に置き、後半ポートでは扱わないこと。違いの根拠: 弱(`MultiDevice.h:198-211`のコメント。内蔵リズムの減衰を守るための回転)。3-03のため、今は表に出ない。確度: 確認済み。判断: 未
+  - 区切り5での訂正: 回転が効くのは`allocCh()`の経路(CRhythmChと、CInstChの強制スティール)だけ。CInstChは普通、`CSpanDevice::queryCh()`(mode=1)を使うので回転しない。代わりに、前半のch2がEmpty以外(ReleasingかRunning)のときに後半へ行く(5-07・5-08)
 - **3-06** 1 / `core/src/OPL_new.cpp:229-246`・`592-606`(legacy `OPL.cpp:127-140`) — OPL・OPL3で、押鍵中にCC#64を動かすと、押さえている音が減衰し始める。キーオン中はEGT=0で、RRの位置にSR>>1を置いている(SR=0ならRR=0で保持)。`updateSustain()`は発音中の音にもRRを書き、COPLは`SR ? SR>>1 : RR`、COPL3は`RR`を書く。COPLはSR=0の音色、COPL3はすべての音色で、SLに達した後にRRの速さで減る。指示(X01-B167)は、RR=4をキーオフ中の音にだけ掛けること。COPLとCOPL3で式が違う理由は見つからない。旧実装にも、ペダルを踏むとキーオン中の音にREVを書く、同じ型の欠陥があった。確度: 確認済み。判断: 未
 - **3-07** 1 / `core/src/OPL_new.cpp:186-192`(原因は土台の`SoundDevImpl.cpp:519-524`・`VoiceProcessor.cpp:401-414`。legacy `SoundDev.cpp:655-662`) — 2オペレータのチップで、オペレータLFOがop2・op3にも掛かり、他のchのTLを上書きする。SwPatchの`ops`は常に4つあり、`ops[2]`・`ops[3]`のSLRが0でなければ`updateTL(ch, 2/3)`が呼ばれる。`COPL::updateTL()`はopを検査せず`0x40+op*3+slot`に書くので、例えばch0のop3は`$49`(ch4のモジュレータ)を、ch0の音色のKSLと一緒に上書きする。COPL2・COPL3_2・Y8950・OPL2EXも同じ。旧実装は`op<ops`のオペレータだけLFOを始めていた。各ドライバが設定する`opCount_`は読まれていない(3-44)。起きる場面: OPN用のSwPatch(キャリアがop3)をOPLの音色から参照したとき、NRPN 96/2・96/3でSwPatchを差し替えたとき。根拠: 無。確度: 確認済み。判断: 未
 - **3-08** 1 / `core/src/OPLL_new.cpp:196-204`(legacy `OPLL.cpp:93-101`) — OPLLの`updateTL()`がopを見ずにキャリアの音量(`$30`)へ書く。op0(モジュレータ)のLFOが動くと、キャリアの音量がモジュレータのTLから作った値で上書きされる。旧実装はop0を`$02`、op1を`$30`に書き分けていた。根拠: 無(最初の取り込み`88c5da3`から)。確度: 確認済み。判断: 未
@@ -112,9 +114,9 @@
 
 **区切りの外で見つけたもの**(その区切りのセッションで確かめ直す)
 
-- 区切り1: SysExによるHwPatchの上書きが、発音中のノートに反映されない(`MidiCh.cpp:1447`・`1481`)。上書きの音色は元の音色のコピーで`id`が同じなので、`CSoundDevice::setVoice()`が「同じパッチ」とみなして何もせずに戻る(`SoundDevImpl.cpp:396`)。上書きを解く`{}`も同じ。確度: 確認済み
+- 区切り1: SysExによるHwPatchの上書きが、発音中のノートに反映されない(`MidiCh.cpp:1447`・`1481`)。上書きの音色は元の音色のコピーで`id`が同じなので、`CSoundDevice::setVoice()`が「同じパッチ」とみなして何もせずに戻る(`SoundDevImpl.cpp:396`)。上書きを解く`{}`も同じ。確度: 確認済み。区切り5で、土台の側の原因を5-15と5-06に書いた
 - 区切り1: ペダルを離しても、キーオフ済みの音(リリース中)にはRRの書き戻しが届かない。`CInstCh::setSustain()`は`notes_`だけを回し(`MidiCh.cpp:681-688`)、`noteOff()`で`notes_`から外れる(`MidiCh.cpp:549-583`)。旧実装との比較はしていない(未検証)
-- 区切り5: `STEP150DB`・`STEP300DB`(`VolumeUtils.h:24-25`)は使われていないが、値が旧(`0x7E`・`0x7C`)と違い、今の値では上位のビットが落ちて値が折り返す。`OPLL_new.cpp:173`・`PSG_new.cpp:273`・`1087`のコメントは、今の定数を前提に書かれている。確度: 確認済み
+- 区切り5: `STEP150DB`・`STEP300DB`(`VolumeUtils.h:24-25`)は使われていないが、値が旧(`0x7E`・`0x7C`)と違い、今の値では上位のビットが落ちて値が折り返す。`OPLL_new.cpp:173`・`PSG_new.cpp:273`・`1087`のコメントは、今の定数を前提に書かれている。確度: 確認済み。区切り5で確かめて5-26に載せた
 
 **legacyとの違いの数**(不具合に入れた違いも数えた。3-06は指示、3-05は弱、3-01・3-04・3-07・3-08・3-09は無。3-36はFMSとOPN3Lを別に数えた)
 
@@ -195,3 +197,83 @@
 | 指示 | 強 | 弱 | 無 |
 |---|---|---|---|
 | 5 | 4 | 9 | 8 |
+
+## 区切り5 共通部と契約(2026年11月19日、HEAD `0ec7b60`)
+
+下請け1人が読み、親が全件を今のコードと旧実装の行で確かめた。音は鳴らしていない。「確認済み」はコードを追って確かめたという意味。下請けの報告のうち、`DeviceFactory::defaultChCount()`が使われていないという1件は誤りだった(5-28に書いた)。5-11の式が旧と同じであることと、5-30は親が確かめる途中で見つけた。「指示」の根拠は、親が会話記録で2件(X01-B087・B107)と、それに答えた発言(X01-K092・K114)を確かめた。
+
+区切り3・4では、ドライバと土台の約束が食い違う指摘が続いた。それを約束を持つ側から見た結果。
+
+- **`effectiveTL()`と`updateTL()`の値**: 目盛りは`VoiceProcessor.h`と`docs/design/voice-processor.md`に書かれている(ラウドネス、0が無音・127が最大)。`updateTL()`の宣言には、目盛りもopの範囲も書かれていない。土台は、チップのオペレータ数によらずop0〜3を渡す。約束と食い違うのはOPLL(3-08)、OPL(3-07)、PSG・DSG(4-01・4-02)
+- **`forceDamp()`**: 宣言のコメントが「RRを最大にしてから`noteOff()`」と順序を決めていて、決定(ノートオフの後に最大にする)と逆になっている(5-30)。既定の実装は`noteOff()`だけで、直後に必ず`updateKey(false)`が走る。3-02・3-11・4-12・5-10と、区切り4のDSGの段落は、この順序から来ている
+- **`queryCh()`のmodeと「空き」**: 宣言は「mode=1は空きかReleasing」。土台はこれを守っているが、強制スティールに穴がある(5-01・5-02)。OPMのノイズとOPNのFX(5-07)、PSG(4-07)はReleasingを空きに数えない。`CSpanDevice::queryCh()`はチップの順を回転させない(5-08)
+- **`setVoice()`が「同じパッチ」とみなす条件**: 宣言には記述が無く、実装はidの一致だけを見る(5-15)。違うパッチと判定しても`VoiceProcessor`を作り直さない(5-06)
+- **キーオフで呼ばれる順**: 宣言にも文書にも書かれていない。土台はキーオフで`updateSustain()`を呼ばない。`ChState::sustain`の控えとレジスタが一致している前提で、値が変わったときだけ呼ぶ。ドライバがペダルに関わるレジスタを別の経路で書くと、この前提が崩れる(3-01・3-02・3-06・3-10・5-10)
+- **`isCarrierOp()`**: 宣言と`docs/design/voice-processor.md`に書かれている。新しい食い違いは無い(3-48・4-37)
+- **`init()`と`reset()`**: 宣言に役割の記述が無い。CFITOMは`init()`だけを呼び、`reset()`を`init()`の中で呼ぶドライバは一部だけ(3-39)。`CSoundDevice::reset()`はDisabledのchを有効に戻し、チップには何も書かない(5-21)
+
+**不具合**
+
+- **5-01** 1・2 / `core/src/SoundDevImpl.cpp:131-137`(legacy `SoundDev.cpp:62-68`・`335-349`・`550`) — 強制スティールの対象になるのは、`noteOnAge`が1以上のRunningのchだけ。`bestAge`を0から始め、`noteOnAge > bestAge`を条件にしているため。`noteOnAge`はノートオンで0になり、1msのタイマーでしか増えない。そのため、空きが無く、どのchも同じ1msのうちにノートオンしたものだけだと、mode=0でも0xFFが返ってノートが落ちる。例: 3chのSSGへ4音の和音を同時に送ると、4音目が鳴らない。`fitom_render`は、同じ時刻のイベントの間ではタイマーを進めない(`apps/fitom_render/OfflineRenderer.cpp:58-61`)。そのため、SMFの和音は必ずこの形になる。旧はノートオン(`Run()`)で`noteon=1`にしていたので、同じ時刻の音でも奪えた。それでも候補が無ければ、有効な最初のchを返していた。`tests/test_soundevice_freq.cpp:1375-1378`は、この前提をコメントに書いたうえで、タイマーを進めてから試している。根拠: 無(最古の音を奪う方式はアシスタントの提案 X01-K094・K095。0を除く理由は見つからない、下請けの探索)。確度: 確認済み(コード、旧の行、テストのコメントを読んだ。鳴らしてはいない)。判断: 未
+- **5-02** 1・2 / `core/include/fitom/ISoundDevice.h:51`(legacy `SoundDev.h:167`) — `noteOnAge`がuint16なので、約65.5秒押し続けたノートの値が0へ折り返し、いちばん新しい音として扱われる(強制スティールの対象から外れる)。旧はuint32。根拠: 無。確度: 確認済み。判断: 未
+- **5-03** 1・2 / `core/src/SoundDevImpl.cpp:215-216`・`261-266`、`core/src/MidiCh.cpp:571`(legacy `SoundDev.cpp:365-375`) — 同じMIDIチャンネルが鳴らしているRunningのchを強制スティールで奪うと、奪われたノートの`notes_`のエントリが残る。そのキーを離すと、`isChOwnedBy()`はownerだけを比べるので真を返し、奪った側の新しいノートが止まる。CRhythmChは`noteOnSeq`も比べている(`core/include/fitom/MidiCh.h:612-616`)が、CInstChは比べない。起きるのは、1台のデバイスを複数のMIDIチャンネルで共有し、そのチャンネルの`voiceLimit_`(デバイスのch数、`MidiCh.cpp:159-170`)に達する前にデバイスが満杯になったとき(`allocChWithFallback()`の③)。`docs/design/midi-processing.md`の「デバイスチャンネルの所有権」は、別のノートに奪われた場合も`isChOwnedBy()`で防げると書いている。旧は、奪うときに元のMIDIチャンネルのNoteOffを呼び、その記録から外していた。区切り1と重なる。根拠: 無。確度: 確認済み。判断: 未
+- **5-04** 1 / `core/src/CFITOM.cpp:599-608`・`615-616`、`core/src/OPN2_new.cpp:91-102` — extra_slotを指定したOPNA・OPN2・OPNBで、後半3chのレジスタが1つ目のスロットへ書かれる。CFITOMは2つ目のスロットのポートを`SplitPort(port1, port2)`で包み、それを`COPNA`の2つ目のポートとして渡す。後半のサブチップ(COPN)は、`OPN2Port2`を通して0x30〜0xB6の低い番地を書く。`SplitPort`は低い番地を1つ目のスロットへ送る。そのため、前半3chのレジスタが後半の音色で上書きされる。後半のキーオン($28のbit2)は、何も書かれていない2つ目のスロットのレジスタを鳴らす。`COPNA`のコンストラクタのコメントは、2つ目のポートとして生のポートを受ける前提で書かれている。ADPCM-B(OPNA)とADPCM-Aは生のポートを受ける(`CFITOM::resolveHighBankPort()`)。OPL3・OPL3_2は、`DeviceFactory::create()`がextraPortを渡さないので、extra_slotが効かない。ところが`docs/manuals/profile-reference.md`の`extra_slot`の説明は、OPL3も対象に挙げている。extra_slotを使うテストは無い(grep)。確度: 確認済み(コードを追った。実機の2スロット構成では試していない)。判断: 未
+- **5-05** 1 / `backends/midi_pipe/src/MidiPipe.cpp:183-202`(POSIXは`259-276`)、`core/src/CFITOM.cpp:1513-1563` — 内部用MIDIパイプの最大16本の接続が、1つの`MidiProcessor`の受信状態(ランニングステータスと、SysExの途中の状態)を共有する。各接続のスレッドは、読めた分をそのまま渡す。コアはロックで直列にするだけで、メッセージの境目を揃えない。例: 接続AがSysExの前半を書いた後に、接続Bがノートオンを書くと、BのバイトはF7が来るまでAのSysExに溜め込まれる。Bのノートは鳴らず、AのSysExも壊れる。`docs/interfaces/plugin-midi-pipe.md`の「ワイヤーフォーマット」は、1メッセージを複数回に分けて書いてよいとしている。同じ文書の「接続の性質」は、接続ごとに独立したチャンネルで試聴できると書いている。`plugin_sdk/include/fitom/IMidiPlugin.h`は、1回のコールバックが完結したメッセージか、複数のスレッドから同時に呼んでよいかを定めていない(下請けの報告)。最初の設計は接続1本で(X02-K076・K077)、多重接続は`23191bb`で入った。確度: 確認済み(コードを追った。2本の接続から送ってはいない)。判断: 未
+- **5-06** 1 / `core/src/SoundDevImpl.cpp:391-399` — `setVoice()`は、違うパッチだと判定したときも`VoiceProcessor`を作り直さない。ドライバの`updateVoice()`は、全opのTLとキャリアのAR〜RRを`VoiceProcessor`から読む(例: `OPM_new.cpp:105-130`)。そのため、前のパッチの値が書かれる。新しいパッチのTLとAR〜RRは、次のノートオンか、CC#7・CC#11が変わるまで効かない(CC#7・CC#11が変わると、`onVolumeChange()`が新しい`hwPatch`から作り直す)。今は5-15の判定のために表に出ない。旧は、差し替えた音色を`UpdateVoice`が直接読んでいた。確度: 確認済み。判断: 未
+- **5-07** 1・3 / `core/src/OPM_new.cpp:231-237`、`core/src/OPN_new.cpp:46-51` — OPMのノイズ(ch7)とOPNのFX(ch2)の`queryCh()`は、mode=1のとき`isEmpty()`だけを空きとみなし、Releasingを除く。約束(`ISoundDevice.h:180-183`)と違う。CInstChは、`allocChWithFallback()`の①でmode=1を使う。そのため、ノートオフの後2秒の間は、ほかの候補のデバイスへ渡すか、③の強制スティールになる。COPNAでは、`CSpanDevice::queryCh()`が前半のチップから0xFFを受けると、後半のチップ(FXのレジスタが無い)の空きを返す。そのため、前のFXノートを離して2秒以内に次のFXノートを弾くと、FXなしで鳴る。ch2が発音中のときも同じ。PSGで同じ形の指摘が4-07。確度: 確認済み。判断: 未
+- **5-08** 1・3 / `core/include/fitom/MultiDevice.h:184-190`・`212-226`、`core/src/MidiCh.cpp:205-210`・`1717-1722` — `CSpanDevice::queryCh()`は常に`chips_[0]`から試す。チップの順の回転は`allocCh()`にしか無い。CInstChは、HwPatchの音色では`queryCh()`(mode=1)と`assignCh()`を使い、`allocCh()`は空きが無いときとサンプル系でしか使わない。CRhythmChは`allocCh()`を使う。そのため、回転(`cae6cfb`、`docs/design/chip-drivers.md`の「`allocCh()`のチップ試行順序はローテーションする」)はリズムにしか効かない。メロディは、1台目にEmptyかReleasingのchが1つでもあれば1台目へ行く。回転を入れた理由(減衰中の音を切らない)はメロディにも当てはまり、メロディを除く意図は見つからない(下請けの探索)。チップの中でも、`findBestCh()`はEmptyとReleasingを同じ点数にしているので、同じことが起きる。確度: 確認済み。判断: 未
+- **5-09** 1・3 / `core/src/SoundDevImpl.cpp:434-440`、`core/src/MidiCh.cpp:536-540` — `setVelocity()`は`VoiceProcessor`を作り直さない。そのため、レガートのタイで「ベロシティだけ更新する」(`docs/design/midi-processing.md`の、モノの次のノートの表)ときも、FMとPCMの音量と、ベロシティで補正するキャリアのAR〜RRは変わらない。PSG・DSGは`ChState::velocity`を直接読む(`PSG_new.cpp:277`、`DSG_new.cpp:102`)ので変わる。確度: 確認済み。判断: 未
+- **5-10** 1 / `core/src/OPLL_new.cpp:226-234` — OPLLの`forceDamp()`はSUSビットを消すが、`ChState::sustain`はtrueのまま残る。ペダルを踏んだまま、CC#120(またはチョークグループ)の後に同じchで鳴らすと、SUS=0のまま鳴る。`setSustain()`の値が変わらないので`updateSustain()`が呼ばれず(`SoundDevImpl.cpp:366`)、`updateKey()`と`updateFreq()`はSUSビットをそのまま保つため。3-01の(b)と同じ根。確度: 確認済み。判断: 未
+- **5-11** 1 / `core/include/fitom/MultiDevice.h:603-630`(legacy `Stereo.cpp:30-39`) — `CLinearPanDevice`は、cos・sinの係数をCC#7の値に掛ける。FM・SSG・DCSGでは、CC#7は`40·log10(v/127)`dBの目盛りで効く(例: `kGM2dB[90]`は-5.98dB)。そのため、振幅には係数の2乗が掛かる。中央では左右とも約-6.0dBになり、左右の振幅の和が一定の配分になる。コメント(`:523`)と`docs/design/chip-drivers.md`が言う等パワー(中央で左右とも-3dB)ではない。中央に置いた音は、端に振った音より電力で約3dB小さい。`getStereoGains()`(`:573-581`)はcos・sinの比をそのまま返すので、メーターの左右の比も実際の音と合わない。式は旧と同じだが、旧ではこの音量が効いていなかった(5-18)。確度: 式は確認済み。dBの値は式から計算した。判断: 未
+- **5-12** 1 / `core/src/SoundDevImpl.cpp:70-76`、`core/src/HWPort.cpp:316-323` — `HWPlugin_Reset`はどこからも呼ばれない(`HWPort::reset()`を呼ぶのは`SplitPort`・`MappedPort`の転送だけ)。ドライバのシャドウ(`regBak_`)は0から始まり、`setReg()`は既定でシャドウと同じ値の書き込みを省く。そのため、チップに前の値が残っていると、0を書く操作が省かれる。例: 実機のOPMのch7でノイズを鳴らした後に、FITOM_Xだけを再起動する。するとch7で普通の音色を鳴らしたときの`$0F=0`が省かれ、ノイズのまま鳴る。OPMの`init()`が書くのは`$01`・`$14`だけ(OPZの`init()`は`$0F`も書く、`OPM_new.cpp:370`)。エミュレータが開くたびに新しいチップを作るなら起きない(推測)。`HWPlugin_Open`がチップをリセットするかは見ていない(FitomHwIFを読んでいない)。5-21・5-22と関わる。確度: FITOM_X側は確認済み。判断: 未
+- **5-13** 1 / `backends/midi_pipe/src/MidiPipe.cpp:263` — POSIXで、接続してすぐ切ったクライアントへチャンネル割り当ての通知を`::write()`すると、EPIPEになりSIGPIPEが出る。リポジトリには、SIGPIPEを無視する処理も`MSG_NOSIGNAL`も無い(grep)。既定の動作のままならプロセスが終わる(推測: SIGPIPEの既定の動作の記憶)。Linux・macOSではまだビルドしていない(STATUSの4節)。確度: コードは確認済み。判断: 未
+- **5-14** 1 / `backends/midi_pipe/src/MidiPipe.cpp:209-215` — Windowsの名前付きパイプを`PIPE_REJECT_REMOTE_CLIENTS`なしで作っている。そのため、`docs/interfaces/plugin-midi-pipe.md`の冒頭の「ローカルのみ」を、コードでは保証していない。既定のセキュリティ記述子なら、他の利用者はネットワークから書き込めない(推測: 記憶による)。確度: 推測。判断: 未
+
+**legacyとの違い**(上の不具合に入れたものを除く)
+
+- **5-15** 2 / `core/src/SoundDevImpl.cpp:396`(legacy `SoundDev.cpp:96-103`・`250-262`) — `setVoice()`が「同じパッチ」とみなす判定が、旧の音色全体の比較(`memcmp`)から、`hwPatch.id`の一致だけになった。idはバンク内の番号(`bank<<16|prog`、`PatchData.h:113`)で、上書きした音色も元と同じidを持つ。区切り3の「区切りの外で見つけたもの」の1件目(SysExによる上書きが、発音中のノートに届かない)の原因はこれ。宣言には記述が無い。一方、`docs/design/midi-processing.md`(モノの次のノートの段落)は、SysExによるHwPatchの上書きが発音中のノートにも即座に反映されると書いている。根拠: 無(最初の取り込み`88c5da3`から変わっていない。会話記録にidで省く話は無い、下請けの探索)。確度: 確認済み。判断: 未
+- **5-16** 2 / `core/include/fitom/MultiDevice.h:212-228`(legacy `SpanDev.cpp:96-118`、`SoundDev.cpp:325-359`) — 束ねたデバイスでのchの探し方が変わった。旧は、ownerと音色が一致する空きを全チップで探してから、条件を緩めた。今は、回転の順で最初に空きのあったチップの中で決まる。強制スティールで奪う音も、全チップの中の最古から、最初に奪えたチップの中の最古になった。なお旧は`SpanDev.cpp:115`で局所変数を書いていて`prior_dev`が進まず、いつも1台目から試していた。根拠: 弱(2段階で試すのはX01-K236の提案をX01-B230が受けたもの、回転は`cae6cfb`。チップをまたいだ最古の音とownerの扱いは検討されていない、下請けの探索)。確度: 確認済み。判断: 未
+- **5-17** 2 / `core/include/fitom/MultiDevice.h:430-453`(legacy `Unison.cpp:323-335`) — CUnisonは、ノートオン・オフを全チップへ配る。旧はループの中で`chips[0]`だけを呼んでいて、2台目はキーオンしなかった。根拠: 強(旧の不具合)。確度: 確認済み。判断: 未
+- **5-18** 2 / `core/include/fitom/MultiDevice.h:557-630`(legacy `Stereo.cpp:25-49`、`SoundDev.cpp:154`、`OPM.cpp:94-104`) — ステレオの組(`stereo_pair`)で、左右の音量の振り分けが効く。旧の`CLinearPan`も同じ式で左右のチップの`SetVolume`を呼んでいた。しかし旧のドライバは音量を親のMIDIチャンネルから読む(`GetVolume()`)ので、振り分けは効いていなかった。旧の`CSplitPan`(パンによって左右どちらかのチップだけをキーオンする)に当たるものは無い。根拠: 強(旧の不具合)。確度: 確認済み。判断: 未
+- **5-19** 2 / `core/include/fitom/ISoundDevice.h:111-113`・`145-149`、`core/src/SoundDevImpl.cpp:487-526`(legacy `SoundDev.cpp:77-86`・`543-562`) — ノートオフの後も、2秒の間はchをReleasingとして持ち、ソフトウェアLFOをフェードアウトさせながら動かし続ける。旧はノートオフでchを空きに戻し、LFOも止めていた。今は2秒後にownerを消す(旧は残していた)。根拠: 指示(X01-B087。設計者が、ノートオフの後もLFOを続けられないかと問い、X01-K092の案が採られた)。ownerを消すことは弱。確度: 確認済み。判断: 未
+- **5-20** 2 / `core/src/SoundDevImpl.cpp:157-159`(legacy `SoundDev.cpp:435-437`) — 次に探し始めるchが、「前の開始位置+1」から「割り当てたch+1」になった。根拠: 弱(X01-K095、下請けの探索)。確度: 確認済み。判断: 未
+- **5-21** 2 / `core/src/SoundDevImpl.cpp:476-481`、`core/include/fitom/ISoundDevice.h:90-109`(legacy `SoundDev.cpp:34-36`・`205-215`、`FITOM.cpp:28`・`206`) — `reset()`の中身と、呼ばれる場面が変わった。旧の`Reset()`は、全chをダンプしてから状態を初期化し、Disabledを保った。起動時と、全体のAllNoteOffで呼ばれていた。今の`CSoundDevice::reset()`はキーオフせず、Disabledを解き、`autoAssign`もtrueに戻す。CFITOMからは呼ばれない(3-39)。根拠: 無。確度: 確認済み。判断: 未
+- **5-22** 2 / `core/src/SoundDevImpl.cpp:70-76`(legacy `SoundDev.h:326`、`SoundDev.cpp:223-232`) — `setReg()`の既定が、旧の「常に書く」から「シャドウと同じなら省く」へ逆になった。5-12の原因の1つ。`docs/design/chip-drivers.md`は振る舞いを書いているが、理由は書いていない(下請けの報告)。根拠: 無。確度: 確認済み。判断: 未
+- **5-23** 2 / `core/src/VoiceProcessor.cpp:491-565`(legacy `SoundDev.cpp:616-634`、`OPM.cpp:94-104`・`148-151`) — オペレータLFO(トレモロ)の値の空間が変わった。旧は`baseTL`を中心に振り、その値をTLのレジスタへそのまま書いていた(正に振れると小さい音)。ただしキャリアの`baseTL`は、`UpdateVolExp`がラウドネス(127が最大)で上書きする。そのため旧のキャリアのトレモロは、大きなラウドネスの値をそのままTLへ書き、ほぼ無音になる不具合だった。今は全opがラウドネスの空間で、正に振れると大きい音になる。4-01は、この空間の変更にPSG・DSGが追従していないもの。根拠: キャリアは強(旧の不具合)。モジュレータの向きは弱(`0293740`のメッセージ)。数では弱に入れた。確度: 確認済み。判断: 未
+- **5-24** 2・4 / `core/src/IPort.cpp:69-78`(legacy `Port.cpp:60-76`) — `MappedPort`は、割り当てた範囲の先頭番地を引かずにサブポートへ渡す。旧は引いていた。どこからも使われていない(grep)。根拠: 無。確度: 確認済み。判断: 未
+- **5-25** 2 / `core/src/IPort.cpp:9-14`(legacy `Port.cpp:4-9`) — `writeBurst()`の既定の実装が、同じ番地への繰り返し(旧は`writeRaw(addr, …)`)から、番地を進める形になった。使っているのはSF2の経路だけで、`HWPort`が`a_high`が0のときを上書きしているので、既定の実装は通らない。根拠: 無。確度: 確認済み。判断: 未
+- **5-26** 2・4 / `core/include/fitom/VolumeUtils.h:24-25`(legacy `SoundDev.h:83-84`) — 区切り3から引き継いだ`STEP150DB`・`STEP300DB`の件。旧は`0x7E`・`0x7C`で、下位ビットを落とすマスクだった。今は`0x3F`・`0x1F`で、上位ビットを落とすマスクになっている。`linear2dB()`は最初に`evol & step`を取る(`:79`)ので、今の値では64〜127が0〜63へ折り返す。例: 7ビットのTLで、evol=127はTL=16(-12dB)になり、evol=64は無音になる。どのドライバも使っていない(grepで、定義とコメントだけ)。ところが`:10-11`・`:73`のコメントは、今もこの2つの定数を使い方の例として挙げている。根拠: 無(`88c5da3`から)。確度: 確認済み(定義と`linear2dB()`の式から値を計算した)。判断: 未
+
+**使われていないコードと、古いままの重複**
+
+- **5-27** 4 / `docs/STATUS.md`の4節の「ビルド」 — 「呼び出し元の無いコード」に`ISoundDevice::reset()`(複合デバイスが子へ転送するだけ)とあるが、COPN(`OPN_new.cpp:56`)・COPNA(`OPN2_new.cpp:122-123`)・COPN2(`:166-167`)・COPL3_2(`OPL_new.cpp:740-741`)の`init()`が呼んでいる。CFITOMから呼ばれないという点は正しい(3-39)。確度: 確認済み。判断: 未
+- **5-28** 4 — 呼び出し元の無いもの(grepで参照を数えた):
+  - `createCSpanDevice()`・`createCUnison()`(`MultiDev_new.cpp:13-18`)
+  - CUnisonのデチューン(`MultiDevice.h:433-443`)。CUnisonは`CLinearPanDevice`としてしか作られず、そのときのデチューンは0
+  - `MappedPort`(5-24)、`DeviceFactory::isSupported()`
+  - `ISoundDevice::getCurrentPatch()`・`getCurrentNote()`(束ねたデバイスの転送だけ)
+  - `CMultiDevice::setReg()`・`getReg()`(外から呼ばれない)
+  - `IPort::status()`・`flush()`・`getSubPort()`・`getPortCount()`、`HWPort::getShadowReg()`
+  - `releaseCh()`はCRhythmChが`noteOff()`の直後に呼ぶ(`MidiCh.h:636`)が、そのときは何もしない
+
+  下請けは`DeviceFactory::defaultChCount()`も使われていないと報告したが、`PatchManager.cpp:525`・`723`が内蔵リズムのch数を引くのに使っている。内蔵リズム以外の値は読まれない。確度: 確認済み。判断: 未
+- **5-29** 4 — 古いコメントと文書:
+  - `ISoundDevice.h:120-131`と、`docs/design/midi-processing.md`の「ノートオフとチャンネルの再利用の規則」は、「`assign()`を経由しない経路(モノの自己スティール等)では`run()`が判定する」と書く。そのような経路は、今のコードに無い。ノートオンの前は必ず`assignCh()`を通り、レガートのタイは`noteOn()`を呼ばない(`MidiCh.cpp:379-427`)
+  - `ISoundDevice.h:198-204`(5-30)
+  - `updateTL()`の宣言(`ISoundDevice.h:247-251`)に、値の目盛りとopの範囲が書かれていない
+  - `VolumeUtils.h:10-11`・`:73`(5-26)
+  - `MultiDevice.h:523`・`603`の「等パワー」(5-11)
+  - `IPort.h:27-30`は、SplitPortの2つ目のポートを`a_high=1`で振り分けると書いている。実際のSplitPortは、2つ目のポートへ下位8ビットだけを渡す
+  - `IPort.cpp:19`は、10進の値に「0x」を付けて表示する
+
+  確度: 確認済み。判断: 未
+
+**決めた仕様との食い違い**
+
+- **5-30** 5 / `core/include/fitom/ISoundDevice.h:198-204` — CC#120のフォースダンプは、ノートオフの後にリリースレートを最大にすると決めた(X01-B107)。ところが実装のときに、アシスタントが「RRを最大にしてから`noteOff()`を呼ぶ」と順序を入れ替えた(X01-K114)。宣言のコメントも、その順序を約束として書いている。各ドライバはこの約束に従うので、直後の`noteOff()`→`updateKey(false)`が、書いたRRを上書きする。3-02・3-11と、区切り4のDSGの段落はこの順序から来ている。文書(`docs/design/chip-drivers.md`・`midi-processing.md`)は順序を書いていない。確度: 確認済み(会話記録の2つの発言を親が読んだ)。判断: 未
+
+**legacyとの違いの数**(不具合に入れた違いも数え、1項目を1つと数えた。5-01・5-02・5-03は無)
+
+| 指示 | 強 | 弱 | 無 |
+|---|---|---|---|
+| 1 | 2 | 3 | 9 |
