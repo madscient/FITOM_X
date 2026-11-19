@@ -43,7 +43,8 @@ config/          プロファイル・fitom.confのフォーマット例示の�
 vcpkg-ports/     vcpkgのoverlay port(上流のvcpkgに無い版のRtMidi)。依存ライブラリは
                  すべてvcpkg.jsonから取得する
 tools/           開発用のスクリプト。render_measure/はfitom_renderで鳴らした音を
-                 numpyで測る(tools/render_measure/README.md参照)
+                 numpyで測る(tools/render_measure/README.md参照)。code_review/は
+                 コードレビューの指摘の文書をExcelの一覧にする
 ```
 
 ## バンク・プロファイルの扱い
