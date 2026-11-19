@@ -41,3 +41,4 @@ STATUS.md内の位置関係を指すため、別の件や別の月のファイ�
 | `request-FitomEmuIF.md` / `request-FitomHwIF.md` / `request-FitomSf2IF.md` / `request-FITOM_staging.md` | 削除。`docs/plans/`に置いた他のリポジトリへの依頼文で、依頼先の作業が終わってから消した(FITOM_stagingの`request-FITOM_X.md`はFITOM_staging側の文書) |
 | `smf-to-wav.md` | 削除(2026年11月の「使われていないファイルとビルド設定を消し、終わった計画`docs/plans/smf-to-wav.md`を消した」の件) |
 | `repo-cleanup.md` | 削除(2026年11月の「リポジトリ整理の計画を、決定事項と見送った案をここへ移して消した」の件) |
+| `code-review.md` | 削除(2026年11月の「コード全体のレビューの計画を、決定事項と見送った案をここへ移して消した」の件)。結果は`docs/plans/code-review-findings.md` |
