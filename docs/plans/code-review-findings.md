@@ -34,6 +34,7 @@
 | 区切り | HEAD | 違い(指示/強/弱/無) | 指摘 |
 |---|---|---|---|
 | 1 MIDIの受け口とチャンネル | `00573ce` | 10/2/6/8 | 52件(不具合25) |
+| 2 設定とバンク | `cfcf206` | 8/0/2/3 | 33件(不具合11) |
 | 3 FMのドライバ | `e88bf08` | 9/2/11/11 | 51件(不具合12)と区切りの外3件 |
 | 4 PSG・PCMのドライバ | `0b3d6e2` | 5/4/9/8 | 48件(不具合14) |
 | 5 共通部と契約 | `0ec7b60` | 1/2/3/9 | 30件(不具合14) |
@@ -150,6 +151,98 @@
 | 指示 | 強 | 弱 | 無 |
 |---|---|---|---|
 | 10 | 2 | 6 | 8 |
+
+## 区切り2 設定とバンク(2026年11月19日、HEAD `cfcf206`)
+
+下請け1人が読み、親が今のコードで確かめた。不具合・不一致・決めた仕様との食い違いは全件、未使用はgrepで数え直し、文書の食い違い(2-31)は抜き取り(a・h・l・m)と親が見つけたものを確かめ、残りは下請けの報告による。旧実装の行は下請けの報告による。音は鳴らしていない。「確認済み」はコードを追って確かめたという意味。経緯のメモは、このセッションのマシンに無いので読んでいない。「指示」の根拠は、親が会話記録で9件(X01-B017・B174・B211・B246・B360・B379・B418・B432・B466)を抜き取って確かめた。根拠が無の違いは、親が設計者の発言をもう一度探し、見つからなかった。下請けの報告のうち、チップごとのパンを持つ単独のチップ(SAA1099・PCM-D8・SSGEX・SCCEX)も組にならないはずという1件は誤りだった(マニュアルは`"L"`/`"R"`で組にできるチップとして挙げている。2-10に書いた)。2-31の(p)(OPL3の4オペレータのペアの番号)は、親が引き継いだ候補を確かめる途中で見つけた。下請けは`hwpatch-reference.md`のチップ別の節、`spec/chip-capabilities.json`、`drumbank.schema.json`の大半を突き合わせていない。
+
+この区切りでは、設定ファイルとバンクファイルの項目ごとに、スキーマとマニュアルが書く解釈を、読み込みの実装と突き合わせた。食い違いの無かったもの(下請けの報告): profileの`profile_name`・`hw_plugins`・`devices`(`if`/`plugin`/`label`/`rhythm_mode`/`extra_slot`/`pan`)・`midi_inputs`・`midi_outputs`・`midi_backend`・`sf2_banks`・`sf2_channel_windows`・`drum_banks`・`sw_banks`/`patch_banks`/`scc_wave_banks`の`bank`/`file`・`part_gains`・`role`、fitom.confの全項目、hwbankの`ops`・チャンネル単位の欄・`ext`・`sw_bank`/`sw_prog`・`builtin`、swbankの全項目、drumkitの`routed`/`direct`の各欄と`choke_groups`、sccwaveの全項目。例示のJSON 19件は、スキーマの検証を通った(下請けがpython jsonschema 4.23で検証)。
+
+`docs/STATUS.md`の4節で「未確認の候補」とされていた3件は、この区切りのコードで決まった。レイヤーの`voice_patch_type: 112`は効く(2-31の(b))。YMZ771の`stereo_pair`は組になる(2-10)。`auto_devices`が返すSF2には`soundfonts`が渡らない(2-11)。STATUSの書き換えはまだしていない。
+
+**不具合**
+
+- **2-01** 1 / `core/src/Config.cpp:1757-1785`・`1209-1222` — `chip:"OPL3_2"`を単独で書くと、複合デバイスに展開されず、クロックの換算が1/1のままになる。COPL3_2は、呼ぶ側がOPL3と同じく4で割る前提で作られている(`tests/test_fm_clock.cpp:137`がその比で期待値を作っている)。そのため、ポートが14.318MHzを報告すると2オクターブ低く鳴る。`rhythm_mode:true`を付けた場合の扱いも崩れる(下請けの報告)。READMEの対応チップの表は`OPL3_2`を載せている。確度: 確認済み。判断: 未
+- **2-02** 1・3 / `core/src/Config.cpp:2020-2046`、`core/src/PatchManager.cpp:603-625` — `hw_banks`の`group`をADPCMB・ADPCMA・PCMD8・SSGS_ADPCM・PCMにすると(スキーマは許す)、`loadHwBankJson()`でHwBankとして読まれる。サンプル系の解決はSampleZoneBankしか見ないので、このバンクは使われない。SampleZoneBankとして読み替えるのはAWMだけ。READMEと`hwpatch-reference.md`・`patch-resolution.md`は、ADPCM系も`*.samplezonebank.json`で書けると読める。読み込みは許すがスキーマに無い`DSG`のバンクも、同じく使われない(下請けの報告)。確度: 確認済み。判断: 未
+- **2-03** 1 / `core/src/Config.cpp:162-177`、`core/src/PatchManager.cpp:1252-1266` — バンクの読み込みは、`getOrCreate()`の後にprogごとに書くだけで、前の中身を消さない。`bank_overrides`の一致判定は`group`の文字列をそのまま比べるので、別名(`OPN2`/`OPNA`/`OPNB`、`SSG`/`PSG`、`ADPCMB`/`PCM`)で書くと一致せず、配列の末尾に足される。同じ枠に2つのファイルが読まれ、上書きのつもりがprog単位の混ぜ合わせになり、上書きのファイルに無いprogには元の音色が残る。確度: 確認済み。判断: 未
+- **2-04** 1 / `core/src/Config.cpp:157-160`・`172-175`、`core/include/fitom/PcmBankData.h:159-170` — `pcm_banks`の上書きの一致判定は`bank`と`chip`で、コメントは同じバンク番号を複数のチップ向けに使い分ける設計と書く。ところがPcmBankRegistryは`bank`だけをキーにする。同じ`bank:0`をOPNA用とOPNB用に書くと、後のエントリが名前・`deviceType`・`bin_file`を上書きし、エントリも混ざる。OPNAのADPCM-Bが、OPNB用のオフセットで鳴ることになる(下請けの報告)。確度: 確認済み。判断: 未
+- **2-05** 1 / `core/include/fitom/PcmBankData.h:87`、`core/src/PatchManager.cpp:2118-2131` — `pcmbank.schema.json`の`entries[]`で、`padded_size`は必須ではない。ところが`PcmEntry::isValid()`は`padded_size>0`を要求するので、スキーマに合ったエントリが無効として扱われる(デバイスにも登録されず、音色も作られない)。確度: 確認済み。判断: 未
+- **2-06** 1 / `core/include/fitom/PatchData.h:389`、`core/src/PatchManager.cpp:1141` — `samplezonebank.schema.json`は`key_scaling`に0〜1000を許すが、格納先は`uint8_t`。256以上は黙って折り返す(300→44)。確度: 確認済み(下請けがnlohmannのヘッダで小さなプログラムを組んで確かめた。親は型と読み込みの行を見た)。判断: 未
+- **2-07** 1・4 / `core/src/Config.cpp:590-596`・`617-618` — `devices[]._comment`は、プラグインへ渡すparamsに残り、`part_gains`でデバイスを特定する材料にもなる。スキーマの`_comment`の説明は、読み込みから無視されると書いている。コメントを書き換えると、保存済みの`part_gains`が効かなくなる。確度: 確認済み。判断: 未
+- **2-08** 1 / `core/src/Config.cpp:1416-1447`・`1486-1500` — `stereo_pair`を指定しても組にならなかったとき、警告が出ない。例: OPLLのL側だけ`rhythm_mode:true`にすると、サブデバイスの数が合わず組にならない。束ねのキーにパンが入るので、残った2台は束ねられず、L側だけが鳴る。`stereo_pair:true`でパンが0のままのときも、黙って組にならない。確度: 確認済み。判断: 未
+- **2-09** 1・2・3 / `core/src/Config.cpp:1506-1507`、`core/src/PatchManager.cpp:507`(legacy `FITOMCfg.cpp:178-207`) — OPNA・OPLL・DSGの内蔵リズムは、VoicePatchTypeが無い(NONE)ので束ねられない。`resolveBuiltinRhythm()`は最初に見つかった1台を返すので、2台目のチップの内蔵リズムには届かない。OPLの内蔵リズム(0x23)は束ねられる。旧は同じ種別のデバイスとして束ねていた。文書に記述が無い。根拠: 無(アシスタントがこの制約を見つけ(X01-K387)、設計者が対策を提案した(X01-B379)が、決着も実装も無い)。確度: 確認済み。判断: 未
+- **2-10** 1 / `core/src/Config.cpp:1209-1222`・`1228-1250` — STATUSの4節の候補。「チップごとのパンを持つ部分は組にしない」という除外(`subDeviceAcceptsStereoPair()`)は、複合デバイスのサブデバイスにしか効かない。YMZ771(SSGS3)は複合デバイスに展開されないので、単独のチップとして組になる。`docs/manuals/profile-reference.md`の`stereo_pair`の注意と`Config.h:349-356`は、YMZ771のSSG部・ADPCM部は組にならないと書いている。`tests/test_ssgs.cpp`は`subDeviceAcceptsStereoPair(DEVICE_SSGS3)`がfalseであることを確かめているが、SSGS3ではこの関数が呼ばれないので、証拠になっていない(下請けの報告)。SAA1099・PCM-D8・SSGEX・SCCEXが組になるのは、マニュアルどおり(`"L"`/`"R"`の方式)。確度: 確認済み。判断: 未
+- **2-11** 1 / `core/src/Config.cpp:399-449`・`469`・`548-553` — STATUSの4節の候補。`auto_devices`のデバイスは`hw_plugins`の読み込みの中で作られ、`loadSf2Banks()`より前になる。そのため、`chip:"SF2"`を返すデバイスには空の`soundfonts`が渡る。SF2の宣言の数え上げは`devices[]`しか見ないので、`sf2_banks`があると、SF2が宣言されていないとして扱われる。FitomSf2IFの`HWPlugin_Enumerate`は`chip`を持たないエントリを返すので、実際には未知のチップとして作られる(下請けが手元のクローン`ae15e91`で読んだ。fetchはしていない)。確度: FITOM_X側は確認済み。判断: 未
+
+**legacyとの違い**(上の不具合に入れたものを除く。旧のプロファイル・バンクの形式と今のJSONの形式の違いそのものは数えず、同じ意味の値の解釈が変わったものを数えた)
+
+- **2-12** 2 / `core/include/fitom/PatchData.h:256-327`、`core/src/Config.cpp:2020-2046` — バンクの名前空間が、族(VoiceGroup)の単位からチップ種別の単位になった。旧はOPM・OPP・OPZでバンクを共有していたが、今は`group:"OPM"`のバンクをOPZから引けない。根拠: 弱(`e0bbed0`のメッセージ。X01-B129は同じHwBankに同じVoicePatchTypeだけを並べる検討の指示で、名前空間を分ける指示ではない)。確度: 確認済み。判断: 未
+- **2-13** 2 / `core/src/Config.cpp:1486-1518` — 束ねのキーが、deviceTypeからVoicePatchTypeになった(OPNAとOPNBも束ねる)。根拠: 指示(X01-B174・B462)。確度: 確認済み。判断: 未
+- **2-14** 2 — ステレオの組は明示の指定でだけ作り、束ねより先に評価する。旧はパンの1/2から自動で、束ねの後だった。根拠: 指示(X01-B211)。判断: 未
+- **2-15** 2 / `core/src/PatchManager.cpp:595-597` — OPLL系のバンク0は、ROM音色の専用。旧はどのバンクでもROM音色を指定でき、バンク0は普通のバンクだった。根拠: 指示(X01-B360)。確度: 確認済み。判断: 未
+- **2-16** 2 — ドラムマップのch列(物理chの固定)をやめ、`choke_groups`にした。根拠: 指示(X02-B005・B007)。判断: 未
+- **2-17** 2 — ドラムのノートの`patch_bank`/`patch_prog`の既定の意味が、指名したデバイスのHwPatchから、レイヤードパッチになった。根拠: 指示(X01-B017、ノートごとの種別はX01-B366)。判断: 未
+- **2-18** 2 — PSG系の音色は、`ext.target_voice_patch_type`と`psg_fallback_chip`でチップを選ぶ。旧はチャンネルのデバイスで鳴らしていた。根拠: 指示(X01-B466・B467・B468)。判断: 未
+- **2-19** 2 — WAVのエンコードとチップのメモリへの書き込みをやめ、目録のオフセットだけを使う。バンクとデバイスの対応も、旧の添字の一致から`group`/`chip`の一致になった。根拠: 指示(X01-B432・B436・B437)。判断: 未
+- **2-20** 2 — `channel_map`を廃止し、同時発音数をデバイスのch数で決める。根拠: 指示(X01-B246・B248)。判断: 未
+- **2-21** 2 — 接続されたチップの族に関係なく、すべてのバンクを読む。根拠: 弱(コメントと`docs/manuals/profile-reference.md`。会話記録に見つからない)。判断: 未
+- **2-22** 2 — バンク番号の範囲が0〜9(旧の`MAX_BANK`)から0〜127になった。根拠: 無(会話記録に無い。下請けと親の探索)。判断: 未
+- **2-23** 2 / `core/src/Config.cpp:1892-1932` — 旧はチップの型番(`YM2608`・`YMF262`・`SN76489`等)もプロファイルのチップ名として受け付けた。今は一部の別名だけで、`chip:"YM2608"`は未知のチップになる。`SSGL`/`SSGLP`は、`DeviceFactory.cpp`に生成の分岐があるのに名前の表に無いので作れない(3-49と同じ形の新しい例)。根拠: 無(X01-B350はプロファイルの`SAA1099`を`SAA`へ改める指示だけで、型番を受け付けない理由は無い)。確度: 名前の表は確認済み。判断: 未
+
+**チップファミリー間の不一致**(この区切りでは、バンクの種類の間の不一致を含む)
+
+- **2-24** 3 / `core/src/PatchManager.cpp:1087-1095` — SysEx 0x07の`choke_groups`は、範囲・重複・要素数を検査しない。ファイルの読み込みは検査して警告する(下請けの報告)。確度: 確認済み。判断: 未
+- **2-25** 3 — 不正な要素の扱いが、バンクの種類で違う。メタバンク・チョーク・`sf2_banks`は警告する。hw・sw・patch・samplezoneのprogの欠けと範囲外(例: `PatchManager.cpp:1264`)、pcmの`entry_no`、SCCの`wave_no`(`:1956`)は黙って読み飛ばす。バンク番号の範囲を検査するのは`sf2_banks`だけ(`Sf2BankRegistry.cpp:170`)で、`bank:200`は黙って届かない枠になる。確度: 確認済み。判断: 未
+- **2-26** 3 / `core/src/DeviceFactory.cpp:79-95`(区切り5のコード) — ポートがクロックを報告しないとき、FMはドライバの標準クロックを使うが、PSGは`devices[].sample_rate`(既定44100)をクロックとして使う。`devices[].clock`のスキーマの説明は、FMの場合しか書いていない。確度: 確認済み。判断: 未
+
+**使われていないコードと、古いままの重複**
+
+- **2-27** 4 — 呼び出し元の無いもの(core・gui・apps・backends・testsをgrepで数えた): `saveDrumBankJson`・`saveSwBankJson`・`saveSccWaveBankJson`・`savePcmBankJson`・`saveSampleZoneBankJson`、`loadHwBankLegacy`(常にfalse)・`loadDrumBankLegacy`・`loadLegacyIni`(そこから呼ばれる`buildFromLegacyIni`・`loadLegacyManualDevices`も)、`fromLegacyDrumMap`、`HwPatch::fromLegacy`/`toLegacy`、`PcmBank::hasBinData`、`FITOMConfig::getVoicePatchType(int)`、`setProgressCallback`(ConfigとPatchManagerの両方。`FITOMConfig::progressCb_`は読まれない)、`IPortFactory`と`factory_`、`MAX_HW_BANK`・`MAX_SW_BANK`。`saveHwBankJson`・`savePatchBankJson`の呼び出し元は`FITOMBridge::saveHwBankFile()`等だけで、それ自体の呼び出し元が無い。`saveHwBankFile()`は`voicePatchType`に0を渡している(`gui/bridge/FITOMBridge.cpp:1471`)。確度: 確認済み。判断: 未
+- **2-28** 4 / `core/include/fitom/Config.h:75`、`core/src/Config.cpp:914-917` — `DeviceEntry::device`には誰も代入しないので、`getDevice()`は常にnullptrを返す。唯一の呼び出し元(`FITOMBridge.cpp:457`)は、常に"N/A"とch数0を表示する(下請けの報告)。`Config.cpp:911`と`Config.h:3`のコメントは古いまま。確度: 確認済み。判断: 未
+- **2-29** 4 / `core/src/PatchManager.cpp:2029-2045` — PCMバンクの`bin_file`をメモリへ読むが、`binData`は使われない(grepで、読み込みとログと`hasBinData()`だけ)。`codec`・`boundary`も使われない。`sample_rate`を使うのはSSGSだけだが、スキーマは「ADPCM-Bのサンプルレート」と書いている(下請けの報告)。確度: 確認済み。判断: 未
+- **2-30** 4 / `core/include/fitom/VoiceData.h:355-370`・`493-514` — 変換専用の`legacy::FMVOICE`/`FMOP`は、旧の`SoundDev.h`と欄の並びが違い、LDM/LDLのずらし幅も旧と違う。`toLegacy`はLFM/LFIを落とす。どれも使われていない。`FV_*`マクロは`FmHwOp`のコメントと食い違う(下請けの報告)。判断: 未
+- **2-31** 4 — コードと食い違う文書・コメント:
+  - (a) `docs/manuals/layered-patch-reference.md`の`poly`は同時発音数の上限と書くが、`Patch::poly`は発音に使われない(同時発音数はデバイスのch数から決まる、`MidiCh.cpp:151-170`)
+  - (b) `layered-patch-reference.md`の`voice_patch_type`「実際に使うのは1–0x6Fと0x7F」と、`patchbank.schema.json`の「0x70-0x7Eは予約」。0x70(内蔵リズム)は`resolveTriple()`が範囲を見る前に扱うので、レイヤーでも効く(`PatchManager.cpp:578-580`)。`hw_bank`がチップの選択、`hw_prog`がchの番号として働く
+  - (c) `drumkit.schema.json`の、直接モードではSwPatchが無いという説明。`resolveDirect()`はHwPatch自身のSwPatchの参照を使う
+  - (d) `drumkit.schema.json`と`DrumData.h:69-70`の、SwPatchの上書きが解決できなければ適用されないだけという説明。コードはHwPatch自身の参照へ落とす(`bank-reference.md`はコードと一致)。ドラムのノートの上書きがレイヤー0にしか効かないことは、マニュアルに無い
+  - (e) `SccWaveData.h`と`sccwave.schema.json`の「WS=0は常に矩形波」。ファイルに`wave_no: 0`があれば上書きされる
+  - (f) `profile.schema.json`の`stereo_pair`の説明は、`"L"`/`"R"`を使えるチップからSAA・PCMD8・SSGEX・SCCEXを落としている
+  - (g) `profile-reference.md`の、プラグインへ渡すほかのフィールドは解釈しないという記述。`sample_rate`は読んで使う(`Config.cpp:655`)
+  - (h) `patchbank.schema.json:65`の`hw_bank`の説明「MIDI CC#0」は、CC#32の誤り。例の「DCSG」のレイヤーは`voice_patch_type: 17`(0x11、OPN2)
+  - (i) `pcmbank.schema.json`に`entries[].root_note`が無い。読み込みは読み(`PatchManager.cpp:2130`)、`bank-reference.md`にも書いてある
+  - (j) `docs/design/chip-notes.md`の`chip`の列挙に`OPL2EX`が無い
+  - (k) `Config.h`の`loadDrumBanks()`のコメントは`drum_banks`を登録すると書くが、全種類のバンクを読む
+  - (l) `PatchData.h:566`の`volumeOffset`「dB相当」。実際はCC#7の値に足す(`MidiCh.cpp:443`)
+  - (m) `_comment`の説明は、JSONがコメントに対応しないためと書くが、読み込みは`//`のコメントを許す(`json::parse`の`ignore_comments`)。`saveProfile()`はコメントを消し、キーの並びも変える
+  - (n) `PatchManager.cpp:1939-1941`・`2026`は`namespace fitom`の中で`#include`している
+  - (o) SysEx 0x07はdrumkit.schemaと同じキーと書くが、`enabled`はdrumkit.schemaに無い。空のノートへ`enabled`無しでマージすると、無効のまま鳴らない
+  - (p) `docs/manuals/hwpatch-reference.md`の6節(OPL3の4オペレータ)は、前半ペアを「オペレータ1・3」、後半ペアを「オペレータ2・4」と書く。ドライバのスロットの並び(`OPL_new.cpp:668`の`opmap`)は`ops[0]`=M1・`ops[1]`=C1・`ops[2]`=M2・`ops[3]`=C2で、ペアは1・2と3・4。`spec/chip-capabilities.json`(後半ペアはop2/op3、0から数える)とスキーマの説明(M2/C2)は正しい(親が見つけた)
+
+  確度: (a)・(b)・(h)・(l)・(m)・(p)は親が確かめた。残りは下請けの報告。判断: 未
+- **2-32** 4 — スキーマと読み込みの範囲の食い違い(上に挙げたものを除く):
+  - 読み込みは読むがスキーマが許さない値: `stereo_pair`の小文字`"l"`/`"r"`、`psg_fallback_chip`の別名、`pcm_banks.group`の任意の種別(`AWM`を書くと、同じ番号のAWMのバンクを自動で作った音色で上書きする)、範囲外の`master_volume`(切り詰め)と`master_pitch`(検査しない)、drumkitの`type`の欠け(routed扱い)、swbankの4個未満の`ops`、`hw_banks.group`の欠け(黙って`"OPN"`)
+  - スキーマの検証を通るのに読まれない値: PSG系の`group`(STATUSにある)、2-02・2-05・2-06、patchbankの`voice_patch_type`の0x71〜0x7Eと0x80以上
+  - 例示ファイル: `config/profiles/opl4awm_drum_patchbank.patchbank.json`のパッチ単位の`sw_bank`/`sw_prog`は読み込みが捨てる(マニュアルも非対応と書く)。`preset_opl.profile.json`の`patch_banks`の`file:""`は黙って飛ばされる。例示のプロファイルが指す`fmhwif_profile.json`/`fitom_hw_profile.json`はリポジトリに無い名前(あるのは`*.example.json`)
+
+  確度: 下請けの報告(親は`hw_banks.group`の既定の`"OPN"`を`Config.cpp:2020`で見た)。判断: 未
+
+**決めた仕様との食い違い**
+
+- **2-33** 5 / `core/include/fitom/VoiceData.h:209` — OPLLのプリセット音色を`ext.ALG_EXT`で選ぶ用途は、ROM音色の内部の経路でしか使わないので、コメントから消すことで合意した(アシスタントの問い X01-K426、設計者の回答 X01-B418)。直後の修正(X01-K427)で、アシスタントはこの用途をコメントに残した。今は`VoiceData.h`、`hwbank.schema.json`、`docs/manuals/hwpatch-reference.md`(OPLLの`ALG`の行)、`spec/chip-capabilities.json`が、利用者が使える機能として書いている。確度: 確認済み(会話記録の3つの発言を親が読んだ)。判断: 未
+
+**引き継いだ候補と既出の指摘との関係**
+
+- 3-50(OPL3の4オペレータのFB): 区切り2の側も`FB2`で揃っている。スキーマの`FB`は0〜7で、`FB2`は別の欄(`hwbank.schema.json:30-35`・`209-214`)。読み込みと書き出しも`FB2`を読み書きする(`PatchManager.cpp:850`・`891`・`921`)。決めた形(`FB`の6ビットに2つ)で書くと、スキーマの`FB`の最大値で弾かれる
+- 3-51(FXモードの単位): 区切り2の側も、チャンネル単位の`ext.FIX`で揃っている(`hwbank.schema.json:176-180`、`PatchManager.cpp:901`・`934`)
+- 3-49・4-46: プラグインの`auto_devices`も、プロファイルの`devices[]`と同じ`buildDevice()`を通り、同じチップ名の表で変換する(`Config.cpp:434`・`632`)。そのため、OPZ2・OPNC・OPN3_L3・F286・MA1・MA2は`auto_devices`からも作れない。同じ形の例が2-23にある
+- 1-09・1-18: 区切り2の側(`PatchManager.cpp:134-155`)で新しい事実は無い
+
+**legacyとの違いの数**(不具合に入れた違いも数え、1項目を1つと数えた。2-09は無)
+
+| 指示 | 強 | 弱 | 無 |
+|---|---|---|---|
+| 8 | 0 | 2 | 3 |
 
 ## 区切り3 FMのドライバ(2026年11月18日、HEAD `e88bf08`)
 
