@@ -231,11 +231,11 @@
 - SCC・SAA1099・ADPCM-B・YMZ280Bは、ラウドネス(GM2の`40·log10(L/127)`dBの目盛り)を線形のゲインのレジスタへそのまま写しているので、CC#7・ベロシティのdB上の効きがFM・SSG・DCSGの半分になる。**確認済み**(SCC・SAA1099。`tools/render_measure/levels.py`): CC#7=16でSCCは-17.8dB、SAA1099は-20.9dB、OPNA・SSG・DCSGは-36〜-39dB(DCSGは-28dBより下を消音にする)。SCC・SAA1099は実機も線形の掛け算(`docs/design/chip-notes.md`「音量レジスタの変換則」)。実機のレジスタが線形かは**未確認の候補**(YMZ280Bのエミュレータ[EPSGemuEngine、MAME由来]は線形。ADPCM-Bのエミュレータの扱いは見ていない。YMZ280Bのデータシートは記載が無い)。実機の出力を測るか、YM2608のアプリケーションマニュアル等でADPCM-Bのボリュームの定義を見れば決まる。直すなら、レジスタへ`(L/127)^2`に比例する値を書く
 
 **パッチの解決**
-- `docs/manuals/layered-patch-reference.md`はレイヤーの`voice_patch_type`を「実際に使うのは1–0x6Fと0x7F」と書くが、レイヤーごとに`PatchManager::resolveTriple()`を通るので、0x70(内蔵リズム)も効くかもしれない(**未確認の候補**、点検役のコード読み。レイヤーに`voice_patch_type: 112`を書いたパッチを`fitom_render`で鳴らすか、`resolveTriple()`の0x70の分岐を読めば決まる)
+- レイヤーの`voice_patch_type`に0x70(内蔵リズム)を書くと効く。`PatchManager::resolveTriple()`が値の範囲を見る前に0x70を内蔵リズムの解決へ回すため。`hw_bank`がチップの選択、`hw_prog`がchの番号として働く。`docs/manuals/layered-patch-reference.md`(「実際に使うのは1–0x6Fと0x7F」)と`patchbank.schema.json`(「0x70-0x7Eは予約」)は効かない前提で書いている。コードと文書のどちらに合わせるかは未決(`docs/plans/code-review-findings.md`の2-31)。**確認済み**: `resolve()`と`resolveTriple()`を読んで確認。鳴らしてはいない
 
 **設定の読み込み**
-- YMZ771(SSGS3)の`stereo_pair`: `FITOMConfig::subDeviceAcceptsStereoPair()`はSSGS3を組の対象外にしているが、SSGS3は複合デバイスに展開されないのでこの判定を通らず、単独のチップとして組になる、というのが点検役のコード読み(`Config.cpp`の組み合わせ処理)。`docs/manuals/profile-reference.md`の`stereo_pair`の注意は「YMZ771は組にならない」と書いている(**未確認の候補**: YMZ771を2台並べたプロファイルを読み込み、ログに`mergeStereoPairDevices`が出るかを見れば決まる)。組になるなら、コードと文書のどちらに合わせるかは未決
-- `auto_devices`が返すデバイスは`hw_plugins`のループの中で作られ、`loadSf2Banks()`より前になる。プラグインの`auto_devices`が`chip:"SF2"`を返すと、`soundfonts`の一覧が渡らないかもしれない(**未確認の候補**: FitomSf2IFの`HWPlugin_Enumerate`が`SF2`を返すかを見れば決まる)
+- YMZ771(SSGS3)の`stereo_pair`は組になる。`FITOMConfig::subDeviceAcceptsStereoPair()`はSSGS3を組の対象外にしているが、この判定は複合デバイスのサブデバイスにしか掛からず、SSGS3は複合デバイスに展開されないため。`docs/manuals/profile-reference.md`の`stereo_pair`の注意は「YMZ771は組にならない」と書いている。コードと文書のどちらに合わせるかは未決(`docs/plans/code-review-findings.md`の2-10)。**確認済み**: `FITOMConfig::buildDevice()`の単独のチップの分岐と、組み合わせ処理を読んで確認。プロファイルを読み込んではいない
+- `auto_devices`が返すデバイスは`hw_plugins`のループの中で作られ、`loadSf2Banks()`より前になるので、`chip:"SF2"`を返しても`soundfonts`の一覧は空で渡る。SF2の宣言の数え上げも`devices[]`しか見ないので、`sf2_banks`があるとSF2が宣言されていないとして扱われる(`docs/plans/code-review-findings.md`の2-11)。**確認済み**: `FITOMConfig`の読み込みの順を読んで確認。FitomSf2IFの`HWPlugin_Enumerate`は`chip`を持たないエントリを返すので、今は未知のチップとして作られる(FitomSf2IF `ae15e91`を読んだ結果。originの最新は見ていない)
 
 **HWプラグインの部位ごとのゲイン**
 - `devices[]`側の記述を変えると`params`が一致しなくなり、保存済みの`part_gains`が掛からなくなる(読み込み時に警告は出る)。GUIから付け替える手段は無い

@@ -158,7 +158,7 @@
 
 この区切りでは、設定ファイルとバンクファイルの項目ごとに、スキーマとマニュアルが書く解釈を、読み込みの実装と突き合わせた。食い違いの無かったもの(下請けの報告): profileの`profile_name`・`hw_plugins`・`devices`(`if`/`plugin`/`label`/`rhythm_mode`/`extra_slot`/`pan`)・`midi_inputs`・`midi_outputs`・`midi_backend`・`sf2_banks`・`sf2_channel_windows`・`drum_banks`・`sw_banks`/`patch_banks`/`scc_wave_banks`の`bank`/`file`・`part_gains`・`role`、fitom.confの全項目、hwbankの`ops`・チャンネル単位の欄・`ext`・`sw_bank`/`sw_prog`・`builtin`、swbankの全項目、drumkitの`routed`/`direct`の各欄と`choke_groups`、sccwaveの全項目。例示のJSON 19件は、スキーマの検証を通った(下請けがpython jsonschema 4.23で検証)。
 
-`docs/STATUS.md`の4節で「未確認の候補」とされていた3件は、この区切りのコードで決まった。レイヤーの`voice_patch_type: 112`は効く(2-31の(b))。YMZ771の`stereo_pair`は組になる(2-10)。`auto_devices`が返すSF2には`soundfonts`が渡らない(2-11)。STATUSの書き換えはまだしていない。
+`docs/STATUS.md`の4節で「未確認の候補」とされていた3件は、この区切りのコードで決まった。レイヤーの`voice_patch_type: 112`は効く(2-31の(b))。YMZ771の`stereo_pair`は組になる(2-10)。`auto_devices`が返すSF2には`soundfonts`が渡らない(2-11)。STATUSの3件は、この結果に書き換えた。
 
 **不具合**
 
